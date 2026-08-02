@@ -75,6 +75,17 @@ public final class NodeContextImpl implements NodeContext {
         if (value == null && spec.defaultValue() != null) {
             value = spec.defaultValue().value();
         }
+        if (value == null && spec.kind() == PinKind.DATA) {
+            // Repli sur le défaut du type (int → 0, string → ""…), puis CTX-001 :
+            // ni valeur ni défaut = faute nommée, jamais un null silencieux.
+            var typeDefault = spec.type().defaultValue();
+            if (typeDefault != null) {
+                value = typeDefault.value();
+            } else {
+                throw new IllegalStateException(dev("le pin « " + pin
+                        + " » n'a ni valeur ni défaut — câblage manquant ou producteur non exécuté"));
+            }
+        }
         if (value != null && spec.kind() == PinKind.DATA
                 && !spec.type().javaType().isInstance(value)) {
             throw new IllegalStateException(dev("le pin « " + pin + " » porte un "

@@ -53,11 +53,12 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 1 | (suite) | 1.4 | Done (gate PASS) |
 | 1 | (suite) | 1.5 | Ready for Review — gate CONCERNS (TEST-002 soldé par la 1.6 ; reste VERIFY-002) |
 | 1 | (suite) | 1.6 | Draft (spike gametest — trace la dette de test en jeu) |
-| 2 | Registre de nœuds et API d'extension | 2.1, 2.2, 2.3, 2.4 | Done (4 gates PASS) |
-| 2 | (suite) | 2.5 | **Ready for Review** (événements : EventType, dispatcher paresseux et thread-sûr, façade) |
-| 3–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
+| 2 | Registre de nœuds et API d'extension | 2.1 → 2.5 | **Complet** — 5 gates PASS |
+| 3 | Compilateur et VM | 3.1+3.2+3.3 (groupées) | **Ready for Review** — des graphes s'exécutent (IR, compilateur 26 ms/1000 nœuds, VM à fuel) |
+| 3 | (suite) | 3.4, 3.5 | À rédiger (suspension persistée, ordonnanceur) |
+| 4–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** QA 2.5 (clôt l'épic 2) ; session manuelle en jeu (VERIFY-001/002/003 — log attendu : « 1 plugin(s) — 16 type(s) de pins, 3 nœud(s), 0 événement(s), 0 en échec ») ; puis épic 3 (compilateur et VM — le cœur du produit).
+**Prochaine action :** QA du jalon 3.1-3.3 ; puis 3.4 (suspension persistée — le « wait qui survit au redémarrage ») et 3.5 (ordonnanceur). Session en jeu toujours en attente (VERIFY-001/002/003).
 
 ## Ordre de lecture recommandé
 
