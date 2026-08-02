@@ -1,0 +1,23 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "1.1"
+story_title: "Structure multi-module du projet"
+gate: "CONCERNS"
+status_reason: "Tout est vérifié et re-vérifié (JAR agrégé sans testmod, isolation api testée en négatif, publication Maven, runServer) SAUF runClient — jamais confirmé depuis le refactor. Un seul point, mais c'est un AC."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T20:34:24Z"
+
+waiver: { active: false }
+
+top_issues:
+  - id: "VERIFY-001"
+    severity: medium
+    finding: "AC3 exige que runClient fonctionne après le refactor multi-module ; runServer est vérifié (entrypoints OK) mais runClient n'a jamais été lancé — l'entrypoint client (BlueprintClient) et le rendu n'ont pas été exercés"
+    suggested_action: "Lancer ./gradlew runClient une fois et vérifier « Blueprint client initialisé » dans le log ; passer la story Done ensuite. Le câblage étant identique à runServer, le risque réel est faible — mais un AC se vérifie, ne se suppose pas"
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 0 }
+  recommendations:
+    must_fix:
+      - "VERIFY-001 : une vérification manuelle de 2 minutes clôt l'épic proprement"
+    monitor: []

@@ -35,5 +35,17 @@
   "blueprint.diag.node_limit_exceeded": "Trop de nœuds (%s), le maximum est %s",
   "blueprint.diag.permission_exceeded": "Ce nœud exige %s mais le blueprint est plafonné à %s",
   "blueprint.diag.variable_not_found": "La variable « %s » n'existe pas",
-  "blueprint.diag.duplicate_variable": "Une variable nommée « %s » existe déjà"
+  "blueprint.diag.duplicate_variable": "Une variable nommée « %s » existe déjà",
+  "blueprint.cmd.created": "Blueprint %s créé",
+  "blueprint.cmd.exists": "Un blueprint nommé %s existe déjà",
+  "blueprint.cmd.deleted": "Blueprint %s supprimé",
+  "blueprint.cmd.not_found": "Aucun blueprint nommé %s",
+  "blueprint.cmd.enabled": "Blueprint %s activé",
+  "blueprint.cmd.disabled": "Blueprint %s désactivé",
+  "blueprint.cmd.list.empty": "Aucun blueprint sur ce serveur",
+  "blueprint.cmd.list.header": "%s blueprint(s) :",
+  "blueprint.cmd.list.entry": "- %s (%s)",
+  "blueprint.cmd.info": "Blueprint %s (%s) : %s nœuds, %s liens, %s variables — version %s",
+  "blueprint.cmd.state.on": "activé",
+  "blueprint.cmd.state.off": "désactivé"
 }

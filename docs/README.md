@@ -47,14 +47,14 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 
 | Épic | Titre | Stories rédigées | Statut |
 |---|---|---|---|
-| 1 | Fondations et modèle de graphe | 1.1 | Ready for Review (reste : vérif `runClient` + review QA) |
+| 1 | Fondations et modèle de graphe | 1.1 | Ready for Review — gate CONCERNS (VERIFY-001 : vérif `runClient` par l'utilisateur) |
 | 1 | (suite) | 1.2 | Done (gate CONCERNS, tout soldé depuis) |
 | 1 | (suite) | 1.3 | Done (gate PASS) |
-| 1 | (suite) | 1.4 | **Ready for Review** (sérialisation NBT + reprises SER-001/GHOST-001/DOC-002) |
-| 1 | (suite) | 1.5 | À rédiger par le SM (commandes `/blueprint` — inclure MODEL-001) |
+| 1 | (suite) | 1.4 | Done (gate PASS) |
+| 1 | (suite) | 1.5 | **Ready for Review** (commandes + config + MODEL-001 ; gametest extrait en story dédiée) |
 | 2–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** review QA de la 1.4 (`/BMad:agents:qa 1.4`), puis rédiger la 1.5.
+**Prochaine action :** review QA de la 1.5, vérif `runClient`/commandes en jeu (clôt VERIFY-001), puis épic 2 (registre de nœuds et API d'extension).
 
 ## Ordre de lecture recommandé
 

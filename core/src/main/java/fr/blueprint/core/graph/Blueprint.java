@@ -50,6 +50,11 @@ public final class Blueprint {
         return enabled;
     }
 
+    /**
+     * État de cycle de vie serveur (FR20), piloté par {@code BlueprintManager} et les
+     * commandes — volontairement PAS une {@code EditOperation} : l'annuler/rétablir de
+     * l'éditeur ne doit jamais réactiver un blueprint désactivé par un admin (MODEL-001).
+     */
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }

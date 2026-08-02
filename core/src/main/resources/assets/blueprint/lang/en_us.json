@@ -35,5 +35,17 @@
   "blueprint.diag.node_limit_exceeded": "Too many nodes (%s), maximum is %s",
   "blueprint.diag.permission_exceeded": "This node requires %s but the blueprint is capped at %s",
   "blueprint.diag.variable_not_found": "Variable \"%s\" does not exist",
-  "blueprint.diag.duplicate_variable": "A variable named \"%s\" already exists"
+  "blueprint.diag.duplicate_variable": "A variable named \"%s\" already exists",
+  "blueprint.cmd.created": "Blueprint %s created",
+  "blueprint.cmd.exists": "A blueprint named %s already exists",
+  "blueprint.cmd.deleted": "Blueprint %s deleted",
+  "blueprint.cmd.not_found": "No blueprint named %s",
+  "blueprint.cmd.enabled": "Blueprint %s enabled",
+  "blueprint.cmd.disabled": "Blueprint %s disabled",
+  "blueprint.cmd.list.empty": "No blueprints on this server",
+  "blueprint.cmd.list.header": "%s blueprint(s):",
+  "blueprint.cmd.list.entry": "- %s (%s)",
+  "blueprint.cmd.info": "Blueprint %s (%s): %s nodes, %s links, %s variables — version %s",
+  "blueprint.cmd.state.on": "enabled",
+  "blueprint.cmd.state.off": "disabled"
 }
