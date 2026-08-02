@@ -44,24 +44,37 @@ class DemoBlueprintTest {
     }
 
     @Test
-    void exportThenImportRoundTripsOnDisk(@TempDir Path dir) {
+    void exportThenImportRoundTripsOnDisk(@TempDir Path dir) throws Exception {
         Blueprint demo = DemoBlueprint.build(LOADED.nodes());
-        Path file = BlueprintFiles.export(demo, dir);
+        Path file = BlueprintFiles.export(demo, dir, LOADED);
         assertNotNull(file);
         assertTrue(Files.isRegularFile(file));
         assertEquals("blueprint_demo.bp", file.getFileName().toString());
+        // Depuis 4.1-4.3 : le fichier est du BScript texte lisible.
+        String text = Files.readString(file);
+        assertTrue(text.startsWith("blueprint blueprint:demo {"), text.substring(0, 60));
 
-        Blueprint imported = BlueprintFiles.importFile(dir, "blueprint_demo",
-                typeId -> LOADED.pinTypes().get(typeId).orElse(null));
+        Blueprint imported = BlueprintFiles.importFile(dir, "blueprint_demo", LOADED);
         assertNotNull(imported);
         assertTrue(demo.contentEquals(imported), "round-trip disque identique");
     }
 
     @Test
+    void legacyNbtFilesRemainImportable(@TempDir Path dir) throws Exception {
+        // Les .bp NBT de la 4.4a (magie gzip) restent lisibles.
+        Blueprint demo = DemoBlueprint.build(LOADED.nodes());
+        net.minecraft.nbt.NbtIo.writeCompressed(
+                fr.blueprint.core.graph.GraphNbt.encode(demo), dir.resolve("legacy.bp"));
+        Blueprint imported = BlueprintFiles.importFile(dir, "legacy", LOADED);
+        assertNotNull(imported);
+        assertTrue(demo.contentEquals(imported));
+    }
+
+    @Test
     void importFailuresAreNullNeverExceptions(@TempDir Path dir) throws Exception {
-        assertNull(BlueprintFiles.importFile(dir, "absent", typeId -> null));
-        Files.writeString(dir.resolve("corrompu.bp"), "pas du nbt gzip");
-        assertNull(BlueprintFiles.importFile(dir, "corrompu", typeId -> null));
+        assertNull(BlueprintFiles.importFile(dir, "absent", LOADED));
+        Files.writeString(dir.resolve("corrompu.bp"), "pas du bscript valide {{{");
+        assertNull(BlueprintFiles.importFile(dir, "corrompu", LOADED));
     }
 
     @Test
