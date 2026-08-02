@@ -4,6 +4,7 @@ import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.Node;
 import fr.blueprint.core.graph.NodeShape;
 import fr.blueprint.core.graph.NodeTypeLookup;
+import fr.blueprint.core.graph.Vec2d;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -22,6 +23,9 @@ public final class NodeGeometry {
     public static final double WIDTH = 140;
     public static final double TITLE_HEIGHT = 18;
     public static final double ROW_HEIGHT = 12;
+
+    /** Distance du centre d'un pin au bord vertical de son nœud. */
+    public static final double PIN_INSET = 7;
 
     /** Rangées présumées d'un nœud fantôme (forme inconnue). */
     private static final int GHOST_ROWS = 3;
@@ -68,7 +72,28 @@ public final class NodeGeometry {
         return new Camera.Rect(left, top, right, bottom);
     }
 
+    /**
+     * Centre monde du pin d'entrée de la rangée {@code row} — les entrées vivent sur
+     * le bord gauche, sous le titre. Sert au rendu et au câblage (5.3).
+     */
+    public static Vec2d inputPinCenter(Box box, int row) {
+        return new Vec2d(box.x() + PIN_INSET, rowCenterY(box, row));
+    }
+
+    /** Centre monde du pin de sortie de la rangée {@code row}, sur le bord droit. */
+    public static Vec2d outputPinCenter(Box box, int row) {
+        return new Vec2d(box.x() + box.width() - PIN_INSET, rowCenterY(box, row));
+    }
+
+    private static double rowCenterY(Box box, int row) {
+        return box.y() + TITLE_HEIGHT + row * ROW_HEIGHT + ROW_HEIGHT / 2;
+    }
+
     /** Boîte monde d'un nœud ; {@code ghost} = type inconnu du registre. */
     public record Box(Node node, double x, double y, double width, double height, boolean ghost) {
+
+        public boolean contains(double wx, double wy) {
+            return wx >= x && wx < x + width && wy >= y && wy < y + height;
+        }
     }
 }

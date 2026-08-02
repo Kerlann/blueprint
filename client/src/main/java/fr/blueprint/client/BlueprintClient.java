@@ -1,6 +1,7 @@
 package fr.blueprint.client;
 
 import fr.blueprint.client.editor.BlueprintEditorScreen;
+import fr.blueprint.client.registry.ClientNodeRegistry;
 import fr.blueprint.core.BlueprintMod;
 import fr.blueprint.core.DemoBlueprint;
 import net.fabricmc.api.ClientModInitializer;
@@ -23,8 +24,10 @@ public class BlueprintClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             while (openEditor.consumeClick()) {
-                var nodes = BlueprintMod.registries().nodes();
-                mc.setScreen(new BlueprintEditorScreen(DemoBlueprint.build(nodes), nodes));
+                var registries = BlueprintMod.registries();
+                mc.setScreen(new BlueprintEditorScreen(
+                        DemoBlueprint.build(registries.nodes()), registries.nodes(),
+                        ClientNodeRegistry.fromLocal(registries)));
             }
         });
 

@@ -1,22 +1,22 @@
 package fr.blueprint.client.editor;
 
+import fr.blueprint.client.registry.ClientNodeRegistry;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.NodeTypeLookup;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Le canevas de l'éditeur : grille, boîtes de nœuds en niveau de détail, pan et zoom.
- * Le culling précède tout calcul (coding-standards §5) : un nœud hors champ n'est ni
- * transformé ni dessiné. Le rendu complet des nœuds (pins, littéraux) est la story 5.2.
+ * Le canevas de l'éditeur : grille, nœuds rendus depuis leurs descripteurs, pan/zoom,
+ * sélection et déplacement. Le culling précède tout calcul (coding-standards §5) ; la
+ * logique d'interaction vit dans {@link CanvasController} (pur, testé headless) — ce
+ * widget convertit écran→monde et dessine.
  */
 public final class CanvasWidget {
 
@@ -24,18 +24,12 @@ public final class CanvasWidget {
     private static final int BACKGROUND = 0xFF1A1B1E;
     private static final int GRID = 0xFF242629;
     private static final int GRID_MAJOR = 0xFF2E3135;
-    private static final int NODE_BACKGROUND = 0xFF2B2D31;
-    private static final int NODE_BORDER = 0xFF3A3D42;
-    private static final int GHOST_BORDER = 0xFFC74A5B;
-    private static final int TITLE_COLOR = 0xFFE6E6E6;
+    private static final int RUBBER_FILL = 0x337AA2F7;
+    private static final int RUBBER_BORDER = 0xFF7AA2F7;
 
-    /** Sous ce zoom, plus de titre du tout (UX §3). */
-    private static final double TITLE_FADE_ZOOM = 0.35;
-
-    private final Blueprint blueprint;
-    private final NodeTypeLookup lookup;
+    private final ClientNodeRegistry descriptors;
     private final Camera camera = new Camera();
-    private final NodeGeometry geometry = new NodeGeometry();
+    private final CanvasController controller;
     /** Tampon réutilisé chaque image : pas d'allocation dans la passe de rendu. */
     private final List<NodeGeometry.Box> visible = new ArrayList<>();
 
@@ -44,13 +38,17 @@ public final class CanvasWidget {
     private boolean spaceDown;
     private boolean panning;
 
-    public CanvasWidget(Blueprint blueprint, NodeTypeLookup lookup) {
-        this.blueprint = blueprint;
-        this.lookup = lookup;
+    public CanvasWidget(Blueprint blueprint, NodeTypeLookup lookup, ClientNodeRegistry descriptors) {
+        this.descriptors = descriptors;
+        this.controller = new CanvasController(blueprint, lookup, camera);
     }
 
     public Camera camera() {
         return camera;
+    }
+
+    public CanvasController controller() {
+        return controller;
     }
 
     public void setSize(int width, int height) {
@@ -60,7 +58,7 @@ public final class CanvasWidget {
 
     /** Recentre sur l'ensemble du graphe (ouverture et touche F). */
     public void frameAll() {
-        camera.frameAll(NodeGeometry.boundsOf(geometry.boxes(blueprint, lookup)), width, height);
+        camera.frameAll(NodeGeometry.boundsOf(controller.boxes()), width, height);
     }
 
     // ---------------------------------------------------------------------- rendu
@@ -69,6 +67,7 @@ public final class CanvasWidget {
         g.fill(0, 0, width, height, BACKGROUND);
         renderGrid(g);
         renderNodes(g, font);
+        renderRubber(g);
     }
 
     private void renderGrid(GuiGraphics g) {
@@ -94,7 +93,7 @@ public final class CanvasWidget {
     }
 
     private void renderNodes(GuiGraphics g, Font font) {
-        List<NodeGeometry.Box> boxes = geometry.boxes(blueprint, lookup);
+        List<NodeGeometry.Box> boxes = controller.boxes();
         Camera.Rect view = camera.visibleRect(width, height);
         visible.clear();
         for (int i = 0; i < boxes.size(); i++) {
@@ -106,33 +105,26 @@ public final class CanvasWidget {
         double z = camera.zoom();
         for (int i = 0; i < visible.size(); i++) {
             NodeGeometry.Box b = visible.get(i);
-            int x1 = (int) Math.round(camera.toScreenX(b.x()));
-            int y1 = (int) Math.round(camera.toScreenY(b.y()));
-            int x2 = (int) Math.round(camera.toScreenX(b.x() + b.width()));
-            int y2 = (int) Math.round(camera.toScreenY(b.y() + b.height()));
-            g.fill(x1, y1, x2, y2, b.ghost() ? GHOST_BORDER : NODE_BORDER);
-            g.fill(x1 + 1, y1 + 1, x2 - 1, y2 - 1, NODE_BACKGROUND);
-            if (z >= TITLE_FADE_ZOOM) {
-                renderTitle(g, font, b, x1, y1, x2, y2, (float) z);
-            }
+            NodeWidget.render(g, font, b, descriptors.descriptor(b.node().typeId()),
+                    controller.selection().isSelected(b.node().uuid()), z,
+                    camera.toScreenX(b.x()), camera.toScreenY(b.y()));
         }
     }
 
-    private void renderTitle(GuiGraphics g, Font font, NodeGeometry.Box b,
-                             int x1, int y1, int x2, int y2, float z) {
-        Identifier typeId = b.node().typeId();
-        // Un fantôme affiche l'identifiant brut ; le message complet arrive en 5.2.
-        Component title = b.ghost()
-                ? Component.literal(typeId.toString())
-                : Component.translatable("blueprint.node." + typeId.getNamespace()
-                        + "." + typeId.getPath() + ".name");
-        g.enableScissor(x1 + 1, y1 + 1, x2 - 1, y2 - 1);
-        g.pose().pushMatrix();
-        g.pose().translate(x1 + 4 * z, y1 + 5 * z);
-        g.pose().scale(z, z);
-        g.drawString(font, title, 0, 0, TITLE_COLOR, false);
-        g.pose().popMatrix();
-        g.disableScissor();
+    private void renderRubber(GuiGraphics g) {
+        Camera.Rect r = controller.rubberRect();
+        if (r == null) {
+            return;
+        }
+        int x1 = (int) Math.round(camera.toScreenX(r.left()));
+        int y1 = (int) Math.round(camera.toScreenY(r.top()));
+        int x2 = (int) Math.round(camera.toScreenX(r.right()));
+        int y2 = (int) Math.round(camera.toScreenY(r.bottom()));
+        g.fill(x1, y1, x2, y2, RUBBER_FILL);
+        g.fill(x1, y1, x2, y1 + 1, RUBBER_BORDER);
+        g.fill(x1, y2 - 1, x2, y2, RUBBER_BORDER);
+        g.fill(x1, y1, x1 + 1, y2, RUBBER_BORDER);
+        g.fill(x2 - 1, y1, x2, y2, RUBBER_BORDER);
     }
 
     // -------------------------------------------------------------------- entrées
@@ -143,6 +135,10 @@ public final class CanvasWidget {
             panning = true;
             return true;
         }
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            controller.press(camera.toWorldX(e.x()), camera.toWorldY(e.y()), e.hasShiftDown());
+            return true;
+        }
         return false;
     }
 
@@ -151,12 +147,20 @@ public final class CanvasWidget {
             panning = false;
             return true;
         }
+        if (controller.gesture() != CanvasController.Gesture.NONE) {
+            controller.release(e.hasShiftDown());
+            return true;
+        }
         return false;
     }
 
     public boolean mouseDragged(MouseButtonEvent e, double dx, double dy) {
         if (panning) {
             camera.panByScreen(dx, dy);
+            return true;
+        }
+        if (controller.gesture() != CanvasController.Gesture.NONE) {
+            controller.drag(camera.toWorldX(e.x()), camera.toWorldY(e.y()));
             return true;
         }
         return false;
@@ -178,6 +182,10 @@ public final class CanvasWidget {
             }
             case GLFW.GLFW_KEY_F -> {
                 frameAll();
+                return true;
+            }
+            case GLFW.GLFW_KEY_DELETE -> {
+                controller.deleteSelection();
                 return true;
             }
             case GLFW.GLFW_KEY_G -> {

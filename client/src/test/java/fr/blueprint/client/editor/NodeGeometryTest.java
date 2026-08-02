@@ -71,6 +71,21 @@ class NodeGeometryTest {
     }
 
     @Test
+    void positionsDesPins() {
+        Node node = new Node(UUID.randomUUID(), TYPE, new Vec2d(100, 200));
+        NodeGeometry.Box box = NodeGeometry.boxOf(node, SHAPE);
+        // Rangée 0 : centrée dans la première ligne sous le titre.
+        assertEquals(new Vec2d(100 + NodeGeometry.PIN_INSET,
+                        200 + NodeGeometry.TITLE_HEIGHT + NodeGeometry.ROW_HEIGHT / 2),
+                NodeGeometry.inputPinCenter(box, 0));
+        // Rangée 2, côté sortie : bord droit.
+        assertEquals(new Vec2d(100 + NodeGeometry.WIDTH - NodeGeometry.PIN_INSET,
+                        200 + NodeGeometry.TITLE_HEIGHT + 2 * NodeGeometry.ROW_HEIGHT
+                                + NodeGeometry.ROW_HEIGHT / 2),
+                NodeGeometry.outputPinCenter(box, 2));
+    }
+
+    @Test
     void boiteEnglobante() {
         Node a = new Node(UUID.randomUUID(), TYPE, new Vec2d(0, 0));
         Node b = new Node(UUID.randomUUID(), TYPE, new Vec2d(500, -100));

@@ -98,6 +98,7 @@
   "blueprint.event.blueprint.event/signal.name": "Signal",
 
   "blueprint.editor.title": "Blueprint editor — %s",
+  "blueprint.editor.ghost": "Provided by \"%s\" — mod missing",
   "key.blueprint.open_editor": "Open the blueprint editor (demo)",
   "key.category.blueprint.main": "Blueprint"
 }

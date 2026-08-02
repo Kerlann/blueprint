@@ -1,5 +1,6 @@
 package fr.blueprint.client.editor;
 
+import fr.blueprint.client.registry.ClientNodeRegistry;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.NodeTypeLookup;
 import net.minecraft.client.gui.GuiGraphics;
@@ -17,9 +18,10 @@ public final class BlueprintEditorScreen extends Screen {
     private final CanvasWidget canvas;
     private boolean framed;
 
-    public BlueprintEditorScreen(Blueprint blueprint, NodeTypeLookup lookup) {
+    public BlueprintEditorScreen(Blueprint blueprint, NodeTypeLookup lookup,
+                                 ClientNodeRegistry descriptors) {
         super(Component.translatable("blueprint.editor.title", blueprint.id().toString()));
-        this.canvas = new CanvasWidget(blueprint, lookup);
+        this.canvas = new CanvasWidget(blueprint, lookup, descriptors);
     }
 
     @Override
