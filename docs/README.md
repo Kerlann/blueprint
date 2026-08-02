@@ -56,8 +56,8 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 4 | Démo, export/import | 4.4a | **Complet** — gate PASS |
 | 4 | BScript v1 | 4.1+4.2+4.3 (groupées) | **Complet** — gate PASS (4 corrections en review dont un high de fidélité) ; round-trip exact, `.bp` = texte |
 | 6 | Persistance monde | 6.1 | **Complet** — gate PASS (VERIFY-005 : redémarrage à confirmer en jeu) |
-| 5 | Éditeur | — | En cours dans une session parallèle (module `client/`) |
-| 4 (4.2b), 6 (reste), 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
+| 5 | Éditeur visuel | 5.1, 5.2a, 5.3, 5.4a | **Ready for Review** — canevas, rendu descripteur, sélection/déplacement, liens Bézier + câblage validé `canLink`, palette (recherche ≤ 5 ms, filtre par type, auto-connexion) ; F6 ou `/blueprint-edit` |
+| 4 (4.2b), 5 (5.2b, 5.4b, 5.5-5.7), 6 (reste), 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
 **Prochaine action :** session en jeu : VERIFY-005 (`/blueprint demo` → redémarrage du monde → « Persistance : … » au log et ping sans réimport) + regarder le `.bp` texte exporté ; puis 4.2b (sucre BScript), 7.1b, ou 6.2 (sync registres — coordonner avec la session épic 5).
 
