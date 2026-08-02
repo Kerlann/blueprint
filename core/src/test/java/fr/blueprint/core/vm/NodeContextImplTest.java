@@ -35,8 +35,17 @@ class NodeContextImplTest {
         }
     };
 
-    private static final TriggerContext TRIGGER =
-            () -> Identifier.fromNamespaceAndPath("blueprint", "event/server_tick");
+    private static final TriggerContext TRIGGER = new TriggerContext() {
+        @Override
+        public Identifier eventId() {
+            return Identifier.fromNamespaceAndPath("blueprint", "event/server_tick");
+        }
+
+        @Override
+        public Object output(String name) {
+            throw new IllegalStateException("server_tick n'a pas de sorties");
+        }
+    };
 
     private static NodeType testmodNode(String path) {
         var loaded = PluginLoader.load(List.of(

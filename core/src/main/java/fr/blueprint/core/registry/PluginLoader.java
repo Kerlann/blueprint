@@ -1,8 +1,8 @@
 package fr.blueprint.core.registry;
 
 import fr.blueprint.api.BlueprintPlugin;
-import fr.blueprint.api.event.EventRegistry;
 import fr.blueprint.core.BlueprintMod;
+import fr.blueprint.core.event.EventRegistryImpl;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.util.ArrayList;
@@ -24,7 +24,7 @@ public final class PluginLoader {
 
     /** Registres chargés et gelés, plus la liste des mods dont le plugin a échoué. */
     public record LoadedRegistries(PinTypeRegistryImpl pinTypes, NodeRegistryImpl nodes,
-                                   List<String> failedMods) {
+                                   EventRegistryImpl events, List<String> failedMods) {
     }
 
     private PluginLoader() {
@@ -44,6 +44,7 @@ public final class PluginLoader {
     public static LoadedRegistries load(List<PluginEntry> plugins) {
         PinTypeRegistryImpl pinTypes = new PinTypeRegistryImpl();
         NodeRegistryImpl nodes = new NodeRegistryImpl();
+        EventRegistryImpl events = new EventRegistryImpl();
         pinTypes.registerBuiltins();
 
         Set<String> failed = new LinkedHashSet<>();
@@ -54,7 +55,7 @@ public final class PluginLoader {
             try {
                 entry.plugin().registerTypes(pinTypes);
             } catch (Exception e) {
-                isolate(entry.modId(), "registerTypes", e, failed, pinTypes, nodes);
+                isolate(entry.modId(), "registerTypes", e, failed, pinTypes, nodes, events);
             }
         }
         // Phase 2 : les nœuds.
@@ -67,33 +68,35 @@ public final class PluginLoader {
             try {
                 entry.plugin().registerNodes(nodes);
             } catch (Exception e) {
-                isolate(entry.modId(), "registerNodes", e, failed, pinTypes, nodes);
+                isolate(entry.modId(), "registerNodes", e, failed, pinTypes, nodes, events);
             }
         }
-        // Phase 3 : les événements (surface complétée en 2.5).
-        EventRegistry events = new EventRegistry() {
-        };
+        // Phase 3 : les événements.
         for (PluginEntry entry : plugins) {
             if (failed.contains(entry.modId())) {
                 continue;
             }
+            events.currentProvider(entry.modId());
             try {
                 entry.plugin().registerEvents(events);
             } catch (Exception e) {
-                isolate(entry.modId(), "registerEvents", e, failed, pinTypes, nodes);
+                isolate(entry.modId(), "registerEvents", e, failed, pinTypes, nodes, events);
             }
         }
 
         pinTypes.freeze();
         nodes.freeze();
-        return new LoadedRegistries(pinTypes, nodes, List.copyOf(failed));
+        events.freeze();
+        return new LoadedRegistries(pinTypes, nodes, events, List.copyOf(failed));
     }
 
     private static void isolate(String modId, String phase, Exception e, Set<String> failed,
-                                PinTypeRegistryImpl pinTypes, NodeRegistryImpl nodes) {
+                                PinTypeRegistryImpl pinTypes, NodeRegistryImpl nodes,
+                                EventRegistryImpl events) {
         failed.add(modId);
         pinTypes.removeAllFrom(modId);
         nodes.removeAllFrom(modId);
+        events.removeAllFrom(modId);
         BlueprintMod.LOGGER.error(
                 "Le plugin Blueprint du mod « {} » a échoué pendant {} — il est désactivé, "
                         + "ses nœuds apparaîtront en fantômes", modId, phase, e);

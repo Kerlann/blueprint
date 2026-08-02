@@ -35,8 +35,26 @@ public class BlueprintMod implements ModInitializer {
                 .getEntrypointContainers("blueprint", BlueprintPlugin.class)
                 .size();
         registries = fr.blueprint.core.registry.PluginLoader.loadFromFabric();
-        LOGGER.info("{} plugin(s) Blueprint détecté(s) — {} type(s) de pins, {} nœud(s), {} en échec",
+        LOGGER.info("{} plugin(s) Blueprint détecté(s) — {} type(s) de pins, {} nœud(s), {} événement(s), {} en échec",
                 declared, registries.pinTypes().all().size(), registries.nodes().all().size(),
-                registries.failedMods().size());
+                registries.events().all().size(), registries.failedMods().size());
+
+        // Le dispatcher d'événements vit avec le serveur : installé au démarrage,
+        // retiré à l'arrêt — avant/après, BlueprintEvents.fire est un no-op sûr.
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server ->
+                fr.blueprint.api.event.BlueprintEvents.install(
+                        new fr.blueprint.core.event.EventDispatcher(new fr.blueprint.core.event.EventDispatcher.ThreadGate() {
+                            @Override
+                            public boolean isOnThread() {
+                                return server.isSameThread();
+                            }
+
+                            @Override
+                            public void submit(Runnable task) {
+                                server.execute(task);
+                            }
+                        })));
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server ->
+                fr.blueprint.api.event.BlueprintEvents.uninstall());
     }
 }

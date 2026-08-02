@@ -53,12 +53,11 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 1 | (suite) | 1.4 | Done (gate PASS) |
 | 1 | (suite) | 1.5 | Ready for Review — gate CONCERNS (TEST-002 soldé par la 1.6 ; reste VERIFY-002) |
 | 1 | (suite) | 1.6 | Draft (spike gametest — trace la dette de test en jeu) |
-| 2 | Registre de nœuds et API d'extension | 2.1, 2.2 | Ready for Review (builder + registre + entrypoint, testmod vivant) |
-| 2 | (suite) | 2.3, 2.4 | **Ready for Review** (contexte d'exécution + descripteurs/hash — 1ʳᵉ exécution de bout en bout) |
-| 2 | (suite) | 2.5 | À rédiger par le SM (événements) |
+| 2 | Registre de nœuds et API d'extension | 2.1, 2.2, 2.3, 2.4 | Done (4 gates PASS) |
+| 2 | (suite) | 2.5 | **Ready for Review** (événements : EventType, dispatcher paresseux et thread-sûr, façade) |
 | 3–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** session manuelle en jeu (log attendu : « 1 plugin(s) — 16 type(s) de pins, 3 nœud(s) ») ; QA 2.1→2.4 ; puis 2.5 pour clore l'épic 2.
+**Prochaine action :** QA 2.5 (clôt l'épic 2) ; session manuelle en jeu (VERIFY-001/002/003 — log attendu : « 1 plugin(s) — 16 type(s) de pins, 3 nœud(s), 0 événement(s), 0 en échec ») ; puis épic 3 (compilateur et VM — le cœur du produit).
 
 ## Ordre de lecture recommandé
 
