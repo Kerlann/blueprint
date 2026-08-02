@@ -139,18 +139,28 @@ class CanvasControllerTest {
     }
 
     @Test
-    void lesInversesSontCollectesDansLOrdre() {
+    void unGesteDeDeplacementSAnnuleEnUneFois() {
         controller.press(10, 10, false);
         controller.drag(60, 35);
+        controller.drag(80, 55);
         controller.release(false);
-        int apresDeplacement = controller.inverses().size();
-        assertTrue(apresDeplacement >= 1);
+        assertEquals(1, controller.history().undoDepth());
+        assertEquals(new Vec2d(70, 45), bp.node(n1).position());
 
+        assertTrue(controller.undo());
+        assertEquals(new Vec2d(0, 0), bp.node(n1).position());
+        assertTrue(controller.redo());
+        assertEquals(new Vec2d(70, 45), bp.node(n1).position());
+    }
+
+    @Test
+    void laSuppressionSAnnule() {
+        controller.press(10, 10, false);
+        controller.release(false);
         controller.deleteSelection();
-        assertEquals(apresDeplacement + 1, controller.inverses().size());
-        // Le dernier inverse restaure le nœud supprimé.
-        EditOperation dernier = controller.inverses().get(controller.inverses().size() - 1);
-        assertTrue(dernier.apply(bp, LOOKUP).applied());
+        assertNull(bp.node(n1));
+
+        assertTrue(controller.undo());
         assertNotNull(bp.node(n1));
     }
 
@@ -292,12 +302,14 @@ class CanvasControllerTest {
     }
 
     @Test
-    void setLiteralPasseParLOperationEtCollecteLInverse() {
-        int avant = controller.inverses().size();
+    void setLiteralPasseParLOperationEtSAnnule() {
+        int avant = controller.history().undoDepth();
         assertTrue(controller.setLiteral(n1, "a",
                 fr.blueprint.api.pin.LiteralValue.of(PinTypes.DOUBLE, 2.5)));
         assertEquals(2.5, bp.node(n1).literal("a").value());
-        assertEquals(avant + 1, controller.inverses().size());
+        assertEquals(avant + 1, controller.history().undoDepth());
+        assertTrue(controller.undo());
+        assertNull(bp.node(n1).literal("a"));
         // Type incompatible : refusé par SetLiteral, rien de collecté.
         assertFalse(controller.setLiteral(n1, "a",
                 fr.blueprint.api.pin.LiteralValue.of(PinTypes.STRING, "nope")));

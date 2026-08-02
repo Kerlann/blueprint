@@ -2,6 +2,7 @@ package fr.blueprint.client.editor;
 
 import fr.blueprint.api.pin.PinKind;
 import fr.blueprint.api.pin.PinType;
+import fr.blueprint.client.editor.history.UndoStack;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.EditOperation;
 import fr.blueprint.core.graph.GraphValidator;
@@ -52,7 +53,7 @@ public final class CanvasController {
     private final Camera camera;
     private final NodeGeometry geometry = new NodeGeometry();
     private final SelectionModel selection = new SelectionModel();
-    private final List<EditOperation> inverses = new ArrayList<>();
+    private final UndoStack history = new UndoStack();
     /** Offsets « position du nœud − point de saisie », figés à la presse. */
     private final Map<UUID, Vec2d> dragOffsets = new HashMap<>();
 
@@ -248,6 +249,8 @@ public final class CanvasController {
 
     /** Presse du bouton gauche ; Alt+clic sur un pin câblé détache ses liens. */
     public void press(double wx, double wy, boolean additive, boolean alt) {
+        // Tout ce qui se passe entre presse et relâche = un geste = une annulation.
+        history.beginGesture();
         PinRef pin = pinAt(wx, wy);
         if (pin != null) {
             if (alt) {
@@ -317,6 +320,14 @@ public final class CanvasController {
      * dans le vide — le widget y ouvre la palette filtrée (5.4a).
      */
     public @Nullable WireDrop release(boolean additive) {
+        try {
+            return doRelease(additive);
+        } finally {
+            history.endGesture();
+        }
+    }
+
+    private @Nullable WireDrop doRelease(boolean additive) {
         if (gesture == Gesture.WIRE && wireFrom != null) {
             PinRef from = wireFrom;
             wireFrom = null;
@@ -377,24 +388,29 @@ public final class CanvasController {
      * {@code canLink} maintenant que le nœud existe.
      */
     public @Nullable UUID insertNode(Identifier typeId, double wx, double wy, @Nullable PinRef from) {
-        UUID id = UUID.randomUUID();
-        Vec2d pos = camera.snap(new Vec2d(wx, wy));
-        if (!applyTracked(new EditOperation.AddNode(id, typeId, pos))) {
-            return null;
-        }
-        if (from != null) {
-            NodeShape shape = lookup.shape(typeId);
-            if (shape != null) {
-                List<NodeShape.PinDef> candidates = from.output() ? shape.inputs() : shape.outputs();
-                for (int i = 0; i < candidates.size(); i++) {
-                    if (applyTracked(new EditOperation.AddLink(
-                            buildLink(from, id, candidates.get(i).name())))) {
-                        break;
+        history.beginGesture();
+        try {
+            UUID id = UUID.randomUUID();
+            Vec2d pos = camera.snap(new Vec2d(wx, wy));
+            if (!applyTracked(new EditOperation.AddNode(id, typeId, pos))) {
+                return null;
+            }
+            if (from != null) {
+                NodeShape shape = lookup.shape(typeId);
+                if (shape != null) {
+                    List<NodeShape.PinDef> candidates = from.output() ? shape.inputs() : shape.outputs();
+                    for (int i = 0; i < candidates.size(); i++) {
+                        if (applyTracked(new EditOperation.AddLink(
+                                buildLink(from, id, candidates.get(i).name())))) {
+                            break;
+                        }
                     }
                 }
             }
+            return id;
+        } finally {
+            history.endGesture();
         }
-        return id;
     }
 
     /** Rectangle élastique courant (normalisé), ou null hors geste. */
@@ -407,17 +423,30 @@ public final class CanvasController {
                 Math.max(rubberStartX, rubberEndX), Math.max(rubberStartY, rubberEndY));
     }
 
-    /** Supprime la sélection ; l'opération retire aussi les liens touchés. */
+    /** Supprime la sélection (une entrée d'annulation) ; les liens touchés partent avec. */
     public void deleteSelection() {
-        for (UUID id : List.copyOf(selection.ids())) {
-            apply(new EditOperation.RemoveNode(id));
+        history.beginGesture();
+        try {
+            for (UUID id : List.copyOf(selection.ids())) {
+                apply(new EditOperation.RemoveNode(id));
+            }
+        } finally {
+            history.endGesture();
         }
         selection.clear();
     }
 
-    /** Inverses collectés, dans l'ordre d'application — la 5.6 en fera la pile d'annulation. */
-    public List<EditOperation> inverses() {
-        return inverses;
+    /** La pile d'annulation (5.6a) : toutes les mutations y naissent réversibles. */
+    public UndoStack history() {
+        return history;
+    }
+
+    public boolean undo() {
+        return history.undo(blueprint, lookup);
+    }
+
+    public boolean redo() {
+        return history.redo(blueprint, lookup);
     }
 
     private void apply(EditOperation op) {
@@ -427,7 +456,7 @@ public final class CanvasController {
     private boolean applyTracked(EditOperation op) {
         EditOperation.Result result = op.apply(blueprint, lookup);
         if (result.applied() && result.inverse() != null) {
-            inverses.add(result.inverse());
+            history.record(result.inverse());
         }
         return result.applied();
     }

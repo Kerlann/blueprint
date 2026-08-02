@@ -363,6 +363,22 @@ public final class CanvasWidget {
                 controller.deleteSelection();
                 return true;
             }
+            case GLFW.GLFW_KEY_Z -> {
+                if (e.hasControlDown()) {
+                    if (e.hasShiftDown()) {
+                        controller.redo();
+                    } else {
+                        controller.undo();
+                    }
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_Y -> {
+                if (e.hasControlDown()) {
+                    controller.redo();
+                    return true;
+                }
+            }
             case GLFW.GLFW_KEY_G -> {
                 if (e.hasControlDown()) {
                     camera.toggleSnap();
