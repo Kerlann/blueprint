@@ -1,0 +1,41 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "1.3"
+story_title: "Modèle de graphe et validation"
+gate: "PASS"
+status_reason: "Fondation solide : 8 AC tracés, 40 tests dont propriété jqwik (qui a attrapé un vrai bug avant livraison), couverture 91 % vérifiée en CI, reprises QA de la 1.2 toutes soldées. Cinq observations low, aucune bloquante."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T20:18:01Z"
+
+waiver: { active: false }
+
+top_issues:
+  - id: "GHOST-001"
+    severity: low
+    finding: "Un lien exec entre DEUX nœuds fantômes est déduit DATA des deux côtés (counterpartKind ne connaît ni l'un ni l'autre) : une boucle exec entre fantômes peut produire un faux DATA_CYCLE en plus de l'UNKNOWN_NODE_TYPE légitime"
+    suggested_action: "Exclure les liens fantôme↔fantôme de la détection de cycle, ou mémoriser la nature du pin dans le graphe au moment du câblage (utile aussi pour la 1.4)"
+  - id: "VAL-001"
+    severity: low
+    finding: "Le validateur émet un diagnostic de cardinalité PAR lien fautif : un exec-out doublé produit deux EXEC_OUT_ALREADY_LINKED — du bruit dans le panneau de diagnostics"
+    suggested_action: "Dédupliquer par (code, pin) à la fin de validate, au plus tard à la story 5.6 (panneau de diagnostics)"
+  - id: "PERF-001"
+    severity: low
+    finding: "linksTouching/linksFrom/linksInto parcourent tous les liens (streams) ; validate est O(nœuds × liens) — potentiellement sensible pour NFR2 (1 000 nœuds < 50 ms) puisque la compilation revalide"
+    suggested_action: "À surveiller au banc de la story 3.2 ; si dépassement, indexer les liens par nœud dans Blueprint (structure interne, non cassant)"
+  - id: "MODEL-001"
+    severity: low
+    finding: "Blueprint.setEnabled est une mutation publique hors du système d'EditOperation, alors que contentEquals compare enabled — incohérent avec AC1 (l'annuler/rétablir ne peut pas la restaurer)"
+    suggested_action: "Trancher à la story 1.5 : soit une opération dédiée, soit sortir enabled du modèle édité (état de cycle de vie serveur)"
+  - id: "DOC-002"
+    severity: low
+    finding: "source-tree.md diverge du code livré : les ops sont dans core/graph/EditOperation.java (pas core/graph/edit/), et Vec2d, NodeShape, NodeTypeLookup, Literals, GraphLimits n'y figurent pas ; PinDef.in()/required() sont du code mort"
+    suggested_action: "SM : aligner source-tree.md sur le réel (les écarts sont justifiés dans le Dev Agent Record) ; Dev : supprimer les helpers inutilisés au prochain passage"
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 5 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "PERF-001 au banc de compilation (story 3.2)"
+      - "encode() des EditOperation + encodage structurel des types (SER-001) attendus en 1.4"
+      - "RestoreNode/RestoreLink ne sont sûrs qu'en ordre LIFO : ne jamais les accepter comme patchs réseau arbitraires (story 6.3)"
