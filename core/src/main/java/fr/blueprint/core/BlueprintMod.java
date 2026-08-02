@@ -56,22 +56,24 @@ public class BlueprintMod implements ModInitializer {
                     });
             var bridge = new fr.blueprint.core.event.BlueprintEventBridge(
                     BlueprintManager.of(server), registries.nodes(), schedulerOf(server),
-                    (bp, trigger) -> new fr.blueprint.core.vm.ExecutionEnvironment(
-                            typeId -> registries.nodes().get(typeId).orElse(null),
-                            new fr.blueprint.api.node.BlueprintHandle() {
-                                @Override
-                                public net.minecraft.resources.Identifier id() {
-                                    return bp.id();
-                                }
-
-                                @Override
-                                public boolean enabled() {
-                                    return bp.enabled();
-                                }
-                            },
-                            trigger, varsOf(server), server, server.overworld(), LOGGER));
+                    envFactory(server));
             bridge.wire(dispatcher, registries.events().all());
             fr.blueprint.api.event.BlueprintEvents.install(dispatcher);
+        });
+
+        // Persistance (6.1) : chargement + rapport quand les mondes sont prêts, puis
+        // liaison vivante — chaque sauvegarde du monde capture l'état courant.
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            var storage = server.overworld().getDataStorage()
+                    .computeIfAbsent(fr.blueprint.core.storage.BlueprintStorage.TYPE);
+            var report = fr.blueprint.core.storage.PersistenceHooks.restore(
+                    storage, BlueprintManager.of(server), schedulerOf(server), registries,
+                    new fr.blueprint.core.storage.ServerRefResolver(server), envFactory(server));
+            storage.bindLive(BlueprintManager.of(server), schedulerOf(server));
+            LOGGER.info("Persistance : {} blueprint(s) chargé(s), {} préservé(s) brut(s), "
+                            + "{} exécution(s) reprise(s), {} annulée(s)",
+                    report.blueprintsLoaded(), report.blueprintsCorrupt(),
+                    report.executionsResumed(), report.executionsCancelled());
         });
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server ->
                 fr.blueprint.api.event.BlueprintEvents.uninstall());
@@ -140,6 +142,25 @@ public class BlueprintMod implements ModInitializer {
                         fr.blueprint.core.event.StandardEvents.PLAYER_CHAT,
                         payload -> payload.set("player", sender)
                                 .set("message", message.signedContent())));
+    }
+
+    /** Fabrique d'environnement d'exécution — partagée par le pont et la reprise (6.1). */
+    private static fr.blueprint.core.event.BlueprintEventBridge.EnvFactory envFactory(
+            net.minecraft.server.MinecraftServer server) {
+        return (bp, trigger) -> new fr.blueprint.core.vm.ExecutionEnvironment(
+                typeId -> registries.nodes().get(typeId).orElse(null),
+                new fr.blueprint.api.node.BlueprintHandle() {
+                    @Override
+                    public net.minecraft.resources.Identifier id() {
+                        return bp.id();
+                    }
+
+                    @Override
+                    public boolean enabled() {
+                        return bp.enabled();
+                    }
+                },
+                trigger, varsOf(server), server, server.overworld(), LOGGER);
     }
 
     private static final java.util.Map<net.minecraft.server.MinecraftServer,

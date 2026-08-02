@@ -9,10 +9,14 @@ import java.util.List;
 
 /**
  * Représentation intermédiaire d'un point d'entrée compilé : la liste d'instructions,
- * le nombre de slots à allouer, et la provenance (blueprint + révision — le cache
- * s'invalide quand la révision change).
+ * le nombre de slots, et la provenance complète — blueprint, révision ET nœud d'entrée
+ * ({@code entryNode}, correction 6.1) : sans lui, une exécution suspendue ne peut pas
+ * recompiler la même IR après un redémarrage. Nul pour les IR manuelles (tests),
+ * qui ne sont alors pas persistables.
  */
-public record Ir(Identifier blueprintId, int revision, List<Instruction> instructions, int slotCount) {
+public record Ir(Identifier blueprintId, int revision,
+                 @org.jetbrains.annotations.Nullable java.util.UUID entryNode,
+                 List<Instruction> instructions, int slotCount) {
 
     public Ir {
         // Normalisation : les Call sortent du compilateur avec des tables mutables

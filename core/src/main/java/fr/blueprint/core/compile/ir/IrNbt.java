@@ -33,6 +33,9 @@ public final class IrNbt {
         CompoundTag root = new CompoundTag();
         root.putString("blueprint", ir.blueprintId().toString());
         root.putInt("revision", ir.revision());
+        if (ir.entryNode() != null) {
+            root.putString("entry", ir.entryNode().toString());
+        }
         root.putInt("slots", ir.slotCount());
         ListTag instructions = new ListTag();
         for (Instruction ins : ir.instructions()) {
@@ -132,7 +135,17 @@ public final class IrNbt {
             }
             instructions.add(ins);
         }
-        return new Ir(blueprintId, root.getIntOr("revision", 0), instructions, root.getIntOr("slots", 0));
+        UUID entryNode = null;
+        String entry = root.getStringOr("entry", "");
+        if (!entry.isEmpty()) {
+            try {
+                entryNode = UUID.fromString(entry);
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
+        return new Ir(blueprintId, root.getIntOr("revision", 0), entryNode,
+                instructions, root.getIntOr("slots", 0));
     }
 
     private static @Nullable Instruction decodeInstruction(CompoundTag tag,

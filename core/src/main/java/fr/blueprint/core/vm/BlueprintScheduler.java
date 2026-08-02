@@ -94,8 +94,11 @@ public final class BlueprintScheduler {
         return s == null ? Stats.EMPTY : s.snapshot();
     }
 
-    /** Capture tout l'en-cours pour la sauvegarde (arrêt du monde, story 6.1) et vide les files. */
-    public List<SuspendedExecution> drainForSave() {
+    /**
+     * Capture tout l'en-cours SANS vider les files — pour les sauvegardes périodiques
+     * du monde (6.1) : sauvegarder ne doit pas arrêter les exécutions.
+     */
+    public List<SuspendedExecution> captureForSave() {
         List<SuspendedExecution> out = new ArrayList<>();
         for (Execution e : delayed) {
             out.add(capture(e, e.delayTicks));
@@ -103,6 +106,12 @@ public final class BlueprintScheduler {
         for (Execution e : ready) {
             out.add(capture(e, 1));
         }
+        return out;
+    }
+
+    /** Capture puis vide les files (arrêt définitif). */
+    public List<SuspendedExecution> drainForSave() {
+        List<SuspendedExecution> out = captureForSave();
         delayed.clear();
         ready.clear();
         return out;
@@ -115,8 +124,8 @@ public final class BlueprintScheduler {
         Map<String, Object> triggerValues =
                 e.env.trigger() instanceof fr.blueprint.core.event.TriggerContextImpl impl
                         ? impl.values() : Map.of();
-        return new SuspendedExecution(e.blueprintId, e.ir.revision(), ticks, e.state,
-                e.env.trigger().eventId(), triggerValues);
+        return new SuspendedExecution(e.blueprintId, e.ir.revision(), e.ir.entryNode(),
+                ticks, e.state, e.env.trigger().eventId(), triggerValues);
     }
 
     /** Un tick serveur : échéances, round-robin budgété, police des dépassements. */

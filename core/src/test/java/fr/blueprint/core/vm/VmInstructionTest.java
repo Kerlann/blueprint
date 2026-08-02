@@ -55,7 +55,8 @@ class VmInstructionTest {
     }
 
     private static Ir ir(int slots, Instruction... instructions) {
-        return new Ir(Identifier.fromNamespaceAndPath("test", "ir"), 0, List.of(instructions), slots);
+        return new Ir(Identifier.fromNamespaceAndPath("test", "ir"), 0, null,
+                List.of(instructions), slots);
     }
 
     @Test

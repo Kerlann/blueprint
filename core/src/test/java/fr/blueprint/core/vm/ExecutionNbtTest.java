@@ -33,7 +33,8 @@ class ExecutionNbtTest {
         state.slots()[7] = Direction.UP;
         state.slots()[8] = List.of(1, 2, 3);
         state.locals().put("compteur", 9L);
-        return new SuspendedExecution(Identifier.fromNamespaceAndPath("test", "graph"), 5, 20,
+        return new SuspendedExecution(Identifier.fromNamespaceAndPath("test", "graph"), 5,
+                UUID.fromString("00000000-0000-0000-0000-00000000000e"), 20,
                 state, Identifier.fromNamespaceAndPath("test", "event"),
                 Map.of("uuid", UUID.fromString("00000000-0000-0000-0000-000000000042")));
     }
@@ -48,6 +49,7 @@ class ExecutionNbtTest {
 
         assertEquals(original.blueprintId(), decoded.blueprintId());
         assertEquals(original.revision(), decoded.revision());
+        assertEquals(original.entryNode(), decoded.entryNode());
         assertEquals(original.remainingTicks(), decoded.remainingTicks());
         assertEquals(original.eventId(), decoded.eventId());
         assertEquals(original.state().pc(), decoded.state().pc());
@@ -74,7 +76,7 @@ class ExecutionNbtTest {
         ExecutionState state = ExecutionState.ofSize(1);
         state.slots()[0] = new Object();   // non sérialisable
         var suspended = new SuspendedExecution(Identifier.fromNamespaceAndPath("test", "bad"),
-                0, 10, state, Identifier.fromNamespaceAndPath("test", "event"), Map.of());
+                0, null, 10, state, Identifier.fromNamespaceAndPath("test", "event"), Map.of());
         assertNull(ExecutionNbt.encode(suspended),
                 "jamais de sauvegarde partielle : tout ou rien");
     }

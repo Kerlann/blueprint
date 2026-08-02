@@ -90,7 +90,7 @@ public final class Compiler {
         Compiler compiler = new Compiler(bp, registry);
         compiler.emitNode(startNode);
         return new CompileResult(
-                new Ir(bp.id(), bp.revision(), compiler.out, compiler.nextSlot),
+                new Ir(bp.id(), bp.revision(), startNode, compiler.out, compiler.nextSlot),
                 validation.diagnostics());
     }
 

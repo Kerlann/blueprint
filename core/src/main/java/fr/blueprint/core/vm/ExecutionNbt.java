@@ -53,6 +53,9 @@ public final class ExecutionNbt {
             CompoundTag root = new CompoundTag();
             root.putString("blueprint", suspended.blueprintId().toString());
             root.putInt("revision", suspended.revision());
+            if (suspended.entryNode() != null) {
+                root.putString("entry", suspended.entryNode().toString());
+            }
             root.putInt("ticks", suspended.remainingTicks());
             root.putString("event", suspended.eventId().toString());
             ExecutionState state = suspended.state();
@@ -101,7 +104,12 @@ public final class ExecutionNbt {
             }
             state.locals().putAll(decodeNamed(root.get("locals"), resolver));
             Map<String, Object> trigger = decodeNamed(root.get("trigger"), resolver);
-            return new SuspendedExecution(blueprintId, root.getIntOr("revision", 0),
+            UUID entryNode = null;
+            String entry = root.getStringOr("entry", "");
+            if (!entry.isEmpty()) {
+                entryNode = UUID.fromString(entry);
+            }
+            return new SuspendedExecution(blueprintId, root.getIntOr("revision", 0), entryNode,
                     root.getIntOr("ticks", 0), state, eventId, trigger);
         } catch (Unresolved e) {
             BlueprintMod.LOGGER.info(

@@ -1,4 +1,4 @@
-[00:07:17] [Test worker/ERROR]: Import de « C:\Users\kerla\AppData\Local\Temp\junit-7764458254886433020\corrompu.bp » impossible
+[00:18:35] [Test worker/ERROR]: Import de « C:\Users\kerla\AppData\Local\Temp\junit-17771082554836969021\corrompu.bp » impossible
 java.util.zip.ZipException: Not in GZIP format
 	at java.base/java.util.zip.GZIPInputStream.readHeader(GZIPInputStream.java:197)
 	at java.base/java.util.zip.GZIPInputStream.<init>(GZIPInputStream.java:81)
@@ -89,8 +89,8 @@ java.util.zip.ZipException: Not in GZIP format
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:07:17] [Test worker/INFO]: Compilation de 1 000 nœuds : 22 ms (budget NFR2 : 50 ms)
-[00:07:17] [Test worker/WARN]: Config illisible (C:\Users\kerla\AppData\Local\Temp\junit-623463527431785892\blueprint\config.json), valeurs par défaut appliquées
+[00:18:36] [Test worker/INFO]: Compilation de 1 000 nœuds : 34 ms (budget NFR2 : 50 ms)
+[00:18:36] [Test worker/WARN]: Config illisible (C:\Users\kerla\AppData\Local\Temp\junit-7245449166357903493\blueprint\config.json), valeurs par défaut appliquées
 com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 8 path $.pas
 See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
 	at com.google.gson.Gson.fromJson(Gson.java:1384)
@@ -190,8 +190,8 @@ See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
 	at com.google.gson.internal.bind.TypeAdapters$32$1.read(TypeAdapters.java:915)
 	at com.google.gson.Gson.fromJson(Gson.java:1358)
 	... 86 more
-[00:07:17] [Test worker/WARN]: Le nœud « mymod:score_changed » du mod « spy » n'utilise pas son namespace — convention non respectée
-[00:07:17] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerEvents — il est désactivé, ses nœuds apparaîtront en fantômes
+[00:18:36] [Test worker/WARN]: Le nœud « mymod:score_changed » du mod « spy » n'utilise pas son namespace — convention non respectée
+[00:18:36] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerEvents — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: Événement en doublon : « shared:event » est déjà fourni par « mod_one », refusé pour « mod_two »
 	at fr.blueprint.core.event.EventRegistryImpl.register(EventRegistryImpl.java:36)
 	at fr.blueprint.core.event.EventSystemTest$3.registerEvents(EventSystemTest.java:216)
@@ -279,8 +279,8 @@ java.lang.IllegalStateException: Événement en doublon : « shared:event » est
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:07:17] [Test worker/WARN]: Le nœud « shared:event » du mod « mod_one » n'utilise pas son namespace — convention non respectée
-[00:07:17] [Test worker/ERROR]: Abonné en échec sur l'événement « mymod:ritual_complete »
+[00:18:36] [Test worker/WARN]: Le nœud « shared:event » du mod « mod_one » n'utilise pas son namespace — convention non respectée
+[00:18:36] [Test worker/ERROR]: Abonné en échec sur l'événement « mymod:ritual_complete »
 java.lang.RuntimeException: abonné cassé
 	at fr.blueprint.core.event.EventSystemTest.lambda$faultySubscriberDoesNotStarveOthers$11(EventSystemTest.java:145)
 	at fr.blueprint.core.event.EventDispatcher.deliver(EventDispatcher.java:88)
@@ -367,9 +367,9 @@ java.lang.RuntimeException: abonné cassé
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:07:18] [Test worker/INFO]: Graphe de 200 nœuds : 7873 octets gzip (39 octets/nœud)
-[00:07:18] [Test worker/WARN]: Le nœud « shared:node » du mod « mod_one » n'utilise pas son namespace — convention non respectée
-[00:07:18] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
+[00:18:36] [Test worker/INFO]: Graphe de 200 nœuds : 7873 octets gzip (39 octets/nœud)
+[00:18:37] [Test worker/WARN]: Le nœud « shared:node » du mod « mod_one » n'utilise pas son namespace — convention non respectée
+[00:18:37] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: Nœud en doublon : « shared:node » est déjà fourni par « mod_one », refusé pour « mod_two »
 	at fr.blueprint.core.registry.NodeRegistryImpl.register(NodeRegistryImpl.java:47)
 	at fr.blueprint.core.registry.PluginLoaderTest.lambda$duplicateAcrossModsNamesBothAndIsolatesSecond$4(PluginLoaderTest.java:119)
@@ -457,7 +457,7 @@ java.lang.IllegalStateException: Nœud en doublon : « shared:node » est déjà
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:07:18] [Test worker/ERROR]: Le plugin Blueprint du mod « badmod » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
+[00:18:37] [Test worker/ERROR]: Le plugin Blueprint du mod « badmod » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: boum
 	at fr.blueprint.core.registry.PluginLoaderTest$1.registerNodes(PluginLoaderTest.java:73)
 	at fr.blueprint.core.registry.PluginLoader.load(PluginLoader.java:80)
@@ -544,16 +544,12 @@ java.lang.IllegalStateException: boum
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:07:18] [Test worker/INFO]: Exécution suspendue annulée proprement : joueur 23f7c03e-b618-478d-b895-3f3dde945da4 absent
-[00:07:18] [Test worker/WARN]: Exécution suspendue de « test:bad » non persistable : valeur de type java.lang.Object — elle sera perdue au redémarrage
-[00:07:18] [Test worker/ERROR]: Nœud « sched:boom » en faute
-java.lang.IllegalStateException: nœud cassé
-	at fr.blueprint.core.vm.SchedulerTest.lambda$static$3(SchedulerTest.java:45)
-	at fr.blueprint.core.vm.NodeContextImpl.invoke(NodeContextImpl.java:60)
-	at fr.blueprint.core.vm.BlueprintVm.call(BlueprintVm.java:111)
-	at fr.blueprint.core.vm.BlueprintVm.runMeasured(BlueprintVm.java:51)
-	at fr.blueprint.core.vm.BlueprintScheduler.tick(BlueprintScheduler.java:147)
-	at fr.blueprint.core.vm.SchedulerTest.faultPurgesSiblingExecutionsOfTheSameBlueprint(SchedulerTest.java:312)
+[00:18:37] [Test worker/WARN]: Blueprint indécodable — préservé brut
+java.lang.IllegalArgumentException: Blueprint sans identifiant valide : pas un identifiant valide §§
+	at fr.blueprint.core.graph.GraphNbt.decode(GraphNbt.java:144)
+	at fr.blueprint.core.graph.GraphNbt.decode(GraphNbt.java:134)
+	at fr.blueprint.core.storage.PersistenceHooks.restore(PersistenceHooks.java:44)
+	at fr.blueprint.core.storage.PersistenceTest.corruptBlueprintIsPreservedRawNeverLost(PersistenceTest.java:181)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
 	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
@@ -635,14 +631,17 @@ java.lang.IllegalStateException: nœud cassé
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:07:18] [Test worker/ERROR]: Nœud « sched:boom » en faute
+[00:18:37] [Test worker/INFO]: Exécution suspendue de « test:sleeper » annulée : le blueprint a changé (révision 7 → 8)
+[00:18:37] [Test worker/INFO]: Exécution suspendue annulée proprement : joueur d7c8f713-0fc2-4ac5-95d9-754a24b6a7cc absent
+[00:18:37] [Test worker/WARN]: Exécution suspendue de « test:bad » non persistable : valeur de type java.lang.Object — elle sera perdue au redémarrage
+[00:18:37] [Test worker/ERROR]: Nœud « sched:boom » en faute
 java.lang.IllegalStateException: nœud cassé
 	at fr.blueprint.core.vm.SchedulerTest.lambda$static$3(SchedulerTest.java:45)
 	at fr.blueprint.core.vm.NodeContextImpl.invoke(NodeContextImpl.java:60)
 	at fr.blueprint.core.vm.BlueprintVm.call(BlueprintVm.java:111)
 	at fr.blueprint.core.vm.BlueprintVm.runMeasured(BlueprintVm.java:51)
-	at fr.blueprint.core.vm.BlueprintScheduler.tick(BlueprintScheduler.java:147)
-	at fr.blueprint.core.vm.SchedulerTest.faultNotifiesWithTheGuiltyNodeAndRemoves(SchedulerTest.java:328)
+	at fr.blueprint.core.vm.BlueprintScheduler.tick(BlueprintScheduler.java:156)
+	at fr.blueprint.core.vm.SchedulerTest.faultPurgesSiblingExecutionsOfTheSameBlueprint(SchedulerTest.java:314)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
 	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
@@ -724,14 +723,103 @@ java.lang.IllegalStateException: nœud cassé
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:07:18] [Test worker/ERROR]: Nœud « t:boom » en faute
+[00:18:37] [Test worker/ERROR]: Nœud « sched:boom » en faute
+java.lang.IllegalStateException: nœud cassé
+	at fr.blueprint.core.vm.SchedulerTest.lambda$static$3(SchedulerTest.java:45)
+	at fr.blueprint.core.vm.NodeContextImpl.invoke(NodeContextImpl.java:60)
+	at fr.blueprint.core.vm.BlueprintVm.call(BlueprintVm.java:111)
+	at fr.blueprint.core.vm.BlueprintVm.runMeasured(BlueprintVm.java:51)
+	at fr.blueprint.core.vm.BlueprintScheduler.tick(BlueprintScheduler.java:156)
+	at fr.blueprint.core.vm.SchedulerTest.faultNotifiesWithTheGuiltyNodeAndRemoves(SchedulerTest.java:330)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$8(TestMethodTestDescriptor.java:217)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:213)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:138)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:68)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestClassProcessor$CollectAllTestClassesExecutor.processAllTestClasses(JUnitPlatformTestClassProcessor.java:124)
+	at org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestClassProcessor$CollectAllTestClassesExecutor.access$000(JUnitPlatformTestClassProcessor.java:99)
+	at org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestClassProcessor.stop(JUnitPlatformTestClassProcessor.java:94)
+	at org.gradle.api.internal.tasks.testing.SuiteTestClassProcessor.stop(SuiteTestClassProcessor.java:63)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:36)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:24)
+	at org.gradle.internal.dispatch.ContextClassLoaderDispatch.dispatch(ContextClassLoaderDispatch.java:33)
+	at org.gradle.internal.dispatch.ProxyDispatchAdapter$DispatchingInvocationHandler.invoke(ProxyDispatchAdapter.java:92)
+	at jdk.proxy2/jdk.proxy2.$Proxy6.stop(Unknown Source)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker$3.run(TestWorker.java:200)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.executeAndMaintainThreadName(TestWorker.java:132)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:103)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:63)
+	at org.gradle.process.internal.worker.child.ActionExecutionWorker.execute(ActionExecutionWorker.java:56)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:122)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
+[00:18:37] [Test worker/ERROR]: Nœud « t:boom » en faute
 java.lang.IllegalStateException: cassé exprès
-	at fr.blueprint.core.vm.VmInstructionTest.lambda$throwingActionAndFailBothFaultCleanly$7(VmInstructionTest.java:147)
+	at fr.blueprint.core.vm.VmInstructionTest.lambda$throwingActionAndFailBothFaultCleanly$7(VmInstructionTest.java:148)
 	at fr.blueprint.core.vm.NodeContextImpl.invoke(NodeContextImpl.java:60)
 	at fr.blueprint.core.vm.BlueprintVm.call(BlueprintVm.java:111)
 	at fr.blueprint.core.vm.BlueprintVm.runMeasured(BlueprintVm.java:51)
 	at fr.blueprint.core.vm.BlueprintVm.run(BlueprintVm.java:29)
-	at fr.blueprint.core.vm.VmInstructionTest.throwingActionAndFailBothFaultCleanly(VmInstructionTest.java:161)
+	at fr.blueprint.core.vm.VmInstructionTest.throwingActionAndFailBothFaultCleanly(VmInstructionTest.java:162)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
 	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)
@@ -813,15 +901,15 @@ java.lang.IllegalStateException: cassé exprès
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:07:18] [Test worker/ERROR]: Nœud « t:needy » en faute
+[00:18:37] [Test worker/ERROR]: Nœud « t:needy » en faute
 java.lang.IllegalStateException: Nœud « t:needy » : le pin « target » n'a ni valeur ni défaut — câblage manquant ou producteur non exécuté
 	at fr.blueprint.core.vm.NodeContextImpl.in(NodeContextImpl.java:85)
-	at fr.blueprint.core.vm.VmInstructionTest.lambda$missingInputWithoutDefaultFaultsNamingThePin$10(VmInstructionTest.java:176)
+	at fr.blueprint.core.vm.VmInstructionTest.lambda$missingInputWithoutDefaultFaultsNamingThePin$10(VmInstructionTest.java:177)
 	at fr.blueprint.core.vm.NodeContextImpl.invoke(NodeContextImpl.java:60)
 	at fr.blueprint.core.vm.BlueprintVm.call(BlueprintVm.java:111)
 	at fr.blueprint.core.vm.BlueprintVm.runMeasured(BlueprintVm.java:51)
 	at fr.blueprint.core.vm.BlueprintVm.run(BlueprintVm.java:29)
-	at fr.blueprint.core.vm.VmInstructionTest.missingInputWithoutDefaultFaultsNamingThePin(VmInstructionTest.java:180)
+	at fr.blueprint.core.vm.VmInstructionTest.missingInputWithoutDefaultFaultsNamingThePin(VmInstructionTest.java:181)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
 	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:767)

@@ -34,6 +34,13 @@ public final class BlueprintEventBridge {
     private final BlueprintScheduler scheduler;
     private final EnvFactory envFactory;
     private final Map<String, Ir> irCache = new HashMap<>();
+    // Index des nœuds d'entrée par blueprint, keyé par révision (QA BRIDGE-001) : le
+    // parcours par émission passe de O(blueprints × nœuds) à O(blueprints) avec une
+    // comparaison d'entier ; reconstruction par blueprint seulement quand il est édité.
+    private final Map<Identifier, EntryIndex> entryCache = new HashMap<>();
+
+    private record EntryIndex(int revision, Map<Identifier, java.util.List<java.util.UUID>> byEvent) {
+    }
 
     public BlueprintEventBridge(BlueprintManager manager, NodeRegistryImpl nodes,
                                 BlueprintScheduler scheduler, EnvFactory envFactory) {
@@ -51,9 +58,6 @@ public final class BlueprintEventBridge {
     }
 
     private void launchMatching(Identifier eventId, TriggerContext trigger) {
-        // Sortie anticipée (QA BRIDGE-001) : server_tick passe ici chaque tick — le cas
-        // « aucun blueprint » doit coûter zéro. L'indexation événement → nœuds d'entrée
-        // (avec invalidation au cycle de vie) arrive avec la 6.1.
         if (manager.all().isEmpty()) {
             return;
         }
@@ -61,26 +65,43 @@ public final class BlueprintEventBridge {
             if (!bp.enabled()) {
                 continue;
             }
-            for (Node node : bp.nodes().values()) {
-                if (!node.typeId().equals(eventId)) {
-                    continue;
-                }
-                Ir ir = compiled(bp, node);
+            EntryIndex index = entryCache.get(bp.id());
+            if (index == null || index.revision() != bp.revision()) {
+                index = scan(bp);
+                entryCache.put(bp.id(), index);
+            }
+            for (java.util.UUID entryNode : index.byEvent().getOrDefault(eventId, java.util.List.of())) {
+                Ir ir = compiled(bp, entryNode);
                 if (ir != null) {
                     scheduler.launch(bp.id(), ir, envFactory.create(bp, trigger));
                 }
             }
         }
+        // Purge des blueprints disparus (peu fréquent, coût borné par la taille du cache).
+        entryCache.keySet().removeIf(id -> manager.get(id).isEmpty());
+    }
+
+    /** Recense les nœuds d'entrée d'un blueprint, groupés par événement. */
+    private EntryIndex scan(Blueprint bp) {
+        Map<Identifier, java.util.List<java.util.UUID>> byEvent = new HashMap<>();
+        for (Node node : bp.nodes().values()) {
+            boolean entry = nodes.get(node.typeId())
+                    .map(fr.blueprint.api.node.NodeType::entryPoint).orElse(false);
+            if (entry) {
+                byEvent.computeIfAbsent(node.typeId(), k -> new java.util.ArrayList<>()).add(node.uuid());
+            }
+        }
+        return new EntryIndex(bp.revision(), byEvent);
     }
 
     /** Compile depuis le nœud d'événement, avec cache invalidé par la révision. */
-    private @org.jetbrains.annotations.Nullable Ir compiled(Blueprint bp, Node entry) {
-        String key = bp.id() + "#" + entry.uuid() + "@" + bp.revision();
+    private @org.jetbrains.annotations.Nullable Ir compiled(Blueprint bp, java.util.UUID entry) {
+        String key = bp.id() + "#" + entry + "@" + bp.revision();
         Ir cached = irCache.get(key);
         if (cached != null) {
             return cached;
         }
-        Compiler.CompileResult result = Compiler.compile(bp, nodes, entry.uuid());
+        Compiler.CompileResult result = Compiler.compile(bp, nodes, entry);
         if (!result.success()) {
             BlueprintMod.LOGGER.warn("Blueprint « {} » non exécutable ({} diagnostic(s)) — déclenchement ignoré",
                     bp.id(), result.diagnostics().size());

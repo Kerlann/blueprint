@@ -225,8 +225,10 @@ class SchedulerTest {
         SuspendedExecution reloaded = ExecutionNbt.decode(nbt, RefResolver.NONE);
         assertNotNull(reloaded);
         assertEquals(c.ir().revision(), reloaded.revision(), "contrôle de révision du cache");
+        assertEquals(start, reloaded.entryNode(), "le nœud d'entrée traverse la persistance (6.1)");
         var freshScheduler = scheduler(100);
-        Ir recompiled = compiled(bp, start).ir();
+        // La recompilation utilise le nœud d'entrée PERSISTÉ — plus de connaissance externe.
+        Ir recompiled = compiled(bp, reloaded.entryNode()).ir();
         freshScheduler.resume(reloaded, recompiled, env(bp.id()));
 
         for (int i = 0; i < reloaded.remainingTicks(); i++) {
