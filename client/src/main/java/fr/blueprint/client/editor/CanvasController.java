@@ -1,10 +1,16 @@
 package fr.blueprint.client.editor;
 
+import fr.blueprint.api.pin.PinKind;
+import fr.blueprint.api.pin.PinType;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.EditOperation;
+import fr.blueprint.core.graph.GraphValidator;
+import fr.blueprint.core.graph.Link;
 import fr.blueprint.core.graph.Node;
+import fr.blueprint.core.graph.NodeShape;
 import fr.blueprint.core.graph.NodeTypeLookup;
 import fr.blueprint.core.graph.Vec2d;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -23,7 +29,19 @@ import java.util.UUID;
  */
 public final class CanvasController {
 
-    public enum Gesture { NONE, MOVE, RUBBER }
+    public enum Gesture { NONE, MOVE, RUBBER, WIRE }
+
+    /** Rayon de saisie d'un pin, en unités monde. */
+    public static final double PIN_HIT_RADIUS = 6;
+
+    /** Un pin identifié sur un nœud : côté, rangée, et son type pour la compatibilité. */
+    public record PinRef(UUID node, String pin, PinKind kind, PinType type,
+                         boolean output, int row) {
+    }
+
+    /** Relâche d'un lien dans le vide : la palette s'ouvre filtrée (5.4a). */
+    public record WireDrop(double worldX, double worldY, PinRef from) {
+    }
 
     private final Blueprint blueprint;
     private final NodeTypeLookup lookup;
@@ -39,6 +57,12 @@ public final class CanvasController {
     private double rubberStartY;
     private double rubberEndX;
     private double rubberEndY;
+    private @Nullable PinRef wireFrom;
+    private double wireX;
+    private double wireY;
+    /** Index boîte par nœud, reconstruit avec le cache de géométrie. */
+    private final Map<UUID, NodeGeometry.Box> boxIndex = new HashMap<>();
+    private int boxIndexRevision = -1;
 
     public CanvasController(Blueprint blueprint, NodeTypeLookup lookup, Camera camera) {
         this.blueprint = blueprint;
@@ -78,10 +102,127 @@ public final class CanvasController {
         return null;
     }
 
+    /** Boîte d'un nœud par identifiant (index reconstruit à la révision). */
+    public @Nullable NodeGeometry.Box boxOf(UUID node) {
+        List<NodeGeometry.Box> boxes = boxes();
+        if (blueprint.revision() != boxIndexRevision) {
+            boxIndexRevision = blueprint.revision();
+            boxIndex.clear();
+            for (int i = 0; i < boxes.size(); i++) {
+                boxIndex.put(boxes.get(i).node().uuid(), boxes.get(i));
+            }
+        }
+        return boxIndex.get(node);
+    }
+
+    // --------------------------------------------------------------------- pins
+
+    /** Le pin sous le point donné (rayon {@link #PIN_HIT_RADIUS}), ou null. */
+    public @Nullable PinRef pinAt(double wx, double wy) {
+        List<NodeGeometry.Box> boxes = boxes();
+        double r2 = PIN_HIT_RADIUS * PIN_HIT_RADIUS;
+        for (int i = boxes.size() - 1; i >= 0; i--) {
+            NodeGeometry.Box b = boxes.get(i);
+            NodeShape shape = lookup.shape(b.node().typeId());
+            if (shape == null) {
+                continue; // fantôme : pas de câblage tant que la forme est inconnue
+            }
+            for (int row = 0; row < shape.inputs().size(); row++) {
+                if (dist2(NodeGeometry.inputPinCenter(b, row), wx, wy) <= r2) {
+                    NodeShape.PinDef def = shape.inputs().get(row);
+                    return new PinRef(b.node().uuid(), def.name(), def.kind(), def.type(), false, row);
+                }
+            }
+            for (int row = 0; row < shape.outputs().size(); row++) {
+                if (dist2(NodeGeometry.outputPinCenter(b, row), wx, wy) <= r2) {
+                    NodeShape.PinDef def = shape.outputs().get(row);
+                    return new PinRef(b.node().uuid(), def.name(), def.kind(), def.type(), true, row);
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Centre monde d'un pin nommé, ou null (nœud absent, fantôme, pin inconnu). */
+    public @Nullable Vec2d pinCenter(UUID node, String pin) {
+        NodeGeometry.Box box = boxOf(node);
+        Node n = blueprint.node(node);
+        if (box == null || n == null) {
+            return null;
+        }
+        NodeShape shape = lookup.shape(n.typeId());
+        if (shape == null) {
+            return null;
+        }
+        for (int row = 0; row < shape.inputs().size(); row++) {
+            if (shape.inputs().get(row).name().equals(pin)) {
+                return NodeGeometry.inputPinCenter(box, row);
+            }
+        }
+        for (int row = 0; row < shape.outputs().size(); row++) {
+            if (shape.outputs().get(row).name().equals(pin)) {
+                return NodeGeometry.outputPinCenter(box, row);
+            }
+        }
+        return null;
+    }
+
+    /** Définition d'un pin nommé (pour la couleur des liens), ou null. */
+    public @Nullable NodeShape.PinDef pinDef(UUID node, String pin) {
+        Node n = blueprint.node(node);
+        NodeShape shape = n == null ? null : lookup.shape(n.typeId());
+        if (shape == null) {
+            return null;
+        }
+        NodeShape.PinDef def = shape.output(pin);
+        return def != null ? def : shape.input(pin);
+    }
+
+    /**
+     * Le lien hypothétique depuis {@code from} vers ce pin passerait-il ?
+     * Délégué à {@code GraphValidator.canLink} — la source de vérité du câblage.
+     */
+    public boolean canConnect(PinRef from, UUID node, String pin, boolean pinIsOutput) {
+        if (from.output() == pinIsOutput) {
+            return false;
+        }
+        return GraphValidator.canLink(blueprint, lookup, buildLink(from, node, pin)) == null;
+    }
+
+    private static Link buildLink(PinRef from, UUID node, String pin) {
+        return from.output()
+                ? new Link(from.node(), from.pin(), node, pin)
+                : new Link(node, pin, from.node(), from.pin());
+    }
+
+    private static double dist2(Vec2d p, double wx, double wy) {
+        double dx = p.x() - wx;
+        double dy = p.y() - wy;
+        return dx * dx + dy * dy;
+    }
+
     // ------------------------------------------------------------------- gestes
 
     /** Presse du bouton gauche en coordonnées monde. */
     public void press(double wx, double wy, boolean additive) {
+        press(wx, wy, additive, false);
+    }
+
+    /** Presse du bouton gauche ; Alt+clic sur un pin câblé détache ses liens. */
+    public void press(double wx, double wy, boolean additive, boolean alt) {
+        PinRef pin = pinAt(wx, wy);
+        if (pin != null) {
+            if (alt) {
+                detach(pin);
+                gesture = Gesture.NONE;
+                return;
+            }
+            wireFrom = pin;
+            wireX = wx;
+            wireY = wy;
+            gesture = Gesture.WIRE;
+            return;
+        }
         NodeGeometry.Box hit = hitTest(wx, wy);
         if (hit == null) {
             if (!additive) {
@@ -106,6 +247,10 @@ public final class CanvasController {
 
     public void drag(double wx, double wy) {
         switch (gesture) {
+            case WIRE -> {
+                wireX = wx;
+                wireY = wy;
+            }
             case RUBBER -> {
                 rubberEndX = wx;
                 rubberEndY = wy;
@@ -129,8 +274,25 @@ public final class CanvasController {
         }
     }
 
-    /** Relâche du bouton gauche ; termine le rectangle élastique le cas échéant. */
-    public void release(boolean additive) {
+    /**
+     * Relâche du bouton gauche. Retourne un {@link WireDrop} si un lien a été lâché
+     * dans le vide — le widget y ouvre la palette filtrée (5.4a).
+     */
+    public @Nullable WireDrop release(boolean additive) {
+        if (gesture == Gesture.WIRE && wireFrom != null) {
+            PinRef from = wireFrom;
+            wireFrom = null;
+            gesture = Gesture.NONE;
+            PinRef target = pinAt(wireX, wireY);
+            if (target == null) {
+                return new WireDrop(wireX, wireY, from);
+            }
+            if (from.output() != target.output()) {
+                // canLink refuse types, cardinalité, cycles : rien à dupliquer ici.
+                apply(new EditOperation.AddLink(buildLink(from, target.node(), target.pin())));
+            }
+            return null;
+        }
         if (gesture == Gesture.RUBBER) {
             Camera.Rect rect = rubberRect();
             List<UUID> hits = new ArrayList<>();
@@ -145,6 +307,56 @@ public final class CanvasController {
             selection.selectAll(hits, true);
         }
         gesture = Gesture.NONE;
+        return null;
+    }
+
+    /** Pin d'origine du lien en cours de tracé, ou null hors geste. */
+    public @Nullable PinRef wireFrom() {
+        return gesture == Gesture.WIRE ? wireFrom : null;
+    }
+
+    public double wireCursorX() {
+        return wireX;
+    }
+
+    public double wireCursorY() {
+        return wireY;
+    }
+
+    /** Détache tous les liens touchant ce pin (Alt+clic). */
+    private void detach(PinRef pin) {
+        List<Link> links = pin.output()
+                ? blueprint.linksFrom(pin.node(), pin.pin())
+                : blueprint.linksInto(pin.node(), pin.pin());
+        for (Link link : List.copyOf(links)) {
+            apply(new EditOperation.RemoveLink(link));
+        }
+    }
+
+    /**
+     * Insère un nœud (palette) à la position monde donnée, accrochée ; si un pin
+     * source est fourni, connecte le premier pin compatible — validé par
+     * {@code canLink} maintenant que le nœud existe.
+     */
+    public @Nullable UUID insertNode(Identifier typeId, double wx, double wy, @Nullable PinRef from) {
+        UUID id = UUID.randomUUID();
+        Vec2d pos = camera.snap(new Vec2d(wx, wy));
+        if (!applyTracked(new EditOperation.AddNode(id, typeId, pos))) {
+            return null;
+        }
+        if (from != null) {
+            NodeShape shape = lookup.shape(typeId);
+            if (shape != null) {
+                List<NodeShape.PinDef> candidates = from.output() ? shape.inputs() : shape.outputs();
+                for (int i = 0; i < candidates.size(); i++) {
+                    if (applyTracked(new EditOperation.AddLink(
+                            buildLink(from, id, candidates.get(i).name())))) {
+                        break;
+                    }
+                }
+            }
+        }
+        return id;
     }
 
     /** Rectangle élastique courant (normalisé), ou null hors geste. */
@@ -171,9 +383,14 @@ public final class CanvasController {
     }
 
     private void apply(EditOperation op) {
+        applyTracked(op);
+    }
+
+    private boolean applyTracked(EditOperation op) {
         EditOperation.Result result = op.apply(blueprint, lookup);
         if (result.applied() && result.inverse() != null) {
             inverses.add(result.inverse());
         }
+        return result.applied();
     }
 }

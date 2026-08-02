@@ -5,6 +5,7 @@ import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.NodeTypeLookup;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -75,6 +76,11 @@ public final class BlueprintEditorScreen extends Screen {
     @Override
     public boolean keyReleased(KeyEvent event) {
         return canvas.keyReleased(event) || super.keyReleased(event);
+    }
+
+    @Override
+    public boolean charTyped(CharacterEvent event) {
+        return canvas.charTyped(event) || super.charTyped(event);
     }
 
     @Override

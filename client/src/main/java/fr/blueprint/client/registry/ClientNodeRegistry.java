@@ -35,4 +35,9 @@ public final class ClientNodeRegistry {
     public @Nullable NodeDescriptor descriptor(Identifier typeId) {
         return descriptors.get(typeId);
     }
+
+    /** Tous les descripteurs connus (alimente la palette). */
+    public java.util.Collection<NodeDescriptor> descriptors() {
+        return descriptors.values();
+    }
 }

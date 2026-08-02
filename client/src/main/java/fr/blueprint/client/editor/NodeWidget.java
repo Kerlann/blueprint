@@ -32,12 +32,18 @@ public final class NodeWidget {
     private static final double TITLE_FADE_ZOOM = 0.35;
     private static final double DETAIL_FADE_ZOOM = 0.5;
 
+    /** Pin à atténuer pendant un tracé de lien (cible incompatible, UX §5). */
+    public interface PinDimmer {
+        boolean dimmed(String pin, boolean output);
+    }
+
     private NodeWidget() {
     }
 
     public static void render(GuiGraphics g, Font font, NodeGeometry.Box box,
                               @Nullable NodeDescriptor desc, boolean selected,
-                              double zoom, double screenX, double screenY) {
+                              double zoom, double screenX, double screenY,
+                              @Nullable PinDimmer dimmer) {
         int w = (int) Math.round(box.width());
         int h = (int) Math.round(box.height());
         g.pose().pushMatrix();
@@ -59,13 +65,13 @@ public final class NodeWidget {
         if (ghost) {
             renderGhostContent(g, font, box.node().typeId(), w, zoom);
         } else {
-            renderContent(g, font, desc, w, zoom);
+            renderContent(g, font, desc, w, zoom, dimmer);
         }
         g.pose().popMatrix();
     }
 
     private static void renderContent(GuiGraphics g, Font font, NodeDescriptor desc,
-                                      int w, double zoom) {
+                                      int w, double zoom, @Nullable PinDimmer dimmer) {
         g.fill(1, 1, w - 1, (int) NodeGeometry.TITLE_HEIGHT,
                 (categoryColor(desc.category()) & 0x00FFFFFF) | HEADER_ALPHA);
         if (zoom < TITLE_FADE_ZOOM) {
@@ -80,20 +86,28 @@ public final class NodeWidget {
         for (int i = 0; i < desc.inputs().size(); i++) {
             NodeDescriptor.PinDescriptor pin = desc.inputs().get(i);
             int cy = rowCenterY(i);
-            drawPin(g, pin.type().shape(), pin.type().color(), (int) NodeGeometry.PIN_INSET, cy);
+            boolean dim = dimmer != null && dimmer.dimmed(pin.name(), false);
+            drawPin(g, pin.type().shape(), dim(pin.type().color(), dim),
+                    (int) NodeGeometry.PIN_INSET, cy);
             String label = font.plainSubstrByWidth(pin.name(), w / 2 - 14);
             g.drawString(font, label, (int) NodeGeometry.PIN_INSET + 7, cy - 4,
-                    PIN_LABEL_COLOR, false);
+                    dim(PIN_LABEL_COLOR, dim), false);
         }
         for (int i = 0; i < desc.outputs().size(); i++) {
             NodeDescriptor.PinDescriptor pin = desc.outputs().get(i);
             int cy = rowCenterY(i);
             int cx = w - (int) NodeGeometry.PIN_INSET;
-            drawPin(g, pin.type().shape(), pin.type().color(), cx, cy);
+            boolean dim = dimmer != null && dimmer.dimmed(pin.name(), true);
+            drawPin(g, pin.type().shape(), dim(pin.type().color(), dim), cx, cy);
             String label = font.plainSubstrByWidth(pin.name(), w / 2 - 14);
             g.drawString(font, label, cx - 7 - font.width(label), cy - 4,
-                    PIN_LABEL_COLOR, false);
+                    dim(PIN_LABEL_COLOR, dim), false);
         }
+    }
+
+    /** Cible incompatible pendant un tracé : ~30 % d'opacité (UX §5). */
+    private static int dim(int color, boolean dim) {
+        return dim ? (color & 0x00FFFFFF) | 0x4D000000 : color;
     }
 
     private static void renderGhostContent(GuiGraphics g, Font font, Identifier typeId,

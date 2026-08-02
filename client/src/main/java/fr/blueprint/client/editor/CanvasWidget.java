@@ -3,14 +3,19 @@ package fr.blueprint.client.editor;
 import fr.blueprint.client.registry.ClientNodeRegistry;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.NodeTypeLookup;
+import fr.blueprint.core.registry.NodeDescriptor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.resources.language.I18n;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Le canevas de l'éditeur : grille, nœuds rendus depuis leurs descripteurs, pan/zoom,
@@ -30,6 +35,7 @@ public final class CanvasWidget {
     private final ClientNodeRegistry descriptors;
     private final Camera camera = new Camera();
     private final CanvasController controller;
+    private final PaletteState palette;
     /** Tampon réutilisé chaque image : pas d'allocation dans la passe de rendu. */
     private final List<NodeGeometry.Box> visible = new ArrayList<>();
 
@@ -41,6 +47,14 @@ public final class CanvasWidget {
     public CanvasWidget(Blueprint blueprint, NodeTypeLookup lookup, ClientNodeRegistry descriptors) {
         this.descriptors = descriptors;
         this.controller = new CanvasController(blueprint, lookup, camera);
+        // Titres et descriptions traduits une fois à l'ouverture ; l'index reste pur.
+        List<NodeSearch.Entry> entries = new ArrayList<>();
+        for (NodeDescriptor d : descriptors.descriptors()) {
+            entries.add(new NodeSearch.Entry(d.id(), I18n.get(d.titleKey()),
+                    I18n.get(d.descKey()), d.category()));
+        }
+        entries.sort(Comparator.comparing(NodeSearch.Entry::title));
+        this.palette = new PaletteState(new NodeSearch(entries), descriptors::descriptor);
     }
 
     public Camera camera() {
@@ -66,8 +80,11 @@ public final class CanvasWidget {
     public void render(GuiGraphics g, Font font) {
         g.fill(0, 0, width, height, BACKGROUND);
         renderGrid(g);
+        WireLayer.renderLinks(g, camera, controller, width, height);
         renderNodes(g, font);
         renderRubber(g);
+        WireLayer.renderPreview(g, camera, controller);
+        PalettePopup.render(g, font, palette, width, height);
     }
 
     private void renderGrid(GuiGraphics g) {
@@ -103,11 +120,20 @@ public final class CanvasWidget {
             }
         }
         double z = camera.zoom();
+        CanvasController.PinRef wireFrom = controller.wireFrom();
         for (int i = 0; i < visible.size(); i++) {
             NodeGeometry.Box b = visible.get(i);
+            UUID uuid = b.node().uuid();
+            NodeWidget.PinDimmer dimmer = wireFrom == null ? null : (pin, output) -> {
+                if (uuid.equals(wireFrom.node()) && pin.equals(wireFrom.pin())
+                        && output == wireFrom.output()) {
+                    return false; // le pin saisi reste net
+                }
+                return !controller.canConnect(wireFrom, uuid, pin, output);
+            };
             NodeWidget.render(g, font, b, descriptors.descriptor(b.node().typeId()),
-                    controller.selection().isSelected(b.node().uuid()), z,
-                    camera.toScreenX(b.x()), camera.toScreenY(b.y()));
+                    controller.selection().isSelected(uuid), z,
+                    camera.toScreenX(b.x()), camera.toScreenY(b.y()), dimmer);
         }
     }
 
@@ -130,13 +156,34 @@ public final class CanvasWidget {
     // -------------------------------------------------------------------- entrées
 
     public boolean mouseClicked(MouseButtonEvent e) {
+        if (palette.isOpen()) {
+            if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                int row = PalettePopup.rowAt(palette, e.x(), e.y(), width, height);
+                if (row >= 0) {
+                    palette.select(row);
+                    insertFromPalette();
+                    return true;
+                }
+                if (!PalettePopup.contains(palette, e.x(), e.y(), width, height)) {
+                    palette.close();
+                }
+                return true;
+            }
+            palette.close();
+            return true;
+        }
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
                 || (spaceDown && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
             panning = true;
             return true;
         }
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            palette.open(e.x(), e.y(), camera.toWorldX(e.x()), camera.toWorldY(e.y()), null);
+            return true;
+        }
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            controller.press(camera.toWorldX(e.x()), camera.toWorldY(e.y()), e.hasShiftDown());
+            controller.press(camera.toWorldX(e.x()), camera.toWorldY(e.y()),
+                    e.hasShiftDown(), e.hasAltDown());
             return true;
         }
         return false;
@@ -148,7 +195,12 @@ public final class CanvasWidget {
             return true;
         }
         if (controller.gesture() != CanvasController.Gesture.NONE) {
-            controller.release(e.hasShiftDown());
+            CanvasController.WireDrop drop = controller.release(e.hasShiftDown());
+            if (drop != null) {
+                // FR29 : lien lâché dans le vide → palette filtrée par le type transporté.
+                palette.open(camera.toScreenX(drop.worldX()), camera.toScreenY(drop.worldY()),
+                        drop.worldX(), drop.worldY(), drop.from());
+            }
             return true;
         }
         return false;
@@ -175,6 +227,18 @@ public final class CanvasWidget {
     }
 
     public boolean keyPressed(KeyEvent e) {
+        if (palette.isOpen()) {
+            switch (e.key()) {
+                case GLFW.GLFW_KEY_ESCAPE -> palette.close();
+                case GLFW.GLFW_KEY_UP -> palette.moveSelection(-1);
+                case GLFW.GLFW_KEY_DOWN -> palette.moveSelection(1);
+                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> insertFromPalette();
+                case GLFW.GLFW_KEY_BACKSPACE -> palette.backspace();
+                default -> {
+                }
+            }
+            return true; // la palette capte tout le clavier tant qu'elle est ouverte
+        }
         switch (e.key()) {
             case GLFW.GLFW_KEY_SPACE -> {
                 spaceDown = true;
@@ -218,5 +282,22 @@ public final class CanvasWidget {
             return true;
         }
         return false;
+    }
+
+    public boolean charTyped(CharacterEvent e) {
+        if (palette.isOpen() && e.isAllowedChatCharacter()) {
+            palette.type(e.codepointAsString());
+            return true;
+        }
+        return false;
+    }
+
+    private void insertFromPalette() {
+        NodeSearch.Entry entry = palette.selectedEntry();
+        if (entry != null) {
+            controller.insertNode(entry.id(), palette.worldX(), palette.worldY(),
+                    palette.wireFrom());
+        }
+        palette.close();
     }
 }

@@ -96,6 +96,7 @@ D:\Blueprint\
 │  │  ├─ BlueprintEditorScreen.java
 │  │  ├─ CanvasWidget.java  Camera.java  SelectionModel.java
 │  │  ├─ CanvasController.java  NodeGeometry.java   logique pure testée headless (5.1/5.2a)
+│  │  ├─ NodeSearch.java  PaletteState.java   recherche et état de palette, purs (5.4a)
 │  │  ├─ NodeWidget.java  PinWidget.java  WireLayer.java
 │  │  ├─ PalettePopup.java  NodeSearch.java
 │  │  ├─ VariablePanel.java  DetailsPanel.java  DiagnosticsPanel.java
