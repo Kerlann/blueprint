@@ -1,0 +1,29 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "1.4"
+story_title: "Sérialisation NBT"
+gate: "PASS"
+status_reason: "Round-trip 200 nœuds identique, préservation à l'octet près sans le mod (garantie la plus forte du projet), SER-001 et GHOST-001 soldés, 139 tests verts, couverture 93 %. Deux observations low."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T20:31:41Z"
+
+waiver: { active: false }
+
+top_issues:
+  - id: "PRESERVE-001"
+    severity: low
+    finding: "Sur un nœud fantôme, SetLiteral (non contrôlé, P4) peut poser un littéral résolu sur un pin qui possède DÉJÀ une entrée préservée brute du même nom : à l'encodage les deux sont émis, et au rechargement avec le mod présent c'est le dernier qui gagne silencieusement"
+    suggested_action: "Dédupliquer par nom de pin à l'encodage (le littéral résolu prime), ou faire refuser SetLiteral quand une entrée préservée du même nom existe — au plus tard quand l'éditeur exposera les fantômes (épic 5)"
+  - id: "SCHEMA-001"
+    severity: low
+    finding: "Un NBT sans champ « schema » est traité comme étant au schéma courant (getIntOr(schema, CURRENT)) : indulgent, mais peut masquer une corruption ou un fichier étranger"
+    suggested_action: "Quand BlueprintStorage arrivera (6.1), traiter l'absence de schéma comme une entrée corrompue à signaler dans le rapport de chargement, pas comme un défaut silencieux"
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "PRESERVE-001 à trancher quand l'éditeur exposera les nœuds fantômes (épic 5)"
+      - "SCHEMA-001 dans le rapport de chargement de la 6.1"
+      - "Déterminisme des octets NBT non requis (c'est l'affaire de BScript, FR23) — ne pas s'en préoccuper avant la 4.2"
