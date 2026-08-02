@@ -10,6 +10,7 @@ import net.minecraft.resources.Identifier;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
@@ -43,7 +44,11 @@ public final class EventDispatcher implements EventSink {
     }
 
     private final ThreadGate gate;
-    private final Map<Identifier, List<EventSubscriber>> subscribers = new LinkedHashMap<>();
+    // ConcurrentHashMap obligatoire : fire() lit cette map potentiellement HORS du
+    // thread serveur (c'est le contrat AC3), pendant que subscribe/unsubscribe la
+    // mutent sur le thread serveur. Les listes sont des CopyOnWriteArrayList pour la
+    // même raison. (Correction QA EVT-001, review 2.5.)
+    private final Map<Identifier, List<EventSubscriber>> subscribers = new ConcurrentHashMap<>();
 
     public EventDispatcher(ThreadGate gate) {
         this.gate = gate;

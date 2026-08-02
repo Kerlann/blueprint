@@ -1,4 +1,4 @@
-[23:10:22] [Test worker/WARN]: Config illisible (C:\Users\kerla\AppData\Local\Temp\junit-4716270022152329116\blueprint\config.json), valeurs par défaut appliquées
+[23:13:33] [Test worker/WARN]: Config illisible (C:\Users\kerla\AppData\Local\Temp\junit-517184595242000893\blueprint\config.json), valeurs par défaut appliquées
 com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 8 path $.pas
 See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
 	at com.google.gson.Gson.fromJson(Gson.java:1384)
@@ -98,7 +98,7 @@ See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
 	at com.google.gson.internal.bind.TypeAdapters$32$1.read(TypeAdapters.java:915)
 	at com.google.gson.Gson.fromJson(Gson.java:1358)
 	... 86 more
-[23:10:22] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerEvents — il est désactivé, ses nœuds apparaîtront en fantômes
+[23:13:33] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerEvents — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: Événement en doublon : « shared:event » est déjà fourni par « mod_one », refusé pour « mod_two »
 	at fr.blueprint.core.event.EventRegistryImpl.register(EventRegistryImpl.java:36)
 	at fr.blueprint.core.event.EventSystemTest$3.registerEvents(EventSystemTest.java:216)
@@ -185,11 +185,11 @@ java.lang.IllegalStateException: Événement en doublon : « shared:event » est
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[23:10:22] [Test worker/ERROR]: Abonné en échec sur l'événement « mymod:ritual_complete »
+[23:13:33] [Test worker/ERROR]: Abonné en échec sur l'événement « mymod:ritual_complete »
 java.lang.RuntimeException: abonné cassé
 	at fr.blueprint.core.event.EventSystemTest.lambda$faultySubscriberDoesNotStarveOthers$11(EventSystemTest.java:145)
-	at fr.blueprint.core.event.EventDispatcher.deliver(EventDispatcher.java:83)
-	at fr.blueprint.core.event.EventDispatcher.fire(EventDispatcher.java:71)
+	at fr.blueprint.core.event.EventDispatcher.deliver(EventDispatcher.java:88)
+	at fr.blueprint.core.event.EventDispatcher.fire(EventDispatcher.java:76)
 	at fr.blueprint.core.event.EventSystemTest.faultySubscriberDoesNotStarveOthers(EventSystemTest.java:148)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
@@ -272,9 +272,9 @@ java.lang.RuntimeException: abonné cassé
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[23:10:22] [Test worker/INFO]: Graphe de 200 nœuds : 7873 octets gzip (39 octets/nœud)
-[23:10:23] [Test worker/WARN]: Le nœud « shared:node » du mod « mod_one » n'utilise pas son namespace — convention non respectée
-[23:10:23] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
+[23:13:33] [Test worker/INFO]: Graphe de 200 nœuds : 7873 octets gzip (39 octets/nœud)
+[23:13:34] [Test worker/WARN]: Le nœud « shared:node » du mod « mod_one » n'utilise pas son namespace — convention non respectée
+[23:13:34] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: Nœud en doublon : « shared:node » est déjà fourni par « mod_one », refusé pour « mod_two »
 	at fr.blueprint.core.registry.NodeRegistryImpl.register(NodeRegistryImpl.java:47)
 	at fr.blueprint.core.registry.PluginLoaderTest.lambda$duplicateAcrossModsNamesBothAndIsolatesSecond$4(PluginLoaderTest.java:119)
@@ -361,7 +361,7 @@ java.lang.IllegalStateException: Nœud en doublon : « shared:node » est déjà
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[23:10:23] [Test worker/ERROR]: Le plugin Blueprint du mod « badmod » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
+[23:13:34] [Test worker/ERROR]: Le plugin Blueprint du mod « badmod » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: boum
 	at fr.blueprint.core.registry.PluginLoaderTest$1.registerNodes(PluginLoaderTest.java:73)
 	at fr.blueprint.core.registry.PluginLoader.load(PluginLoader.java:69)
