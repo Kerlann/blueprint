@@ -143,6 +143,21 @@ public final class Blueprint {
         revision++;
     }
 
+    void setRevision(int revision) {
+        this.revision = revision;
+    }
+
+    // Variables au type irrésoluble (mod retiré) : NBT brut, ré-émis tel quel (P4).
+    private net.minecraft.nbt.ListTag preservedVariables = new net.minecraft.nbt.ListTag();
+
+    net.minecraft.nbt.ListTag preservedVariables() {
+        return preservedVariables;
+    }
+
+    void setPreservedVariables(net.minecraft.nbt.ListTag preserved) {
+        this.preservedVariables = preserved;
+    }
+
     /** Copie profonde, pour les instantanés de test et la resynchronisation. */
     public Blueprint copy() {
         Blueprint c = new Blueprint(id, meta);
@@ -152,6 +167,7 @@ public final class Blueprint {
         c.links.addAll(links);
         c.variables.putAll(variables);
         c.comments.putAll(comments);
+        c.preservedVariables = preservedVariables.copy();
         return c;
     }
 
@@ -160,6 +176,7 @@ public final class Blueprint {
         if (!id.equals(other.id) || !meta.equals(other.meta) || enabled != other.enabled
                 || !links.equals(other.links) || !variables.equals(other.variables)
                 || !comments.equals(other.comments)
+                || !preservedVariables.equals(other.preservedVariables)
                 || !nodes.keySet().equals(other.nodes.keySet())) {
             return false;
         }

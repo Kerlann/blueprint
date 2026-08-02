@@ -79,6 +79,11 @@ public interface PinType {
         return false;
     }
 
+    /** Nom de l'emplacement générique ({@code "T"}, {@code "any"}), ou null si concret. */
+    default @Nullable String genericName() {
+        return null;
+    }
+
     boolean isAssignableFrom(PinType other);
 
     /**

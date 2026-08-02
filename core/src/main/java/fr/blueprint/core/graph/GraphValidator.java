@@ -47,9 +47,11 @@ public final class GraphValidator {
         // Fantômes et permissions, nœud par nœud.
         boolean anyEntryPoint = false;
         Map<UUID, NodeShape> shapes = new HashMap<>();
+        Set<UUID> ghosts = new HashSet<>();
         for (Node node : bp.nodes().values()) {
             NodeShape shape = lookup.shape(node.typeId());
             if (shape == null) {
+                ghosts.add(node.uuid());
                 shapes.put(node.uuid(), GhostNode.deduceShape(bp, lookup, node));
                 out.add(Diagnostic.error(DiagnosticCode.UNKNOWN_NODE_TYPE, Diagnostic.node(node.uuid()),
                         node.typeId().toString(), node.typeId().getNamespace()));
@@ -105,7 +107,7 @@ public final class GraphValidator {
         }
 
         // Cycles de données (FR7) : DFS tricolore sur les liens DATA uniquement.
-        out.addAll(findDataCycles(bp, shapes));
+        out.addAll(findDataCycles(bp, shapes, ghosts));
 
         boolean executable = out.stream().noneMatch(d -> d.severity() == Diagnostic.Severity.ERROR);
         return new ValidationResult(List.copyOf(out), executable);
@@ -256,9 +258,16 @@ public final class GraphValidator {
 
     // DFS tricolore : blanc (jamais vu), gris (en cours), noir (terminé).
     // Un arc DATA vers un nœud gris ferme un cycle.
-    private static List<Diagnostic> findDataCycles(Blueprint bp, Map<UUID, NodeShape> shapes) {
+    private static List<Diagnostic> findDataCycles(Blueprint bp, Map<UUID, NodeShape> shapes,
+                                                    Set<UUID> ghosts) {
         Map<UUID, List<Link>> dataOut = new HashMap<>();
         for (Link link : bp.links()) {
+            // GHOST-001 : entre deux fantômes, la nature du pin est indevinable (déduite
+            // DATA par défaut) — un cycle exec y serait un faux positif ; on s'abstient,
+            // le graphe est déjà non exécutable via UNKNOWN_NODE_TYPE.
+            if (ghosts.contains(link.fromNode()) && ghosts.contains(link.toNode())) {
+                continue;
+            }
             NodeShape fromShape = shapes.get(link.fromNode());
             if (fromShape == null) {
                 continue;

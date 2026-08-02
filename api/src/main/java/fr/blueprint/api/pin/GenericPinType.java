@@ -69,6 +69,11 @@ final class GenericPinType implements PinType {
     }
 
     @Override
+    public String genericName() {
+        return name;
+    }
+
+    @Override
     public boolean supportsLiteral() {
         return false;
     }

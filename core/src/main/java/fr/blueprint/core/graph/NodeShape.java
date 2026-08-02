@@ -16,13 +16,6 @@ public record NodeShape(List<PinDef> inputs, List<PinDef> outputs,
 
     /** Définition d'un pin. {@code required} : doit être câblé ou porter un littéral explicite. */
     public record PinDef(String name, PinKind kind, PinType type, boolean required) {
-        public static PinDef in(String name, PinType type) {
-            return new PinDef(name, type == fr.blueprint.api.pin.PinTypes.EXEC ? PinKind.EXEC : PinKind.DATA, type, false);
-        }
-
-        public static PinDef required(String name, PinType type) {
-            return new PinDef(name, PinKind.DATA, type, true);
-        }
     }
 
     public NodeShape {

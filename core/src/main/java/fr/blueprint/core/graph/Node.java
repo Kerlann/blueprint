@@ -26,6 +26,9 @@ public final class Node {
     private Vec2d position;
     private final Map<String, LiteralValue> literals = new LinkedHashMap<>();
     private CompoundTag config = new CompoundTag();
+    // Littéraux dont le type de pin est irrésoluble (mod retiré) : conservés en NBT
+    // brut et ré-émis tels quels à l'encodage (P4). Vidés quand le type revient.
+    private net.minecraft.nbt.ListTag preservedLiterals = new net.minecraft.nbt.ListTag();
 
     public Node(UUID uuid, Identifier typeId, Vec2d position) {
         this.uuid = uuid;
@@ -75,17 +78,27 @@ public final class Node {
         this.config = config.copy();
     }
 
+    net.minecraft.nbt.ListTag preservedLiterals() {
+        return preservedLiterals;
+    }
+
+    void setPreservedLiterals(net.minecraft.nbt.ListTag preserved) {
+        this.preservedLiterals = preserved;
+    }
+
     Node copy() {
         Node n = new Node(uuid, typeId, position);
         n.literals.putAll(literals);
         n.config = config.copy();
+        n.preservedLiterals = preservedLiterals.copy();
         return n;
     }
 
     boolean contentEquals(Node other) {
         return uuid.equals(other.uuid) && typeId.equals(other.typeId)
                 && position.equals(other.position) && literals.equals(other.literals)
-                && config.equals(other.config);
+                && config.equals(other.config)
+                && preservedLiterals.equals(other.preservedLiterals);
     }
 
     @Override

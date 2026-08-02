@@ -48,12 +48,13 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | Épic | Titre | Stories rédigées | Statut |
 |---|---|---|---|
 | 1 | Fondations et modèle de graphe | 1.1 | Ready for Review (reste : vérif `runClient` + review QA) |
-| 1 | (suite) | 1.2 | **Done** (gate QA : CONCERNS, DOC-001 traité par correct-course) |
-| 1 | (suite) | 1.3 | Draft enrichi, prêt à développer (inclut reprises QA) |
-| 1 | (suite) | 1.4, 1.5 | À rédiger par le SM |
+| 1 | (suite) | 1.2 | Done (gate CONCERNS, tout soldé depuis) |
+| 1 | (suite) | 1.3 | Done (gate PASS) |
+| 1 | (suite) | 1.4 | **Ready for Review** (sérialisation NBT + reprises SER-001/GHOST-001/DOC-002) |
+| 1 | (suite) | 1.5 | À rédiger par le SM (commandes `/blueprint` — inclure MODEL-001) |
 | 2–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** développer la story 1.3 (`/BMad:agents:dev 1.3`).
+**Prochaine action :** review QA de la 1.4 (`/BMad:agents:qa 1.4`), puis rédiger la 1.5.
 
 ## Ordre de lecture recommandé
 

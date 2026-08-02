@@ -50,11 +50,16 @@ D:\Blueprint\
 │
 ├─ core/src/main/java/fr/blueprint/core/
 │  ├─ BlueprintMod.java             (déplacé) entrypoint main
-│  ├─ graph/
-│  │  ├─ Blueprint.java  Node.java  Link.java  Variable.java  CommentBox.java
-│  │  ├─ GraphValidator.java  Diagnostic.java  DiagnosticCode.java
-│  │  ├─ GhostNode.java             nœud dont le type est absent du registre
-│  │  └─ edit/                      EditOperation + implémentations réversibles
+│  ├─ graph/                        ⚠ un seul paquet : le package-private Java ne
+│  │  │                             traverse pas les sous-paquets, et les mutations
+│  │  │                             du modèle sont réservées aux EditOperation
+│  │  ├─ Blueprint.java  Node.java  Link.java  Variable.java  VarScope.java
+│  │  ├─ CommentBox.java  BlueprintMeta.java  Vec2d.java  GraphLimits.java
+│  │  ├─ GraphValidator.java  Diagnostic.java  DiagnosticCode.java  Literals.java
+│  │  ├─ NodeTypeLookup.java  NodeShape.java   raccord provisoire vers NodeRegistry (2.2)
+│  │  ├─ GhostNode.java             forme déduite d'un nœud au type absent
+│  │  ├─ EditOperation.java         interface scellée + les 16 ops en records imbriqués
+│  │  └─ GraphNbt.java  PinTypeNbt.java  SchemaMigrations.java   sérialisation (1.4)
 │  ├─ registry/
 │  │  ├─ NodeRegistryImpl.java  PinTypeRegistryImpl.java  RegistryHash.java
 │  │  └─ PluginLoader.java          charge l'entrypoint "blueprint", isole les erreurs
@@ -71,9 +76,8 @@ D:\Blueprint\
 │  │  ├─ ScriptLoader.java          BScript → graphe
 │  │  └─ AutoLayout.java
 │  ├─ net/                          payloads + handlers serveur
-│  ├─ storage/
-│  │  ├─ BlueprintStorage.java      SavedData
-│  │  ├─ NbtCodecs.java  SchemaMigration.java
+│  ├─ storage/                      (les codecs du graphe vivent dans graph/, voir plus haut)
+│  │  ├─ BlueprintStorage.java      SavedData (story 6.1)
 │  │  └─ PlayerVarStore.java
 │  ├─ nodes/                        bibliothèque standard
 │  │  ├─ flow/  math/  logic/  string/  list/  struct/
