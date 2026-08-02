@@ -51,10 +51,11 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 1 | (suite) | 1.2 | Done (gate CONCERNS, tout soldé depuis) |
 | 1 | (suite) | 1.3 | Done (gate PASS) |
 | 1 | (suite) | 1.4 | Done (gate PASS) |
-| 1 | (suite) | 1.5 | **Ready for Review** (commandes + config + MODEL-001 ; gametest extrait en story dédiée) |
+| 1 | (suite) | 1.5 | Ready for Review — gate CONCERNS (TEST-002 soldé par la 1.6 ; reste VERIFY-002) |
+| 1 | (suite) | 1.6 | Draft (spike gametest — trace la dette de test en jeu) |
 | 2–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** review QA de la 1.5, vérif `runClient`/commandes en jeu (clôt VERIFY-001), puis épic 2 (registre de nœuds et API d'extension).
+**Prochaine action :** session manuelle en jeu (`runClient` + commandes `/blueprint`) — ferme VERIFY-001 et VERIFY-002 d'un coup ; puis épic 2, la 1.6 pouvant se faire en parallèle.
 
 ## Ordre de lecture recommandé
 

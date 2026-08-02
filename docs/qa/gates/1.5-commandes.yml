@@ -1,0 +1,37 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "1.5"
+story_title: "Commande et cycle de vie"
+gate: "CONCERNS"
+status_reason: "Logique et arbre solidement testés headless (149 tests, couverture 86 %), MODEL-001 proprement acté ; mais les commandes n'ont jamais tourné sur un serveur réel et la story spike gametest promise par l'AC5 n'existe pas encore en tant qu'artefact suivi."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T20:44:43Z"
+
+waiver: { active: false }
+
+top_issues:
+  - id: "TEST-002"
+    severity: medium
+    finding: "L'AC5 ajusté promet une « story dédiée spike gametest » (framework refondu 1.21.5) mais aucune story 1.6 n'existe : la dette de test en jeu (handlers de commande, ~7 points de couverture) n'est tracée que dans du texte libre"
+    suggested_action: "SM : créer la story 1.6 (spike gametest : infra + smoke tests des commandes) avant de clore l'épic 1 — la dette non tracée a tendance à disparaître"
+  - id: "VERIFY-002"
+    severity: medium
+    finding: "Les commandes n'ont jamais été exécutées sur un serveur réel : l'enregistrement via CommandRegistrationCallback, IdentifierArgument.getId et les envois de messages sont câblés mais non exercés (l'arbre et la logique le sont, headless)"
+    suggested_action: "Même session manuelle que VERIFY-001 : runClient/runServer, puis /blueprint create test:demo, list, info, disable, delete — 5 minutes qui ferment les deux VERIFY"
+  - id: "DOC-003"
+    severity: low
+    finding: "Dev Agent Record annonce « 14 clés blueprint.cmd.* », il y en a 12 (les 12 utilisées par le code sont toutes présentes dans les deux langues — le comptage est faux, pas la couverture) ; le test d'arbre ne vérifie pas la présence des suggestions sur les nœuds id"
+    suggested_action: "Corriger le compte au prochain passage ; ajouter un assert getCustomSuggestions() != null sur delete|enable|disable|info dans BlueprintCommandTreeTest"
+  - id: "CONFIG-001"
+    severity: low
+    finding: "La config est lue une fois à l'init du mod : modifier config/blueprint/config.json exige un redémarrage, et rien ne le documente"
+    suggested_action: "Documenter dans le README utilisateur (story 9.5), ou recharger au ServerStarting si le besoin émerge"
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 2, low: 2 }
+  recommendations:
+    must_fix:
+      - "TEST-002 : créer la story spike gametest avant de clore l'épic 1"
+      - "VERIFY-002 : une session manuelle en jeu (couplée à VERIFY-001)"
+    monitor:
+      - "BlueprintManager suppose le thread serveur (vrai pour les commandes) — à re-vérifier quand le réseau arrivera (6.x)"
