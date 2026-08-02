@@ -57,7 +57,11 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 4 | BScript v1 | 4.1+4.2+4.3 (groupées) | **Complet** — gate PASS (4 corrections en review dont un high de fidélité) ; round-trip exact, `.bp` = texte |
 | 6 | Persistance monde | 6.1 | **Complet** — gate PASS (VERIFY-005 : redémarrage à confirmer en jeu) |
 | 5 | Éditeur visuel | 5.1, 5.2a, 5.3, 5.4a | **Ready for Review** — canevas, rendu descripteur, sélection/déplacement, liens Bézier + câblage validé `canLink`, palette (recherche ≤ 5 ms, filtre par type, auto-connexion) ; F6 ou `/blueprint-edit` |
-| 4 (4.2b), 5 (5.2b, 5.4b, 5.5-5.7), 6 (reste), 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
+| 5 | Éditeur complet (backlog UE) | 5.2b, 5.2c, 5.4b, 5.5, 5.6a, 5.6b, 5.7, 5.8, 5.9, 5.10, 5.11 | **Draft** — 11 stories rédigées ; ordre recommandé ci-dessous |
+| 4 (4.2b), 6 (reste), 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
+
+**Feuille de route éditeur (ordre recommandé)** :
+1. **5.2b** littéraux inline (éditer les valeurs sur le nœud) → 2. **5.6a** annuler/rétablir (avant les grosses features, tout naît annulable) → 3. **5.9** éditer/enregistrer/tester un VRAI blueprint en solo (`Ctrl+S`, la story qui rend l'éditeur utile) → 4. **5.6b** barre d'outils + compilation à la volée + diagnostics cliquables → 5. **5.5** panneau des variables + nœuds var/get-set (⚠ touche `core`) → 6. **5.8** copier/coller/dupliquer via BScript (⚠ touche `core/script`) → 7. **5.10** panneau de détails → 8. **5.4b** palette récents/favoris/catégories/Espace → 9. **5.2c** sélecteurs riches (item, bloc, position) → 10. **5.11** vue script → 11. **5.7** confort (commentaires, alignement, minimap, thème JSON).
 
 **Prochaine action :** session en jeu : VERIFY-005 (`/blueprint demo` → redémarrage du monde → « Persistance : … » au log et ping sans réimport) + regarder le `.bp` texte exporté ; puis 4.2b (sucre BScript), 7.1b, ou 6.2 (sync registres — coordonner avec la session épic 5).
 
