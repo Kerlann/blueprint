@@ -38,6 +38,12 @@ public interface NodeContext {
 
     ServerLevel level();
 
+    /** Le blueprint en cours d'exécution (lecture seule). */
+    BlueprintHandle blueprint();
+
+    /** L'événement qui a déclenché cette exécution. */
+    fr.blueprint.api.event.TriggerContext trigger();
+
     /** Journal préfixé par l'identifiant du blueprint en cours. */
     Logger logger();
 }

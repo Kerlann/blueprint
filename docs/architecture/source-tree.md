@@ -62,6 +62,8 @@ D:\Blueprint\
 │  │  └─ GraphNbt.java  PinTypeNbt.java  SchemaMigrations.java   sérialisation (1.4)
 │  ├─ registry/
 │  │  ├─ NodeRegistryImpl.java  PinTypeRegistryImpl.java  RegistryHash.java
+│  │  ├─ NodeDescriptor.java        forme transmissible au client (2.4 — vit ici, pas
+│  │  │                             dans api : réutilise PinTypeNbt, consommé par core/client)
 │  │  └─ PluginLoader.java          charge l'entrypoint "blueprint", isole les erreurs
 │  ├─ compile/
 │  │  ├─ Compiler.java  SlotAllocator.java  ExecLinearizer.java  PureScheduler.java
