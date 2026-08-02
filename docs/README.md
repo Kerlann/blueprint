@@ -53,7 +53,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 3 | Compilateur et VM | 3.1+3.2+3.3, 3.4+3.5 | **Complet** — 2 gates PASS (3 corrections en review dont un high sémantique) |
 | 4–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** QA de l'épic 3 ; puis épic 7 (événements du monde + bibliothèque standard — rendre le runtime jouable) ou épic 4/5 selon priorité.
+**Prochaine action :** épic 7 (événements du monde + bibliothèque standard — rendre le runtime jouable), puis épic 5 (éditeur) ou 4 (BScript).
 
 ## Ordre de lecture recommandé
 
