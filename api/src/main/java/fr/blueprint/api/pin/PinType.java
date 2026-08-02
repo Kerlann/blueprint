@@ -74,6 +74,11 @@ public interface PinType {
      * identité, ou coercition implicite déclarée (transitive). Les jokers non
      * résolus sont acceptés — la résolution est l'affaire de {@link GenericResolution}.
      */
+    /** Vrai pour un joker ({@code any}) ou un emplacement générique nommé ({@code T}). */
+    default boolean isGeneric() {
+        return false;
+    }
+
     boolean isAssignableFrom(PinType other);
 
     /**

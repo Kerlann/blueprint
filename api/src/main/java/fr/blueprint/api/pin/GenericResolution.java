@@ -31,6 +31,13 @@ public final class GenericResolution {
      * Tente d'unifier un type déclaré (pouvant contenir des jokers) avec un type
      * concret issu du câblage. Retourne faux en cas de conflit — un emplacement
      * déjà lié à un autre type — sans modifier les liaisons existantes.
+     *
+     * <p><b>Contrat « déclaré d'abord »</b> : le premier argument est toujours le type
+     * <b>déclaré par le nœud</b> (celui qui peut contenir des jokers), le second le type
+     * <b>concret apporté par le câblage</b>. L'appel n'est pas symétrique :
+     * {@code unify(ANY, INT)} lie le joker, {@code unify(INT, ANY)} échoue — un type
+     * concret déclaré n'apprend rien d'un joker entrant, la résolution appartient au
+     * nœud qui déclare le joker.
      */
     public boolean unify(PinType declared, PinType concrete) {
         Map<String, PinType> attempt = new HashMap<>(bindings);
