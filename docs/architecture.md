@@ -18,11 +18,13 @@ Minecraft 1.21.11, Fabric Loader 0.18.2, Fabric API 0.139.4+1.21.11, Java 21,
 **mappings officiels Mojang**). L'architecture ci-dessous est un *brownfield* léger :
 elle réorganise le projet en modules Gradle et ajoute tout le reste.
 
-**Conséquence des mappings Mojang** — les noms de classes du jeu sont ceux de Mojang,
-pas ceux de Yarn : `ResourceLocation` (≠ `Identifier`), `CompoundTag` (≠ `NbtCompound`),
+**Conséquence des mappings Mojang** — les noms de classes du jeu sont ceux des mappings
+officiels Mojang **1.21.11**, pas ceux de Yarn : `Identifier` (nom Mojang depuis 1.21.x ;
+s'appelait `ResourceLocation` avant — vérifié en story 1.2), `CompoundTag` (≠ `NbtCompound`),
 `GuiGraphics` (≠ `DrawContext`), `Level` / `ServerLevel` (≠ `World`),
 `SavedData` (≠ `PersistentState`), `Component` (≠ `Text`), `ItemStack`, `ServerPlayer`.
-Toute story qui cite du code doit respecter cette convention.
+Toute story qui cite du code doit respecter cette convention ; en cas de doute sur un
+nom, vérifier dans le JAR mergé de Loom (`javap`) — voir `tech-stack.md`.
 
 ---
 
@@ -90,7 +92,7 @@ pour être consommé en `compileOnly` par les mods tiers.
 
 ```java
 // api
-record BlueprintId(ResourceLocation value) {}
+record BlueprintId(Identifier value) {}
 
 final class Blueprint {
     BlueprintId id;
@@ -105,7 +107,7 @@ final class Blueprint {
 
 final class Node {
     UUID uuid;
-    ResourceLocation typeId;     // conservé même si absent du registre
+    Identifier typeId;     // conservé même si absent du registre
     Vec2 position;
     Map<String, LiteralValue> literals;   // valeurs des pins d'entrée non connectés
     CompoundTag config;                   // configuration libre du nœud
@@ -127,7 +129,7 @@ existants, et c'est ce qui rend le nœud fantôme possible.
 
 ```java
 public interface PinType {
-    ResourceLocation id();
+    Identifier id();
     Class<?> javaType();
     int color();                 // ARGB, palette accessible
     PinShape shape();            // EXEC, CIRCLE, DIAMOND, ARRAY, MAP

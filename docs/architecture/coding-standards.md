@@ -5,8 +5,9 @@
 
 ## 1. Règles absolues
 
-1. **Mappings Mojang.** `ResourceLocation`, `CompoundTag`, `GuiGraphics`, `Level`,
-   `Component`, `SavedData`. Voir `tech-stack.md`. Aucun nom Yarn.
+1. **Mappings Mojang 1.21.11.** `Identifier` (ex-`ResourceLocation`, renommé par Mojang),
+   `CompoundTag`, `GuiGraphics`, `Level`, `Component`, `SavedData`. Voir la table et la
+   procédure de vérification (`javap`) dans `tech-stack.md`. Ni noms Yarn, ni anciens noms Mojang.
 2. **Le module `api` ne référence jamais `core`.** Il ne contient que des interfaces,
    des records, des enums et des builders. Aucune logique métier.
 3. **Aucune exécution de graphe côté client.** Le paquet `fr.blueprint.client` ne doit
@@ -31,7 +32,7 @@
 - Les clés de traduction suivent le motif :
   `blueprint.node.<namespace>.<path>.name` / `.desc`,
   `blueprint.pin.<...>.name`, `blueprint.diag.<code>`.
-- Les constantes `ResourceLocation` sont statiques finales, jamais construites en boucle.
+- Les constantes `Identifier` sont statiques finales, jamais construites en boucle.
 
 ## 3. Immuabilité et nullité
 

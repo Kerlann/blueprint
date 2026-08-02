@@ -31,6 +31,7 @@ mappings Mojang). Tout le produit décrit ici est à construire par-dessus.
 | Date | Version | Description | Auteur |
 |---|---|---|---|
 | 2026-08-02 | 1.0 | PRD initial, 9 épics | PM (John) |
+| 2026-08-02 | 1.1 | Correct-course DOC-001 : `ResourceLocation` → `Identifier` (renommage Mojang 1.21.11 découvert en story 1.2) | SM (Bob) |
 
 ---
 
@@ -40,7 +41,7 @@ mappings Mojang). Tout le produit décrit ici est à construire par-dessus.
 
 **Modèle de graphe**
 
-- **FR1** — Un blueprint est identifié par un `ResourceLocation` et contient des nœuds, des liens, des variables, des commentaires et des métadonnées (auteur, version, description).
+- **FR1** — Un blueprint est identifié par un `Identifier` et contient des nœuds, des liens, des variables, des commentaires et des métadonnées (auteur, version, description).
 - **FR2** — Un nœud possède des pins d'entrée et de sortie, chacun de nature `EXEC` ou `DATA`, avec un type de donnée pour les pins `DATA`.
 - **FR3** — Le système applique les règles de câblage : un pin `EXEC` de sortie a au plus un lien, un pin `DATA` d'entrée a au plus un lien (sinon sa valeur littérale par défaut s'applique), les pins `EXEC` d'entrée et `DATA` de sortie acceptent N liens.
 - **FR4** — Un lien n'est acceptable que si le type source est assignable au type cible, directement ou via une conversion implicite déclarée (ex. `int` → `double`).

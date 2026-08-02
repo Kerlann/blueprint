@@ -96,7 +96,7 @@ Un mod unique qui fournit :
 
 ## 7. Contraintes et hypothèses
 
-- **Plateforme :** Fabric Loader 0.18.2, Fabric API 0.139.4+1.21.11, Minecraft 1.21.11, Java 21, **mappings officiels Mojang** (donc `ResourceLocation`, `CompoundTag`, `GuiGraphics`, `Level`, `SavedData`…).
+- **Plateforme :** Fabric Loader 0.18.2, Fabric API 0.139.4+1.21.11, Minecraft 1.21.11, Java 21, **mappings officiels Mojang** (donc `Identifier`, `CompoundTag`, `GuiGraphics`, `Level`, `SavedData`…).
 - **Exécution serveur uniquement.** Le client est un éditeur ; il n'exécute jamais un graphe reçu. Non négociable (sécurité).
 - **Pas de bibliothèque GUI externe.** ACsGuis est Forge 1.12 uniquement ; l'éditeur est rendu maison sur `Screen`/`GuiGraphics`, avec un thème JSON à jetons inspiré de CSS pour rester stylable.
 - **Aucune dépendance dure** à un mod tiers. Toute intégration passe par des entrypoints et du code conditionnel.

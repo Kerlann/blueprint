@@ -47,12 +47,13 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 
 | Épic | Titre | Stories rédigées | Statut |
 |---|---|---|---|
-| 1 | Fondations et modèle de graphe | 1.1 | **Ready for Review** (implémentée) |
-| 1 | (suite) | 1.2, 1.3 | Prêt à développer |
+| 1 | Fondations et modèle de graphe | 1.1 | Ready for Review (reste : vérif `runClient` + review QA) |
+| 1 | (suite) | 1.2 | **Done** (gate QA : CONCERNS, DOC-001 traité par correct-course) |
+| 1 | (suite) | 1.3 | Draft enrichi, prêt à développer (inclut reprises QA) |
 | 1 | (suite) | 1.4, 1.5 | À rédiger par le SM |
 | 2–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** vérifier `runClient` (story 1.1), puis développer la story 1.2.
+**Prochaine action :** développer la story 1.3 (`/BMad:agents:dev 1.3`).
 
 ## Ordre de lecture recommandé
 

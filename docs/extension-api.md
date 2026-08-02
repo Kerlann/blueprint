@@ -11,7 +11,7 @@
 ```java
 public final class MyPlugin implements BlueprintPlugin {
     @Override public void registerNodes(NodeRegistry r) {
-        r.register(NodeType.builder(ResourceLocation.fromNamespaceAndPath("mymod", "heal_player"))
+        r.register(NodeType.builder(Identifier.fromNamespaceAndPath("mymod", "heal_player"))
             .category(NodeCategories.ENTITY)
             .exec()                                   // ajoute exec-in et exec-out
             .in("player", PinTypes.PLAYER)
