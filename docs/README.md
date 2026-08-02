@@ -54,12 +54,12 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 7 | Événements et bibliothèque | 7.1a+7.2+7.6 (groupées) | **Complet** — gate PASS, démo ping/pong vérifiée en jeu (VERIFY-004) |
 | 7 | (restes) | 7.1b, 7.3-7.5, 7.7 | À rédiger (flux structuré + frames VM ; nœuds monde en gametest ; commande) |
 | 4 | Démo, export/import | 4.4a | **Complet** — gate PASS |
-| 4 | BScript v1 | 4.1+4.2+4.3 (groupées) | **Ready for Review** — génération déterministe + parse, round-trip exact, `.bp` = texte (NBT hérité toujours importable) |
+| 4 | BScript v1 | 4.1+4.2+4.3 (groupées) | **Complet** — gate PASS (4 corrections en review dont un high de fidélité) ; round-trip exact, `.bp` = texte |
 | 6 | Persistance monde | 6.1 | **Complet** — gate PASS (VERIFY-005 : redémarrage à confirmer en jeu) |
 | 5 | Éditeur | — | En cours dans une session parallèle (module `client/`) |
 | 4 (4.2b), 6 (reste), 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** QA du lot 4.1-4.3 ; session en jeu : VERIFY-005 (`/blueprint demo` → redémarrage du monde → « Persistance : … » au log et ping sans réimport) + export/import texte.
+**Prochaine action :** session en jeu : VERIFY-005 (`/blueprint demo` → redémarrage du monde → « Persistance : … » au log et ping sans réimport) + regarder le `.bp` texte exporté ; puis 4.2b (sucre BScript), 7.1b, ou 6.2 (sync registres — coordonner avec la session épic 5).
 
 ## Ordre de lecture recommandé
 

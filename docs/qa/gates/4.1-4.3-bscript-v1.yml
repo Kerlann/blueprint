@@ -1,0 +1,71 @@
+schema: 1
+story: "4.1-4.3"
+story_title: "BScript v1 — génération et parsing fidèles"
+gate: PASS
+status_reason: >
+  Round-trip exact confirmé sur le pivot (démo) et tous les cas AC4. Quatre failles
+  réelles trouvées en review par tests à risque, toutes corrigées et régressées :
+  littéral de repli perdu derrière un lien, données préservées P4 tues à l'export,
+  crash (StackOverflow/NPE) sur script forgé, collision d'étiquettes tronquées.
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T00:00:00Z"
+top_issues: []
+waiver: { active: false }
+findings_fixed_in_review:
+  - id: SCRIPT-001
+    severity: high
+    finding: >
+      AddLink n'efface pas le littéral du pin (repli style UE) mais renderCall
+      n'émettait QUE le lien : le littéral de repli disparaissait au round-trip
+      (contentEquals faux, dégradation silencieuse à chaque export/import).
+    fix: >
+      Le générateur émet les deux arguments sur le même pin (littéral puis lien) ;
+      le parseur les applique dans l'ordre. Régression literalBehindLinkSurvivesRoundTrip.
+  - id: SCRIPT-002
+    severity: medium
+    finding: >
+      Les données préservées en NBT brut (P4 : littéraux au type irrésoluble,
+      variables préservées) étaient perdues SANS signalement à l'export texte —
+      contraire à l'esprit P4 (ne jamais perdre en silence).
+    fix: >
+      hasPreservedLiterals()/hasPreservedVariables() exposés ; le générateur ajoute
+      une issue explicite « (P4) non émissibles en texte ». Régression dans
+      PreservationTest. Le NBT monde reste le support total ; v2 pourra porter le brut.
+  - id: SCRIPT-003
+    severity: medium
+    finding: >
+      Le chargement ne refuse rien (P4) : un script forgé peut créer un cycle de
+      purs ($node croisés) ou un lien depuis un nœud absent. L'export crashait alors
+      (StackOverflowError sur l'inlinage récursif, NPE sur shapes.get(null)).
+    fix: >
+      Garde anti-réentrance (pile d'inlinage → repli $node) et repli $node quand la
+      source du lien n'existe pas. Le générateur est total et la fidélité conservée.
+      Régression craftedPureCycleAndDanglingRefNeverCrashExport.
+  - id: SCRIPT-004
+    severity: low
+    finding: >
+      labelOf tronquait l'UUID à 8 caractères hexadécimaux : deux nœuds étiquetés
+      partageant le préfixe recevaient le même nom d'étiquette — un goto pouvait se
+      recâbler en silence sur le mauvais nœud au re-parse.
+    fix: >
+      Étiquettes séquentielles l_1, l_2… assignées dans l'ordre déterministe de la
+      pré-passe. Régression labelsStayDistinctWhenUuidPrefixesCollide.
+evidence:
+  tests_reviewed: 251
+  new_tests_in_review: 4
+  risks_probed:
+    - "échappement (backslash traité en premier dans quote — vérifié sain)"
+    - "doublons de liens au parse d'un pur partagé (neutralisé : Set de liens)"
+    - "goto inter-événements (ordre d'émission = ordre de parse — sain)"
+    - "config non vide (issue non bloquante, documenté)"
+nfr_validation:
+  security: { status: PASS, notes: "parseur total : jamais d'exception, erreurs ligne+message ; aucune exécution au parse" }
+  performance: { status: PASS, notes: "génération linéaire ; index de liens réutilisés du graphe" }
+  reliability: { status: PASS, notes: "générateur total même sur graphes forgés (SCRIPT-003)" }
+  maintainability: { status: PASS, notes: "lexer/descente récursive lisibles ; grammaire v1 annotée documentée dans la story" }
+recommendations:
+  future:
+    - action: "4.2b : sucre (if nu, wait 20t, opérateurs infixes) + littéraux map"
+      refs: ["docs/stories/4.1-4.3.bscript-v1.md"]
+    - action: "v2 : porter le NBT brut préservé dans le texte (bloc @preserved base64) pour un P4 total en texte"
+      refs: ["core/src/main/java/fr/blueprint/core/script/ScriptGenerator.java"]

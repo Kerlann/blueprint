@@ -159,6 +159,11 @@ public final class Blueprint {
         return preservedVariables;
     }
 
+    /** Vrai si des variables sont préservées en brut (P4) — l'export texte doit le signaler. */
+    public boolean hasPreservedVariables() {
+        return !preservedVariables.isEmpty();
+    }
+
     void setPreservedVariables(net.minecraft.nbt.ListTag preserved) {
         this.preservedVariables = preserved;
     }

@@ -82,6 +82,11 @@ public final class Node {
         return preservedLiterals;
     }
 
+    /** Vrai si le nœud porte des littéraux préservés en brut (P4) — l'export texte doit le signaler. */
+    public boolean hasPreservedLiterals() {
+        return !preservedLiterals.isEmpty();
+    }
+
     void setPreservedLiterals(net.minecraft.nbt.ListTag preserved) {
         this.preservedLiterals = preserved;
     }

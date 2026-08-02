@@ -140,6 +140,94 @@ class ScriptRoundTripTest {
     }
 
     @Test
+    void literalBehindLinkSurvivesRoundTrip() {
+        // AddLink ne retire pas le littéral du pin : il reste en repli derrière le lien
+        // (style UE). Le texte doit porter les deux, sinon le round-trip dégrade.
+        var bp = new Blueprint(Identifier.fromNamespaceAndPath("test", "hidden"));
+        UUID tick = UUID.nameUUIDFromBytes("ht".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        UUID log = UUID.nameUUIDFromBytes("hl".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        UUID concat = UUID.nameUUIDFromBytes("hc".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        apply(bp, new EditOperation.AddNode(tick, StandardEvents.SERVER_TICK.id(), Vec2d.ZERO));
+        apply(bp, new EditOperation.AddNode(log,
+                Identifier.fromNamespaceAndPath("blueprint", "debug/log"), new Vec2d(200, 0)));
+        apply(bp, new EditOperation.AddNode(concat,
+                Identifier.fromNamespaceAndPath("blueprint", "string/concat"), new Vec2d(0, 100)));
+        apply(bp, new EditOperation.SetLiteral(log, "value", LiteralValue.of(PinTypes.STRING, "repli")));
+        apply(bp, new EditOperation.AddLink(new Link(tick, "exec_out", log, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(concat, "result", log, "value")));
+
+        Blueprint back = roundTrip(bp);
+        assertTrue(bp.contentEquals(back), "le littéral de repli derrière le lien doit survivre");
+        assertEquals("repli", back.node(log).literal("value").value());
+    }
+
+    @Test
+    void craftedPureCycleAndDanglingRefNeverCrashExport() {
+        // GraphLoader ne refuse rien (P4) : un script forgé peut créer un cycle de purs
+        // et un lien depuis un nœud absent. L'export doit rester total — jamais de
+        // StackOverflowError ni de NPE — et re-parser à l'identique.
+        String script = """
+                blueprint test:cycle {
+                  meta {
+                    author ""
+                    description ""
+                    version "1.0.0"
+                    permission GAMEPLAY
+                  }
+                  on blueprint:event/server_tick() @id("00000000-0000-0000-0000-000000000001") @pos(0, 0) {
+                    blueprint:debug/log(value: blueprint:string/concat(a: $node("00000000-0000-0000-0000-0000000000c2").result) @id("00000000-0000-0000-0000-0000000000c1") @pos(0, 100)) @id("00000000-0000-0000-0000-000000000002") @pos(200, 0)
+                    blueprint:debug/log(value: blueprint:string/concat(a: $node("00000000-0000-0000-0000-0000000000c1").result) @id("00000000-0000-0000-0000-0000000000c2") @pos(0, 200)) @id("00000000-0000-0000-0000-000000000003") @pos(400, 0)
+                    blueprint:debug/log(value: $node("00000000-0000-0000-0000-0000000000dd").out) @id("00000000-0000-0000-0000-000000000004") @pos(600, 0)
+                  }
+                }
+                """;
+        ScriptParser.ParseResult parsed = ScriptParser.parse(script, LOADED);
+        assertTrue(parsed.success(), parsed.error());
+        ScriptGenerator.Result generated = org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> ScriptGenerator.generate(parsed.blueprint(), LOADED.nodes()));
+        ScriptParser.ParseResult again = ScriptParser.parse(generated.text(), LOADED);
+        assertTrue(again.success(), () -> again.error() + "\n" + generated.text());
+        assertTrue(parsed.blueprint().contentEquals(again.blueprint()),
+                () -> "fidélité perdue :\n" + generated.text());
+    }
+
+    @Test
+    void labelsStayDistinctWhenUuidPrefixesCollide() {
+        // labelOf tronquait l'UUID à 8 caractères : deux nœuds étiquetés partageant le
+        // préfixe produisaient le même nom — un goto inter-événements pouvait se
+        // recâbler en silence sur le mauvais nœud.
+        var bp = new Blueprint(Identifier.fromNamespaceAndPath("test", "labels"));
+        UUID t1 = UUID.fromString("00000000-0000-0000-0000-0000000000a1");
+        UUID t2 = UUID.fromString("00000000-0000-0000-0000-0000000000a2");
+        UUID a = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
+        UUID b = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000001");
+        UUID c = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000002");
+        UUID d = UUID.fromString("cccccccc-0000-0000-0000-000000000001");
+        Identifier logType = Identifier.fromNamespaceAndPath("blueprint", "debug/log");
+        apply(bp, new EditOperation.AddNode(t1, StandardEvents.SERVER_TICK.id(), Vec2d.ZERO));
+        apply(bp, new EditOperation.AddNode(t2, StandardEvents.SERVER_TICK.id(), new Vec2d(0, 300)));
+        apply(bp, new EditOperation.AddNode(a, logType, new Vec2d(200, 0)));
+        apply(bp, new EditOperation.AddNode(b, logType, new Vec2d(400, 0)));
+        apply(bp, new EditOperation.AddNode(c, logType, new Vec2d(200, 300)));
+        apply(bp, new EditOperation.AddNode(d, logType, new Vec2d(400, 300)));
+        apply(bp, new EditOperation.AddLink(new Link(t1, "exec_out", a, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(a, "exec_out", b, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(b, "exec_out", a, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(t2, "exec_out", c, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(c, "exec_out", d, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(d, "exec_out", c, "exec_in")));
+
+        String text = ScriptGenerator.generate(bp, LOADED.nodes()).text();
+        long distinctLabels = text.lines()
+                .map(String::strip)
+                .filter(l -> l.startsWith("label "))
+                .distinct()
+                .count();
+        assertEquals(2, distinctLabels, () -> "deux boucles = deux étiquettes distinctes :\n" + text);
+        assertTrue(bp.contentEquals(roundTrip(bp)));
+    }
+
+    @Test
     void unknownNodeParsesAsGhost() {
         String script = """
                 blueprint test:ghosty {

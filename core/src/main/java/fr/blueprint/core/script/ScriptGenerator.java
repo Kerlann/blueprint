@@ -43,7 +43,8 @@ public final class ScriptGenerator {
     private final StringBuilder out = new StringBuilder(512);
     private final List<String> issues = new ArrayList<>();
     private final Set<UUID> emitted = new HashSet<>();
-    private final Set<UUID> labelled;
+    private final Set<UUID> inlining = new HashSet<>();
+    private final Map<UUID, String> labelNames = new HashMap<>();
     private final Map<UUID, NodeShape> shapes = new HashMap<>();
     private UUID currentEvent;
     private int indent;
@@ -55,7 +56,12 @@ public final class ScriptGenerator {
             NodeShape shape = lookup.shape(node.typeId());
             shapes.put(node.uuid(), shape != null ? shape : GhostNode.deduceShape(bp, lookup, node));
         }
-        this.labelled = computeLabels();
+        // Noms séquentiels dans l'ordre (déterministe) de la pré-passe : un préfixe
+        // d'UUID tronqué pouvait entrer en collision et recâbler un goto en silence.
+        int next = 1;
+        for (UUID uuid : computeLabels()) {
+            labelNames.put(uuid, "l_" + next++);
+        }
     }
 
     public static Result generate(Blueprint bp, NodeTypeLookup lookup) {
@@ -73,7 +79,13 @@ public final class ScriptGenerator {
         }
         indent--;
         line("}");
+        if (bp.hasPreservedVariables()) {
+            issues.add("variables préservées (P4) non émissibles en texte");
+        }
         for (Node node : bp.nodes().values()) {
+            if (node.hasPreservedLiterals()) {
+                issues.add("littéraux préservés (P4) non émissibles en texte : " + node.uuid());
+            }
             if (!emitted.contains(node.uuid()) && !shapes.get(node.uuid()).entryPoint()) {
                 issues.add("nœud orphelin non émis : " + node.uuid() + " (" + node.typeId() + ")");
             }
@@ -185,18 +197,14 @@ public final class ScriptGenerator {
         }
     }
 
-    private static String labelOf(UUID node) {
-        return "l_" + node.toString().substring(0, 8);
-    }
-
     private void emitChain(UUID uuid) {
         if (emitted.contains(uuid)) {
-            line("goto " + labelOf(uuid));
+            line("goto " + labelNames.get(uuid));
             return;
         }
         emitted.add(uuid);
-        if (labelled.contains(uuid)) {
-            line("label " + labelOf(uuid));
+        if (labelNames.containsKey(uuid)) {
+            line("label " + labelNames.get(uuid));
         }
         Node node = bp.node(uuid);
         NodeShape shape = shapes.get(uuid);
@@ -261,10 +269,13 @@ public final class ScriptGenerator {
             }
             covered.add(pin.name());
             List<Link> incoming = bp.linksInto(node.uuid(), pin.name());
+            // Un pin peut porter un littéral de repli DERRIÈRE un lien (AddLink ne
+            // l'efface pas) : on émet les deux — le parseur applique dans l'ordre.
+            if (node.literal(pin.name()) != null) {
+                args.add(pin.name() + ": " + renderLiteral(node.literal(pin.name())));
+            }
             if (!incoming.isEmpty()) {
                 args.add(pin.name() + ": " + renderSource(incoming.get(0)));
-            } else if (node.literal(pin.name()) != null) {
-                args.add(pin.name() + ": " + renderLiteral(node.literal(pin.name())));
             }
         }
         node.literals().keySet().stream().sorted().forEach(pin -> {
@@ -278,19 +289,30 @@ public final class ScriptGenerator {
     /** L'expression qui produit la valeur d'un lien de données. */
     private String renderSource(Link link) {
         UUID producer = link.fromNode();
-        NodeShape shape = shapes.get(producer);
         if (producer.equals(currentEvent)) {
             return "$" + link.fromPin();
+        }
+        NodeShape shape = shapes.get(producer);
+        if (shape == null) {
+            // Source absente du graphe (lien pendant, préservé par P4) : référence brute.
+            return "$node(" + quote(producer.toString()) + ")." + link.fromPin();
         }
         boolean pure = shape.inputs().stream().noneMatch(p -> p.kind() == PinKind.EXEC)
                 && shape.outputs().stream().noneMatch(p -> p.kind() == PinKind.EXEC)
                 && !shape.entryPoint();
         long dataOuts = shape.outputs().stream().filter(p -> p.kind() == PinKind.DATA).count();
-        if (pure && dataOuts == 1 && lookup.shape(bp.node(producer).typeId()) != null) {
-            Node pureNode = bp.node(producer);
-            emitted.add(producer);   // inliné = émis (sinon faux « orphelin »)
-            return renderCall(pureNode, shape) + " @id(" + quote(producer.toString()) + ")"
-                    + " @pos(" + num(pureNode.position().x()) + ", " + num(pureNode.position().y()) + ")";
+        // inlining : garde anti-cycle — un chargement forgé peut câbler des purs en
+        // boucle (le chargement ne refuse rien, P4) ; on retombe alors sur $node.
+        if (pure && dataOuts == 1 && lookup.shape(bp.node(producer).typeId()) != null
+                && inlining.add(producer)) {
+            try {
+                Node pureNode = bp.node(producer);
+                emitted.add(producer);   // inliné = émis (sinon faux « orphelin »)
+                return renderCall(pureNode, shape) + " @id(" + quote(producer.toString()) + ")"
+                        + " @pos(" + num(pureNode.position().x()) + ", " + num(pureNode.position().y()) + ")";
+            } finally {
+                inlining.remove(producer);
+            }
         }
         return "$node(" + quote(producer.toString()) + ")." + link.fromPin();
     }

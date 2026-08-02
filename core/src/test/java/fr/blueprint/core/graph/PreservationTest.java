@@ -92,6 +92,16 @@ class PreservationTest {
     }
 
     @Test
+    void textExportFlagsPreservedRawDataItCannotCarry() {
+        // BScript v1 ne sait pas porter le NBT brut préservé (P4) : l'export texte
+        // d'un graphe en état préservé doit le SIGNALER, jamais le taire.
+        Blueprint withoutMod = GraphNbt.decode(GraphNbt.encode(graphUsingMana()), resolverWithoutMana());
+        var generated = fr.blueprint.core.script.ScriptGenerator.generate(withoutMod, TestNodes.LOOKUP);
+        assertTrue(generated.issues().stream().anyMatch(i -> i.contains("P4")),
+                () -> "données préservées passées sous silence : " + generated.issues());
+    }
+
+    @Test
     void ghostExecLoopNoLongerReportsFalseDataCycle() {
         // Reprise QA GHOST-001 : boucle exec p1↔p2, puis les deux types disparaissent.
         var bp = TestNodes.newGraph();
