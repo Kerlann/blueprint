@@ -1,26 +1,35 @@
 package fr.blueprint.client;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import fr.blueprint.client.editor.BlueprintEditorScreen;
+import fr.blueprint.client.editor.EditorSession;
 import fr.blueprint.client.registry.ClientNodeRegistry;
+import fr.blueprint.core.BlueprintManager;
 import fr.blueprint.core.BlueprintMod;
 import fr.blueprint.core.DemoBlueprint;
+import fr.blueprint.core.graph.Blueprint;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 public class BlueprintClient implements ClientModInitializer {
 
+    /** Dernier blueprint réel édité : F6 le rouvre (sinon la démo). */
+    private static @Nullable Identifier lastEdited;
+
     @Override
     public void onInitializeClient() {
-        // Ouvertures de dev (story 5.1) : F6 et /blueprint-edit, sur le blueprint de
-        // démo. L'ouverture réelle depuis le serveur (synchro registre) est l'épic 6.
         KeyMapping.Category category = KeyMapping.Category.register(
                 Identifier.fromNamespaceAndPath(BlueprintMod.MOD_ID, "main"));
         KeyMapping openEditor = KeyBindingHelper.registerKeyBinding(new KeyMapping(
@@ -28,27 +37,139 @@ public class BlueprintClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             while (openEditor.consumeClick()) {
-                openDemoEditor(mc);
+                if (lastEdited == null || !openById(mc, lastEdited, false)) {
+                    openDemoEditor(mc);
+                }
             }
         });
 
-        // Commande cliente (ne touche pas au /blueprint serveur). L'ouverture est
-        // différée d'une tâche : la fermeture du chat écraserait un setScreen immédiat.
+        // /blueprint-edit : liste | <id> ouvre une copie du blueprint serveur (5.9)
+        // | demo | create <id>. L'ouverture est différée d'une tâche : la fermeture
+        // du chat écraserait un setScreen immédiat.
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
                 dispatcher.register(ClientCommandManager.literal("blueprint-edit")
                         .executes(context -> {
+                            list(context.getSource());
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(ClientCommandManager.literal("demo").executes(context -> {
                             Minecraft mc = Minecraft.getInstance();
                             mc.schedule(() -> openDemoEditor(mc));
                             return Command.SINGLE_SUCCESS;
-                        })));
+                        }))
+                        .then(ClientCommandManager.literal("create")
+                                .then(ClientCommandManager.argument("id", StringArgumentType.greedyString())
+                                        .executes(context -> {
+                                            createAndEdit(context.getSource(),
+                                                    StringArgumentType.getString(context, "id"));
+                                            return Command.SINGLE_SUCCESS;
+                                        })))
+                        .then(ClientCommandManager.argument("id", StringArgumentType.greedyString())
+                                .suggests((context, builder) -> {
+                                    MinecraftServer server =
+                                            Minecraft.getInstance().getSingleplayerServer();
+                                    if (server != null) {
+                                        for (Blueprint bp : BlueprintManager.of(server).all()) {
+                                            builder.suggest(bp.id().toString());
+                                        }
+                                    }
+                                    builder.suggest("demo");
+                                    return builder.buildFuture();
+                                })
+                                .executes(context -> {
+                                    String raw = StringArgumentType.getString(context, "id");
+                                    Minecraft mc = Minecraft.getInstance();
+                                    Identifier id = parseId(raw);
+                                    if (id == null || !openById(mc, id, true)) {
+                                        context.getSource().sendFeedback(Component.translatable(
+                                                "blueprint.editor.cmd.unknown", raw, raw));
+                                    }
+                                    return Command.SINGLE_SUCCESS;
+                                }))));
 
         BlueprintMod.LOGGER.info("Blueprint client initialisé");
+    }
+
+    /** Sans namespace, un identifiant nu vit sous {@code blueprint:} (comme /blueprint). */
+    private static @Nullable Identifier parseId(String raw) {
+        return raw.contains(":") ? Identifier.tryParse(raw)
+                : Identifier.tryParse(BlueprintMod.MOD_ID + ":" + raw);
+    }
+
+    private static void list(FabricClientCommandSource source) {
+        MinecraftServer server = Minecraft.getInstance().getSingleplayerServer();
+        if (server == null) {
+            source.sendFeedback(Component.translatable("blueprint.editor.cmd.multiplayer"));
+            return;
+        }
+        StringBuilder ids = new StringBuilder();
+        for (Blueprint bp : BlueprintManager.of(server).all()) {
+            if (!ids.isEmpty()) {
+                ids.append(", ");
+            }
+            ids.append(bp.id());
+        }
+        source.sendFeedback(Component.translatable("blueprint.editor.cmd.list",
+                ids.isEmpty() ? "—" : ids.toString()));
+    }
+
+    /**
+     * Ouvre une copie d'un blueprint du serveur intégré. L'instantané se prend sur
+     * le thread serveur ; l'enregistrement y retourne par {@code adopt} (5.9) — le
+     * client ne mute jamais le graphe vivant du serveur.
+     */
+    private static boolean openById(Minecraft mc, Identifier id, boolean deferred) {
+        MinecraftServer server = mc.getSingleplayerServer();
+        if (server == null) {
+            return false;
+        }
+        Blueprint copy = server.submit(() ->
+                BlueprintManager.of(server).get(id).map(Blueprint::copy).orElse(null)).join();
+        if (copy == null) {
+            return false;
+        }
+        lastEdited = id;
+        EditorSession session = EditorSession.of(copy, snapshot ->
+                server.submit(() -> BlueprintManager.of(server).adopt(snapshot)).join());
+        Runnable open = () -> {
+            var registries = BlueprintMod.registries();
+            mc.setScreen(new BlueprintEditorScreen(session, registries.nodes(),
+                    ClientNodeRegistry.fromLocal(registries)));
+        };
+        if (deferred) {
+            mc.schedule(open);
+        } else {
+            open.run();
+        }
+        return true;
+    }
+
+    private static void createAndEdit(FabricClientCommandSource source, String raw) {
+        Minecraft mc = Minecraft.getInstance();
+        MinecraftServer server = mc.getSingleplayerServer();
+        if (server == null) {
+            source.sendFeedback(Component.translatable("blueprint.editor.cmd.multiplayer"));
+            return;
+        }
+        Identifier id = parseId(raw);
+        if (id == null) {
+            source.sendFeedback(Component.translatable("blueprint.editor.cmd.unknown", raw, raw));
+            return;
+        }
+        boolean created = server.submit(() ->
+                BlueprintManager.of(server).create(id).isPresent()).join();
+        if (!created) {
+            source.sendFeedback(Component.translatable("blueprint.cmd.exists", id.toString()));
+            return;
+        }
+        source.sendFeedback(Component.translatable("blueprint.cmd.created", id.toString()));
+        openById(mc, id, true);
     }
 
     private static void openDemoEditor(Minecraft mc) {
         var registries = BlueprintMod.registries();
         mc.setScreen(new BlueprintEditorScreen(
-                DemoBlueprint.build(registries.nodes()), registries.nodes(),
-                ClientNodeRegistry.fromLocal(registries)));
+                EditorSession.scratch(DemoBlueprint.build(registries.nodes())),
+                registries.nodes(), ClientNodeRegistry.fromLocal(registries)));
     }
 }

@@ -1,7 +1,6 @@
 package fr.blueprint.client.editor;
 
 import fr.blueprint.client.registry.ClientNodeRegistry;
-import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.NodeTypeLookup;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -9,20 +8,30 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 /**
- * L'écran de l'éditeur : héberge le canevas plein écran. Les panneaux latéraux
- * (variables, détails, diagnostics) arrivent avec les stories 5.4–5.6.
+ * L'écran de l'éditeur : héberge le canevas plein écran. Édite toujours une copie
+ * ({@link EditorSession}) ; {@code Ctrl+S} enregistre, la fermeture avec des
+ * modifications non enregistrées demande confirmation (U2). Les panneaux latéraux
+ * (variables, détails, diagnostics) arrivent avec les stories 5.5/5.6b/5.10.
  */
 public final class BlueprintEditorScreen extends Screen {
 
+    private final EditorSession session;
     private final CanvasWidget canvas;
     private boolean framed;
 
-    public BlueprintEditorScreen(Blueprint blueprint, NodeTypeLookup lookup,
+    public BlueprintEditorScreen(EditorSession session, NodeTypeLookup lookup,
                                  ClientNodeRegistry descriptors) {
-        super(Component.translatable("blueprint.editor.title", blueprint.id().toString()));
-        this.canvas = new CanvasWidget(blueprint, lookup, descriptors);
+        super(Component.translatable("blueprint.editor.title",
+                session.blueprint().id().toString()));
+        this.session = session;
+        this.canvas = new CanvasWidget(session.blueprint(), lookup, descriptors);
+    }
+
+    public EditorSession session() {
+        return session;
     }
 
     @Override
@@ -39,7 +48,9 @@ public final class BlueprintEditorScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         canvas.render(graphics, font);
-        graphics.drawString(font, title, 6, 6, 0xFF8A8F98, false);
+        // ● = modifications non enregistrées (5.9), comparé par révisions.
+        String head = session.dirty() ? "● " + title.getString() : title.getString();
+        graphics.drawString(font, head, 6, 6, session.dirty() ? 0xFFE0AF68 : 0xFF8A8F98, false);
     }
 
     @Override
@@ -70,7 +81,27 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (event.key() == GLFW.GLFW_KEY_S && event.hasControlDown()) {
+            save();
+            return true;
+        }
         return canvas.keyPressed(event) || super.keyPressed(event);
+    }
+
+    private void save() {
+        if (session.save() && minecraft != null && minecraft.player != null) {
+            minecraft.player.displayClientMessage(Component.translatable(
+                    "blueprint.editor.saved", session.blueprint().id().toString()), true);
+        }
+    }
+
+    @Override
+    public void onClose() {
+        if (session.dirty()) {
+            minecraft.setScreen(new UnsavedChangesScreen(this, session));
+        } else {
+            super.onClose();
+        }
     }
 
     @Override

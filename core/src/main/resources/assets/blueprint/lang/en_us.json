@@ -102,6 +102,14 @@
   "blueprint.editor.palette.title": "Add a node",
   "blueprint.editor.palette.filter": "filter: %s",
   "blueprint.editor.palette.empty": "No results",
+  "blueprint.editor.saved": "Blueprint %s saved",
+  "blueprint.editor.unsaved.title": "Unsaved changes",
+  "blueprint.editor.unsaved.save": "Save and quit",
+  "blueprint.editor.unsaved.discard": "Quit without saving",
+  "blueprint.editor.unsaved.cancel": "Keep editing",
+  "blueprint.editor.cmd.multiplayer": "Editing on a remote server needs the network sync (coming with a later update)",
+  "blueprint.editor.cmd.unknown": "No blueprint \"%s\" — use /blueprint-edit create %s",
+  "blueprint.editor.cmd.list": "Editable blueprints: %s",
   "key.blueprint.open_editor": "Open the blueprint editor (demo)",
   "key.category.blueprint.main": "Blueprint"
 }

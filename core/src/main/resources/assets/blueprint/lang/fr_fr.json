@@ -102,6 +102,14 @@
   "blueprint.editor.palette.title": "Ajouter un nœud",
   "blueprint.editor.palette.filter": "filtre : %s",
   "blueprint.editor.palette.empty": "Aucun résultat",
+  "blueprint.editor.saved": "Blueprint %s enregistré",
+  "blueprint.editor.unsaved.title": "Modifications non enregistrées",
+  "blueprint.editor.unsaved.save": "Enregistrer et quitter",
+  "blueprint.editor.unsaved.discard": "Quitter sans enregistrer",
+  "blueprint.editor.unsaved.cancel": "Continuer l'édition",
+  "blueprint.editor.cmd.multiplayer": "L'édition sur un serveur distant demande la synchro réseau (à venir)",
+  "blueprint.editor.cmd.unknown": "Aucun blueprint « %s » — /blueprint-edit create %s pour le créer",
+  "blueprint.editor.cmd.list": "Blueprints éditables : %s",
   "key.blueprint.open_editor": "Ouvrir l'éditeur de blueprint (démo)",
   "key.category.blueprint.main": "Blueprint"
 }
