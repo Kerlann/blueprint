@@ -231,6 +231,36 @@ class PersistenceTest {
     }
 
     @Test
+    void corruptBlueprintRevivesWhenDecodableAgain() {
+        // Régression QA PERSIST-001 : un tag préservé brut est RETENTÉ au démarrage
+        // suivant — si le mod manquant est revenu, le blueprint revit (P4).
+        var storage = new BlueprintStorage();
+        storage.corruptTags().add(
+                fr.blueprint.core.graph.GraphNbt.encode(DemoBlueprint.build(LOADED.nodes())));
+        var report = PersistenceHooks.restore(storage, manager, scheduler, LOADED,
+                RefResolver.NONE, envFactory);
+        assertEquals(1, report.blueprintsLoaded(), "le préservé redevenu décodable revit");
+        assertEquals(0, report.blueprintsCorrupt());
+        assertTrue(storage.corruptTags().isEmpty(), "plus rien à préserver");
+        assertTrue(manager.get(DemoBlueprint.ID).isPresent());
+    }
+
+    @Test
+    void malformedSuspendedExecutionNeverCrashesRestore() {
+        // Régression QA PERSIST-002 : UUID malformé = annulation comptée, jamais un crash.
+        var storage = new BlueprintStorage();
+        CompoundTag bad = new CompoundTag();
+        bad.putString("blueprint", "test:x");
+        bad.putString("event", "test:e");
+        bad.putString("entry", "pas-un-uuid");
+        storage.suspendedTags().add(bad);
+        var report = PersistenceHooks.restore(storage, manager, scheduler, LOADED,
+                RefResolver.NONE, envFactory);
+        assertEquals(1, report.executionsCancelled());
+        assertEquals(0, report.executionsResumed());
+    }
+
+    @Test
     void storageCodecRoundTripsRawLists() {
         var storage = new BlueprintStorage();
         CompoundTag a = new CompoundTag();

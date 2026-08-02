@@ -1,0 +1,30 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "6.1"
+story_title: "Persistance dans la sauvegarde du monde"
+gate: "PASS"
+status_reason: "Cycle complet prouvé au vrai codec SavedData (wait traversant un redémarrage simulé), capture non destructive, BRIDGE-001 et la faille entryNode de la 3.4 soldés. Deux medium trouvés et corrigés en review : préservés bruts jamais retentés (P4 incomplet) et UUID malformé crashant la restauration."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T22:25:55Z"
+waiver: { active: false }
+top_issues:
+  - id: "PERSIST-001"
+    severity: medium
+    finding: "RÉSOLU EN REVIEW — les tags corrompus préservés n'étaient JAMAIS retentés aux démarrages suivants : un mod réinstallé ne faisait pas revivre ses blueprints, en contradiction avec la promesse P4 ; doublon possible dans le chemin sans liaison vivante"
+    suggested_action: "Corrigé : restore retraite blueprints + préservés en reconstruisant les deux listes ; régression « préservé redevenu décodable revit »"
+  - id: "PERSIST-002"
+    severity: medium
+    finding: "RÉSOLU EN REVIEW — ExecutionNbt.decode laissait échapper IllegalArgumentException (UUID/enum malformé — y compris le champ entry ajouté par cette story) : une seule entrée pourrie aurait crashé toute la restauration (violation AC2)"
+    suggested_action: "Corrigé : catch élargi → annulation comptée + avertissement ; régression avec entry « pas-un-uuid »"
+  - id: "SAVE-001"
+    severity: low
+    finding: "scheduleSave() de DimensionDataStorage est asynchrone (CompletableFuture) : la capture vivante suppose que l'ENCODAGE du codec reste sur le thread serveur (collecte synchrone, écriture async) — cohérent avec l'implémentation vanilla connue, non prouvable au javap"
+    suggested_action: "À confirmer en jeu (VERIFY-005) : autosave pendant qu'un blueprint tourne + édition simultanée — aucune CME attendue ; si race avérée, snapshot en fin de tick"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 2, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "VERIFY-005 (session en jeu) : log « Persistance : … », démo survivant au redémarrage, DataFixTypes null accepté, autosave sans course"
+      - "isDirty()=true → encodage complet à chaque sauvegarde du monde : O(blueprints), à surveiller au-delà de quelques centaines"
+      - "GRAPH scope du VarStore non persisté (variables perdues au redémarrage) — story 6.x variables, déjà tracé"

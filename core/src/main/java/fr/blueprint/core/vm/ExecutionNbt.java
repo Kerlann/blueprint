@@ -115,6 +115,11 @@ public final class ExecutionNbt {
             BlueprintMod.LOGGER.info(
                     "Exécution suspendue annulée proprement : {}", e.getMessage());
             return null;
+        } catch (IllegalArgumentException e) {
+            // Correction QA PERSIST-002 : UUID/enum malformé = donnée corrompue → null,
+            // jamais une exception qui remonterait dans la boucle de restauration (AC2).
+            BlueprintMod.LOGGER.warn("Exécution suspendue malformée — annulée", e);
+            return null;
         }
     }
 

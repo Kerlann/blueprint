@@ -36,9 +36,16 @@ public final class PersistenceHooks {
                                         PluginLoader.LoadedRegistries registries,
                                         RefResolver resolver,
                                         BlueprintEventBridge.EnvFactory envFactory) {
+        // Correction QA PERSIST-001 : les tags préservés bruts sont RETENTÉS à chaque
+        // démarrage — un mod réinstallé fait revivre ses blueprints (P4). Les deux
+        // listes sont reconstruites proprement : pas de doublon, pas d'accumulation.
         int loaded = 0;
         int corrupt = 0;
-        for (CompoundTag tag : storage.blueprintTags()) {
+        java.util.List<CompoundTag> pending = new java.util.ArrayList<>(storage.blueprintTags());
+        pending.addAll(storage.corruptTags());
+        storage.blueprintTags().clear();
+        storage.corruptTags().clear();
+        for (CompoundTag tag : pending) {
             Blueprint bp = null;
             try {
                 bp = GraphNbt.decode(tag, typeId -> registries.pinTypes().get(typeId).orElse(null));
