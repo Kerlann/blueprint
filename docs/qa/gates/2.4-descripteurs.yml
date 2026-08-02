@@ -1,0 +1,24 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "2.4"
+story_title: "Descripteurs de nœuds sérialisables"
+gate: "PASS"
+status_reason: "Projection sans action, round-trips NBT et réseau sur les nœuds réels, identité des types préservée au décodage, hash canonique correct (pas de dépendance à l'ordre de HashMap). Deux low de périmètre pour la 6.2."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T21:04:29Z"
+waiver: { active: false }
+top_issues:
+  - id: "SYNC-001"
+    severity: low
+    finding: "RegistryHash ne couvre que le registre des nœuds : un type de pin tiers ajouté/modifié sans changement de nœud ne change pas le hash — or la 6.2 doit aussi synchroniser les types (couleur, forme, coercitions) vers le client"
+    suggested_action: "En 6.2 : hash combiné (nœuds + types de pins) ou second hash dédié — décision à prendre au moment du protocole"
+  - id: "DESC-001"
+    severity: low
+    finding: "decode est tout-ou-rien pour types/kind/permission mais 'category' absente retombe silencieusement sur « misc » — incohérence mineure de philosophie"
+    suggested_action: "Aligner (échouer aussi sur category absente) ou documenter la tolérance — au prochain passage sur NodeDescriptor"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "SYNC-001 au moment du protocole de synchro (6.2)"

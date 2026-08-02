@@ -1,0 +1,24 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "2.2"
+story_title: "Registre de nœuds et entrypoint"
+gate: "PASS"
+status_reason: "Isolation des plugins exemplaire (enregistrements partiels retirés, phases croisées prouvées par test), testmod réel chargé avec ses pins vérifiés, NodeTypeLookup branché au validateur. Le câblage Fabric (loadFromFabric) rejoint la session de vérification en jeu."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T21:04:29Z"
+waiver: { active: false }
+top_issues:
+  - id: "TESTMOD-001"
+    severity: low
+    finding: "Les 3 nœuds du testmod n'ont pas de clés de langue : la palette de dev affichera « blueprint.node.blueprint_testmod.ping.name » brut (règle 8 des coding standards, tolérée pour un outil dev-only)"
+    suggested_action: "Ajouter les 6 clés (en/fr) dans les assets du testmod au prochain passage — utile aussi pour valider visuellement la palette (épic 5)"
+  - id: "VERIFY-003"
+    severity: low
+    finding: "loadFromFabric (adaptateur entrypoint réel) n'est vérifiable qu'en jeu — s'ajoute à la session manuelle VERIFY-001/002 : le log doit afficher « 1 plugin(s) — 16 type(s) de pins, 3 nœud(s), 0 en échec »"
+    suggested_action: "Même session manuelle que VERIFY-001/002 ; le spike 1.6 l'automatisera"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "VERIFY-003 dans la session en jeu unique (VERIFY-001/002/003)"

@@ -1,4 +1,4 @@
-[22:59:39] [Test worker/WARN]: Config illisible (C:\Users\kerla\AppData\Local\Temp\junit-18300711562965374415\blueprint\config.json), valeurs par défaut appliquées
+[23:04:26] [Test worker/WARN]: Config illisible (C:\Users\kerla\AppData\Local\Temp\junit-5369985081999707576\blueprint\config.json), valeurs par défaut appliquées
 com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 8 path $.pas
 See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
 	at com.google.gson.Gson.fromJson(Gson.java:1384)
@@ -98,9 +98,9 @@ See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
 	at com.google.gson.internal.bind.TypeAdapters$32$1.read(TypeAdapters.java:915)
 	at com.google.gson.Gson.fromJson(Gson.java:1358)
 	... 86 more
-[22:59:39] [Test worker/INFO]: Graphe de 200 nœuds : 7873 octets gzip (39 octets/nœud)
-[22:59:40] [Test worker/WARN]: Le nœud « shared:node » du mod « mod_one » n'utilise pas son namespace — convention non respectée
-[22:59:40] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
+[23:04:27] [Test worker/INFO]: Graphe de 200 nœuds : 7873 octets gzip (39 octets/nœud)
+[23:04:27] [Test worker/WARN]: Le nœud « shared:node » du mod « mod_one » n'utilise pas son namespace — convention non respectée
+[23:04:27] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: Nœud en doublon : « shared:node » est déjà fourni par « mod_one », refusé pour « mod_two »
 	at fr.blueprint.core.registry.NodeRegistryImpl.register(NodeRegistryImpl.java:47)
 	at fr.blueprint.core.registry.PluginLoaderTest.lambda$duplicateAcrossModsNamesBothAndIsolatesSecond$4(PluginLoaderTest.java:119)
@@ -187,7 +187,7 @@ java.lang.IllegalStateException: Nœud en doublon : « shared:node » est déjà
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[22:59:40] [Test worker/ERROR]: Le plugin Blueprint du mod « badmod » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
+[23:04:27] [Test worker/ERROR]: Le plugin Blueprint du mod « badmod » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: boum
 	at fr.blueprint.core.registry.PluginLoaderTest$1.registerNodes(PluginLoaderTest.java:73)
 	at fr.blueprint.core.registry.PluginLoader.load(PluginLoader.java:68)

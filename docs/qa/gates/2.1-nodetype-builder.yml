@@ -1,0 +1,19 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "2.1"
+story_title: "NodeType et builder"
+gate: "PASS"
+status_reason: "Builder conforme au contrat extension-api, 6 validations d'incohérence testées, immuabilité vérifiée. La validation des défauts lève dès la déclaration (.in()) — plus tôt que l'AC ne l'exige."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T21:04:29Z"
+waiver: { active: false }
+top_issues:
+  - id: "SPEC-001"
+    severity: low
+    finding: "NodeType.PinSpec est un record public constructible à la main sans passer par le builder — un tiers pourrait fabriquer un PinSpec incohérent (pin EXEC avec défaut) qu'aucune validation ne rattrape"
+    suggested_action: "Ajouter un compact constructor de validation sur PinSpec au prochain passage api (non urgent : seul le builder en fabrique aujourd'hui)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor: []

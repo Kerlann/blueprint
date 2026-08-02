@@ -1,0 +1,20 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "2.3"
+story_title: "Contexte d'exécution des nœuds"
+gate: "PASS"
+status_reason: "Première exécution de bout en bout du projet, garde anti-fuite irréprochable (finally, testée y compris sur exception), 9 erreurs de développeur nommant le nœud. Un low sur le contrat de in() sans valeur."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T21:04:29Z"
+waiver: { active: false }
+top_issues:
+  - id: "CTX-001"
+    severity: low
+    finding: "ctx.in() retourne null quand il n'y a ni valeur fournie ni défaut de pin — l'action tierce fera un NPE opaque au lieu d'une erreur nommée ; le validateur (required) rend le cas improbable mais pas impossible (pin de référence non câblé chargé en fantôme)"
+    suggested_action: "Quand la VM arrive (3.3) : lever une ISE explicite « pin sans valeur » plutôt que retourner null, et figer ce contrat dans la javadoc de NodeContext.in ; au passage rendre outputs() non modifiable (carte interne exposée)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "CTX-001 à trancher en story 3.3 (sémantique VM)"
