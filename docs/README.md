@@ -53,9 +53,11 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 1 | (suite) | 1.4 | Done (gate PASS) |
 | 1 | (suite) | 1.5 | Ready for Review — gate CONCERNS (TEST-002 soldé par la 1.6 ; reste VERIFY-002) |
 | 1 | (suite) | 1.6 | Draft (spike gametest — trace la dette de test en jeu) |
-| 2–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
+| 2 | Registre de nœuds et API d'extension | 2.1, 2.2 | **Ready for Review** (builder + registre + entrypoint, testmod vivant : 3 nœuds) |
+| 2 | (suite) | 2.3, 2.4, 2.5 | À rédiger par le SM (NodeContext impl, descripteurs, événements) |
+| 3–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** session manuelle en jeu (`runClient` + commandes `/blueprint`) — ferme VERIFY-001 et VERIFY-002 d'un coup ; puis épic 2, la 1.6 pouvant se faire en parallèle.
+**Prochaine action :** session manuelle en jeu — le log attendu inclut désormais « 1 plugin(s) — 16 type(s) de pins, 3 nœud(s) » ; puis QA 2.1/2.2 et suite de l'épic 2.
 
 ## Ordre de lecture recommandé
 

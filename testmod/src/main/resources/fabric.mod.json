@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "blueprint_testmod",
+  "version": "1.0.0",
+  "name": "Blueprint Testmod",
+  "description": "Mod d'exemple validant l'API Blueprint (dev uniquement, jamais livré)",
+  "license": "All Rights Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "blueprint": [
+      "fr.blueprint.testmod.TestPlugin"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0"
+  }
+}

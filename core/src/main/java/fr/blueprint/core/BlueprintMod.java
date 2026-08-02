@@ -13,9 +13,15 @@ public class BlueprintMod implements ModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static BlueprintConfig config = BlueprintConfig.DEFAULT;
+    private static fr.blueprint.core.registry.PluginLoader.LoadedRegistries registries;
 
     public static BlueprintConfig config() {
         return config;
+    }
+
+    /** Registres gelés du serveur (types de pins + nœuds), disponibles après l'init. */
+    public static fr.blueprint.core.registry.PluginLoader.LoadedRegistries registries() {
+        return registries;
     }
 
     @Override
@@ -25,11 +31,12 @@ public class BlueprintMod implements ModInitializer {
         config = BlueprintConfig.load(FabricLoader.getInstance().getConfigDir());
         BlueprintCommand.register(config);
 
-        // Le chargement réel des plugins (registres, gel, hash) arrive en story 2.2 ;
-        // ici on prouve seulement que l'entrypoint "blueprint" est câblé.
-        int plugins = FabricLoader.getInstance()
+        int declared = FabricLoader.getInstance()
                 .getEntrypointContainers("blueprint", BlueprintPlugin.class)
                 .size();
-        LOGGER.info("{} plugin(s) Blueprint détecté(s)", plugins);
+        registries = fr.blueprint.core.registry.PluginLoader.loadFromFabric();
+        LOGGER.info("{} plugin(s) Blueprint détecté(s) — {} type(s) de pins, {} nœud(s), {} en échec",
+                declared, registries.pinTypes().all().size(), registries.nodes().all().size(),
+                registries.failedMods().size());
     }
 }

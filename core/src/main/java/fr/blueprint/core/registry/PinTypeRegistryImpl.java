@@ -69,6 +69,20 @@ public final class PinTypeRegistryImpl implements PinTypeRegistry {
         providerById.put(type.id(), currentProvider);
     }
 
+    /** Retire tous les enregistrements d'un fournisseur (isolation d'un plugin en échec). */
+    public void removeAllFrom(String provider) {
+        java.util.List<Identifier> ids = new java.util.ArrayList<>();
+        providerById.forEach((id, p) -> {
+            if (p.equals(provider)) {
+                ids.add(id);
+            }
+        });
+        for (Identifier id : ids) {
+            byId.remove(id);
+            providerById.remove(id);
+        }
+    }
+
     /** Fige le registre ; tout {@link #register} ultérieur lève. */
     public void freeze() {
         frozen = true;

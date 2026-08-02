@@ -9,6 +9,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("net.jqwik:jqwik:1.9.2")
+    // Le mod d'exemple, chargé par PluginLoaderTest (story 2.2 AC5) — acyclique (testmod → api).
+    testImplementation(project(path = ":testmod", configuration = "namedElements"))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
