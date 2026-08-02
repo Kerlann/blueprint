@@ -108,12 +108,15 @@ public final class StandardNodes {
                 .build());
 
         // Aléatoire déterministe (PRD 7.2) : même graine + même index → même valeur.
+        // Mélange doré (correction QA RAND-001) : seed*31+index rendait (1,0) et (0,31)
+        // identiques — inacceptable pour un nœud vendu « déterministe à graine ».
         r.register(NodeType.builder(id("math/random"))
                 .category(NodeCategories.MATH).pure().deterministic(false)
                 .in("seed", PinTypes.LONG, 0L).in("index", PinTypes.INT, 0)
                 .out("value", PinTypes.DOUBLE)
-                .action(ctx -> ctx.out("value",
-                        new Random(ctx.<Long>in("seed") * 31 + ctx.<Integer>in("index")).nextDouble()))
+                .action(ctx -> ctx.out("value", new Random(
+                        ctx.<Long>in("seed") ^ (ctx.<Integer>in("index") * 0x9E3779B97F4A7C15L))
+                        .nextDouble()))
                 .build());
 
         // ------------------------------------------------------ comparaisons (7.2)

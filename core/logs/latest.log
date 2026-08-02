@@ -1,4 +1,4 @@
-[00:02:57] [Test worker/ERROR]: Import de « C:\Users\kerla\AppData\Local\Temp\junit-5493346007519617252\corrompu.bp » impossible
+[00:07:17] [Test worker/ERROR]: Import de « C:\Users\kerla\AppData\Local\Temp\junit-7764458254886433020\corrompu.bp » impossible
 java.util.zip.ZipException: Not in GZIP format
 	at java.base/java.util.zip.GZIPInputStream.readHeader(GZIPInputStream.java:197)
 	at java.base/java.util.zip.GZIPInputStream.<init>(GZIPInputStream.java:81)
@@ -89,8 +89,8 @@ java.util.zip.ZipException: Not in GZIP format
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:02:57] [Test worker/INFO]: Compilation de 1 000 nœuds : 24 ms (budget NFR2 : 50 ms)
-[00:02:57] [Test worker/WARN]: Config illisible (C:\Users\kerla\AppData\Local\Temp\junit-5169373029504126013\blueprint\config.json), valeurs par défaut appliquées
+[00:07:17] [Test worker/INFO]: Compilation de 1 000 nœuds : 22 ms (budget NFR2 : 50 ms)
+[00:07:17] [Test worker/WARN]: Config illisible (C:\Users\kerla\AppData\Local\Temp\junit-623463527431785892\blueprint\config.json), valeurs par défaut appliquées
 com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 8 path $.pas
 See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
 	at com.google.gson.Gson.fromJson(Gson.java:1384)
@@ -190,8 +190,8 @@ See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
 	at com.google.gson.internal.bind.TypeAdapters$32$1.read(TypeAdapters.java:915)
 	at com.google.gson.Gson.fromJson(Gson.java:1358)
 	... 86 more
-[00:02:57] [Test worker/WARN]: Le nœud « mymod:score_changed » du mod « spy » n'utilise pas son namespace — convention non respectée
-[00:02:57] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerEvents — il est désactivé, ses nœuds apparaîtront en fantômes
+[00:07:17] [Test worker/WARN]: Le nœud « mymod:score_changed » du mod « spy » n'utilise pas son namespace — convention non respectée
+[00:07:17] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerEvents — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: Événement en doublon : « shared:event » est déjà fourni par « mod_one », refusé pour « mod_two »
 	at fr.blueprint.core.event.EventRegistryImpl.register(EventRegistryImpl.java:36)
 	at fr.blueprint.core.event.EventSystemTest$3.registerEvents(EventSystemTest.java:216)
@@ -279,8 +279,8 @@ java.lang.IllegalStateException: Événement en doublon : « shared:event » est
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:02:57] [Test worker/WARN]: Le nœud « shared:event » du mod « mod_one » n'utilise pas son namespace — convention non respectée
-[00:02:57] [Test worker/ERROR]: Abonné en échec sur l'événement « mymod:ritual_complete »
+[00:07:17] [Test worker/WARN]: Le nœud « shared:event » du mod « mod_one » n'utilise pas son namespace — convention non respectée
+[00:07:17] [Test worker/ERROR]: Abonné en échec sur l'événement « mymod:ritual_complete »
 java.lang.RuntimeException: abonné cassé
 	at fr.blueprint.core.event.EventSystemTest.lambda$faultySubscriberDoesNotStarveOthers$11(EventSystemTest.java:145)
 	at fr.blueprint.core.event.EventDispatcher.deliver(EventDispatcher.java:88)
@@ -367,9 +367,9 @@ java.lang.RuntimeException: abonné cassé
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:02:57] [Test worker/INFO]: Graphe de 200 nœuds : 7873 octets gzip (39 octets/nœud)
-[00:02:57] [Test worker/WARN]: Le nœud « shared:node » du mod « mod_one » n'utilise pas son namespace — convention non respectée
-[00:02:57] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
+[00:07:18] [Test worker/INFO]: Graphe de 200 nœuds : 7873 octets gzip (39 octets/nœud)
+[00:07:18] [Test worker/WARN]: Le nœud « shared:node » du mod « mod_one » n'utilise pas son namespace — convention non respectée
+[00:07:18] [Test worker/ERROR]: Le plugin Blueprint du mod « mod_two » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: Nœud en doublon : « shared:node » est déjà fourni par « mod_one », refusé pour « mod_two »
 	at fr.blueprint.core.registry.NodeRegistryImpl.register(NodeRegistryImpl.java:47)
 	at fr.blueprint.core.registry.PluginLoaderTest.lambda$duplicateAcrossModsNamesBothAndIsolatesSecond$4(PluginLoaderTest.java:119)
@@ -457,7 +457,7 @@ java.lang.IllegalStateException: Nœud en doublon : « shared:node » est déjà
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:02:57] [Test worker/ERROR]: Le plugin Blueprint du mod « badmod » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
+[00:07:18] [Test worker/ERROR]: Le plugin Blueprint du mod « badmod » a échoué pendant registerNodes — il est désactivé, ses nœuds apparaîtront en fantômes
 java.lang.IllegalStateException: boum
 	at fr.blueprint.core.registry.PluginLoaderTest$1.registerNodes(PluginLoaderTest.java:73)
 	at fr.blueprint.core.registry.PluginLoader.load(PluginLoader.java:80)
@@ -544,9 +544,9 @@ java.lang.IllegalStateException: boum
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:02:57] [Test worker/INFO]: Exécution suspendue annulée proprement : joueur 83146808-43e2-473c-8f81-dc065b282a47 absent
-[00:02:57] [Test worker/WARN]: Exécution suspendue de « test:bad » non persistable : valeur de type java.lang.Object — elle sera perdue au redémarrage
-[00:02:58] [Test worker/ERROR]: Nœud « sched:boom » en faute
+[00:07:18] [Test worker/INFO]: Exécution suspendue annulée proprement : joueur 23f7c03e-b618-478d-b895-3f3dde945da4 absent
+[00:07:18] [Test worker/WARN]: Exécution suspendue de « test:bad » non persistable : valeur de type java.lang.Object — elle sera perdue au redémarrage
+[00:07:18] [Test worker/ERROR]: Nœud « sched:boom » en faute
 java.lang.IllegalStateException: nœud cassé
 	at fr.blueprint.core.vm.SchedulerTest.lambda$static$3(SchedulerTest.java:45)
 	at fr.blueprint.core.vm.NodeContextImpl.invoke(NodeContextImpl.java:60)
@@ -635,7 +635,7 @@ java.lang.IllegalStateException: nœud cassé
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:02:58] [Test worker/ERROR]: Nœud « sched:boom » en faute
+[00:07:18] [Test worker/ERROR]: Nœud « sched:boom » en faute
 java.lang.IllegalStateException: nœud cassé
 	at fr.blueprint.core.vm.SchedulerTest.lambda$static$3(SchedulerTest.java:45)
 	at fr.blueprint.core.vm.NodeContextImpl.invoke(NodeContextImpl.java:60)
@@ -724,7 +724,7 @@ java.lang.IllegalStateException: nœud cassé
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:02:58] [Test worker/ERROR]: Nœud « t:boom » en faute
+[00:07:18] [Test worker/ERROR]: Nœud « t:boom » en faute
 java.lang.IllegalStateException: cassé exprès
 	at fr.blueprint.core.vm.VmInstructionTest.lambda$throwingActionAndFailBothFaultCleanly$7(VmInstructionTest.java:147)
 	at fr.blueprint.core.vm.NodeContextImpl.invoke(NodeContextImpl.java:60)
@@ -813,7 +813,7 @@ java.lang.IllegalStateException: cassé exprès
 	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-[00:02:58] [Test worker/ERROR]: Nœud « t:needy » en faute
+[00:07:18] [Test worker/ERROR]: Nœud « t:needy » en faute
 java.lang.IllegalStateException: Nœud « t:needy » : le pin « target » n'a ni valeur ni défaut — câblage manquant ou producteur non exécuté
 	at fr.blueprint.core.vm.NodeContextImpl.in(NodeContextImpl.java:85)
 	at fr.blueprint.core.vm.VmInstructionTest.lambda$missingInputWithoutDefaultFaultsNamingThePin$10(VmInstructionTest.java:176)

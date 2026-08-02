@@ -1,0 +1,34 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "7.1a-7.2-7.6"
+story_title: "Bibliothèque standard et événements du monde"
+gate: "PASS"
+status_reason: "Jouable et prouvé deux fois : bout-en-bout headless (12 tests) ET session utilisateur en jeu (ping/pong + accueil différé — VERIFY-004). Trois trouvailles en review : mélange de graine faible et double émission par main corrigés, coût du pont au tick atténué et routé."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T22:06:19Z"
+waiver: { active: false }
+top_issues:
+  - id: "RAND-001"
+    severity: low
+    finding: "RÉSOLU EN REVIEW — math/random mélangeait seed*31+index : random(1,0) et random(0,31) rendaient LA MÊME valeur — piège grossier pour un nœud vendu « déterministe à graine »"
+    suggested_action: "Corrigé : mélange doré (seed ^ index·φ64) + régression sur la collision exacte"
+  - id: "EVENT-001"
+    severity: low
+    finding: "RÉSOLU EN REVIEW — UseBlockCallback/UseItemCallback sont appelés pour CHAQUE main : un clic droit émettait potentiellement deux événements player_use_block/item"
+    suggested_action: "Corrigé : garde MAIN_HAND sur les deux ponts"
+  - id: "BRIDGE-001"
+    severity: medium
+    finding: "launchMatching parcourt tous les blueprints × tous leurs nœuds à chaque émission — server_tick le traverse CHAQUE tick ; O(blueprints × nœuds)/tick dès qu'un blueprint existe"
+    suggested_action: "Sortie anticipée « aucun blueprint » appliquée en review (le cas serveur au repos coûte zéro) ; l'index événement → nœuds d'entrée avec invalidation au cycle de vie est requis en 6.1 (must-have de cette story, pas optionnel)"
+  - id: "VERIFY-004"
+    severity: low
+    finding: "CLOS PAR LA SESSION UTILISATEUR — ping/pong sur le chat et accueil différé de 2 s après reconnexion observés en jeu : chat + join + suspension + reprise + send_message validés en réel ; use_block/use_item/break/death restent non exercés individuellement (même patron de pont)"
+    suggested_action: "Les 4 ponts restants au gametest 1.6 ou à une session ultérieure — risque faible (patron identique)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 3 }
+  recommendations:
+    must_fix:
+      - "BRIDGE-001 : index événement → entrées à la 6.1 (l'atténuation ne couvre que le serveur sans blueprint)"
+    monitor:
+      - "Ponts use_block/use_item/break/death à exercer (1.6)"
+      - "GRAPH scope du VarStore partagé entre blueprints d'un serveur (wart MVP, structuration en 6.x)"

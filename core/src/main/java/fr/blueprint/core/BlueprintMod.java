@@ -100,7 +100,10 @@ public class BlueprintMod implements ModInitializer {
                         payload -> payload.set("player", handler.player)));
         net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register(
                 (player, world, hand, hit) -> {
-                    if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                    // Garde main principale (correction QA EVENT-001) : Fabric appelle le
+                    // callback pour chaque main — sans garde, un clic émettrait deux événements.
+                    if (hand == net.minecraft.world.InteractionHand.MAIN_HAND
+                            && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                         fr.blueprint.api.event.BlueprintEvents.fire(
                                 fr.blueprint.core.event.StandardEvents.PLAYER_USE_BLOCK,
                                 payload -> payload.set("player", serverPlayer)
@@ -111,7 +114,8 @@ public class BlueprintMod implements ModInitializer {
                 });
         net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
                 (player, world, hand) -> {
-                    if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                    if (hand == net.minecraft.world.InteractionHand.MAIN_HAND
+                            && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                         fr.blueprint.api.event.BlueprintEvents.fire(
                                 fr.blueprint.core.event.StandardEvents.PLAYER_USE_ITEM,
                                 payload -> payload.set("player", serverPlayer));

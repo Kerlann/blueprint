@@ -51,6 +51,12 @@ public final class BlueprintEventBridge {
     }
 
     private void launchMatching(Identifier eventId, TriggerContext trigger) {
+        // Sortie anticipée (QA BRIDGE-001) : server_tick passe ici chaque tick — le cas
+        // « aucun blueprint » doit coûter zéro. L'indexation événement → nœuds d'entrée
+        // (avec invalidation au cycle de vie) arrive avec la 6.1.
+        if (manager.all().isEmpty()) {
+            return;
+        }
         for (Blueprint bp : manager.all()) {
             if (!bp.enabled()) {
                 continue;

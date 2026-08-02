@@ -120,6 +120,10 @@ class StandardNodesTest {
         Object other = run("math/random", Map.of("seed", 123L, "index", 8)).outputs().get("value");
         assertEquals(first, second, "même graine + même index → même valeur");
         assertTrue(!first.equals(other), "un index différent change la valeur");
+        // Régression QA RAND-001 : (1,0) et (0,31) entraient en collision avec seed*31+index.
+        Object a = run("math/random", Map.of("seed", 1L, "index", 0)).outputs().get("value");
+        Object b = run("math/random", Map.of("seed", 0L, "index", 31)).outputs().get("value");
+        assertTrue(!a.equals(b), "le mélange doré évite les collisions triviales");
     }
 
     @Test
