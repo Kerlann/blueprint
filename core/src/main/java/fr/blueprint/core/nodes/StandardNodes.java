@@ -210,6 +210,17 @@ public final class StandardNodes {
                 .action(ctx -> ctx.out("result", (int) Math.floor(ctx.<Double>in("value"))))
                 .build());
 
+        // ------------------------------------------------- joueur (avant-goût 7.4)
+        r.register(NodeType.builder(id("player/send_message"))
+                .category(NodeCategories.PLAYER)
+                .permission(fr.blueprint.api.node.Permission.GAMEPLAY)
+                .exec()
+                .in("player", PinTypes.PLAYER)
+                .in("text", PinTypes.STRING, "")
+                .action(ctx -> ctx.<net.minecraft.server.level.ServerPlayer>in("player")
+                        .sendSystemMessage(Component.literal(ctx.in("text"))))
+                .build());
+
         // ----------------------------------------------------------- débogage (7.2)
         r.register(NodeType.builder(id("debug/log"))
                 .category(NodeCategories.DEBUG)

@@ -73,7 +73,74 @@ public final class BlueprintCommand {
                         .requires(admin)
                         .then(idArgument()
                                 .suggests(EXISTING_IDS)
-                                .executes(ctx -> setEnabled(ctx, false))));
+                                .executes(ctx -> setEnabled(ctx, false))))
+                .then(literal("export")
+                        .requires(admin)
+                        .then(idArgument()
+                                .suggests(EXISTING_IDS)
+                                .executes(BlueprintCommand::export)))
+                .then(literal("import")
+                        .requires(admin)
+                        .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("file",
+                                        com.mojang.brigadier.arguments.StringArgumentType.word())
+                                .executes(BlueprintCommand::importFile)))
+                .then(literal("demo")
+                        .requires(admin)
+                        .executes(BlueprintCommand::demo));
+    }
+
+    private static java.nio.file.Path exportsDir() {
+        return net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir()
+                .resolve("blueprint").resolve("exports");
+    }
+
+    private static int export(CommandContext<CommandSourceStack> ctx) {
+        Identifier id = IdentifierArgument.getId(ctx, "id");
+        var bp = BlueprintManager.of(ctx.getSource().getServer()).get(id).orElse(null);
+        if (bp == null) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.not_found", id.toString()));
+            return 0;
+        }
+        var path = fr.blueprint.core.BlueprintFiles.export(bp, exportsDir());
+        if (path == null) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.export_failed", id.toString()));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.exported",
+                id.toString(), path.getFileName().toString()), false);
+        return 1;
+    }
+
+    private static int importFile(CommandContext<CommandSourceStack> ctx) {
+        String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "file");
+        var registries = fr.blueprint.core.BlueprintMod.registries();
+        var bp = fr.blueprint.core.BlueprintFiles.importFile(exportsDir(), name,
+                typeId -> registries.pinTypes().get(typeId).orElse(null));
+        if (bp == null) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.import_failed", name));
+            return 0;
+        }
+        if (!BlueprintManager.of(ctx.getSource().getServer()).adopt(bp)) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.exists", bp.id().toString()));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.imported",
+                bp.id().toString(), bp.nodes().size()), true);
+        return 1;
+    }
+
+    private static int demo(CommandContext<CommandSourceStack> ctx) {
+        var registries = fr.blueprint.core.BlueprintMod.registries();
+        var manager = BlueprintManager.of(ctx.getSource().getServer());
+        var bp = fr.blueprint.core.DemoBlueprint.build(registries.nodes());
+        if (!manager.adopt(bp)) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.exists", bp.id().toString()));
+            return 0;
+        }
+        fr.blueprint.core.BlueprintFiles.export(bp, exportsDir());
+        ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.demo_created",
+                bp.id().toString()), true);
+        return 1;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> literal(String name) {

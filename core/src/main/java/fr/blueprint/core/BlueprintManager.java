@@ -45,6 +45,11 @@ public final class BlueprintManager {
         return blueprints.remove(id) != null;
     }
 
+    /** Adopte un blueprint existant (import, démo) ; faux si l'identifiant est pris. */
+    public boolean adopt(Blueprint blueprint) {
+        return blueprints.putIfAbsent(blueprint.id(), blueprint) == null;
+    }
+
     public Optional<Blueprint> get(Identifier id) {
         return Optional.ofNullable(blueprints.get(id));
     }
