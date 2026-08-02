@@ -1,15 +1,21 @@
 package fr.blueprint.client.editor;
 
+import fr.blueprint.api.pin.LiteralValue;
+import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.client.registry.ClientNodeRegistry;
 import fr.blueprint.core.graph.Blueprint;
+import fr.blueprint.core.graph.Link;
+import fr.blueprint.core.graph.Node;
 import fr.blueprint.core.graph.NodeTypeLookup;
 import fr.blueprint.core.registry.NodeDescriptor;
+import net.minecraft.core.Direction;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.language.I18n;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -39,9 +45,12 @@ public final class CanvasWidget {
     /** Tampon réutilisé chaque image : pas d'allocation dans la passe de rendu. */
     private final List<NodeGeometry.Box> visible = new ArrayList<>();
 
+    private final LiteralEditState literalEdit = new LiteralEditState();
+
     private int width;
     private int height;
     private boolean spaceDown;
+    private boolean shiftDown;
     private boolean panning;
 
     public CanvasWidget(Blueprint blueprint, NodeTypeLookup lookup, ClientNodeRegistry descriptors) {
@@ -131,10 +140,41 @@ public final class CanvasWidget {
                 }
                 return !controller.canConnect(wireFrom, uuid, pin, output);
             };
-            NodeWidget.render(g, font, b, descriptors.descriptor(b.node().typeId()),
+            NodeDescriptor desc = descriptors.descriptor(b.node().typeId());
+            NodeWidget.LiteralProvider literals = desc == null ? null
+                    : pin -> literalToShow(b.node(), desc, pin);
+            NodeWidget.render(g, font, b, desc,
                     controller.selection().isSelected(uuid), z,
-                    camera.toScreenX(b.x()), camera.toScreenY(b.y()), dimmer);
+                    camera.toScreenX(b.x()), camera.toScreenY(b.y()), dimmer,
+                    literals, literalEdit);
         }
+    }
+
+    /** Valeur affichée pour un pin d'entrée : littéral posé, sinon défaut ; null si câblé. */
+    private @Nullable LiteralValue literalToShow(Node node, NodeDescriptor desc, String pin) {
+        if (isWired(node.uuid(), pin)) {
+            return null;
+        }
+        LiteralValue set = node.literal(pin);
+        if (set != null) {
+            return set;
+        }
+        for (int i = 0; i < desc.inputs().size(); i++) {
+            if (desc.inputs().get(i).name().equals(pin)) {
+                return desc.inputs().get(i).defaultValue();
+            }
+        }
+        return null;
+    }
+
+    /** Sans allocation (appelé dans la passe de rendu), contrairement à linksInto. */
+    private boolean isWired(UUID node, String pin) {
+        for (Link link : controller.blueprint().links()) {
+            if (link.toNode().equals(node) && link.toPin().equals(pin)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void renderRubber(GuiGraphics g) {
@@ -156,6 +196,10 @@ public final class CanvasWidget {
     // -------------------------------------------------------------------- entrées
 
     public boolean mouseClicked(MouseButtonEvent e) {
+        if (literalEdit.isOpen()) {
+            // Clic ailleurs = valider (AC2) ; saisie invalide = abandonner (AC3).
+            commitLiteral(false);
+        }
         if (palette.isOpen()) {
             if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 int row = PalettePopup.rowAt(palette, e.x(), e.y(), width, height);
@@ -182,11 +226,54 @@ public final class CanvasWidget {
             return true;
         }
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            controller.press(camera.toWorldX(e.x()), camera.toWorldY(e.y()),
-                    e.hasShiftDown(), e.hasAltDown());
+            double wx = camera.toWorldX(e.x());
+            double wy = camera.toWorldY(e.y());
+            if (openLiteralEdit(wx, wy)) {
+                return true;
+            }
+            controller.press(wx, wy, e.hasShiftDown(), e.hasAltDown());
             return true;
         }
         return false;
+    }
+
+    /** Clic sur une zone littérale : bascule le bool, ouvre le champ ou l'énum. */
+    private boolean openLiteralEdit(double wx, double wy) {
+        CanvasController.LiteralRef ref = controller.literalAt(wx, wy);
+        if (ref == null) {
+            return false;
+        }
+        Node node = controller.blueprint().node(ref.node());
+        NodeDescriptor desc = node == null ? null : descriptors.descriptor(node.typeId());
+        LiteralValue current = node == null || desc == null ? null
+                : literalToShow(node, desc, ref.pin());
+        if (ref.type() == PinTypes.BOOL) {
+            boolean on = current != null && current.value() instanceof Boolean b && b;
+            controller.setLiteral(ref.node(), ref.pin(), LiteralValue.of(PinTypes.BOOL, !on));
+            return true;
+        }
+        if (ref.type() == PinTypes.DIRECTION) {
+            literalEdit.openEnum(ref.node(), ref.pin(), ref.row(),
+                    current != null && current.value() instanceof Direction d ? d : null);
+            return true;
+        }
+        if (LiteralEditState.editableAsText(ref.type())) {
+            literalEdit.openText(ref.node(), ref.pin(), ref.row(), ref.type(),
+                    LiteralEditState.display(ref.type(), current));
+            return true;
+        }
+        return false; // type 5.2c : le clic retombe sur la sélection du nœud
+    }
+
+    /** Valide l'édition courante ; {@code keepOnInvalid} garde le champ rouge ouvert. */
+    private void commitLiteral(boolean keepOnInvalid) {
+        LiteralValue value = literalEdit.parse();
+        if (value != null) {
+            controller.setLiteral(literalEdit.node(), literalEdit.pin(), value);
+            literalEdit.close();
+        } else if (!keepOnInvalid) {
+            literalEdit.close();
+        }
     }
 
     public boolean mouseReleased(MouseButtonEvent e) {
@@ -222,11 +309,35 @@ public final class CanvasWidget {
         if (vAmount == 0) {
             return false;
         }
+        if (literalEdit.isOpen()) {
+            // Molette : ±1 sur un champ numérique (Shift = ±10), cycle sur une énum.
+            if (literalEdit.mode() == LiteralEditState.Mode.ENUM) {
+                literalEdit.moveOption(vAmount > 0 ? -1 : 1);
+            } else {
+                literalEdit.adjustNumber((vAmount > 0 ? 1 : -1) * (shiftDown ? 10L : 1L));
+            }
+            return true;
+        }
         camera.zoomBy(vAmount > 0 ? 1 : -1, mouseX, mouseY);
         return true;
     }
 
     public boolean keyPressed(KeyEvent e) {
+        if (e.key() == GLFW.GLFW_KEY_LEFT_SHIFT || e.key() == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+            shiftDown = true;
+        }
+        if (literalEdit.isOpen()) {
+            switch (e.key()) {
+                case GLFW.GLFW_KEY_ESCAPE -> literalEdit.close();
+                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> commitLiteral(true);
+                case GLFW.GLFW_KEY_BACKSPACE -> literalEdit.backspace();
+                case GLFW.GLFW_KEY_UP -> literalEdit.moveOption(-1);
+                case GLFW.GLFW_KEY_DOWN -> literalEdit.moveOption(1);
+                default -> {
+                }
+            }
+            return true; // le clavier de l'éditeur est suspendu pendant l'édition (AC4)
+        }
         if (palette.isOpen()) {
             switch (e.key()) {
                 case GLFW.GLFW_KEY_ESCAPE -> palette.close();
@@ -277,6 +388,9 @@ public final class CanvasWidget {
     }
 
     public boolean keyReleased(KeyEvent e) {
+        if (e.key() == GLFW.GLFW_KEY_LEFT_SHIFT || e.key() == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+            shiftDown = false;
+        }
         if (e.key() == GLFW.GLFW_KEY_SPACE) {
             spaceDown = false;
             return true;
@@ -285,6 +399,10 @@ public final class CanvasWidget {
     }
 
     public boolean charTyped(CharacterEvent e) {
+        if (literalEdit.isOpen() && e.isAllowedChatCharacter()) {
+            literalEdit.type(e.codepointAsString());
+            return true;
+        }
         if (palette.isOpen() && e.isAllowedChatCharacter()) {
             palette.type(e.codepointAsString());
             return true;

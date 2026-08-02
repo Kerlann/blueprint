@@ -43,6 +43,10 @@ public final class CanvasController {
     public record WireDrop(double worldX, double worldY, PinRef from) {
     }
 
+    /** Zone littérale d'un pin d'entrée data non câblé (5.2b). */
+    public record LiteralRef(UUID node, String pin, PinType type, int row) {
+    }
+
     private final Blueprint blueprint;
     private final NodeTypeLookup lookup;
     private final Camera camera;
@@ -199,6 +203,40 @@ public final class CanvasController {
         double dx = p.x() - wx;
         double dy = p.y() - wy;
         return dx * dx + dy * dy;
+    }
+
+    // ----------------------------------------------------------------- littéraux
+
+    /**
+     * La zone littérale sous le point donné : pin d'entrée **data non câblé** du
+     * nœud au-dessus, ou null. Un pin câblé masque son littéral (le lien prime).
+     */
+    public @Nullable LiteralRef literalAt(double wx, double wy) {
+        NodeGeometry.Box b = hitTest(wx, wy);
+        if (b == null) {
+            return null;
+        }
+        NodeShape shape = lookup.shape(b.node().typeId());
+        if (shape == null) {
+            return null;
+        }
+        for (int row = 0; row < shape.inputs().size(); row++) {
+            NodeShape.PinDef def = shape.inputs().get(row);
+            if (def.kind() != PinKind.DATA) {
+                continue;
+            }
+            Camera.Rect zone = NodeGeometry.literalZone(b, row);
+            if (wx >= zone.left() && wx < zone.right() && wy >= zone.top() && wy < zone.bottom()
+                    && blueprint.linksInto(b.node().uuid(), def.name()).isEmpty()) {
+                return new LiteralRef(b.node().uuid(), def.name(), def.type(), row);
+            }
+        }
+        return null;
+    }
+
+    /** Applique un littéral via {@code SetLiteral} (revalidé côté modèle, inverse collecté). */
+    public boolean setLiteral(UUID node, String pin, @Nullable fr.blueprint.api.pin.LiteralValue value) {
+        return applyTracked(new EditOperation.SetLiteral(node, pin, value));
     }
 
     // ------------------------------------------------------------------- gestes

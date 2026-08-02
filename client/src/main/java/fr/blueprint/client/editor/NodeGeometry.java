@@ -89,6 +89,21 @@ public final class NodeGeometry {
         return box.y() + TITLE_HEIGHT + row * ROW_HEIGHT + ROW_HEIGHT / 2;
     }
 
+    /** Bord gauche de la zone littérale, en fraction de la largeur du nœud. */
+    public static final double LITERAL_LEFT = 0.38;
+    /** Bord droit de la zone littérale (laisse la place au pin/label de sortie). */
+    public static final double LITERAL_RIGHT = 0.72;
+
+    /**
+     * Zone cliquable/rendue de la valeur littérale d'un pin d'entrée (5.2b) —
+     * entre le label d'entrée et la colonne des sorties.
+     */
+    public static Camera.Rect literalZone(Box box, int row) {
+        double top = box.y() + TITLE_HEIGHT + row * ROW_HEIGHT;
+        return new Camera.Rect(box.x() + box.width() * LITERAL_LEFT, top,
+                box.x() + box.width() * LITERAL_RIGHT, top + ROW_HEIGHT);
+    }
+
     /** Boîte monde d'un nœud ; {@code ghost} = type inconnu du registre. */
     public record Box(Node node, double x, double y, double width, double height, boolean ghost) {
 

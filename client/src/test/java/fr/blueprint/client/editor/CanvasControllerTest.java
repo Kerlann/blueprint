@@ -243,6 +243,66 @@ class CanvasControllerTest {
         assertFalse(controller.canConnect(from, n2, "inconnu", false));
     }
 
+    // ----------------------------------------------------------- littéraux (5.2b)
+
+    @Test
+    void zoneLitteraleDUnPinDataNonCable() {
+        // Rangée 1 de n1 : pin data « a ». La zone est à droite du label.
+        NodeGeometry.Box box = controller.boxOf(n1);
+        Camera.Rect zone = NodeGeometry.literalZone(box, 1);
+        double cx = (zone.left() + zone.right()) / 2;
+        double cy = (zone.top() + zone.bottom()) / 2;
+
+        CanvasController.LiteralRef ref = controller.literalAt(cx, cy);
+        assertNotNull(ref);
+        assertEquals(n1, ref.node());
+        assertEquals("a", ref.pin());
+        assertEquals(1, ref.row());
+
+        // Rangée 0 : exec — jamais de littéral.
+        Camera.Rect execZone = NodeGeometry.literalZone(box, 0);
+        assertNull(controller.literalAt((execZone.left() + execZone.right()) / 2,
+                (execZone.top() + execZone.bottom()) / 2));
+    }
+
+    @Test
+    void unPinCableMasqueSonLitteral() {
+        // Le lien prime : dès que « a » est câblé depuis une sortie data, sa zone
+        // littérale disparaît (AC1 5.2b).
+        NodeShape withDataOut = new NodeShape(
+                List.of(),
+                List.of(new NodeShape.PinDef("out", PinKind.DATA, PinTypes.DOUBLE, false)),
+                false, Permission.SAFE);
+        Identifier srcType = Identifier.fromNamespaceAndPath("test", "src");
+        NodeTypeLookup lookup2 = typeId -> srcType.equals(typeId) ? withDataOut : SHAPE;
+        Blueprint bp2 = new Blueprint(Identifier.fromNamespaceAndPath("test", "wired"));
+        UUID src = UUID.randomUUID();
+        UUID dst = UUID.randomUUID();
+        assertTrue(new EditOperation.AddNode(src, srcType, new Vec2d(0, 0)).apply(bp2, lookup2).applied());
+        assertTrue(new EditOperation.AddNode(dst, TYPE, new Vec2d(300, 0)).apply(bp2, lookup2).applied());
+        CanvasController c2 = new CanvasController(bp2, lookup2, new Camera());
+
+        Camera.Rect zone = NodeGeometry.literalZone(c2.boxOf(dst), 1);
+        double cx = (zone.left() + zone.right()) / 2;
+        double cy = (zone.top() + zone.bottom()) / 2;
+        assertNotNull(c2.literalAt(cx, cy));
+
+        assertTrue(new EditOperation.AddLink(new Link(src, "out", dst, "a")).apply(bp2, lookup2).applied());
+        assertNull(c2.literalAt(cx, cy));
+    }
+
+    @Test
+    void setLiteralPasseParLOperationEtCollecteLInverse() {
+        int avant = controller.inverses().size();
+        assertTrue(controller.setLiteral(n1, "a",
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.DOUBLE, 2.5)));
+        assertEquals(2.5, bp.node(n1).literal("a").value());
+        assertEquals(avant + 1, controller.inverses().size());
+        // Type incompatible : refusé par SetLiteral, rien de collecté.
+        assertFalse(controller.setLiteral(n1, "a",
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.STRING, "nope")));
+    }
+
     @Test
     void insertionDepuisLaPaletteAvecAutoConnexion() {
         camera.toggleSnap();

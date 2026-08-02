@@ -1,7 +1,11 @@
 package fr.blueprint.client.editor;
 
+import fr.blueprint.api.pin.LiteralValue;
+import fr.blueprint.api.pin.PinKind;
 import fr.blueprint.api.pin.PinShape;
+import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.core.registry.NodeDescriptor;
+import net.minecraft.core.Direction;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
@@ -37,13 +41,25 @@ public final class NodeWidget {
         boolean dimmed(String pin, boolean output);
     }
 
+    /** Valeur littérale à afficher pour un pin d'entrée — null = masquée (câblé). */
+    public interface LiteralProvider {
+        @Nullable LiteralValue literalOf(String pin);
+    }
+
+    private static final int LITERAL_COLOR = 0xFF9AA0A8;
+    private static final int LITERAL_EDIT_BG = 0xFF141922;
+    private static final int LITERAL_EDIT_BORDER = 0xFF7AA2F7;
+    private static final int LITERAL_INVALID_BORDER = 0xFFF7768E;
+    private static final int BOOL_ON = 0xFF9ECE6A;
+
     private NodeWidget() {
     }
 
     public static void render(GuiGraphics g, Font font, NodeGeometry.Box box,
                               @Nullable NodeDescriptor desc, boolean selected,
                               double zoom, double screenX, double screenY,
-                              @Nullable PinDimmer dimmer) {
+                              @Nullable PinDimmer dimmer, @Nullable LiteralProvider literals,
+                              @Nullable LiteralEditState edit) {
         int w = (int) Math.round(box.width());
         int h = (int) Math.round(box.height());
         g.pose().pushMatrix();
@@ -65,13 +81,15 @@ public final class NodeWidget {
         if (ghost) {
             renderGhostContent(g, font, box.node().typeId(), w, zoom);
         } else {
-            renderContent(g, font, desc, w, zoom, dimmer);
+            renderContent(g, font, box, desc, w, zoom, dimmer, literals, edit);
         }
         g.pose().popMatrix();
     }
 
-    private static void renderContent(GuiGraphics g, Font font, NodeDescriptor desc,
-                                      int w, double zoom, @Nullable PinDimmer dimmer) {
+    private static void renderContent(GuiGraphics g, Font font, NodeGeometry.Box box,
+                                      NodeDescriptor desc, int w, double zoom,
+                                      @Nullable PinDimmer dimmer, @Nullable LiteralProvider literals,
+                                      @Nullable LiteralEditState edit) {
         g.fill(1, 1, w - 1, (int) NodeGeometry.TITLE_HEIGHT,
                 (categoryColor(desc.category()) & 0x00FFFFFF) | HEADER_ALPHA);
         if (zoom < TITLE_FADE_ZOOM) {
@@ -92,6 +110,9 @@ public final class NodeWidget {
             String label = font.plainSubstrByWidth(pin.name(), w / 2 - 14);
             g.drawString(font, label, (int) NodeGeometry.PIN_INSET + 7, cy - 4,
                     dim(PIN_LABEL_COLOR, dim), false);
+            if (pin.kind() == PinKind.DATA && literals != null) {
+                renderLiteral(g, font, box, w, i, pin, literals, edit);
+            }
         }
         for (int i = 0; i < desc.outputs().size(); i++) {
             NodeDescriptor.PinDescriptor pin = desc.outputs().get(i);
@@ -108,6 +129,55 @@ public final class NodeWidget {
     /** Cible incompatible pendant un tracé : ~30 % d'opacité (UX §5). */
     private static int dim(int color, boolean dim) {
         return dim ? (color & 0x00FFFFFF) | 0x4D000000 : color;
+    }
+
+    /**
+     * Valeur littérale d'un pin d'entrée data (5.2b) : texte, case bool, ou champ
+     * d'édition actif. Coordonnées locales (pose déjà à l'échelle).
+     */
+    private static void renderLiteral(GuiGraphics g, Font font, NodeGeometry.Box box,
+                                      int w, int row, NodeDescriptor.PinDescriptor pin,
+                                      LiteralProvider literals, @Nullable LiteralEditState edit) {
+        int x1 = (int) (w * NodeGeometry.LITERAL_LEFT);
+        int x2 = (int) (w * NodeGeometry.LITERAL_RIGHT);
+        int top = (int) (NodeGeometry.TITLE_HEIGHT + row * NodeGeometry.ROW_HEIGHT);
+        int cy = top + (int) NodeGeometry.ROW_HEIGHT / 2;
+
+        boolean editing = edit != null && edit.isOpen()
+                && box.node().uuid().equals(edit.node()) && pin.name().equals(edit.pin());
+        if (editing) {
+            g.fill(x1 - 1, top, x2 + 1, top + (int) NodeGeometry.ROW_HEIGHT, LITERAL_EDIT_BG);
+            int border = edit.isValid() ? LITERAL_EDIT_BORDER : LITERAL_INVALID_BORDER;
+            g.fill(x1 - 1, top, x2 + 1, top + 1, border);
+            g.fill(x1 - 1, top + (int) NodeGeometry.ROW_HEIGHT - 1, x2 + 1,
+                    top + (int) NodeGeometry.ROW_HEIGHT, border);
+            String shown = edit.mode() == LiteralEditState.Mode.ENUM
+                    ? "‹ " + edit.options().get(edit.optionIndex()).getName() + " ›"
+                    : edit.text() + "_";
+            // Garder la fin visible : c'est là qu'on tape.
+            while (font.width(shown) > x2 - x1 - 4 && shown.length() > 1) {
+                shown = shown.substring(1);
+            }
+            g.drawString(font, shown, x1 + 2, cy - 4, TITLE_COLOR, false);
+            return;
+        }
+
+        LiteralValue value = literals.literalOf(pin.name());
+        if (value == null) {
+            return; // câblé, ou rien à montrer
+        }
+        if (pin.type() == PinTypes.BOOL) {
+            boolean on = value.value() instanceof Boolean b && b;
+            g.fill(x2 - 8, cy - 4, x2, cy + 4, NODE_BORDER);
+            g.fill(x2 - 7, cy - 3, x2 - 1, cy + 3, on ? BOOL_ON : NODE_BACKGROUND);
+            return;
+        }
+        String text = LiteralEditState.display(pin.type(), value);
+        if (text.isEmpty()) {
+            return;
+        }
+        text = font.plainSubstrByWidth(text, x2 - x1 - 2);
+        g.drawString(font, text, x2 - font.width(text), cy - 4, LITERAL_COLOR, false);
     }
 
     private static void renderGhostContent(GuiGraphics g, Font font, Identifier typeId,
