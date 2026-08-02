@@ -95,5 +95,9 @@
   "blueprint.event.blueprint.event/player_break_block.name": "Un joueur casse un bloc",
   "blueprint.event.blueprint.event/entity_death.name": "Une entité meurt",
   "blueprint.event.blueprint.event/player_chat.name": "Un joueur écrit",
-  "blueprint.event.blueprint.event/signal.name": "Signal"
+  "blueprint.event.blueprint.event/signal.name": "Signal",
+
+  "blueprint.editor.title": "Éditeur de blueprint — %s",
+  "key.blueprint.open_editor": "Ouvrir l'éditeur de blueprint (démo)",
+  "key.category.blueprint.main": "Blueprint"
 }

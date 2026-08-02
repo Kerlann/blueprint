@@ -53,7 +53,8 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 3 | Compilateur et VM | 3.1+3.2+3.3, 3.4+3.5 | **Complet** — 2 gates PASS (3 corrections en review dont un high sémantique) |
 | 7 | Événements et bibliothèque | 7.1a+7.2+7.6 (groupées) | **Ready for Review** — 32 nœuds, 9 événements, nœuds d'événement synthétisés, pont → ordonnanceur : jouable headless |
 | 7 | (restes) | 7.1b, 7.3-7.5, 7.7 | À rédiger (flux structuré + frames VM ; nœuds monde en gametest ; commande) |
-| 4, 5, 6, 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
+| 5 | Éditeur visuel | 5.1 | **Ready for Review** — canevas (pan, zoom 8 crans, grille, culling, banc NFR1), ouverture F6 sur la démo (branche `worktree-epic5-editeur`) |
+| 4, 6, 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
 **Prochaine action :** QA du lot 7 ; session en jeu recommandée (créer un blueprint on-tick à la main via les logs n'est pas encore possible sans éditeur — le pont se vérifiera pleinement avec la 6.1/l'éditeur) ; puis épic 5 (éditeur) ou 4 (BScript).
 
