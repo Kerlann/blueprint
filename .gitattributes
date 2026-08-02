@@ -1,0 +1,14 @@
+# Normalisation des fins de ligne
+* text=auto
+
+# Les scripts shell doivent rester en LF (exécution Linux/CI)
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Les scripts batch Windows en CRLF
+*.bat text eol=crlf
+
+# Binaires
+*.jar binary
+*.png binary
+*.ttf binary

@@ -1,0 +1,20 @@
+{
+  "blueprint.pin.blueprint.exec.name": "Execution",
+  "blueprint.pin.blueprint.bool.name": "Boolean",
+  "blueprint.pin.blueprint.int.name": "Integer",
+  "blueprint.pin.blueprint.long.name": "Long integer",
+  "blueprint.pin.blueprint.double.name": "Number",
+  "blueprint.pin.blueprint.string.name": "String",
+  "blueprint.pin.blueprint.vec3.name": "Vector",
+  "blueprint.pin.blueprint.blockpos.name": "Block position",
+  "blueprint.pin.blueprint.direction.name": "Direction",
+  "blueprint.pin.blueprint.itemstack.name": "Item",
+  "blueprint.pin.blueprint.entity.name": "Entity",
+  "blueprint.pin.blueprint.player.name": "Player",
+  "blueprint.pin.blueprint.blockstate.name": "Block state",
+  "blueprint.pin.blueprint.resourcelocation.name": "Identifier",
+  "blueprint.pin.blueprint.text.name": "Rich text",
+  "blueprint.pin.blueprint.any.name": "Any",
+  "blueprint.pin.blueprint.list.name": "List",
+  "blueprint.pin.blueprint.map.name": "Map"
+}

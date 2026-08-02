@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "blueprint",
+  "version": "${version}",
+  "name": "Blueprint",
+  "description": "Mod Fabric Blueprint",
+  "authors": [
+    "Hakan"
+  ],
+  "license": "All Rights Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "fr.blueprint.core.BlueprintMod"
+    ],
+    "client": [
+      "fr.blueprint.client.BlueprintClient"
+    ],
+    "blueprint": []
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

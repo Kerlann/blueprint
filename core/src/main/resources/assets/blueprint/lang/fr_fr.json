@@ -1,0 +1,20 @@
+{
+  "blueprint.pin.blueprint.exec.name": "Exécution",
+  "blueprint.pin.blueprint.bool.name": "Booléen",
+  "blueprint.pin.blueprint.int.name": "Entier",
+  "blueprint.pin.blueprint.long.name": "Entier long",
+  "blueprint.pin.blueprint.double.name": "Nombre",
+  "blueprint.pin.blueprint.string.name": "Chaîne",
+  "blueprint.pin.blueprint.vec3.name": "Vecteur",
+  "blueprint.pin.blueprint.blockpos.name": "Position de bloc",
+  "blueprint.pin.blueprint.direction.name": "Direction",
+  "blueprint.pin.blueprint.itemstack.name": "Objet",
+  "blueprint.pin.blueprint.entity.name": "Entité",
+  "blueprint.pin.blueprint.player.name": "Joueur",
+  "blueprint.pin.blueprint.blockstate.name": "État de bloc",
+  "blueprint.pin.blueprint.resourcelocation.name": "Identifiant",
+  "blueprint.pin.blueprint.text.name": "Texte riche",
+  "blueprint.pin.blueprint.any.name": "Quelconque",
+  "blueprint.pin.blueprint.list.name": "Liste",
+  "blueprint.pin.blueprint.map.name": "Dictionnaire"
+}
