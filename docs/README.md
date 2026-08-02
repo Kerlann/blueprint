@@ -50,7 +50,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 1 | Fondations et modèle de graphe | 1.1 → 1.5 | **Complet** — 5 Done, gates PASS (session en jeu du 2026-08-02 : VERIFY-001/002/003 clos) |
 | 1 | (spike) | 1.6 | Draft (gametest — automatisera ce que la session manuelle vérifie) |
 | 2 | Registre de nœuds et API d'extension | 2.1 → 2.5 | **Complet** — 5 gates PASS |
-| 3 | Compilateur et VM | 3.1+3.2+3.3, 3.4+3.5 | **Ready for Review — épic complet** : graphes exécutés, wait survivant au redémarrage (testé), ordonnanceur avec police et stats |
+| 3 | Compilateur et VM | 3.1+3.2+3.3, 3.4+3.5 | **Complet** — 2 gates PASS (3 corrections en review dont un high sémantique) |
 | 4–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
 **Prochaine action :** QA de l'épic 3 ; puis épic 7 (événements du monde + bibliothèque standard — rendre le runtime jouable) ou épic 4/5 selon priorité.

@@ -270,6 +270,52 @@ class SchedulerTest {
     }
 
     @Test
+    void drainCapturesTriggerPayload() {
+        // Régression QA SCHED-001 : la charge utile du déclencheur survit à la capture.
+        var event = fr.blueprint.api.event.EventType.builder(sid("with_payload"))
+                .out("who", fr.blueprint.api.pin.PinTypes.STRING).build();
+        var trigger = new fr.blueprint.core.event.TriggerContextImpl(event,
+                java.util.Map.of("who", "Léa"));
+        var scheduler = scheduler(100);
+        var bp = new Blueprint(Identifier.fromNamespaceAndPath("sched", "payload"));
+        UUID start = node(bp, "pl-s", "start");
+        UUID wait = node(bp, "pl-w", "wait20");
+        apply(bp, new EditOperation.AddLink(new Link(start, "exec_out", wait, "exec_in")));
+        Compiled c = compiled(bp, start);
+        var base = env(bp.id());
+        scheduler.launch(bp.id(), c.ir(), new ExecutionEnvironment(base.nodeResolver(),
+                base.blueprint(), trigger, base.vars(), null, null, base.logger()));
+        scheduler.tick(10_000);
+
+        List<SuspendedExecution> saved = scheduler.drainForSave();
+        assertEquals(1, saved.size());
+        assertEquals(java.util.Map.of("who", "Léa"), saved.get(0).triggerValues());
+        // Et la charge utile traverse le NBT.
+        var decoded = ExecutionNbt.decode(ExecutionNbt.encode(saved.get(0)), RefResolver.NONE);
+        assertNotNull(decoded);
+        assertEquals("Léa", decoded.triggerValues().get("who"));
+    }
+
+    @Test
+    void faultPurgesSiblingExecutionsOfTheSameBlueprint() {
+        // Régression QA SCHED-002 : la faute désactive le blueprint — ses sœurs partent aussi.
+        var scheduler = scheduler(100);
+        var bp = new Blueprint(Identifier.fromNamespaceAndPath("sched", "twins"));
+        UUID start = node(bp, "tw-s", "start");
+        UUID boom = node(bp, "tw-b", "boom");
+        apply(bp, new EditOperation.AddLink(new Link(start, "exec_out", boom, "exec_in")));
+        Compiled c = compiled(bp, start);
+        scheduler.launch(bp.id(), c.ir(), env(bp.id()));
+        scheduler.launch(bp.id(), c.ir(), env(bp.id()));
+        assertEquals(2, scheduler.activeCount());
+
+        scheduler.tick(10_000);
+
+        assertEquals(1, faultEvents.size(), "une seule notification : la sœur est purgée, pas exécutée");
+        assertEquals(0, scheduler.activeCount());
+    }
+
+    @Test
     void faultNotifiesWithTheGuiltyNodeAndRemoves() {
         var scheduler = scheduler(100);
         var bp = new Blueprint(Identifier.fromNamespaceAndPath("sched", "faulty"));

@@ -1,0 +1,33 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "3.1-3.3"
+story_title: "IR, compilateur et VM (jalon exécutable)"
+gate: "PASS"
+status_reason: "Le cœur du runtime tient ses promesses (fuel, fautes propres, suspension, cache IR, 23-28 ms/1000 nœuds). La review a trouvé et corrigé un bug sémantique high — mémoïsation des purs non bornée par la dominance de branche — plus l'industrialisation de PERF-001 (index des liens par pin)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-02T21:46:20Z"
+waiver: { active: false }
+top_issues:
+  - id: "VM-COMP-001"
+    severity: high
+    finding: "RÉSOLU EN REVIEW — un nœud pur alimentant DEUX branches d'un embranchement n'était émis que dans la première : la branche prise en second lisait un slot jamais écrit et retombait silencieusement sur le défaut du type (« » au lieu de « ab »). Forme de graphe extrêmement courante ; valeurs fausses silencieuses = pire catégorie de bug"
+    suggested_action: "Corrigé : portées de purs empilées, copiées à chaque embranchement (dominance-lite) — un pur émis avant la branche reste réutilisable, un pur émis dedans ne fuit pas dans l'autre. Régression testée sur les deux chemins (valeur ET compteur d'invocations)"
+  - id: "PERF-002"
+    severity: medium
+    finding: "RÉSOLU EN REVIEW — la correction VM-COMP-001 a fait dépasser le banc NFR2 (>50 ms) en doublant les parcours O(nœuds×liens) de linksFrom : c'est le PERF-001 « à surveiller » du gate 1.3 qui s'est matérialisé"
+    suggested_action: "Corrigé à la racine : index des liens par pin construit une fois dans le compilateur (O(liens)) — banc à 23-28 ms, meilleur qu'avant la correction. Blueprint.linksFrom/Into restent O(liens) pour le validateur : à indexer pareillement si le banc de validation le réclame un jour"
+  - id: "COMP-002"
+    severity: low
+    finding: "Lire la sortie de données d'un nœud exec qui ne s'est pas encore exécuté sur ce chemin (lecture en diamant) → faute à l'exécution (CTX-001) plutôt qu'un avertissement à la compilation"
+    suggested_action: "Acceptable (la faute nomme le pin) ; un avertissement de compilation type « producteur non dominant » serait un plus pour l'éditeur (backlog 5.6/9.x)"
+  - id: "JMPIF-001"
+    severity: low
+    finding: "JmpIf traite toute valeur non-booléenne comme faux, silencieusement — inoffensif aujourd'hui (les graphes ne génèrent pas de JmpIf), piège potentiel pour le générateur BScript (4.2)"
+    suggested_action: "Documenter le contrat ou fauter sur non-booléen quand la 4.2 commencera à émettre des JmpIf"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 1, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "JMPIF-001 à trancher à l'ouverture de la 4.2"
+      - "COMP-002 comme diagnostic d'éditeur (5.6/9.x)"

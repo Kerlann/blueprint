@@ -46,11 +46,34 @@ public final class Compiler {
     private final Map<String, Integer> slotOf = new HashMap<>();
     private final Map<UUID, Integer> emittedAt = new HashMap<>();
     private final Set<String> constEmitted = new HashSet<>();
+    // Mémoïsation des purs PAR PORTÉE DE BRANCHE (correction QA VM-COMP-001) : un pur
+    // émis avant un embranchement domine les deux branches (réutilisable) ; un pur émis
+    // DANS une branche ne domine pas l'autre — chaque branche part d'une copie de la
+    // portée courante, sinon la seconde branche lirait un slot jamais écrit.
+    private final java.util.ArrayDeque<Set<UUID>> pureScopes = new java.util.ArrayDeque<>();
+    // Index des liens par pin, construit une fois : Blueprint.linksFrom/Into parcourent
+    // tous les liens à chaque appel — O(nœuds × liens) au total, mesurable dès 1 000
+    // nœuds (PERF-001 du gate 1.3, matérialisé par le banc NFR2). Ici : O(liens).
+    private final Map<String, List<Link>> linksFromPin = new HashMap<>();
+    private final Map<String, List<Link>> linksIntoPin = new HashMap<>();
     private int nextSlot;
 
     private Compiler(Blueprint bp, NodeRegistryImpl registry) {
         this.bp = bp;
         this.registry = registry;
+        this.pureScopes.push(new HashSet<>());
+        for (Link link : bp.links()) {
+            linksFromPin.computeIfAbsent(link.fromNode() + "/" + link.fromPin(), k -> new ArrayList<>()).add(link);
+            linksIntoPin.computeIfAbsent(link.toNode() + "/" + link.toPin(), k -> new ArrayList<>()).add(link);
+        }
+    }
+
+    private List<Link> from(UUID node, String pin) {
+        return linksFromPin.getOrDefault(node + "/" + pin, List.of());
+    }
+
+    private List<Link> into(UUID node, String pin) {
+        return linksIntoPin.getOrDefault(node + "/" + pin, List.of());
     }
 
     public static CompileResult compile(Blueprint bp, NodeRegistryImpl registry, UUID startNode) {
@@ -102,12 +125,30 @@ public final class Compiler {
         out.add(new Instruction.Call(node.typeId(), inputs, outputs, execTargets,
                 type.fuelCost(), type.pure(), id));
 
+        // Plusieurs cibles exec câblées = embranchement : les portées de purs divergent.
+        int linkedTargets = 0;
+        for (NodeType.PinSpec spec : type.outputs()) {
+            if (spec.kind() == PinKind.EXEC && !from(id, spec.name()).isEmpty()) {
+                linkedTargets++;
+            }
+        }
+        boolean branching = linkedTargets > 1;
         for (NodeType.PinSpec spec : type.outputs()) {
             if (spec.kind() != PinKind.EXEC) {
                 continue;
             }
-            List<Link> links = bp.linksFrom(id, spec.name());
-            execTargets.put(spec.name(), links.isEmpty() ? -1 : emitNode(links.get(0).toNode()));
+            List<Link> links = from(id, spec.name());
+            if (links.isEmpty()) {
+                execTargets.put(spec.name(), -1);
+                continue;
+            }
+            if (branching) {
+                pureScopes.push(new HashSet<>(pureScopes.element()));
+            }
+            execTargets.put(spec.name(), emitNode(links.get(0).toNode()));
+            if (branching) {
+                pureScopes.pop();
+            }
         }
         return startIndex;
     }
@@ -119,12 +160,12 @@ public final class Compiler {
             if (spec.kind() != PinKind.DATA) {
                 continue;
             }
-            List<Link> incoming = bp.linksInto(node.uuid(), spec.name());
+            List<Link> incoming = into(node.uuid(), spec.name());
             if (!incoming.isEmpty()) {
                 Link link = incoming.get(0);
                 Node producer = bp.node(link.fromNode());
                 NodeType producerType = registry.get(producer.typeId()).orElseThrow();
-                if (producerType.pure() && !emittedAt.containsKey(producer.uuid())) {
+                if (producerType.pure() && !pureScopes.element().contains(producer.uuid())) {
                     emitPure(producer, producerType);
                 }
                 inputs.add(new Instruction.PinBinding(spec.name(),
@@ -152,7 +193,7 @@ public final class Compiler {
 
     /** Un pur s'émet comme un Call sans cibles : il enchaîne linéairement (pure = true). */
     private void emitPure(Node node, NodeType type) {
-        emittedAt.put(node.uuid(), out.size());
+        pureScopes.element().add(node.uuid());
         List<Instruction.PinBinding> inputs = prepareInputs(node, type);
         List<Instruction.PinBinding> outputs = new ArrayList<>();
         for (NodeType.PinSpec spec : type.outputs()) {

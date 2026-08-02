@@ -15,9 +15,14 @@ public final class TriggerContextImpl implements TriggerContext {
     private final EventType event;
     private final Map<String, Object> values;
 
-    TriggerContextImpl(EventType event, Map<String, Object> values) {
+    public TriggerContextImpl(EventType event, Map<String, Object> values) {
         this.event = event;
         this.values = Map.copyOf(values);
+    }
+
+    /** Charge utile complète — nécessaire à la capture d'une exécution suspendue (3.4). */
+    public Map<String, Object> values() {
+        return values;
     }
 
     @Override

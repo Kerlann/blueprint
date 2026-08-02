@@ -188,6 +188,35 @@ class CompilerVmTest {
     }
 
     @Test
+    void pureFeedingTwoBranchesIsCorrectOnBothPaths() {
+        // Audit QA : concat alimente les DEUX branches d'un odd_or_even. La branche
+        // émise en second ne doit PAS lire un slot jamais écrit (défaut silencieux).
+        for (int value : new int[]{4, 7}) {
+            RECORDS.clear();
+            CONCATS.set(0);
+            var bp = graph();
+            UUID start = node(bp, "pb-s", id("start"));
+            UUID branch = node(bp, "pb-b",
+                    Identifier.fromNamespaceAndPath("blueprint_testmod", "odd_or_even"));
+            UUID concat = node(bp, "pb-c", id("concat"));
+            UUID even = node(bp, "pb-e", id("record"));
+            UUID odd = node(bp, "pb-o", id("record"));
+            apply(bp, new EditOperation.SetLiteral(branch, "value", LiteralValue.of(PinTypes.INT, value)));
+            apply(bp, new EditOperation.AddLink(new Link(start, "exec_out", branch, "exec_in")));
+            apply(bp, new EditOperation.AddLink(new Link(branch, "even", even, "exec_in")));
+            apply(bp, new EditOperation.AddLink(new Link(branch, "odd", odd, "exec_in")));
+            apply(bp, new EditOperation.AddLink(new Link(concat, "text", even, "tag")));
+            apply(bp, new EditOperation.AddLink(new Link(concat, "text", odd, "tag")));
+
+            Ir ir = compileOk(bp, start);
+            BlueprintVm.run(ir, ExecutionState.fresh(ir), env(), 1000);
+            assertEquals(List.of("ab"), RECORDS,
+                    "valeur " + value + " : la branche prise doit lire la vraie valeur du pur");
+            assertEquals(1, CONCATS.get(), "le pur s'exécute une fois sur le chemin pris");
+        }
+    }
+
+    @Test
     void execLoopExhaustsFuelInsteadOfHanging() {
         var bp = graph();
         UUID start = node(bp, "s", id("start"));

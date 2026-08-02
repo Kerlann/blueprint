@@ -109,8 +109,14 @@ public final class BlueprintScheduler {
     }
 
     private static SuspendedExecution capture(Execution e, int ticks) {
+        // Correction QA SCHED-001 : la charge utile du déclencheur fait partie de la
+        // capture (AC1 3.4) — sans elle, un nœud lisant trigger().output(...) après
+        // reprise trouverait le vide.
+        Map<String, Object> triggerValues =
+                e.env.trigger() instanceof fr.blueprint.core.event.TriggerContextImpl impl
+                        ? impl.values() : Map.of();
         return new SuspendedExecution(e.blueprintId, e.ir.revision(), ticks, e.state,
-                e.env.trigger().eventId(), Map.of());
+                e.env.trigger().eventId(), triggerValues);
     }
 
     /** Un tick serveur : échéances, round-robin budgété, police des dépassements. */
@@ -134,6 +140,9 @@ public final class BlueprintScheduler {
         Set<Identifier> overBudgetNow = new HashSet<>();
         List<Execution> snapshot = new ArrayList<>(ready);
         for (Execution e : snapshot) {
+            if (!ready.contains(e)) {
+                continue;   // purgée par la faute d'une exécution sœur plus tôt dans ce tick
+            }
             long begin = System.nanoTime();
             BlueprintVm.RunOutcome outcome = BlueprintVm.runMeasured(e.ir, e.state, e.env, slice);
             statsOf(e.blueprintId).record(outcome.fuelSpent(), System.nanoTime() - begin);
@@ -149,7 +158,10 @@ public final class BlueprintScheduler {
                 }
                 case ExecResult.OutOfFuel outOfFuel -> overBudgetNow.add(e.blueprintId);
                 case ExecResult.Faulted faulted -> {
-                    ready.remove(e);
+                    // Correction QA SCHED-002 : la faute désactive le blueprint (écouteur) —
+                    // ses exécutions sœurs sont donc purgées aussi, prêtes ET différées.
+                    ready.removeIf(other -> other.blueprintId.equals(e.blueprintId));
+                    delayed.removeIf(other -> other.blueprintId.equals(e.blueprintId));
                     statsOf(e.blueprintId).faults++;
                     listener.faulted(e.blueprintId, faulted.node(), faulted.message());
                 }
