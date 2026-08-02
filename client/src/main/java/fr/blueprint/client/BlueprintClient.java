@@ -131,6 +131,9 @@ public class BlueprintClient implements ClientModInitializer {
         lastEdited = id;
         EditorSession session = EditorSession.of(copy, snapshot ->
                 server.submit(() -> BlueprintManager.of(server).adopt(snapshot)).join());
+        // Bouton Tester (5.6b) : après l'enregistrement, activer côté serveur.
+        session.setTestHandler(() ->
+                server.execute(() -> BlueprintManager.of(server).setEnabled(id, true)));
         Runnable open = () -> {
             var registries = BlueprintMod.registries();
             mc.setScreen(new BlueprintEditorScreen(session, registries.nodes(),

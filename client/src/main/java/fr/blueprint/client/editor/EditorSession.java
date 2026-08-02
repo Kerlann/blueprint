@@ -18,6 +18,7 @@ public final class EditorSession {
 
     private final Blueprint blueprint;
     private final @Nullable SaveHandler saveHandler;
+    private @Nullable Runnable testHandler;
     private int savedRevision;
 
     private EditorSession(Blueprint blueprint, @Nullable SaveHandler saveHandler) {
@@ -62,5 +63,21 @@ public final class EditorSession {
             return true;
         }
         return false;
+    }
+
+    /** Action du bouton Tester après l'enregistrement (activer côté serveur, 5.6b). */
+    public void setTestHandler(@Nullable Runnable testHandler) {
+        this.testHandler = testHandler;
+    }
+
+    /** Tester = enregistrer puis activer ; refusé sans enregistrement possible. */
+    public boolean test() {
+        if (!save()) {
+            return false;
+        }
+        if (testHandler != null) {
+            testHandler.run();
+        }
+        return true;
     }
 }

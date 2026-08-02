@@ -116,6 +116,12 @@ public final class Camera {
         originY = cy - screenH / 2 / zoom();
     }
 
+    /** Centre la vue sur un point monde sans changer de cran (clic sur diagnostic). */
+    public void centerOn(double worldX, double worldY, double screenW, double screenH) {
+        originX = worldX - screenW / 2 / zoom();
+        originY = worldY - screenH / 2 / zoom();
+    }
+
     // -------------------------------------------------------------------- accroche
 
     public boolean snapEnabled() {

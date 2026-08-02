@@ -27,7 +27,7 @@ public final class BlueprintEditorScreen extends Screen {
         super(Component.translatable("blueprint.editor.title",
                 session.blueprint().id().toString()));
         this.session = session;
-        this.canvas = new CanvasWidget(session.blueprint(), lookup, descriptors);
+        this.canvas = new CanvasWidget(session, lookup, descriptors, this::onClose);
     }
 
     public EditorSession session() {
@@ -47,10 +47,8 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // La barre d'outils (5.6b) porte le titre et l'indicateur ● non-enregistré.
         canvas.render(graphics, font);
-        // ● = modifications non enregistrées (5.9), comparé par révisions.
-        String head = session.dirty() ? "● " + title.getString() : title.getString();
-        graphics.drawString(font, head, 6, 6, session.dirty() ? 0xFFE0AF68 : 0xFF8A8F98, false);
     }
 
     @Override

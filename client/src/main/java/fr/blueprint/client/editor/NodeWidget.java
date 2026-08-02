@@ -59,7 +59,7 @@ public final class NodeWidget {
                               @Nullable NodeDescriptor desc, boolean selected,
                               double zoom, double screenX, double screenY,
                               @Nullable PinDimmer dimmer, @Nullable LiteralProvider literals,
-                              @Nullable LiteralEditState edit) {
+                              @Nullable LiteralEditState edit, int outlineColor) {
         int w = (int) Math.round(box.width());
         int h = (int) Math.round(box.height());
         g.pose().pushMatrix();
@@ -69,6 +69,10 @@ public final class NodeWidget {
         boolean ghost = desc == null;
         if (selected) {
             g.fill(0, 0, w, h, SELECTED_BORDER);
+            g.fill(1, 1, w - 1, h - 1, NODE_BACKGROUND);
+        } else if (outlineColor != 0) {
+            // Nœud fautif : liseré de la couleur de la sévérité (UX §8).
+            g.fill(0, 0, w, h, outlineColor);
             g.fill(1, 1, w - 1, h - 1, NODE_BACKGROUND);
         } else if (ghost) {
             g.fill(0, 0, w, h, NODE_BACKGROUND);

@@ -110,6 +110,14 @@
   "blueprint.editor.cmd.multiplayer": "Editing on a remote server needs the network sync (coming with a later update)",
   "blueprint.editor.cmd.unknown": "No blueprint \"%s\" — use /blueprint-edit create %s",
   "blueprint.editor.cmd.list": "Editable blueprints: %s",
+  "blueprint.editor.toolbar.compile": "Compile",
+  "blueprint.editor.toolbar.test": "Test",
+  "blueprint.editor.toolbar.save": "Save",
+  "blueprint.editor.toolbar.unsavable": "The demo blueprint cannot be saved — open a real one with /blueprint-edit",
+  "blueprint.editor.toolbar.blocked": "Cannot test: %s blocking error(s)",
+  "blueprint.editor.toolbar.tested": "Blueprint %s saved and enabled — trigger its event in game",
+  "blueprint.editor.diag.ok": "No issues",
+  "blueprint.editor.diag.summary": "%s error(s), %s warning(s)",
   "key.blueprint.open_editor": "Open the blueprint editor (demo)",
   "key.category.blueprint.main": "Blueprint"
 }

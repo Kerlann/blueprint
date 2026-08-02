@@ -57,6 +57,9 @@ public final class CanvasController {
     /** Offsets « position du nœud − point de saisie », figés à la presse. */
     private final Map<UUID, Vec2d> dragOffsets = new HashMap<>();
 
+    /** Notifié après chaque mutation appliquée (undo/redo compris) — débouncé 5.6b. */
+    private @Nullable Runnable onMutation;
+
     private Gesture gesture = Gesture.NONE;
     private double rubberStartX;
     private double rubberStartY;
@@ -441,12 +444,41 @@ public final class CanvasController {
         return history;
     }
 
+    public void setOnMutation(@Nullable Runnable onMutation) {
+        this.onMutation = onMutation;
+    }
+
     public boolean undo() {
-        return history.undo(blueprint, lookup);
+        boolean done = history.undo(blueprint, lookup);
+        if (done) {
+            notifyMutation();
+        }
+        return done;
     }
 
     public boolean redo() {
-        return history.redo(blueprint, lookup);
+        boolean done = history.redo(blueprint, lookup);
+        if (done) {
+            notifyMutation();
+        }
+        return done;
+    }
+
+    /** Recentre la caméra sur un nœud et le sélectionne (clic sur un diagnostic). */
+    public boolean focusNode(UUID node, double screenW, double screenH) {
+        NodeGeometry.Box box = boxOf(node);
+        if (box == null) {
+            return false;
+        }
+        selection.selectAll(List.of(node), false);
+        camera.centerOn(box.x() + box.width() / 2, box.y() + box.height() / 2, screenW, screenH);
+        return true;
+    }
+
+    private void notifyMutation() {
+        if (onMutation != null) {
+            onMutation.run();
+        }
     }
 
     private void apply(EditOperation op) {
@@ -455,8 +487,11 @@ public final class CanvasController {
 
     private boolean applyTracked(EditOperation op) {
         EditOperation.Result result = op.apply(blueprint, lookup);
-        if (result.applied() && result.inverse() != null) {
-            history.record(result.inverse());
+        if (result.applied()) {
+            if (result.inverse() != null) {
+                history.record(result.inverse());
+            }
+            notifyMutation();
         }
         return result.applied();
     }

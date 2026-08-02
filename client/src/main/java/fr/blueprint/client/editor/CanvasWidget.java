@@ -42,6 +42,10 @@ public final class CanvasWidget {
     private final Camera camera = new Camera();
     private final CanvasController controller;
     private final PaletteState palette;
+    private final EditorSession session;
+    private final NodeTypeLookup lookup;
+    private final Runnable closeRequest;
+    private final DiagnosticsState diagnostics = new DiagnosticsState(System::currentTimeMillis);
     /** Tampon réutilisé chaque image : pas d'allocation dans la passe de rendu. */
     private final List<NodeGeometry.Box> visible = new ArrayList<>();
 
@@ -53,9 +57,14 @@ public final class CanvasWidget {
     private boolean shiftDown;
     private boolean panning;
 
-    public CanvasWidget(Blueprint blueprint, NodeTypeLookup lookup, ClientNodeRegistry descriptors) {
+    public CanvasWidget(EditorSession session, NodeTypeLookup lookup,
+                        ClientNodeRegistry descriptors, Runnable closeRequest) {
+        this.session = session;
+        this.lookup = lookup;
         this.descriptors = descriptors;
-        this.controller = new CanvasController(blueprint, lookup, camera);
+        this.closeRequest = closeRequest;
+        this.controller = new CanvasController(session.blueprint(), lookup, camera);
+        this.controller.setOnMutation(diagnostics::invalidate);
         // Titres et descriptions traduits une fois à l'ouverture ; l'index reste pur.
         List<NodeSearch.Entry> entries = new ArrayList<>();
         for (NodeDescriptor d : descriptors.descriptors()) {
@@ -87,12 +96,21 @@ public final class CanvasWidget {
     // ---------------------------------------------------------------------- rendu
 
     public void render(GuiGraphics g, Font font) {
+        // Validation débouncée (5.6b) : jamais dans la frame d'une frappe.
+        if (diagnostics.shouldValidate()) {
+            diagnostics.accept(fr.blueprint.core.graph.GraphValidator
+                    .validate(controller.blueprint(), lookup).diagnostics());
+        }
         g.fill(0, 0, width, height, BACKGROUND);
         renderGrid(g);
         WireLayer.renderLinks(g, camera, controller, width, height);
         renderNodes(g, font);
         renderRubber(g);
         WireLayer.renderPreview(g, camera, controller);
+        ToolbarWidget.render(g, font, controller.blueprint().id().toString(),
+                session.dirty(), session.savable(),
+                session.savable() && !diagnostics.blocking(), width);
+        DiagnosticsPanel.render(g, font, diagnostics, width, height);
         PalettePopup.render(g, font, palette, width, height);
     }
 
@@ -146,7 +164,7 @@ public final class CanvasWidget {
             NodeWidget.render(g, font, b, desc,
                     controller.selection().isSelected(uuid), z,
                     camera.toScreenX(b.x()), camera.toScreenY(b.y()), dimmer,
-                    literals, literalEdit);
+                    literals, literalEdit, diagnostics.outlineColor(uuid));
         }
     }
 
@@ -216,6 +234,25 @@ public final class CanvasWidget {
             palette.close();
             return true;
         }
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && e.y() < ToolbarWidget.HEIGHT) {
+            handleToolbar(ToolbarWidget.actionAt(minecraftFont(), e.x(), e.y(), width));
+            return true;
+        }
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && DiagnosticsPanel.barContains(e.y(), height)) {
+            diagnostics.toggleExpanded();
+            return true;
+        }
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && diagnostics.expanded()) {
+            int row = DiagnosticsPanel.rowAt(diagnostics, e.y(), height);
+            if (row >= 0) {
+                var node = DiagnosticsState.nodeOf(diagnostics.report().get(row));
+                if (node != null) {
+                    controller.focusNode(node, width, height);
+                }
+                return true;
+            }
+        }
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
                 || (spaceDown && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
             panning = true;
@@ -263,6 +300,52 @@ public final class CanvasWidget {
             return true;
         }
         return false; // type 5.2c : le clic retombe sur la sélection du nœud
+    }
+
+    private static Font minecraftFont() {
+        return net.minecraft.client.Minecraft.getInstance().font;
+    }
+
+    private void actionBar(String key, Object... args) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.player != null) {
+            mc.player.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable(key, args), true);
+        }
+    }
+
+    private void handleToolbar(@Nullable ToolbarWidget.Action action) {
+        if (action == null) {
+            return;
+        }
+        switch (action) {
+            case COMPILE -> {
+                // Validation immédiate, sans attendre le débouncé.
+                diagnostics.accept(fr.blueprint.core.graph.GraphValidator
+                        .validate(controller.blueprint(), lookup).diagnostics());
+                actionBar("blueprint.editor.diag.summary", diagnostics.errors(),
+                        diagnostics.warnings());
+            }
+            case SAVE -> {
+                if (session.save()) {
+                    actionBar("blueprint.editor.saved", controller.blueprint().id().toString());
+                } else {
+                    actionBar("blueprint.editor.toolbar.unsavable");
+                }
+            }
+            case TEST -> {
+                if (!session.savable()) {
+                    actionBar("blueprint.editor.toolbar.unsavable");
+                } else if (diagnostics.blocking()) {
+                    // Tester est grisé : la raison passe par la barre d'action (U2).
+                    actionBar("blueprint.editor.toolbar.blocked", diagnostics.errors());
+                } else if (session.test()) {
+                    actionBar("blueprint.editor.toolbar.tested",
+                            controller.blueprint().id().toString());
+                }
+            }
+            case CLOSE -> closeRequest.run();
+        }
     }
 
     /** Valide l'édition courante ; {@code keepOnInvalid} garde le champ rouge ouvert. */

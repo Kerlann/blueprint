@@ -83,6 +83,29 @@ class EditorSessionTest {
     }
 
     @Test
+    void testerEnregistrePuisActive() {
+        Blueprint bp = graph();
+        AtomicReference<Blueprint> adopted = new AtomicReference<>();
+        boolean[] enabled = {false};
+        EditorSession session = EditorSession.of(bp, snapshot -> {
+            adopted.set(snapshot);
+            return true;
+        });
+        session.setTestHandler(() -> enabled[0] = true);
+
+        assertTrue(session.test());
+        assertNotNull(adopted.get());
+        assertTrue(enabled[0]);
+
+        // Échec d'enregistrement : le test n'active rien.
+        boolean[] enabled2 = {false};
+        EditorSession failing = EditorSession.of(bp, snapshot -> false);
+        failing.setTestHandler(() -> enabled2[0] = true);
+        assertFalse(failing.test());
+        assertFalse(enabled2[0]);
+    }
+
+    @Test
     void laSessionJetableNEstJamaisSale() {
         Blueprint bp = graph();
         EditorSession session = EditorSession.scratch(bp);
