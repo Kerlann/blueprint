@@ -2,10 +2,10 @@
 schema: 1
 story: "1.1"
 story_title: "Structure multi-module du projet"
-gate: "CONCERNS"
-status_reason: "Tout est vérifié et re-vérifié (JAR agrégé sans testmod, isolation api testée en négatif, publication Maven, runServer) SAUF runClient — jamais confirmé depuis le refactor. Un seul point, mais c'est un AC."
+gate: "PASS"
+status_reason: "VERIFY-001 clos par la session en jeu du 2026-08-02 23:36 : « Blueprint client initialisé » présent dans run/logs/latest.log — tous les AC sont désormais vérifiés."
 reviewer: "Quinn (Test Architect)"
-updated: "2026-08-02T20:34:24Z"
+updated: "2026-08-02T21:38:43Z"
 
 waiver: { active: false }
 

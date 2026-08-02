@@ -2,10 +2,10 @@
 schema: 1
 story: "1.5"
 story_title: "Commande et cycle de vie"
-gate: "CONCERNS"
-status_reason: "Logique et arbre solidement testés headless (149 tests, couverture 86 %), MODEL-001 proprement acté ; mais les commandes n'ont jamais tourné sur un serveur réel et la story spike gametest promise par l'AC5 n'existe pas encore en tant qu'artefact suivi."
+gate: "PASS"
+status_reason: "TEST-002 clos par la story 1.6 ; VERIFY-002 clos par la session en jeu du 2026-08-02 23:36 : create/enable/list/info exercés avec messages traduits corrects (disable/delete non tapés — même chemin de code, couverts en unitaire). Les low DOC-003/CONFIG-001 restent au backlog."
 reviewer: "Quinn (Test Architect)"
-updated: "2026-08-02T20:44:43Z"
+updated: "2026-08-02T21:38:43Z"
 
 waiver: { active: false }
 
