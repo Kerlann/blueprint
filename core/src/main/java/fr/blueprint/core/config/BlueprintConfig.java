@@ -17,9 +17,14 @@ import java.nio.file.Path;
  * valeurs par défaut au premier lancement. Volontairement plate et tolérante :
  * un fichier illisible vaut configuration par défaut, jamais un crash.
  */
-public record BlueprintConfig(int commandPermissionLevel) {
+public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int maxOverBudgetTicks) {
 
     public static final BlueprintConfig DEFAULT = new BlueprintConfig(2);
+
+    /** Commodité : niveau de permission seul, runtime aux défauts. */
+    public BlueprintConfig(int commandPermissionLevel) {
+        this(commandPermissionLevel, 10_000, 100);
+    }
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -47,17 +52,26 @@ public record BlueprintConfig(int commandPermissionLevel) {
                 Files.createDirectories(file.getParent());
                 JsonObject defaults = new JsonObject();
                 defaults.addProperty("commandPermissionLevel", DEFAULT.commandPermissionLevel());
+                defaults.addProperty("fuelPerTick", DEFAULT.fuelPerTick());
+                defaults.addProperty("maxOverBudgetTicks", DEFAULT.maxOverBudgetTicks());
                 Files.writeString(file, GSON.toJson(defaults));
                 return DEFAULT;
             }
             JsonObject json = GSON.fromJson(Files.readString(file), JsonObject.class);
-            int level = json != null && json.has("commandPermissionLevel")
-                    ? json.get("commandPermissionLevel").getAsInt()
-                    : DEFAULT.commandPermissionLevel();
-            return new BlueprintConfig(level);
+            if (json == null) {
+                return DEFAULT;
+            }
+            return new BlueprintConfig(
+                    intOr(json, "commandPermissionLevel", DEFAULT.commandPermissionLevel()),
+                    intOr(json, "fuelPerTick", DEFAULT.fuelPerTick()),
+                    intOr(json, "maxOverBudgetTicks", DEFAULT.maxOverBudgetTicks()));
         } catch (IOException | RuntimeException e) {
             BlueprintMod.LOGGER.warn("Config illisible ({}), valeurs par défaut appliquées", file, e);
             return DEFAULT;
         }
+    }
+
+    private static int intOr(JsonObject json, String key, int fallback) {
+        return json.has(key) ? json.get(key).getAsInt() : fallback;
     }
 }

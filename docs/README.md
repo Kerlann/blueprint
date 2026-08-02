@@ -54,11 +54,10 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 1 | (suite) | 1.5 | Ready for Review — gate CONCERNS (TEST-002 soldé par la 1.6 ; reste VERIFY-002) |
 | 1 | (suite) | 1.6 | Draft (spike gametest — trace la dette de test en jeu) |
 | 2 | Registre de nœuds et API d'extension | 2.1 → 2.5 | **Complet** — 5 gates PASS |
-| 3 | Compilateur et VM | 3.1+3.2+3.3 (groupées) | **Ready for Review** — des graphes s'exécutent (IR, compilateur 26 ms/1000 nœuds, VM à fuel) |
-| 3 | (suite) | 3.4, 3.5 | À rédiger (suspension persistée, ordonnanceur) |
+| 3 | Compilateur et VM | 3.1+3.2+3.3, 3.4+3.5 | **Ready for Review — épic complet** : graphes exécutés, wait survivant au redémarrage (testé), ordonnanceur avec police et stats |
 | 4–9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
-**Prochaine action :** QA du jalon 3.1-3.3 ; puis 3.4 (suspension persistée — le « wait qui survit au redémarrage ») et 3.5 (ordonnanceur). Session en jeu toujours en attente (VERIFY-001/002/003).
+**Prochaine action :** QA de l'épic 3 (les deux stories groupées) ; puis épic 7 (événements du monde + bibliothèque standard — rendre le runtime jouable) ou épic 4/5 selon priorité. Session en jeu toujours en attente (VERIFY-001/002/003).
 
 ## Ordre de lecture recommandé
 

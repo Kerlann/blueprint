@@ -24,6 +24,15 @@ public final class ExecutionState {
         return new ExecutionState(ir.slotCount());
     }
 
+    /** Reconstruction depuis la persistance (ExecutionNbt, même paquet). */
+    static ExecutionState ofSize(int slotCount) {
+        return new ExecutionState(slotCount);
+    }
+
+    public int slotCount() {
+        return slots.length;
+    }
+
     public int pc() {
         return pc;
     }

@@ -21,15 +21,23 @@ public final class BlueprintVm {
     private BlueprintVm() {
     }
 
+    /** Résultat + fuel réellement dépensé — la matière première des statistiques (3.5). */
+    public record RunOutcome(ExecResult result, int fuelSpent) {
+    }
+
     public static ExecResult run(Ir ir, ExecutionState state, ExecutionEnvironment env, int fuelBudget) {
+        return runMeasured(ir, state, env, fuelBudget).result();
+    }
+
+    public static RunOutcome runMeasured(Ir ir, ExecutionState state, ExecutionEnvironment env, int fuelBudget) {
         int spent = 0;
         while (true) {
             int pc = state.pc();
             if (pc < 0 || pc >= ir.instructions().size()) {
-                return ExecResult.DONE;
+                return new RunOutcome(ExecResult.DONE, spent);
             }
             if (spent >= fuelBudget) {
-                return ExecResult.OUT_OF_FUEL;
+                return new RunOutcome(ExecResult.OUT_OF_FUEL, spent);
             }
             Instruction ins = ir.instructions().get(pc);
             switch (ins) {
@@ -42,7 +50,7 @@ public final class BlueprintVm {
                     spent += call.fuelCost();
                     ExecResult interrupt = call(ir, state, env, call, pc);
                     if (interrupt != null) {
-                        return interrupt;
+                        return new RunOutcome(interrupt, spent);
                     }
                 }
                 case Instruction.Jmp j -> {
@@ -73,10 +81,10 @@ public final class BlueprintVm {
                 }
                 case Instruction.Yield y -> {
                     state.setPc(pc + 1);
-                    return new ExecResult.Suspended(y.ticks());
+                    return new RunOutcome(new ExecResult.Suspended(y.ticks()), spent + 1);
                 }
                 case Instruction.Return r -> {
-                    return ExecResult.DONE;
+                    return new RunOutcome(ExecResult.DONE, spent);
                 }
             }
         }
