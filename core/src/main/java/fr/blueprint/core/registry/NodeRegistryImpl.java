@@ -122,6 +122,6 @@ public final class NodeRegistryImpl implements NodeRegistry, NodeTypeLookup {
         for (NodeType.PinSpec spec : type.outputs()) {
             outputs.add(new NodeShape.PinDef(spec.name(), spec.kind(), spec.type(), false));
         }
-        return new NodeShape(inputs, outputs, false, type.permission());
+        return new NodeShape(inputs, outputs, type.entryPoint(), type.permission());
     }
 }

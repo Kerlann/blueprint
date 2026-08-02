@@ -38,14 +38,25 @@ public final class PluginLoader {
                 .forEach(container -> entries.add(new PluginEntry(
                         container.getProvider().getMetadata().getId(),
                         container.getEntrypoint())));
-        return load(entries);
+        return load(entries, true);
     }
 
+    /** Chargement nu (tests) : sans la bibliothèque standard. */
     public static LoadedRegistries load(List<PluginEntry> plugins) {
+        return load(plugins, false);
+    }
+
+    public static LoadedRegistries load(List<PluginEntry> plugins, boolean includeStandard) {
         PinTypeRegistryImpl pinTypes = new PinTypeRegistryImpl();
         NodeRegistryImpl nodes = new NodeRegistryImpl();
         EventRegistryImpl events = new EventRegistryImpl();
         pinTypes.registerBuiltins();
+        if (includeStandard) {
+            nodes.currentProvider("blueprint");
+            events.currentProvider("blueprint");
+            fr.blueprint.core.nodes.StandardNodes.register(nodes);
+            fr.blueprint.core.event.StandardEvents.register(events);
+        }
 
         Set<String> failed = new LinkedHashSet<>();
 
@@ -82,6 +93,35 @@ public final class PluginLoader {
             } catch (Exception e) {
                 isolate(entry.modId(), "registerEvents", e, failed, pinTypes, nodes, events);
             }
+        }
+
+        // Synthèse des nœuds d'événement (7.6, AC5) : chaque EventType — standard OU
+        // tiers — engendre son point d'entrée. L'action matérialise la charge utile du
+        // déclencheur dans les slots du graphe.
+        for (fr.blueprint.api.event.EventType event : events.all()) {
+            if (nodes.get(event.id()).isPresent()) {
+                BlueprintMod.LOGGER.warn(
+                        "Nœud d'événement non synthétisé : l'identifiant « {} » est déjà un nœud", event.id());
+                continue;
+            }
+            nodes.currentProvider(events.providerOf(event.id()).orElse("blueprint"));
+            var builder = fr.blueprint.api.node.NodeType.builder(event.id())
+                    .category(fr.blueprint.api.node.NodeCategories.EVENT)
+                    .entryPoint()
+                    .titleKey(event.titleKey())
+                    .execOut("exec_out")
+                    .action(ctx -> {
+                        for (fr.blueprint.api.event.EventType.OutDef out : event.outputs()) {
+                            Object value = ctx.trigger().output(out.name());
+                            if (value != null) {
+                                ctx.out(out.name(), value);
+                            }
+                        }
+                    });
+            for (fr.blueprint.api.event.EventType.OutDef out : event.outputs()) {
+                builder.out(out.name(), out.type());
+            }
+            nodes.register(builder.build());
         }
 
         pinTypes.freeze();

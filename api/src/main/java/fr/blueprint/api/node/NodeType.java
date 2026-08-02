@@ -53,6 +53,7 @@ public final class NodeType {
     private final List<PinSpec> inputs;
     private final List<PinSpec> outputs;
     private final boolean pure;
+    private final boolean entryPoint;
     private final ExecSide side;
     private final Permission permission;
     private final int fuelCost;
@@ -69,6 +70,7 @@ public final class NodeType {
         this.inputs = List.copyOf(b.inputs);
         this.outputs = List.copyOf(b.outputs);
         this.pure = b.pure;
+        this.entryPoint = b.entryPoint;
         this.side = b.side;
         this.permission = b.permission;
         this.fuelCost = b.fuelCost;
@@ -103,6 +105,11 @@ public final class NodeType {
     /** Vrai pour un nœud sans pin exec : évalué à la demande et mémoïsé par étape (FR13). */
     public boolean pure() {
         return pure;
+    }
+
+    /** Vrai pour un nœud d'événement — point d'entrée d'exécution du graphe. */
+    public boolean entryPoint() {
+        return entryPoint;
     }
 
     public ExecSide side() {
@@ -147,6 +154,7 @@ public final class NodeType {
         private final List<PinSpec> outputs = new ArrayList<>();
         private final Set<String> genericSlots = new LinkedHashSet<>();
         private boolean pure;
+        private boolean entryPoint;
         private boolean hasExec;
         private ExecSide side = ExecSide.SERVER;
         private Permission permission = Permission.SAFE;
@@ -194,6 +202,16 @@ public final class NodeType {
         /** Aucun pin exec : nœud pur, évalué à la demande. */
         public Builder pure() {
             this.pure = true;
+            return this;
+        }
+
+        /**
+         * Marque un point d'entrée d'exécution. Réservé à la synthèse des nœuds
+         * d'événement par Blueprint — les mods déclarent des {@code EventType},
+         * jamais des points d'entrée directs.
+         */
+        public Builder entryPoint() {
+            this.entryPoint = true;
             return this;
         }
 

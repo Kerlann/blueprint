@@ -88,6 +88,21 @@ public final class NodeContextImpl implements NodeContext {
         }
         if (value != null && spec.kind() == PinKind.DATA
                 && !spec.type().javaType().isInstance(value)) {
+            // Adaptation numérique (AC3, 7.x) : la coercition int → double est validée au
+            // câblage, la valeur runtime reste un Integer — on l'adapte ici plutôt que
+            // d'exiger des instructions de conversion dans l'IR.
+            Class<?> expected = spec.type().javaType();
+            if (value instanceof Number number) {
+                if (expected == Double.class) {
+                    return (T) Double.valueOf(number.doubleValue());
+                }
+                if (expected == Long.class) {
+                    return (T) Long.valueOf(number.longValue());
+                }
+                if (expected == Integer.class) {
+                    return (T) Integer.valueOf(number.intValue());
+                }
+            }
             throw new IllegalStateException(dev("le pin « " + pin + " » porte un "
                     + value.getClass().getSimpleName() + " au lieu de "
                     + spec.type().javaType().getSimpleName()));

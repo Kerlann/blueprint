@@ -39,28 +39,112 @@ public class BlueprintMod implements ModInitializer {
                 declared, registries.pinTypes().all().size(), registries.nodes().all().size(),
                 registries.events().all().size(), registries.failedMods().size());
 
-        // Le dispatcher d'événements vit avec le serveur : installé au démarrage,
-        // retiré à l'arrêt — avant/après, BlueprintEvents.fire est un no-op sûr.
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server ->
-                fr.blueprint.api.event.BlueprintEvents.install(
-                        new fr.blueprint.core.event.EventDispatcher(new fr.blueprint.core.event.EventDispatcher.ThreadGate() {
-                            @Override
-                            public boolean isOnThread() {
-                                return server.isSameThread();
-                            }
+        // Le dispatcher d'événements vit avec le serveur : installé au démarrage
+        // (avec le pont événement → ordonnanceur), retiré à l'arrêt.
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+            var dispatcher = new fr.blueprint.core.event.EventDispatcher(
+                    new fr.blueprint.core.event.EventDispatcher.ThreadGate() {
+                        @Override
+                        public boolean isOnThread() {
+                            return server.isSameThread();
+                        }
 
-                            @Override
-                            public void submit(Runnable task) {
-                                server.execute(task);
-                            }
-                        })));
+                        @Override
+                        public void submit(Runnable task) {
+                            server.execute(task);
+                        }
+                    });
+            var bridge = new fr.blueprint.core.event.BlueprintEventBridge(
+                    BlueprintManager.of(server), registries.nodes(), schedulerOf(server),
+                    (bp, trigger) -> new fr.blueprint.core.vm.ExecutionEnvironment(
+                            typeId -> registries.nodes().get(typeId).orElse(null),
+                            new fr.blueprint.api.node.BlueprintHandle() {
+                                @Override
+                                public net.minecraft.resources.Identifier id() {
+                                    return bp.id();
+                                }
+
+                                @Override
+                                public boolean enabled() {
+                                    return bp.enabled();
+                                }
+                            },
+                            trigger, varsOf(server), server, server.overworld(), LOGGER));
+            bridge.wire(dispatcher, registries.events().all());
+            fr.blueprint.api.event.BlueprintEvents.install(dispatcher);
+        });
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server ->
                 fr.blueprint.api.event.BlueprintEvents.uninstall());
 
-        // L'ordonnanceur tourne en fin de tick serveur ; un blueprint glouton ou en
-        // faute est désactivé via le manager (l'annuler/rétablir ne le réactivera pas).
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server ->
-                schedulerOf(server).tick(config.fuelPerTick()));
+        // Fin de tick : émettre server_tick (coût nul sans abonné — paresse 2.5) puis
+        // ordonnancer. Un blueprint glouton ou en faute est désactivé via le manager.
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+            fr.blueprint.api.event.BlueprintEvents.fire(
+                    fr.blueprint.core.event.StandardEvents.SERVER_TICK, payload -> {
+                    });
+            schedulerOf(server).tick(config.fuelPerTick());
+        });
+
+        registerWorldEventBridges();
+    }
+
+    /** Ponts Fabric → événements Blueprint (story 7.6) — fins, vérifiés en jeu/gametest. */
+    private static void registerWorldEventBridges() {
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register(
+                (handler, sender, server) -> fr.blueprint.api.event.BlueprintEvents.fire(
+                        fr.blueprint.core.event.StandardEvents.PLAYER_JOIN,
+                        payload -> payload.set("player", handler.player)));
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
+                (handler, server) -> fr.blueprint.api.event.BlueprintEvents.fire(
+                        fr.blueprint.core.event.StandardEvents.PLAYER_QUIT,
+                        payload -> payload.set("player", handler.player)));
+        net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register(
+                (player, world, hand, hit) -> {
+                    if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.PLAYER_USE_BLOCK,
+                                payload -> payload.set("player", serverPlayer)
+                                        .set("pos", hit.getBlockPos())
+                                        .set("face", hit.getDirection()));
+                    }
+                    return net.minecraft.world.InteractionResult.PASS;
+                });
+        net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
+                (player, world, hand) -> {
+                    if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.PLAYER_USE_ITEM,
+                                payload -> payload.set("player", serverPlayer));
+                    }
+                    return net.minecraft.world.InteractionResult.PASS;
+                });
+        net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register(
+                (world, player, pos, state, blockEntity) -> {
+                    if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.PLAYER_BREAK_BLOCK,
+                                payload -> payload.set("player", serverPlayer)
+                                        .set("pos", pos.immutable()));
+                    }
+                });
+        net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register(
+                (entity, damageSource) -> fr.blueprint.api.event.BlueprintEvents.fire(
+                        fr.blueprint.core.event.StandardEvents.ENTITY_DEATH,
+                        payload -> payload.set("entity", entity)));
+        net.fabricmc.fabric.api.message.v1.ServerMessageEvents.CHAT_MESSAGE.register(
+                (message, sender, params) -> fr.blueprint.api.event.BlueprintEvents.fire(
+                        fr.blueprint.core.event.StandardEvents.PLAYER_CHAT,
+                        payload -> payload.set("player", sender)
+                                .set("message", message.signedContent())));
+    }
+
+    private static final java.util.Map<net.minecraft.server.MinecraftServer,
+            fr.blueprint.core.vm.VarStore> VARS =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /** Variables non locales du serveur — en mémoire pour l'instant (persistance : 6.x). */
+    public static fr.blueprint.core.vm.VarStore varsOf(net.minecraft.server.MinecraftServer server) {
+        return VARS.computeIfAbsent(server, s -> fr.blueprint.core.vm.VarStore.inMemory());
     }
 
     private static final java.util.Map<net.minecraft.server.MinecraftServer,
