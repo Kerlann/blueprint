@@ -33,6 +33,9 @@ public final class NodeContextImpl implements NodeContext {
     private final TriggerContext trigger;
     private final Logger logger;
 
+    /** Valeurs réellement lues par le nœud — alimenté seulement en débogage (9.1a). */
+    private final @Nullable Map<String, Object> reads;
+
     private @Nullable String chosenExec;
     private int suspendTicks = -1;
     private @Nullable Component failReason;
@@ -41,6 +44,15 @@ public final class NodeContextImpl implements NodeContext {
     public NodeContextImpl(NodeType type, Map<String, Object> inputs,
                            @Nullable MinecraftServer server, @Nullable ServerLevel level,
                            BlueprintHandle blueprint, TriggerContext trigger, Logger logger) {
+        this(type, inputs, server, level, blueprint, trigger, logger, false);
+    }
+
+    /** {@code recordReads} : conserver ce que le nœud lit, pour le débogueur (9.1a). */
+    public NodeContextImpl(NodeType type, Map<String, Object> inputs,
+                           @Nullable MinecraftServer server, @Nullable ServerLevel level,
+                           BlueprintHandle blueprint, TriggerContext trigger, Logger logger,
+                           boolean recordReads) {
+        this.reads = recordReads ? new LinkedHashMap<>() : null;
         this.type = type;
         this.inputs = Map.copyOf(inputs);
         this.server = server;
@@ -85,6 +97,11 @@ public final class NodeContextImpl implements NodeContext {
                 throw new IllegalStateException(dev("le pin « " + pin
                         + " » n'a ni valeur ni défaut — câblage manquant ou producteur non exécuté"));
             }
+        }
+        if (reads != null) {
+            // Ce que le nœud a VU (défaut de pin ou de type compris) : c'est cette
+            // valeur-là qui intéresse le débogueur, pas seulement ce qui était câblé.
+            reads.put(pin, value);
         }
         if (value != null && spec.kind() == PinKind.DATA
                 && !spec.type().javaType().isInstance(value)) {
@@ -193,6 +210,11 @@ public final class NodeContextImpl implements NodeContext {
     /** Sorties écrites par l'action (lisibles après invalidation — c'est la VM qui lit). */
     public Map<String, Object> outputs() {
         return outputs;
+    }
+
+    /** Entrées effectivement lues, ou vide hors débogage (9.1a). */
+    public Map<String, Object> reads() {
+        return reads == null ? Map.of() : reads;
     }
 
     /** Branche exec choisie, ou null (la VM prend alors la première sortie exec). */

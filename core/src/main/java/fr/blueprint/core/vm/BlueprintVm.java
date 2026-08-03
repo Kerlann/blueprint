@@ -31,6 +31,12 @@ public final class BlueprintVm {
 
     public static RunOutcome runMeasured(Ir ir, ExecutionState state, ExecutionEnvironment env, int fuelBudget) {
         int spent = 0;
+        // Débogage (9.1a) : une lecture de volatile quand personne ne débogue, une
+        // recherche par exécution sinon. Rien dans la boucle chaude.
+        fr.blueprint.core.debug.DebugSession debug =
+                fr.blueprint.core.debug.DebugSessions.active()
+                        ? fr.blueprint.core.debug.DebugSessions.of(env.blueprint().id())
+                        : null;
         while (true) {
             int pc = state.pc();
             if (pc < 0 || pc >= ir.instructions().size()) {
@@ -53,8 +59,13 @@ public final class BlueprintVm {
                     spent++;
                 }
                 case Instruction.Call call -> {
+                    // Point d'arrêt : on rend la main SANS avancer le pc — la reprise
+                    // repassera exactement ici, le nœud n'a pas encore tourné.
+                    if (debug != null && debug.pauseBefore(call.source())) {
+                        return new RunOutcome(new ExecResult.Suspended(1), spent);
+                    }
                     spent += call.fuelCost();
-                    ExecResult interrupt = call(ir, state, env, call, pc);
+                    ExecResult interrupt = call(ir, state, env, call, pc, debug);
                     if (interrupt != null) {
                         return new RunOutcome(interrupt, spent);
                     }
@@ -103,7 +114,9 @@ public final class BlueprintVm {
 
     /** Exécute un {@code Call} ; retourne un résultat d'interruption, ou null pour continuer. */
     private static ExecResult call(Ir ir, ExecutionState state, ExecutionEnvironment env,
-                                   Instruction.Call call, int pc) {
+                                   Instruction.Call call, int pc,
+                                   @org.jetbrains.annotations.Nullable
+                                   fr.blueprint.core.debug.DebugSession debug) {
         NodeType type = env.nodeResolver().apply(call.type());
         if (type == null) {
             return new ExecResult.Faulted(call.source(),
@@ -117,7 +130,7 @@ public final class BlueprintVm {
             }
         }
         NodeContextImpl ctx = new NodeContextImpl(type, inputs, env.server(), env.level(),
-                env.blueprint(), env.trigger(), env.logger());
+                env.blueprint(), env.trigger(), env.logger(), debug != null);
         try {
             NodeContextImpl.invoke(type, ctx);
         } catch (Exception e) {
@@ -130,6 +143,12 @@ public final class BlueprintVm {
         }
         for (Instruction.PinBinding binding : call.outputs()) {
             state.slots()[binding.slot()] = ctx.outputs().get(binding.pin());
+        }
+        if (debug != null) {
+            // Ce que le nœud a lu (défauts compris) plutôt que ce qui était câblé.
+            Map<String, Object> seen = new LinkedHashMap<>(inputs);
+            seen.putAll(ctx.reads());
+            debug.record(call.source(), seen, ctx.outputs());
         }
         // Le Call est la table de sauts : cible choisie par l'action, sinon la première
         // déclarée ; cible négative = fin ; nœud pur = enchaînement linéaire.

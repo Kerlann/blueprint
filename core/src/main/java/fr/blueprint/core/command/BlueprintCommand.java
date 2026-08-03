@@ -86,7 +86,211 @@ public final class BlueprintCommand {
                                 .executes(BlueprintCommand::importFile)))
                 .then(literal("demo")
                         .requires(admin)
-                        .executes(BlueprintCommand::demo));
+                        .executes(BlueprintCommand::demo))
+                // Débogage (9.1a) : réservé aux administrateurs — voir les valeurs qui
+                // circulent, c'est voir ce que fait le graphe d'un autre joueur.
+                .then(literal("debug")
+                        .requires(admin)
+                        .then(idArgument()
+                                .suggests(EXISTING_IDS)
+                                .then(literal("on").executes(ctx -> debugOn(ctx, true)))
+                                .then(literal("off").executes(ctx -> debugOn(ctx, false)))
+                                .then(literal("status").executes(BlueprintCommand::debugStatus))
+                                .then(literal("step").executes(ctx -> debugFlow(ctx, true)))
+                                .then(literal("continue").executes(ctx -> debugFlow(ctx, false)))
+                                .then(literal("clear").executes(BlueprintCommand::debugClear))
+                                .then(literal("break")
+                                        .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument(
+                                                        "node", com.mojang.brigadier.arguments.StringArgumentType.word())
+                                                .suggests(TRACED_NODES)
+                                                .executes(ctx -> debugBreak(ctx, true))))
+                                .then(literal("unbreak")
+                                        .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument(
+                                                        "node", com.mojang.brigadier.arguments.StringArgumentType.word())
+                                                .suggests(TRACED_NODES)
+                                                .executes(ctx -> debugBreak(ctx, false))))
+                                .then(literal("values")
+                                        .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument(
+                                                        "node", com.mojang.brigadier.arguments.StringArgumentType.word())
+                                                .suggests(TRACED_NODES)
+                                                .executes(BlueprintCommand::debugValues)))));
+    }
+
+    // ------------------------------------------------------------------ débogage
+
+    /**
+     * Suggestions de nœuds : ceux qu'on vient de voir passer. Taper un UUID complet dans
+     * le chat est impraticable — un préfixe suffit, et la trace donne les candidats.
+     */
+    private static final SuggestionProvider<CommandSourceStack> TRACED_NODES = (ctx, builder) -> {
+        Identifier id = tryId(ctx);
+        var session = id == null ? null : fr.blueprint.core.debug.DebugSessions.of(id);
+        if (session != null) {
+            session.trace().forEach(node -> builder.suggest(node.toString().substring(0, 8)));
+            session.breakpoints().forEach(node -> builder.suggest(node.toString().substring(0, 8)));
+        }
+        return builder.buildFuture();
+    };
+
+    private static @org.jetbrains.annotations.Nullable Identifier tryId(
+            CommandContext<CommandSourceStack> ctx) {
+        try {
+            return IdentifierArgument.getId(ctx, "id");
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static int debugOn(CommandContext<CommandSourceStack> ctx, boolean on) {
+        Identifier id = IdentifierArgument.getId(ctx, "id");
+        if (BlueprintManager.of(ctx.getSource().getServer()).get(id).isEmpty()) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.not_found", id.toString()));
+            return 0;
+        }
+        if (on) {
+            fr.blueprint.core.debug.DebugSessions.open(id);
+        } else {
+            fr.blueprint.core.debug.DebugSessions.close(id);
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable(
+                on ? "blueprint.cmd.debug_on" : "blueprint.cmd.debug_off", id.toString()), true);
+        return 1;
+    }
+
+    private static int debugStatus(CommandContext<CommandSourceStack> ctx) {
+        var session = requireSession(ctx);
+        if (session == null) {
+            return 0;
+        }
+        var paused = session.pausedAt();
+        ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.debug_status",
+                session.blueprint().toString(),
+                paused == null ? "—" : shortId(paused),
+                session.breakpoints().size(),
+                session.trace().size()), false);
+        return 1;
+    }
+
+    private static int debugFlow(CommandContext<CommandSourceStack> ctx, boolean step) {
+        var session = requireSession(ctx);
+        if (session == null) {
+            return 0;
+        }
+        if (step) {
+            session.step();
+        } else {
+            session.resume();
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable(
+                step ? "blueprint.cmd.debug_step" : "blueprint.cmd.debug_continue"), false);
+        return 1;
+    }
+
+    private static int debugClear(CommandContext<CommandSourceStack> ctx) {
+        var session = requireSession(ctx);
+        if (session == null) {
+            return 0;
+        }
+        session.clearBreakpoints();
+        session.clearValues();
+        session.resume();
+        ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.debug_cleared"), false);
+        return 1;
+    }
+
+    private static int debugBreak(CommandContext<CommandSourceStack> ctx, boolean add) {
+        var session = requireSession(ctx);
+        if (session == null) {
+            return 0;
+        }
+        String prefix = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "node");
+        java.util.UUID node = resolveNode(ctx, session, prefix);
+        if (node == null) {
+            return 0;
+        }
+        if (add) {
+            session.breakOn(node);
+        } else {
+            session.unbreak(node);
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable(
+                add ? "blueprint.cmd.debug_break" : "blueprint.cmd.debug_unbreak",
+                shortId(node)), false);
+        return 1;
+    }
+
+    private static int debugValues(CommandContext<CommandSourceStack> ctx) {
+        var session = requireSession(ctx);
+        if (session == null) {
+            return 0;
+        }
+        String prefix = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "node");
+        java.util.UUID node = resolveNode(ctx, session, prefix);
+        if (node == null) {
+            return 0;
+        }
+        var values = session.valuesOf(node);
+        if (values.isEmpty()) {
+            ctx.getSource().sendSuccess(() -> Component.translatable(
+                    "blueprint.cmd.debug_no_values", shortId(node)), false);
+            return 1;
+        }
+        StringBuilder text = new StringBuilder();
+        values.forEach((pin, value) -> {
+            if (!text.isEmpty()) {
+                text.append("  ");
+            }
+            text.append(pin).append('=').append(value);
+        });
+        ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.debug_values",
+                shortId(node), session.hits(node), text.toString()), false);
+        return 1;
+    }
+
+    /** Résout un préfixe d'UUID parmi les nœuds vus et les points d'arrêt posés. */
+    private static @org.jetbrains.annotations.Nullable java.util.UUID resolveNode(
+            CommandContext<CommandSourceStack> ctx, fr.blueprint.core.debug.DebugSession session,
+            String prefix) {
+        java.util.Set<java.util.UUID> candidates = new java.util.LinkedHashSet<>(session.trace());
+        candidates.addAll(session.breakpoints());
+        candidates.addAll(session.allValues().keySet());
+        java.util.UUID found = null;
+        for (java.util.UUID candidate : candidates) {
+            if (candidate.toString().startsWith(prefix)) {
+                if (found != null) {
+                    ctx.getSource().sendFailure(Component.translatable(
+                            "blueprint.cmd.debug_ambiguous", prefix));
+                    return null;
+                }
+                found = candidate;
+            }
+        }
+        if (found == null) {
+            // Un UUID complet reste accepté : l'éditeur, lui, les connaît tous.
+            try {
+                return java.util.UUID.fromString(prefix);
+            } catch (IllegalArgumentException e) {
+                ctx.getSource().sendFailure(Component.translatable(
+                        "blueprint.cmd.debug_unknown_node", prefix));
+                return null;
+            }
+        }
+        return found;
+    }
+
+    private static @org.jetbrains.annotations.Nullable fr.blueprint.core.debug.DebugSession
+            requireSession(CommandContext<CommandSourceStack> ctx) {
+        Identifier id = IdentifierArgument.getId(ctx, "id");
+        var session = fr.blueprint.core.debug.DebugSessions.of(id);
+        if (session == null) {
+            ctx.getSource().sendFailure(Component.translatable(
+                    "blueprint.cmd.debug_not_open", id.toString()));
+        }
+        return session;
+    }
+
+    private static String shortId(java.util.UUID node) {
+        return node.toString().substring(0, 8);
     }
 
     private static java.nio.file.Path exportsDir() {
