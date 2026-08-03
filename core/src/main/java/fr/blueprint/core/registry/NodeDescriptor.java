@@ -26,7 +26,16 @@ import java.util.function.Function;
 public record NodeDescriptor(Identifier id, String category, String titleKey, String descKey,
                              List<PinDescriptor> inputs, List<PinDescriptor> outputs,
                              boolean pure, Permission permission, int fuelCost,
-                             boolean deterministic) {
+                             boolean deterministic, boolean entryPoint) {
+
+    /** Compatibilité : ancien constructeur sans {@code entryPoint} (6.2). */
+    public NodeDescriptor(Identifier id, String category, String titleKey, String descKey,
+                          List<PinDescriptor> inputs, List<PinDescriptor> outputs,
+                          boolean pure, Permission permission, int fuelCost,
+                          boolean deterministic) {
+        this(id, category, titleKey, descKey, inputs, outputs, pure, permission,
+                fuelCost, deterministic, false);
+    }
 
     public record PinDescriptor(String name, PinKind kind, PinType type,
                                 @Nullable LiteralValue defaultValue) {
@@ -42,7 +51,8 @@ public record NodeDescriptor(Identifier id, String category, String titleKey, St
         return new NodeDescriptor(type.id(), type.category().id(), type.titleKey(), type.descKey(),
                 type.inputs().stream().map(NodeDescriptor::pin).toList(),
                 type.outputs().stream().map(NodeDescriptor::pin).toList(),
-                type.pure(), type.permission(), type.fuelCost(), type.deterministic());
+                type.pure(), type.permission(), type.fuelCost(), type.deterministic(),
+                type.entryPoint());
     }
 
     private static PinDescriptor pin(NodeType.PinSpec spec) {
@@ -63,6 +73,7 @@ public record NodeDescriptor(Identifier id, String category, String titleKey, St
         tag.putString("permission", permission.name());
         tag.putInt("fuel", fuelCost);
         tag.putBoolean("deterministic", deterministic);
+        tag.putBoolean("entry", entryPoint);
         return tag;
     }
 
@@ -108,7 +119,8 @@ public record NodeDescriptor(Identifier id, String category, String titleKey, St
                 tag.getBooleanOr("pure", false),
                 permission,
                 tag.getIntOr("fuel", 1),
-                tag.getBooleanOr("deterministic", true));
+                tag.getBooleanOr("deterministic", true),
+                tag.getBooleanOr("entry", false));
     }
 
     private static @Nullable List<PinDescriptor> decodePins(@Nullable Tag pinsTag,
@@ -156,7 +168,8 @@ public record NodeDescriptor(Identifier id, String category, String titleKey, St
         StringBuilder sb = new StringBuilder(128);
         sb.append(id).append('|').append(category).append('|').append(titleKey).append('|')
                 .append(descKey).append('|').append(pure).append('|').append(permission)
-                .append('|').append(fuelCost).append('|').append(deterministic);
+                .append('|').append(fuelCost).append('|').append(deterministic)
+                .append('|').append(entryPoint);
         appendPins(sb, inputs);
         appendPins(sb, outputs);
         return sb.toString();

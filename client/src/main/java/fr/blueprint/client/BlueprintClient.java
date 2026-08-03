@@ -87,6 +87,9 @@ public class BlueprintClient implements ClientModInitializer {
                                     return Command.SINGLE_SUCCESS;
                                 }))));
 
+        // Synchro du registre serveur (6.2) : réception du hash puis des descripteurs.
+        fr.blueprint.client.net.RegistrySync.register();
+
         BlueprintMod.LOGGER.info("Blueprint client initialisé");
     }
 
@@ -148,11 +151,9 @@ public class BlueprintClient implements ClientModInitializer {
         // Bouton Tester (5.6b) : après l'enregistrement, activer côté serveur.
         session.setTestHandler(() ->
                 server.execute(() -> BlueprintManager.of(server).setEnabled(id, true)));
-        Runnable open = () -> {
-            var registries = BlueprintMod.registries();
-            mc.setScreen(new BlueprintEditorScreen(session, registries,
-                    ClientNodeRegistry.fromLocal(registries)));
-        };
+        Runnable open = () -> mc.setScreen(new BlueprintEditorScreen(session,
+                BlueprintMod.registries(), fr.blueprint.client.net.RegistrySync.descriptors(),
+                fr.blueprint.client.net.RegistrySync.lookup()));
         if (deferred) {
             mc.schedule(open);
         } else {
@@ -187,6 +188,7 @@ public class BlueprintClient implements ClientModInitializer {
         var registries = BlueprintMod.registries();
         mc.setScreen(new BlueprintEditorScreen(
                 EditorSession.scratch(DemoBlueprint.build(registries.nodes())),
-                registries, ClientNodeRegistry.fromLocal(registries)));
+                registries, fr.blueprint.client.net.RegistrySync.descriptors(),
+                fr.blueprint.client.net.RegistrySync.lookup()));
     }
 }

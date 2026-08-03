@@ -113,7 +113,88 @@ public class BlueprintMod implements ModInitializer {
         });
 
         registerWorldEventBridges();
+        registerRegistrySync();
     }
+
+    /** Hash du registre, calculé une fois (les registres sont gelés après l'init). */
+    private static String registryHash;
+    /** Flux de descripteurs compressé, calculé à la première demande. */
+    private static byte[] descriptorStream;
+
+    public static synchronized String registryHash() {
+        if (registryHash == null) {
+            registryHash = fr.blueprint.core.registry.RegistryHash.of(registries.nodes());
+        }
+        return registryHash;
+    }
+
+    private static synchronized byte[] descriptorStream() {
+        if (descriptorStream == null) {
+            java.util.List<fr.blueprint.core.registry.NodeDescriptor> all =
+                    new java.util.ArrayList<>();
+            for (fr.blueprint.api.node.NodeType type : registries.nodes().all()) {
+                all.add(fr.blueprint.core.registry.NodeDescriptor.of(type));
+            }
+            descriptorStream = fr.blueprint.core.net.DescriptorSync.toBytes(all);
+        }
+        return descriptorStream;
+    }
+
+    /**
+     * Synchro du registre (story 6.2, FR35) : au join le serveur annonce son hash ;
+     * le client ne demande les descripteurs que s'il diverge. Le flux part fragmenté
+     * et compressé — un client sans les mods du serveur voit quand même les nœuds.
+     */
+    private static void registerRegistrySync() {
+        var s2c = net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C();
+        s2c.register(fr.blueprint.core.net.BlueprintPayloads.RegistryHash.TYPE,
+                fr.blueprint.core.net.BlueprintPayloads.RegistryHash.CODEC);
+        s2c.register(fr.blueprint.core.net.BlueprintPayloads.DescriptorChunk.TYPE,
+                fr.blueprint.core.net.BlueprintPayloads.DescriptorChunk.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playC2S().register(
+                fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.TYPE,
+                fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.CODEC);
+
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register(
+                (handler, sender, server) -> {
+                    // Un client vanilla (ou sans Blueprint) ne reçoit rien : le paquet
+                    // serait inconnu de sa connexion.
+                    if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(
+                            handler.player,
+                            fr.blueprint.core.net.BlueprintPayloads.RegistryHash.TYPE)) {
+                        sender.sendPacket(new fr.blueprint.core.net.BlueprintPayloads
+                                .RegistryHash(registryHash()));
+                    }
+                });
+
+        net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
+                fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.TYPE,
+                (payload, context) -> {
+                    // Une seule livraison par connexion : le registre est gelé, une
+                    // seconde demande ne peut rien apporter (et ne coûtera rien).
+                    if (!SYNCED.add(context.player().getUUID())) {
+                        return;
+                    }
+                    java.util.List<byte[]> chunks =
+                            fr.blueprint.core.net.DescriptorSync.chunks(descriptorStream());
+                    for (int i = 0; i < chunks.size(); i++) {
+                        context.responseSender().sendPacket(
+                                new fr.blueprint.core.net.BlueprintPayloads.DescriptorChunk(
+                                        i, chunks.size(), chunks.get(i)));
+                    }
+                    LOGGER.info("Registre envoyé à {} : {} nœud(s), {} fragment(s), {} octets",
+                            context.player().getGameProfile().name(),
+                            registries.nodes().all().size(), chunks.size(),
+                            descriptorStream().length);
+                });
+
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
+                (handler, server) -> SYNCED.remove(handler.player.getUUID()));
+    }
+
+    /** Joueurs déjà servis (par UUID) — remis à zéro à la déconnexion. */
+    private static final java.util.Set<java.util.UUID> SYNCED =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
     /** Ponts Fabric → événements Blueprint (story 7.6) — fins, vérifiés en jeu/gametest. */
     private static void registerWorldEventBridges() {

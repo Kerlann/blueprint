@@ -24,11 +24,22 @@ public final class BlueprintEditorScreen extends Screen {
     public BlueprintEditorScreen(EditorSession session,
                                  fr.blueprint.core.registry.PluginLoader.LoadedRegistries registries,
                                  ClientNodeRegistry descriptors) {
+        this(session, registries, descriptors, registries.nodes());
+    }
+
+    /**
+     * Variante synchro réseau (6.2) : la vue validateur vient des descripteurs reçus du
+     * serveur quand ils diffèrent des registres locaux — descripteurs et {@code lookup}
+     * proviennent alors de la MÊME source, jamais d'un mélange.
+     */
+    public BlueprintEditorScreen(EditorSession session,
+                                 fr.blueprint.core.registry.PluginLoader.LoadedRegistries registries,
+                                 ClientNodeRegistry descriptors,
+                                 fr.blueprint.core.graph.NodeTypeLookup lookup) {
         super(Component.translatable("blueprint.editor.title",
                 session.blueprint().id().toString()));
         this.session = session;
-        this.canvas = new CanvasWidget(session, registries.nodes(), descriptors,
-                registries, this::onClose);
+        this.canvas = new CanvasWidget(session, lookup, descriptors, registries, this::onClose);
     }
 
     @Override
