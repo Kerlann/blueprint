@@ -28,6 +28,8 @@ public final class Blueprint {
     private final Set<Link> links = new LinkedHashSet<>();
     private final Map<String, Variable> variables = new LinkedHashMap<>();
     private final Map<UUID, CommentBox> comments = new LinkedHashMap<>();
+    /** Écrans du blueprint (épic 10) — même sérialisation, même révision, même verrou. */
+    private final Map<String, fr.blueprint.core.graph.screen.Screen> screens = new LinkedHashMap<>();
 
     public Blueprint(Identifier id) {
         this(id, BlueprintMeta.DEFAULT);
@@ -81,6 +83,15 @@ public final class Blueprint {
 
     public Collection<CommentBox> comments() {
         return Collections.unmodifiableCollection(comments.values());
+    }
+
+    /** Les écrans, par nom. Vide pour l'immense majorité des blueprints. */
+    public Map<String, fr.blueprint.core.graph.screen.Screen> screens() {
+        return Collections.unmodifiableMap(screens);
+    }
+
+    public fr.blueprint.core.graph.screen.@Nullable Screen screen(String name) {
+        return screens.get(name);
     }
 
     public @Nullable CommentBox comment(UUID uuid) {
@@ -140,6 +151,14 @@ public final class Blueprint {
         comments.remove(uuid);
     }
 
+    void putScreen(fr.blueprint.core.graph.screen.Screen screen) {
+        screens.put(screen.name(), screen);
+    }
+
+    void dropScreen(String name) {
+        screens.remove(name);
+    }
+
     void setMeta(BlueprintMeta meta) {
         this.meta = meta;
     }
@@ -185,6 +204,9 @@ public final class Blueprint {
         c.links.addAll(links);
         c.variables.putAll(variables);
         c.comments.putAll(comments);
+        // Les écrans sont immuables : les partager suffit, et les oublier ici ferait
+        // perdre ses menus à tout blueprint copié — instantané réseau compris.
+        c.screens.putAll(screens);
         c.preservedVariables = preservedVariables.copy();
         return c;
     }
@@ -194,6 +216,7 @@ public final class Blueprint {
         if (!id.equals(other.id) || !meta.equals(other.meta) || enabled != other.enabled
                 || !links.equals(other.links) || !variables.equals(other.variables)
                 || !comments.equals(other.comments)
+                || !screens.equals(other.screens)
                 || !preservedVariables.equals(other.preservedVariables)
                 || !nodes.keySet().equals(other.nodes.keySet())) {
             return false;
