@@ -136,7 +136,7 @@ public class BlueprintClient implements ClientModInitializer {
                 server.execute(() -> BlueprintManager.of(server).setEnabled(id, true)));
         Runnable open = () -> {
             var registries = BlueprintMod.registries();
-            mc.setScreen(new BlueprintEditorScreen(session, registries.nodes(),
+            mc.setScreen(new BlueprintEditorScreen(session, registries,
                     ClientNodeRegistry.fromLocal(registries)));
         };
         if (deferred) {
@@ -173,6 +173,6 @@ public class BlueprintClient implements ClientModInitializer {
         var registries = BlueprintMod.registries();
         mc.setScreen(new BlueprintEditorScreen(
                 EditorSession.scratch(DemoBlueprint.build(registries.nodes())),
-                registries.nodes(), ClientNodeRegistry.fromLocal(registries)));
+                registries, ClientNodeRegistry.fromLocal(registries)));
     }
 }

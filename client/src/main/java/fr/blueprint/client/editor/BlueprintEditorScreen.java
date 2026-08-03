@@ -1,7 +1,6 @@
 package fr.blueprint.client.editor;
 
 import fr.blueprint.client.registry.ClientNodeRegistry;
-import fr.blueprint.core.graph.NodeTypeLookup;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
@@ -22,12 +21,19 @@ public final class BlueprintEditorScreen extends Screen {
     private final CanvasWidget canvas;
     private boolean framed;
 
-    public BlueprintEditorScreen(EditorSession session, NodeTypeLookup lookup,
+    public BlueprintEditorScreen(EditorSession session,
+                                 fr.blueprint.core.registry.PluginLoader.LoadedRegistries registries,
                                  ClientNodeRegistry descriptors) {
         super(Component.translatable("blueprint.editor.title",
                 session.blueprint().id().toString()));
         this.session = session;
-        this.canvas = new CanvasWidget(session, lookup, descriptors, this::onClose);
+        this.canvas = new CanvasWidget(session, registries.nodes(), descriptors,
+                registries, this::onClose);
+    }
+
+    @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        canvas.mouseMoved(mouseX, mouseY);
     }
 
     public EditorSession session() {

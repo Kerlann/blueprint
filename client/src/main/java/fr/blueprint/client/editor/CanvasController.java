@@ -449,6 +449,63 @@ public final class CanvasController {
         return applyTracked(op);
     }
 
+    /**
+     * Colle un fragment (5.8) : variables manquantes créées, nœuds remappés vers des
+     * UUID neufs, positions décalées en bloc (coin haut-gauche sous le curseur,
+     * accroché), liens internes reconstruits. La nouvelle sélection = les nœuds
+     * collés. Un seul geste d'annulation.
+     */
+    public List<UUID> pasteFragment(Blueprint fragment, double wx, double wy) {
+        if (fragment.nodes().isEmpty() && fragment.variables().isEmpty()) {
+            return List.of();
+        }
+        history.beginGesture();
+        try {
+            for (fr.blueprint.core.graph.Variable variable : fragment.variables().values()) {
+                if (!blueprint.variables().containsKey(variable.name())) {
+                    applyTracked(new EditOperation.AddVariable(variable));
+                }
+            }
+            if (fragment.nodes().isEmpty()) {
+                return List.of();
+            }
+            double minX = Double.MAX_VALUE;
+            double minY = Double.MAX_VALUE;
+            for (Node node : fragment.nodes().values()) {
+                minX = Math.min(minX, node.position().x());
+                minY = Math.min(minY, node.position().y());
+            }
+            double ox = camera.snap(wx) - minX;
+            double oy = camera.snap(wy) - minY;
+
+            Map<UUID, UUID> remap = new HashMap<>();
+            List<UUID> pasted = new ArrayList<>();
+            for (Node node : fragment.nodes().values()) {
+                UUID fresh = UUID.randomUUID();
+                remap.put(node.uuid(), fresh);
+                if (!applyTracked(new EditOperation.AddNode(fresh, node.typeId(),
+                        new Vec2d(node.position().x() + ox, node.position().y() + oy)))) {
+                    continue;
+                }
+                pasted.add(fresh);
+                node.literals().forEach((pin, value) ->
+                        applyTracked(new EditOperation.SetLiteral(fresh, pin, value)));
+            }
+            for (Link link : fragment.links()) {
+                UUID from = remap.get(link.fromNode());
+                UUID to = remap.get(link.toNode());
+                if (from != null && to != null) {
+                    applyTracked(new EditOperation.AddLink(
+                            new Link(from, link.fromPin(), to, link.toPin())));
+                }
+            }
+            selection.selectAll(pasted, false);
+            return pasted;
+        } finally {
+            history.endGesture();
+        }
+    }
+
     /** Dépose un nœud Get (ou Set) lié à la variable, accroché — un seul geste. */
     public @Nullable UUID insertVariableNode(boolean set, String name, double wx, double wy) {
         history.beginGesture();

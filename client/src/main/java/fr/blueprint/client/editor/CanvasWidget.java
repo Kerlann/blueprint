@@ -61,11 +61,18 @@ public final class CanvasWidget {
     /** Variable en cours de glisser depuis le panneau (déposée en Get/Set). */
     private @Nullable String dragVar;
 
+    private final ClipboardCodec clipboard;
+    private double lastMouseX;
+    private double lastMouseY;
+
     public CanvasWidget(EditorSession session, NodeTypeLookup lookup,
-                        ClientNodeRegistry descriptors, Runnable closeRequest) {
+                        ClientNodeRegistry descriptors,
+                        fr.blueprint.core.registry.PluginLoader.LoadedRegistries registries,
+                        Runnable closeRequest) {
         this.session = session;
         this.lookup = lookup;
         this.descriptors = descriptors;
+        this.clipboard = new ClipboardCodec(registries);
         this.closeRequest = closeRequest;
         this.controller = new CanvasController(session.blueprint(), lookup, camera);
         this.controller.setOnMutation(diagnostics::invalidate);
@@ -318,6 +325,47 @@ public final class CanvasWidget {
         return false; // type 5.2c : le clic retombe sur la sélection du nœud
     }
 
+    public void mouseMoved(double mx, double my) {
+        lastMouseX = mx;
+        lastMouseY = my;
+    }
+
+    // ------------------------------------------------------- presse-papier (5.8)
+
+    private void copySelection(boolean cut) {
+        String text = clipboard.copy(controller.blueprint(), controller.selection().ids(), lookup);
+        net.minecraft.client.Minecraft.getInstance().keyboardHandler.setClipboard(text);
+        int count = controller.selection().size();
+        if (cut) {
+            controller.deleteSelection();
+        }
+        actionBar(cut ? "blueprint.editor.clipboard.cut" : "blueprint.editor.clipboard.copied", count);
+    }
+
+    private void pasteClipboard() {
+        String text = net.minecraft.client.Minecraft.getInstance().keyboardHandler.getClipboard();
+        ClipboardCodec.PasteResult result = clipboard.paste(text);
+        if (!result.success()) {
+            actionBar("blueprint.editor.clipboard.invalid");
+            return;
+        }
+        var pasted = controller.pasteFragment(result.fragment(),
+                camera.toWorldX(lastMouseX), camera.toWorldY(lastMouseY));
+        actionBar("blueprint.editor.clipboard.pasted", pasted.size());
+    }
+
+    private void duplicateSelection() {
+        var fragment = ClipboardCodec.extract(controller.blueprint(),
+                controller.selection().ids(), lookup);
+        double minX = Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE;
+        for (Node node : fragment.nodes().values()) {
+            minX = Math.min(minX, node.position().x());
+            minY = Math.min(minY, node.position().y());
+        }
+        controller.pasteFragment(fragment, minX + 16, minY + 16);
+    }
+
     private static Font minecraftFont() {
         return net.minecraft.client.Minecraft.getInstance().font;
     }
@@ -531,6 +579,30 @@ public final class CanvasWidget {
             case GLFW.GLFW_KEY_Y -> {
                 if (e.hasControlDown()) {
                     controller.redo();
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_C -> {
+                if (e.hasControlDown() && !controller.selection().isEmpty()) {
+                    copySelection(false);
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_X -> {
+                if (e.hasControlDown() && !controller.selection().isEmpty()) {
+                    copySelection(true);
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_V -> {
+                if (e.hasControlDown()) {
+                    pasteClipboard();
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_D -> {
+                if (e.hasControlDown() && !controller.selection().isEmpty()) {
+                    duplicateSelection();
                     return true;
                 }
             }
