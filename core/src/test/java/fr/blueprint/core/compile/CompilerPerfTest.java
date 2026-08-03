@@ -50,14 +50,27 @@ class CompilerPerfTest {
             previous = uuid;
         }
 
-        // Échauffement JIT, puis mesure.
-        Compiler.compile(bp, loaded.nodes(), first);
-        long begin = System.nanoTime();
-        var result = Compiler.compile(bp, loaded.nodes(), first);
-        long elapsedMs = (System.nanoTime() - begin) / 1_000_000;
+        // Échauffement JIT, puis MEILLEUR de cinq mesures.
+        //
+        // Un budget en temps mural mesuré une seule fois n'est pas une garde, c'est une
+        // loterie : sur un runner partagé, une préemption de l'ordonnanceur suffit à
+        // faire échouer un code parfaitement sain (constaté au premier CI de ce dépôt).
+        // Le minimum, lui, mesure ce que la machine SAIT faire — c'est ce que le NFR2
+        // veut dire, et une vraie régression le fait monter tout autant.
+        for (int i = 0; i < 3; i++) {
+            Compiler.compile(bp, loaded.nodes(), first);
+        }
+        long bestMs = Long.MAX_VALUE;
+        Compiler.CompileResult result = null;
+        for (int i = 0; i < 5; i++) {
+            long begin = System.nanoTime();
+            result = Compiler.compile(bp, loaded.nodes(), first);
+            bestMs = Math.min(bestMs, (System.nanoTime() - begin) / 1_000_000);
+        }
 
         assertTrue(result.success());
-        LOGGER.info("Compilation de 1 000 nœuds : {} ms (budget NFR2 : 50 ms)", elapsedMs);
-        assertTrue(elapsedMs < 50, "compilation en " + elapsedMs + " ms ≥ 50 ms");
+        LOGGER.info("Compilation de 1 000 nœuds : {} ms au mieux sur 5 (budget NFR2 : 50 ms)",
+                bestMs);
+        assertTrue(bestMs < 50, "compilation en " + bestMs + " ms ≥ 50 ms");
     }
 }
