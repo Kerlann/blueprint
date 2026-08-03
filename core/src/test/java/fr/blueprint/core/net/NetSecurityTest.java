@@ -222,6 +222,21 @@ class NetSecurityTest {
         assertFalse(verdict.accepted(), "on n'écrit pas sous un identifiant qu'on n'a pas annoncé");
     }
 
+    /** QA SEC-001 : le plafond de permission voyage dans le graphe — il se contrôle. */
+    @Test
+    void aClientCannotGrantItselfAnAdminCap() {
+        Blueprint bp = new Blueprint(ID, new fr.blueprint.core.graph.BlueprintMeta(
+                "", "", "1.0.0", Permission.ADMIN));
+        assertFalse(GraphGuard.capAllowed(bp, Permission.WORLD),
+                "un joueur ordinaire n'accorde pas ADMIN");
+        assertTrue(GraphGuard.capAllowed(bp, Permission.ADMIN), "un opérateur, si");
+
+        Blueprint ordinary = new Blueprint(ID, new fr.blueprint.core.graph.BlueprintMeta(
+                "", "", "1.0.0", Permission.WORLD));
+        assertTrue(GraphGuard.capAllowed(ordinary, Permission.WORLD),
+                "poser des blocs reste l'usage normal du mod");
+    }
+
     // ---------------------------------------------------------- taux par joueur
 
     @Test

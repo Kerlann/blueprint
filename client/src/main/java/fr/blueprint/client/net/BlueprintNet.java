@@ -36,6 +36,13 @@ public final class BlueprintNet {
     /** Session ouverte, pour lui remettre le verdict d'un enregistrement. */
     private static @Nullable EditorSession active;
     private static @Nullable Identifier activeId;
+    /**
+     * Dernier instantané envoyé, gardé jusqu'à l'acquittement (QA NET-004) : un refus
+     * qui arrive après la fermeture de l'éditeur ne doit pas emporter le travail —
+     * il rouvre l'éditeur dessus.
+     */
+    private static @Nullable Blueprint pendingSnapshot;
+    private static @Nullable Identifier pendingId;
     /** Une liste demandée par la commande attend son affichage dans le chat. */
     private static volatile boolean listPending;
 
@@ -77,9 +84,9 @@ public final class BlueprintNet {
                         return;
                     }
                     graph.adoptRevision(payload.revision());
-                    // Resynchro ciblée après un conflit : la session ouverte reçoit la
+                    // Resynchro ciblée après un conflit : la session OUVERTE reçoit la
                     // nouvelle base de verrou, son graphe n'est PAS remplacé.
-                    EditorSession current = active;
+                    EditorSession current = openSession();
                     if (current != null && payload.blueprint().equals(activeId)) {
                         current.saveRefused(payload.revision());
                         return;
@@ -89,20 +96,36 @@ public final class BlueprintNet {
 
         ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.SaveAck.TYPE,
                 (payload, context) -> {
-                    EditorSession session = active;
-                    if (session == null || !payload.blueprint().equals(activeId)) {
-                        // Un verdict sans session : seule la création peut être concernée.
-                        if (payload.status() != BlueprintPayloads.SaveStatus.SAVED) {
+                    boolean accepted = payload.status() == BlueprintPayloads.SaveStatus.SAVED;
+                    if (accepted && payload.blueprint().equals(pendingId)) {
+                        pendingSnapshot = null;
+                        pendingId = null;
+                    }
+                    EditorSession session = openSession();
+                    if (session != null && payload.blueprint().equals(activeId)) {
+                        if (accepted) {
+                            session.saveAccepted(payload.revision());
+                        } else {
+                            session.saveRefused(payload.revision());
                             say(message(payload));
                         }
                         return;
                     }
-                    if (payload.status() == BlueprintPayloads.SaveStatus.SAVED) {
-                        session.saveAccepted(payload.revision());
+                    if (accepted) {
                         return;
                     }
-                    session.saveRefused(payload.revision());
                     say(message(payload));
+                    // NET-004 : l'éditeur est déjà fermé et le serveur refuse — le
+                    // travail ne vit plus que dans l'instantané envoyé. On le rouvre
+                    // plutôt que de le laisser disparaître.
+                    Blueprint rescued = pendingSnapshot;
+                    if (rescued != null && payload.blueprint().equals(pendingId)
+                            && payload.status() != BlueprintPayloads.SaveStatus.DENIED) {
+                        pendingSnapshot = null;
+                        pendingId = null;
+                        openEditor(payload.blueprint(), rescued, true)
+                                .saveRefused(payload.revision());
+                    }
                 });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
@@ -110,6 +133,8 @@ public final class BlueprintNet {
             writable = false;
             active = null;
             activeId = null;
+            pendingSnapshot = null;
+            pendingId = null;
             listPending = false;
         });
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
@@ -153,7 +178,7 @@ public final class BlueprintNet {
         }
     }
 
-    /** L'éditeur se ferme : plus de session à recaler. */
+    /** L'éditeur se ferme : plus de session à recaler (l'instantané en vol reste gardé). */
     public static void closed(EditorSession session) {
         if (active == session) {
             active = null;
@@ -161,19 +186,45 @@ public final class BlueprintNet {
         }
     }
 
+    /** Fermeture SANS enregistrer : l'abandon est explicite, rien à récupérer. */
+    public static void discarded(EditorSession session) {
+        closed(session);
+        pendingSnapshot = null;
+        pendingId = null;
+    }
+
+    /** La session réellement à l'écran, ou null — un drapeau collant mentirait (QA NET-001). */
+    private static @Nullable EditorSession openSession() {
+        EditorSession current = active;
+        if (current == null) {
+            return null;
+        }
+        if (Minecraft.getInstance().screen instanceof BlueprintEditorScreen editor
+                && editor.session() == current) {
+            return current;
+        }
+        active = null;
+        activeId = null;
+        return null;
+    }
+
     // ------------------------------------------------------------------ ouverture
 
-    private static void openEditor(Identifier id, Blueprint graph, boolean canWrite) {
+    private static EditorSession openEditor(Identifier id, Blueprint graph, boolean canWrite) {
         Minecraft mc = Minecraft.getInstance();
         EditorSession session = EditorSession.of(graph, (snapshot, baseRevision) -> {
             if (!connected()) {
                 return false;
             }
+            pendingSnapshot = snapshot;
+            pendingId = id;
             ClientPlayNetworking.send(new BlueprintPayloads.SaveRequest(
                     id, baseRevision, GraphSync.toBytes(snapshot)));
             return true;
         });
-        session.setWritable(canWrite && writable);
+        // Le droit d'écriture vient du paquet, seule source qui fasse autorité —
+        // la liste peut n'être pas encore arrivée (QA NET-002).
+        session.setWritable(canWrite);
         session.setTestHandler(() -> {
             if (connected()) {
                 ClientPlayNetworking.send(new BlueprintPayloads.SetEnabled(id, true));
@@ -183,6 +234,7 @@ public final class BlueprintNet {
         activeId = id;
         mc.schedule(() -> mc.setScreen(new BlueprintEditorScreen(session,
                 BlueprintMod.registries(), RegistrySync.descriptors(), RegistrySync.lookup())));
+        return session;
     }
 
     private static void say(Component message) {

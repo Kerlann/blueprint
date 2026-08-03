@@ -33,7 +33,12 @@ public final class BlueprintEventBridge {
     private final NodeRegistryImpl nodes;
     private final BlueprintScheduler scheduler;
     private final EnvFactory envFactory;
-    private final Map<String, Ir> irCache = new HashMap<>();
+    private final Map<String, CachedIr> irCache = new HashMap<>();
+
+    /** IR compilée et la révision qui l'a produite (QA NET-003). */
+    private record CachedIr(int revision, Ir ir) {
+    }
+
     // Index des nœuds d'entrée par blueprint, keyé par révision (QA BRIDGE-001) : le
     // parcours par émission passe de O(blueprints × nœuds) à O(blueprints) avec une
     // comparaison d'entier ; reconstruction par blueprint seulement quand il est édité.
@@ -144,20 +149,33 @@ public final class BlueprintEventBridge {
         return new EntryIndex(bp.revision(), byEvent);
     }
 
-    /** Compile depuis le nœud d'événement, avec cache invalidé par la révision. */
+    /**
+     * Compile depuis le nœud d'événement, avec cache invalidé par la révision.
+     *
+     * <p>QA NET-003 : la révision est DANS l'entrée, pas dans la clé — sinon chaque
+     * enregistrement laisserait derrière lui une IR morte, et depuis que l'éditeur
+     * enregistre par le réseau (6.3) un joueur en fait des dizaines par session.
+     * Le cache est ainsi borné par (blueprints × nœuds d'entrée).
+     */
     private @org.jetbrains.annotations.Nullable Ir compiled(Blueprint bp, java.util.UUID entry) {
-        String key = bp.id() + "#" + entry + "@" + bp.revision();
-        Ir cached = irCache.get(key);
-        if (cached != null) {
-            return cached;
+        String key = bp.id() + "#" + entry;
+        CachedIr cached = irCache.get(key);
+        if (cached != null && cached.revision() == bp.revision()) {
+            return cached.ir();
         }
         Compiler.CompileResult result = Compiler.compile(bp, nodes, entry);
         if (!result.success()) {
             BlueprintMod.LOGGER.warn("Blueprint « {} » non exécutable ({} diagnostic(s)) — déclenchement ignoré",
                     bp.id(), result.diagnostics().size());
+            irCache.remove(key);
             return null;
         }
-        irCache.put(key, result.ir());
+        irCache.put(key, new CachedIr(bp.revision(), result.ir()));
         return result.ir();
+    }
+
+    /** Taille du cache d'IR (test de non-régression NET-003). */
+    public int cachedIrCount() {
+        return irCache.size();
     }
 }

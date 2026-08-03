@@ -131,6 +131,16 @@ public final class GraphGuard {
         return Verdict.OK;
     }
 
+    /**
+     * QA SEC-001 : le plafond de permission voyage DANS le graphe — un client peut donc
+     * l'écrire. Sur un serveur qui ouvre l'édition à tous, cela suffirait à faire tourner
+     * des nœuds {@code ADMIN}. Le plafond demandé doit tenir sous ce que le joueur peut
+     * accorder ; seul un opérateur accorde {@code ADMIN}.
+     */
+    public static boolean capAllowed(Blueprint bp, fr.blueprint.api.node.Permission granted) {
+        return bp.meta().permissionCap().allowedUnder(granted);
+    }
+
     /** Vue pratique : le graphe est-il exécutable côté serveur (FR41) ? */
     public static boolean executable(Blueprint bp, NodeTypeLookup lookup) {
         return GraphValidator.validate(bp, lookup).executable();

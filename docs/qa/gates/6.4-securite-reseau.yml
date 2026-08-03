@@ -1,0 +1,32 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "6.4"
+story_title: "Sécurité réseau"
+gate: "PASS"
+status_reason: "Bornes en cascade avant décompression, garde de graphe lien par lien par la règle unique, quotas par joueur à horloge injectée, 12 tests d'abus forgés au niveau NBT. Une escalade de privilège trouvée en revue (plafond de permission écrit par le client) et fermée."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T06:40:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "SEC-001"
+    severity: medium
+    finding: "CORRIGÉ — le plafond de permission voyage dans le graphe : sur un serveur qui ouvre l'édition à tous (commandPermissionLevel = 0), un joueur pouvait s'accorder ADMIN et faire tourner des nœuds réservés aux opérateurs"
+    suggested_action: "Fait : le plafond demandé doit tenir sous ce que le joueur peut accorder — ADMIN pour un opérateur, WORLD sinon ; test aClientCannotGrantItselfAnAdminCap"
+  - id: "SEC-002"
+    severity: low
+    finding: "Le garde borne les littéraux TEXTE mais pas la taille du NBT de configuration d'un nœud ni celle d'un littéral de liste"
+    suggested_action: "Le plafond de décompression (16 Mio) et la borne de 256 Kio compressés couvrent l'abus grossier ; borner par nœud si un cas réel apparaît"
+  - id: "SEC-003"
+    severity: low
+    finding: "Un dépassement de quota est renvoyé au client comme DENIED, qui l'affiche « le serveur refuse vos modifications » — message trompeur pour une simple limitation de débit"
+    suggested_action: "Ajouter un statut THROTTLED et sa clé de langue si la confusion remonte du terrain"
+  - id: "SEC-004"
+    severity: low
+    finding: "Les liens dont une extrémité est un nœud fantôme échappent au contrôle de câblage (aucune forme de référence)"
+    suggested_action: "Inhérent au fantôme (FR40) : le blueprint ne s'exécute pas tant que le mod manque, donc rien ne tourne sur ces liens"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 3 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "NetLimits.DEFAULT est en dur : le rendre configurable serveur avec le reste (story 9.3)"

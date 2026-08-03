@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "6.2"
+story_title: "Synchronisation du registre au login"
+gate: "PASS"
+status_reason: "Hash au JOIN, descripteurs seulement si divergence, flux compressé fragmenté sous la borne, testé à 5 000 descripteurs. Le point dur — que le client valide EXACTEMENT comme le serveur quand un mod lui manque — est vérifié nœud par nœud après un vrai aller-retour sur le fil."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T06:40:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "SYNC-001"
+    severity: low
+    finding: "La synchro est asynchrone : ouvrir l'éditeur dans la seconde qui suit le login peut montrer le registre LOCAL (palette incomplète) avant l'arrivée des descripteurs"
+    suggested_action: "Aucun impact sur la validité du graphe (le serveur revalide, 6.4) ; afficher un indicateur « registre en cours de réception » si la remontée terrain le demande"
+  - id: "SYNC-002"
+    severity: low
+    finding: "Le presse-papiers et la vue script passent toujours par les registres LOCAUX : copier/coller un nœud d'un mod absent du client échoue silencieusement"
+    suggested_action: "Faire consommer les descripteurs synchronisés à ScriptGenerator/ScriptParser (v1.1) ; le câblage et l'affichage, eux, sont couverts"
+  - id: "SYNC-003"
+    severity: low
+    finding: "Un type de pin inconnu devient opaque : il ne se lie qu'à lui-même et ne porte pas de littéral, donc un nœud tiers reste éditable mais pas paramétrable"
+    suggested_action: "Assumé — mieux qu'un descripteur rejeté en bloc ; documenter dans extension-api.md"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 3 }
+  recommendations:
+    must_fix: []

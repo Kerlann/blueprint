@@ -112,6 +112,16 @@ public final class ServerBlueprintNet {
                         deny(context, id, BlueprintPayloads.SaveStatus.INVALID, -1);
                         return;
                     }
+                    // SEC-001 : un plafond de permission plus haut que ce que le joueur
+                    // peut accorder ferait tourner des nœuds ADMIN chez qui ouvre
+                    // l'édition à tous.
+                    if (!GraphGuard.capAllowed(snapshot, grantableCap(context.player()))) {
+                        BlueprintMod.LOGGER.warn(
+                                "Enregistrement de « {} » refusé à {} : plafond {} non accordable",
+                                id, name(context), snapshot.meta().permissionCap());
+                        deny(context, id, BlueprintPayloads.SaveStatus.DENIED, -1);
+                        return;
+                    }
                     // Tout ce qui arrive du réseau repasse devant le garde (AC2) :
                     // identifiant annoncé, bornes, liens pendants, câblage.
                     GraphGuard.Verdict verdict = GraphGuard.inspect(id, snapshot,
@@ -191,6 +201,18 @@ public final class ServerBlueprintNet {
 
     /** Taille des tranches des paquets scindés par Fabric (graphe et instantané). */
     private static final int CHUNK_BYTES = 28_000;
+
+    /**
+     * Plafond de permission qu'un joueur peut accorder à un blueprint (SEC-001) :
+     * {@code ADMIN} pour un opérateur, {@code WORLD} sinon — poser des blocs reste
+     * l'usage normal du mod, exécuter des commandes arbitraires ne l'est pas.
+     */
+    private static fr.blueprint.api.node.Permission grantableCap(ServerPlayer player) {
+        return player.permissions().hasPermission(
+                net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)
+                ? fr.blueprint.api.node.Permission.ADMIN
+                : fr.blueprint.api.node.Permission.WORLD;
+    }
 
     /** Écriture = permission d'administration configurée (null = ouvert à tous). */
     private static boolean mayEdit(BlueprintConfig config, ServerPlayer player) {

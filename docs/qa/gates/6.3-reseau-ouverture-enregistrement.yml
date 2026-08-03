@@ -1,0 +1,40 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "6.3"
+story_title: "Ouverture et enregistrement par le réseau, verrou optimiste (lite)"
+gate: "PASS"
+status_reason: "Trois défauts réels trouvés en revue et corrigés avec régressions (dont une perte de travail possible et une fuite mémoire). Le verrou optimiste tient : un enregistrement périmé n'écrase rien, le client se recale, le graphe local n'est jamais touché. Périmètre lite assumé et argumenté dans la story."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T06:40:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "NET-004"
+    severity: high
+    finding: "CORRIGÉ — « Enregistrer et quitter » fermait l'éditeur avant le verdict : un refus tardif (conflit) faisait disparaître le travail, qui ne vivait plus que dans l'instantané envoyé"
+    suggested_action: "Fait : l'instantané est gardé jusqu'à l'acquittement ; un refus arrivé après la fermeture ROUVRE l'éditeur dessus (sauf abandon explicite, qui purge la récupération)"
+  - id: "NET-003"
+    severity: medium
+    finding: "CORRIGÉ — le cache d'IR du pont d'événements était keyé par révision : chaque enregistrement y laissait une IR morte, et l'éditeur réseau en produit des dizaines par session"
+    suggested_action: "Fait : révision DANS l'entrée, cache borné par (blueprints × nœuds d'entrée) ; régression theIrCacheDoesNotGrowWithEveryRevision"
+  - id: "NET-001"
+    severity: medium
+    finding: "CORRIGÉ — la session « active » était un drapeau collant : après certaines fermetures, rouvrir le même blueprint était pris pour une resynchro et l'éditeur ne s'ouvrait plus"
+    suggested_action: "Fait : la session de référence est celle RÉELLEMENT à l'écran (screen instanceof BlueprintEditorScreen)"
+  - id: "NET-002"
+    severity: medium
+    finding: "CORRIGÉ — le droit d'écriture croisait le paquet et un champ alimenté par la liste : ouvrir avant l'arrivée de la liste donnait une session en lecture seule à un opérateur"
+    suggested_action: "Fait : seul le paquet d'ouverture fait autorité"
+  - id: "NET-005"
+    severity: low
+    finding: "« Tester » envoie l'activation juste après l'enregistrement : si celui-ci est refusé, le serveur active la version qu'il avait déjà"
+    suggested_action: "Sans danger (le graphe activé est celui du serveur) ; chaîner l'activation sur l'acquittement quand le multi-éditeur v1.1 arrivera"
+  - id: "NET-006"
+    severity: low
+    finding: "Un enregistrement resté sans réponse (déconnexion pendant l'envoi) laisse l'éditeur croire que c'est enregistré"
+    suggested_action: "La déconnexion ferme la partie ; un délai d'attente côté client serait du zèle tant qu'il n'y a pas de reconnexion à chaud"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 3, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le multi-éditeur simultané (patchs par opération, rediffusion, fusion) reste v1.1 — le grain document convient tant qu'un seul joueur édite un blueprint donné"

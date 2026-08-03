@@ -56,13 +56,17 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 4 | Démo, export/import | 4.4a | **Complet** — gate PASS |
 | 4 | BScript v1 | 4.1+4.2+4.3 (groupées) | **Complet** — gate PASS (4 corrections en review dont un high de fidélité) ; round-trip exact, `.bp` = texte |
 | 6 | Persistance monde | 6.1 | **Complet** — gate PASS (VERIFY-005 : redémarrage à confirmer en jeu) |
+| 6 | **Réseau multijoueur** | 6.2, 6.3(lite), 6.4 | **Complet** — 3 gates PASS (1 high + 4 medium corrigés en review dont une perte de travail et une escalade de permission) ; synchro du registre au join, ouverture/enregistrement par paquets avec verrou optimiste, garde de graphe + quotas ; reste v1.1 : patchs par opération et multi-éditeur |
 | 5 | **Éditeur visuel — COMPLET** | 5.1 → 5.11 (15 stories) | **15 gates PASS** — 1 high (crash Ctrl+S) + 6 medium corrigés en review, 117 tests client ; l'éditeur fait tout le backlog UE (littéraux+sélecteurs, undo, Ctrl+S réel, diagnostics cliquables, variables, copier/coller BScript, détails, palette complète, vue script, commentaires/minimap/thème) |
-| 4 (4.2b), 6 (reste), 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
+| 4 (4.2b), 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
 **Feuille de route éditeur (ordre recommandé)** :
 1. **5.2b** littéraux inline (éditer les valeurs sur le nœud) → 2. **5.6a** annuler/rétablir (avant les grosses features, tout naît annulable) → 3. **5.9** éditer/enregistrer/tester un VRAI blueprint en solo (`Ctrl+S`, la story qui rend l'éditeur utile) → 4. **5.6b** barre d'outils + compilation à la volée + diagnostics cliquables → 5. **5.5** panneau des variables + nœuds var/get-set (⚠ touche `core`) → 6. **5.8** copier/coller/dupliquer via BScript (⚠ touche `core/script`) → 7. **5.10** panneau de détails → 8. **5.4b** palette récents/favoris/catégories/Espace → 9. **5.2c** sélecteurs riches (item, bloc, position) → 10. **5.11** vue script → 11. **5.7** confort (commentaires, alignement, minimap, thème JSON).
 
-**Prochaine action :** session en jeu : VERIFY-005 (`/blueprint demo` → redémarrage du monde → « Persistance : … » au log et ping sans réimport) + regarder le `.bp` texte exporté ; puis 4.2b (sucre BScript), 7.1b, ou 6.2 (sync registres — coordonner avec la session épic 5).
+**Prochaine action :** épic 8 (annotation `@BlueprintNode`, nœuds JSON de datapack,
+nœuds fantômes de bout en bout), puis épic 9 (débogueur, profileur, i18n, docs,
+gametests — spike 1.6). La session en jeu finale videra tous les VERIFY accumulés
+(épics 1 et 5 à 7, plus VERIFY-6.2 et 6.3).
 
 ## Ordre de lecture recommandé
 

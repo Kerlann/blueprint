@@ -61,6 +61,7 @@ class EventBridgeTest {
     private EventDispatcher dispatcher;
     private BlueprintScheduler scheduler;
     private BlueprintManager manager;
+    private BlueprintEventBridge bridge;
 
     @BeforeEach
     void setup() {
@@ -87,7 +88,7 @@ class EventBridgeTest {
             }
         });
         manager = new BlueprintManager();
-        var bridge = new BlueprintEventBridge(manager, LOADED.nodes(), scheduler,
+        bridge = new BlueprintEventBridge(manager, LOADED.nodes(), scheduler,
                 (bp, trigger) -> new ExecutionEnvironment(
                         typeId -> LOADED.nodes().get(typeId).orElse(null),
                         new fr.blueprint.api.node.BlueprintHandle() {
@@ -150,6 +151,31 @@ class EventBridgeTest {
         }
         scheduler.tick(10_000);
         assertEquals(List.of("tick !"), RECORDS);
+    }
+
+    /**
+     * QA NET-003 : depuis que l'éditeur enregistre par le réseau (6.3), la révision
+     * d'un blueprint monte des dizaines de fois par session. Le cache d'IR doit rester
+     * borné par (blueprints × nœuds d'entrée), pas croître à chaque enregistrement.
+     */
+    @Test
+    void theIrCacheDoesNotGrowWithEveryRevision() {
+        Blueprint bp = manager.create(Identifier.fromNamespaceAndPath("test", "edited")).orElseThrow();
+        UUID tick = node(bp, "t3", StandardEvents.SERVER_TICK.id());
+        UUID record = node(bp, "r3", Identifier.fromNamespaceAndPath("spy", "record"));
+        apply(bp, new EditOperation.SetLiteral(record, "tag", LiteralValue.of(PinTypes.STRING, "x")));
+        apply(bp, new EditOperation.AddLink(new Link(tick, "exec_out", record, "exec_in")));
+
+        for (int i = 0; i < 20; i++) {
+            dispatcher.fire(StandardEvents.SERVER_TICK, payload -> {
+            });
+            scheduler.tick(10_000);
+            apply(bp, new EditOperation.MoveNode(record, new Vec2d(i, 0)));
+        }
+
+        assertEquals(20, RECORDS.size(), "chaque tick a bien déclenché le graphe");
+        assertEquals(1, bridge.cachedIrCount(),
+                "une entrée par nœud d'événement — pas une par révision");
     }
 
     @Test

@@ -28,12 +28,17 @@ public final class UnsavedChangesScreen extends Screen {
         addRenderableWidget(Button.builder(Component.translatable("blueprint.editor.unsaved.save"),
                 b -> {
                     // Échec d'enregistrement → retour à l'éditeur, jamais de perte
-                    // silencieuse (U2, QA 5.9).
-                    minecraft.setScreen(session.save() ? null : editor);
+                    // silencieuse (U2, QA 5.9). Un refus TARDIF du serveur (6.3)
+                    // rouvre l'éditeur sur l'instantané envoyé (QA NET-004).
+                    boolean sent = session.save();
+                    if (sent) {
+                        fr.blueprint.client.net.BlueprintNet.closed(session);
+                    }
+                    minecraft.setScreen(sent ? null : editor);
                 }).bounds(cx - 100, y, 200, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("blueprint.editor.unsaved.discard"),
                 b -> {
-                    fr.blueprint.client.net.BlueprintNet.closed(session);
+                    fr.blueprint.client.net.BlueprintNet.discarded(session);
                     minecraft.setScreen(null);
                 }).bounds(cx - 100, y + 24, 200, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("blueprint.editor.unsaved.cancel"),
