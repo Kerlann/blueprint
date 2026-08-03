@@ -126,6 +126,8 @@ class fr.blueprint.api.node.NodeCategories
   field public static final fr.blueprint.api.node.NodeCategory MATH_VECTOR
   field public static final fr.blueprint.api.node.NodeCategory MISC
   field public static final fr.blueprint.api.node.NodeCategory PLAYER
+  field public static final fr.blueprint.api.node.NodeCategory PLAYER_ACT
+  field public static final fr.blueprint.api.node.NodeCategory PLAYER_FEEDBACK
   field public static final fr.blueprint.api.node.NodeCategory STRING
   field public static final fr.blueprint.api.node.NodeCategory STRUCT
   field public static final fr.blueprint.api.node.NodeCategory TEXT

@@ -412,6 +412,7 @@ public final class StandardNodes {
         ListNodes.register(r);
         VectorNodes.register(r);
         QueryNodes.register(r);
+        ClientNodes.register(r);
         WorldNodes.register(r);
         EntityNodes.register(r);
         ItemNodes.register(r);

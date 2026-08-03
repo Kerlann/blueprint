@@ -62,6 +62,11 @@ public final class NodeCategories {
     /** Chercher des entités dans le monde. */
     public static final NodeCategory ENTITY_QUERY = new NodeCategory("entity/query");
 
+    /** Ce que le joueur VOIT et ENTEND : titre, barre d'action, son, particules. */
+    public static final NodeCategory PLAYER_FEEDBACK = new NodeCategory("player/feedback");
+    /** Agir sur le joueur : donner, retirer, changer son état. */
+    public static final NodeCategory PLAYER_ACT = new NodeCategory("player/act");
+
     /** Événements déclenchés par un joueur. */
     public static final NodeCategory EVENT_PLAYER = new NodeCategory("event/player");
     /** Événements du monde et des entités. */

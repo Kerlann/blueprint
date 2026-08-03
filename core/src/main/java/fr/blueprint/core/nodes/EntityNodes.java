@@ -157,7 +157,7 @@ final class EntityNodes {
                 .build());
 
         r.register(NodeType.builder(id("player/give_item"))
-                .category(NodeCategories.PLAYER).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.PLAYER_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("item", PinTypes.ITEMSTACK)
                 .action(ctx -> {
@@ -173,7 +173,7 @@ final class EntityNodes {
                 .build());
 
         r.register(NodeType.builder(id("player/title"))
-                .category(NodeCategories.PLAYER).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.PLAYER_FEEDBACK).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("text", PinTypes.STRING, "")
                 .action(ctx -> {
@@ -186,7 +186,7 @@ final class EntityNodes {
                 .build());
 
         r.register(NodeType.builder(id("player/give_xp"))
-                .category(NodeCategories.PLAYER).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.PLAYER_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("amount", PinTypes.INT, 1)
                 .action(ctx -> {
@@ -198,7 +198,7 @@ final class EntityNodes {
                 .build());
 
         r.register(NodeType.builder(id("player/set_gamemode"))
-                .category(NodeCategories.PLAYER).exec().permission(Permission.ADMIN)
+                .category(NodeCategories.PLAYER_ACT).exec().permission(Permission.ADMIN)
                 .in("player", PinTypes.PLAYER)
                 .in("mode", PinTypes.STRING, "survival")
                 .action(ctx -> {

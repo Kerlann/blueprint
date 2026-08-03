@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-129 nœuds dans 25 catégories.
+134 nœuds dans 27 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -1329,6 +1329,23 @@ permission `SAFE` · fuel 1
 
 ## player
 
+### `blueprint:player/send_message` — Send message
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+
+## player/act
+
 ### `blueprint:player/give_item` — Give item
 
 permission `GAMEPLAY` · fuel 1
@@ -1357,20 +1374,6 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 
-### `blueprint:player/send_message` — Send message
-
-permission `GAMEPLAY` · fuel 1
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `exec_in` | exec | — |
-| `player` | `blueprint:player` | — |
-| `text` | `blueprint:string` | `` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
-
 ### `blueprint:player/set_gamemode` — Set game mode
 
 permission `ADMIN` · fuel 1
@@ -1385,6 +1388,70 @@ permission `ADMIN` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 
+
+## player/feedback
+
+### `blueprint:player/action_bar` — Action bar
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:player/particles` — Particles (private)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `particle` | `blueprint:resourcelocation` | — |
+| `pos` | `blueprint:vec3` | — |
+| `count` | `blueprint:int` | `8` |
+| `spread` | `blueprint:double` | `0.5` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:player/play_sound` — Play sound (private)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `sound` | `blueprint:resourcelocation` | — |
+| `volume` | `blueprint:double` | `1.0` |
+| `pitch` | `blueprint:double` | `1.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:player/subtitle` — Subtitle
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
 ### `blueprint:player/title` — Show title
 
 permission `GAMEPLAY` · fuel 1
@@ -1394,6 +1461,22 @@ permission `GAMEPLAY` · fuel 1
 | `exec_in` | exec | — |
 | `player` | `blueprint:player` | — |
 | `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:player/title_times` — Title timings
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `fade_in` | `blueprint:int` | `10` |
+| `stay` | `blueprint:int` | `70` |
+| `fade_out` | `blueprint:int` | `20` |
 
 | Sorties | Type | Défaut |
 |---|---|---|

@@ -344,6 +344,115 @@ public final class BlueprintGameTests {
         helper.succeed();
     }
 
+    /**
+     * VERIFY paquets client : les nœuds de retour ciblé construisent et envoient de
+     * vrais paquets clientbound. Sans joueur connecté dans le harnais, on ne peut pas
+     * observer l'écran — on vérifie ce qui compte et qui casse en silence : qu'un
+     * joueur ABSENT ne fait rien plutôt que lever, et que les constructeurs de paquets
+     * Mojang acceptent bien nos arguments (un renommage de classe se verrait ici).
+     */
+    @GameTest(maxTicks = 60)
+    public void clientFeedbackNodesBehaveWithoutAPlayer(GameTestHelper helper) {
+        // Un pin « player » NON CÂBLÉ est une faute nommée (CTX-001), pas un silence :
+        // c'est une décision du cœur, et elle vaut aussi pour ces nœuds. La VM
+        // transforme l'exception en Faulted ; ici on vérifie qu'elle est bien nommée.
+        for (String path : java.util.List.of("player/subtitle", "player/action_bar",
+                "player/title_times", "player/play_sound", "player/particles")) {
+            String message = expectThrow(helper, path, java.util.Map.of());
+            helper.assertTrue(message != null && message.contains("player"),
+                    Component.literal(path + " : la faute doit NOMMER le pin manquant, "
+                            + "or elle dit « " + message + " »"));
+        }
+
+        // Un identifiant de son inconnu doit fauter proprement — pas lever, pas se
+        // taire : c'est une faute d'auteur, et il doit l'apprendre.
+        var player = helper.makeMockServerPlayerInLevel();
+        var badSound = runNodeContext(helper, "player/play_sound", java.util.Map.of(
+                "player", player,
+                "sound", Identifier.fromNamespaceAndPath("blueprint", "pas_un_son")));
+        helper.assertTrue(badSound.failReason() != null,
+                Component.literal("un identifiant de son inconnu doit fauter"));
+
+        // Un son VALIDE : le paquet se construit et part. C'est ici qu'un renommage de
+        // classe Mojang ou un mauvais ordre d'arguments se verrait.
+        var goodSound = runNodeContext(helper, "player/play_sound", java.util.Map.of(
+                "player", player,
+                "sound", Identifier.withDefaultNamespace("block.note_block.pling")));
+        helper.assertTrue(goodSound.failReason() == null,
+                Component.literal("un son valide ne doit pas fauter : "
+                        + goodSound.failReason()));
+
+        // Et les trois paquets de texte, avec un vrai destinataire.
+        for (String path : java.util.List.of("player/subtitle", "player/action_bar")) {
+            var out = runNodeContext(helper, path,
+                    java.util.Map.of("player", player, "text", "essai"));
+            helper.assertTrue(out.failReason() == null,
+                    Component.literal(path + " a fauté : " + out.failReason()));
+        }
+        var times = runNodeContext(helper, "player/title_times",
+                java.util.Map.of("player", player));
+        helper.assertTrue(times.failReason() == null,
+                Component.literal("player/title_times a fauté : " + times.failReason()));
+
+        helper.succeed();
+    }
+
+    /** Le message de l'exception attendue, ou null si le nœud n'a pas levé. */
+    private static String expectThrow(GameTestHelper helper, String path,
+                                      java.util.Map<String, Object> inputs) {
+        try {
+            runNodeContext(helper, path, inputs);
+            return null;
+        } catch (RuntimeException e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            return cause.getMessage();
+        }
+    }
+
+    /** Comme {@link #runNode} mais rend le contexte entier (sorties ET faute). */
+    private static fr.blueprint.core.vm.NodeContextImpl runNodeContext(
+            GameTestHelper helper, String path, java.util.Map<String, Object> inputs) {
+        var type = BlueprintMod.registries().nodes()
+                .get(Identifier.fromNamespaceAndPath("blueprint", path)).orElseThrow();
+        try {
+            return fr.blueprint.core.vm.NodeContextImpl.invoke(type,
+                    new fr.blueprint.core.vm.NodeContextImpl(type, inputs,
+                            helper.getLevel().getServer(), helper.getLevel(),
+                            gametestHandle(), gametestTrigger(),
+                            org.slf4j.LoggerFactory.getLogger("blueprint-gametest")));
+        } catch (Exception e) {
+            throw new IllegalStateException("échec du nœud " + path, e);
+        }
+    }
+
+    private static fr.blueprint.api.node.BlueprintHandle gametestHandle() {
+        return new fr.blueprint.api.node.BlueprintHandle() {
+            @Override
+            public Identifier id() {
+                return Identifier.fromNamespaceAndPath("blueprint_gametest", "query");
+            }
+
+            @Override
+            public boolean enabled() {
+                return true;
+            }
+        };
+    }
+
+    private static fr.blueprint.api.event.TriggerContext gametestTrigger() {
+        return new fr.blueprint.api.event.TriggerContext() {
+            @Override
+            public Identifier eventId() {
+                return Identifier.fromNamespaceAndPath("blueprint_gametest", "manual");
+            }
+
+            @Override
+            public Object output(String name) {
+                return null;
+            }
+        };
+    }
+
     /** Exécute un nœud dans le monde du test et rend ses sorties. */
     private static java.util.Map<String, Object> runNode(GameTestHelper helper, String path,
                                                          java.util.Map<String, Object> inputs) {
