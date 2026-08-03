@@ -115,6 +115,9 @@ public final class BlueprintEditorScreen extends Screen {
         if (session.dirty()) {
             minecraft.setScreen(new UnsavedChangesScreen(this, session));
         } else {
+            // Plus de session à recaler : les verdicts tardifs du serveur (6.3)
+            // ne doivent pas s'appliquer à un éditeur fermé.
+            fr.blueprint.client.net.BlueprintNet.closed(session);
             super.onClose();
         }
     }

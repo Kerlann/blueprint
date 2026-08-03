@@ -152,6 +152,14 @@ public final class Blueprint {
         this.revision = revision;
     }
 
+    /**
+     * Révision imposée à l'adoption d'un instantané venu du réseau (6.3) : le serveur
+     * reste seul maître du compteur — un client ne choisit jamais sa propre révision.
+     */
+    public void adoptRevision(int revision) {
+        this.revision = revision;
+    }
+
     // Variables au type irrésoluble (mod retiré) : NBT brut, ré-émis tel quel (P4).
     private net.minecraft.nbt.ListTag preservedVariables = new net.minecraft.nbt.ListTag();
 

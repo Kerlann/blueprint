@@ -41,7 +41,7 @@ class EditorSessionTest {
     @Test
     void saleParComparaisonDeRevisions() {
         Blueprint bp = graph();
-        EditorSession session = EditorSession.of(bp, snapshot -> true);
+        EditorSession session = EditorSession.of(bp, (snapshot, base) -> true);
         assertFalse(session.dirty());
 
         new EditOperation.AddNode(UUID.randomUUID(), TYPE, new Vec2d(100, 0)).apply(bp, LOOKUP);
@@ -55,7 +55,7 @@ class EditorSessionTest {
     void lEnregistrementPousseUnInstantaneIndependant() {
         Blueprint bp = graph();
         AtomicReference<Blueprint> adopted = new AtomicReference<>();
-        EditorSession session = EditorSession.of(bp, snapshot -> {
+        EditorSession session = EditorSession.of(bp, (snapshot, base) -> {
             adopted.set(snapshot);
             return true;
         });
@@ -76,7 +76,7 @@ class EditorSessionTest {
     @Test
     void unEchecDEnregistrementResteSale() {
         Blueprint bp = graph();
-        EditorSession session = EditorSession.of(bp, snapshot -> false);
+        EditorSession session = EditorSession.of(bp, (snapshot, base) -> false);
         new EditOperation.AddNode(UUID.randomUUID(), TYPE, new Vec2d(100, 0)).apply(bp, LOOKUP);
         assertFalse(session.save());
         assertTrue(session.dirty());
@@ -87,7 +87,7 @@ class EditorSessionTest {
         Blueprint bp = graph();
         AtomicReference<Blueprint> adopted = new AtomicReference<>();
         boolean[] enabled = {false};
-        EditorSession session = EditorSession.of(bp, snapshot -> {
+        EditorSession session = EditorSession.of(bp, (snapshot, base) -> {
             adopted.set(snapshot);
             return true;
         });
@@ -99,10 +99,77 @@ class EditorSessionTest {
 
         // Échec d'enregistrement : le test n'active rien.
         boolean[] enabled2 = {false};
-        EditorSession failing = EditorSession.of(bp, snapshot -> false);
+        EditorSession failing = EditorSession.of(bp, (snapshot, base) -> false);
         failing.setTestHandler(() -> enabled2[0] = true);
         assertFalse(failing.test());
         assertFalse(enabled2[0]);
+    }
+
+    /** 6.3 : le verrou optimiste part de la révision SERVEUR, pas du compteur local. */
+    @Test
+    void lEnregistrementEnvoieLaRevisionServeurEtSeRecaleSurLAcquittement() {
+        Blueprint bp = graph();
+        int[] sentBase = {-1};
+        EditorSession session = EditorSession.of(bp, (snapshot, base) -> {
+            sentBase[0] = base;
+            return true;
+        });
+        int opened = session.serverRevision();
+
+        new EditOperation.AddNode(UUID.randomUUID(), TYPE, new Vec2d(100, 0)).apply(bp, LOOKUP);
+        new EditOperation.AddNode(UUID.randomUUID(), TYPE, new Vec2d(200, 0)).apply(bp, LOOKUP);
+        assertTrue(session.save());
+        assertEquals(opened, sentBase[0], "deux éditions locales ne bougent pas la base du verrou");
+        assertFalse(session.dirty());
+
+        session.saveAccepted(opened + 1);
+        assertEquals(opened + 1, session.serverRevision());
+        assertFalse(session.dirty(), "un acquittement positif ne resalit rien");
+
+        // Enregistrement suivant : la base est celle que le serveur a attribuée.
+        new EditOperation.AddNode(UUID.randomUUID(), TYPE, new Vec2d(300, 0)).apply(bp, LOOKUP);
+        assertTrue(session.save());
+        assertEquals(opened + 1, sentBase[0]);
+    }
+
+    /** AC3 : un refus ne touche pas le graphe — il rend seulement l'indicateur ●. */
+    @Test
+    void unRefusTardifResalitLaSessionSansRienPerdre() {
+        Blueprint bp = graph();
+        EditorSession session = EditorSession.of(bp, (snapshot, base) -> true);
+        new EditOperation.AddNode(UUID.randomUUID(), TYPE, new Vec2d(100, 0)).apply(bp, LOOKUP);
+        assertTrue(session.save());
+        assertFalse(session.dirty());
+        int nodesBefore = bp.nodes().size();
+
+        session.saveRefused(42);
+        assertTrue(session.dirty(), "le travail non enregistré redevient visible");
+        assertEquals(nodesBefore, bp.nodes().size(), "aucun nœud perdu par un refus");
+        assertEquals(42, session.serverRevision(), "recalé sur la révision du serveur");
+
+        // Réenregistrer en connaissance de cause part de la révision annoncée.
+        int[] sentBase = {-1};
+        EditorSession recalibrated = EditorSession.of(bp, (snapshot, base) -> {
+            sentBase[0] = base;
+            return true;
+        });
+        recalibrated.saveRefused(42);
+        assertTrue(recalibrated.save());
+        assertEquals(42, sentBase[0]);
+    }
+
+    @Test
+    void uneSessionEnLectureSeuleNEnregistrePas() {
+        Blueprint bp = graph();
+        boolean[] sent = {false};
+        EditorSession session = EditorSession.of(bp, (snapshot, base) -> sent[0] = true);
+        session.setWritable(false);
+        new EditOperation.AddNode(UUID.randomUUID(), TYPE, new Vec2d(100, 0)).apply(bp, LOOKUP);
+
+        assertFalse(session.savable());
+        assertFalse(session.save());
+        assertFalse(sent[0], "rien ne part vers le serveur sans droit d'écriture");
+        assertFalse(session.test());
     }
 
     @Test

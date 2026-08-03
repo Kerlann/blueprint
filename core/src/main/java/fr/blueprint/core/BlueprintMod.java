@@ -114,6 +114,7 @@ public class BlueprintMod implements ModInitializer {
 
         registerWorldEventBridges();
         registerRegistrySync();
+        fr.blueprint.core.net.ServerBlueprintNet.register(config);
     }
 
     /** Hash du registre, calculé une fois (les registres sont gelés après l'init). */

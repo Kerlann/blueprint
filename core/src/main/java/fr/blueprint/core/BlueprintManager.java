@@ -54,6 +54,42 @@ public final class BlueprintManager {
         return Optional.ofNullable(blueprints.get(id));
     }
 
+    /** Verdict d'un enregistrement sous verrou optimiste (story 6.3). */
+    public enum SaveOutcome {
+        /** Instantané adopté, révision incrémentée. */
+        SAVED,
+        /** Le serveur a bougé depuis l'ouverture : rien n'est écrasé. */
+        CONFLICT,
+        /** Plus aucun blueprint sous cet identifiant. */
+        UNKNOWN
+    }
+
+    /** Verdict et révision COURANTE du serveur — le client se recale dessus. */
+    public record SaveResult(SaveOutcome outcome, int revision) {
+    }
+
+    /**
+     * Enregistre un instantané sous verrou optimiste : {@code baseRevision} est la
+     * révision servie à l'ouverture. Si elle a bougé, rien n'est écrit — le travail
+     * de l'autre éditeur survit, et le client reçoit de quoi se recaler (AC3/AC4).
+     *
+     * <p>MODEL-001 : {@code enabled} est un état de cycle de vie serveur — l'instantané
+     * ne le transporte pas, il hérite de celui en place.
+     */
+    public SaveResult save(Blueprint snapshot, int baseRevision) {
+        Blueprint current = blueprints.get(snapshot.id());
+        if (current == null) {
+            return new SaveResult(SaveOutcome.UNKNOWN, -1);
+        }
+        if (current.revision() != baseRevision) {
+            return new SaveResult(SaveOutcome.CONFLICT, current.revision());
+        }
+        snapshot.setEnabled(current.enabled());
+        snapshot.adoptRevision(baseRevision + 1);
+        blueprints.put(snapshot.id(), snapshot);
+        return new SaveResult(SaveOutcome.SAVED, snapshot.revision());
+    }
+
     /** Vrai si le blueprint existe (l'état est appliqué), faux sinon. */
     public boolean setEnabled(Identifier id, boolean enabled) {
         Blueprint bp = blueprints.get(id);

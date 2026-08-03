@@ -32,7 +32,10 @@ public final class UnsavedChangesScreen extends Screen {
                     minecraft.setScreen(session.save() ? null : editor);
                 }).bounds(cx - 100, y, 200, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("blueprint.editor.unsaved.discard"),
-                b -> minecraft.setScreen(null)).bounds(cx - 100, y + 24, 200, 20).build());
+                b -> {
+                    fr.blueprint.client.net.BlueprintNet.closed(session);
+                    minecraft.setScreen(null);
+                }).bounds(cx - 100, y + 24, 200, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("blueprint.editor.unsaved.cancel"),
                 b -> minecraft.setScreen(editor)).bounds(cx - 100, y + 48, 200, 20).build());
     }
