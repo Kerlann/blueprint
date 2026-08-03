@@ -420,6 +420,7 @@ public final class CanvasController {
                         apply(new EditOperation.MoveNode(e.getKey(), target));
                     }
                 }
+                updateSpliceCandidate();
             }
             case NONE -> {
             }
@@ -452,6 +453,12 @@ public final class CanvasController {
                 apply(new EditOperation.AddLink(buildLink(from, target.node(), target.pin())));
             }
             return null;
+        }
+        if (gesture == Gesture.MOVE && spliceCandidate != null) {
+            // Toujours dans le geste du déplacement : couper le fil et se recâbler
+            // font partie du même Ctrl+Z que le déplacement qui l'a provoqué.
+            spliceOn(spliceCandidate, selection.ids().iterator().next());
+            spliceCandidate = null;
         }
         if (gesture == Gesture.RUBBER) {
             Camera.Rect rect = rubberRect();
@@ -558,6 +565,114 @@ public final class CanvasController {
 
     public @Nullable Link selectedLink() {
         return selectedLink;
+    }
+
+    // ------------------------------------------ insertion sur un fil (5.13, UE5)
+
+    /** Le fil que le nœud déplacé viendrait couper, ou null. Mis à jour au glissement. */
+    private @Nullable Link spliceCandidate;
+
+    public @Nullable Link spliceCandidate() {
+        return spliceCandidate;
+    }
+
+    /**
+     * Le nœud traîné recouvre-t-il un fil qu'il pourrait couper ? Recalculé à chaque
+     * glissement, mais le test est borné : un seul nœud sélectionné, un seul test de
+     * fil au centre de sa boîte, et un appariement de pins sur des listes courtes.
+     */
+    private void updateSpliceCandidate() {
+        spliceCandidate = null;
+        if (selection.size() != 1) {
+            return; // insérer une sélection entière n'aurait pas de sens
+        }
+        UUID id = selection.ids().iterator().next();
+        NodeGeometry.Box box = boxOf(id);
+        if (box == null) {
+            return;
+        }
+        Link hit = linkAt(box.x() + box.width() / 2, box.y() + box.height() / 2);
+        if (hit == null || hit.fromNode().equals(id) || hit.toNode().equals(id)) {
+            return; // un nœud ne se réinsère pas sur son propre fil
+        }
+        if (spliceTargets(hit, id) != null) {
+            spliceCandidate = hit;
+        }
+    }
+
+    /**
+     * Les deux pins par lesquels {@code node} traverserait ce fil : {in, out}, ou
+     * null s'il ne peut pas le porter.
+     *
+     * <p>Le test est structurel (genre + assignabilité) plutôt qu'un appel à
+     * {@code canLink} : la moitié aval serait refusée pour cardinalité tant que le
+     * fil d'origine existe. {@link #spliceOn} repasse ensuite par {@code canLink},
+     * qui reste la source de vérité — ceci n'en est que la présélection.
+     */
+    private String @Nullable [] spliceTargets(Link link, UUID node) {
+        Node n = blueprint.node(node);
+        NodeShape shape = n == null ? null : lookup.shape(n.typeId());
+        NodeShape.PinDef source = pinDef(link.fromNode(), link.fromPin());
+        NodeShape.PinDef sink = pinDef(link.toNode(), link.toPin());
+        if (shape == null || source == null || sink == null) {
+            return null;
+        }
+        String in = null;
+        for (NodeShape.PinDef def : shape.inputs()) {
+            if (def.kind() == source.kind() && def.type().isAssignableFrom(source.type())
+                    && !isWired(node, def.name(), false)) {
+                in = def.name();
+                break;
+            }
+        }
+        String out = null;
+        for (NodeShape.PinDef def : shape.outputs()) {
+            if (def.kind() == sink.kind() && sink.type().isAssignableFrom(def.type())
+                    // Une sortie EXEC ne porte qu'un lien : déjà prise, elle ne peut
+                    // pas relayer le fil coupé.
+                    && !(def.kind() == fr.blueprint.api.pin.PinKind.EXEC
+                            && isWired(node, def.name(), true))) {
+                out = def.name();
+                break;
+            }
+        }
+        return in != null && out != null ? new String[]{in, out} : null;
+    }
+
+    private boolean isWired(UUID node, String pin, boolean output) {
+        for (Link link : blueprint.links()) {
+            if (output ? link.fromNode().equals(node) && link.fromPin().equals(pin)
+                    : link.toNode().equals(node) && link.toPin().equals(pin)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Coupe le fil et fait passer le nœud au milieu. Le fil part <b>d'abord</b> :
+     * tant qu'il est là, la cardinalité du pin d'arrivée refuserait la moitié aval.
+     * Si l'un des deux nouveaux liens est malgré tout refusé, le fil d'origine est
+     * remis — mieux vaut ne rien faire qu'un demi-câblage.
+     */
+    private boolean spliceOn(Link link, UUID node) {
+        String[] pins = spliceTargets(link, node);
+        if (pins == null || !applyTracked(new EditOperation.RemoveLink(link))) {
+            return false;
+        }
+        boolean upstream = applyTracked(new EditOperation.AddLink(
+                new Link(link.fromNode(), link.fromPin(), node, pins[0])));
+        boolean downstream = applyTracked(new EditOperation.AddLink(
+                new Link(node, pins[1], link.toNode(), link.toPin())));
+        if (upstream && downstream) {
+            return true;
+        }
+        if (upstream) {
+            applyTracked(new EditOperation.RemoveLink(
+                    new Link(link.fromNode(), link.fromPin(), node, pins[0])));
+        }
+        applyTracked(new EditOperation.AddLink(link));
+        return false;
     }
 
     // ------------------------------------------------- actions du menu contextuel

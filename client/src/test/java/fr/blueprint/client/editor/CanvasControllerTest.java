@@ -565,6 +565,75 @@ class CanvasControllerTest {
         assertEquals(avant, bp.node(n2).position());
     }
 
+    // ------------------------------------------ insertion sur un fil (5.13, UE5)
+
+    /** Amène le nœud {@code id} au centre du fil et relâche. */
+    private void dragOnto(UUID id, Link link) {
+        Vec2d a = controller.pinCenter(link.fromNode(), link.fromPin());
+        Vec2d b = controller.pinCenter(link.toNode(), link.toPin());
+        NodeGeometry.Box box = controller.boxOf(id);
+        double cx = (a.x() + b.x()) / 2;
+        double cy = (a.y() + b.y()) / 2;
+        // Saisir le coin haut-gauche, viser le centre du fil avec le CENTRE du nœud.
+        controller.press(box.x() + 2, box.y() + 2, false);
+        controller.drag(cx - box.width() / 2 + 2, cy - box.height() / 2 + 2);
+    }
+
+    @Test
+    void lacherUnNoeudSurUnFilLInsereAuMilieu() {
+        wireUpAndPickMiddle();
+        Link original = bp.links().iterator().next();
+        UUID n3 = addNode(1000, 1000);
+
+        dragOnto(n3, original);
+        assertEquals(original, controller.spliceCandidate(),
+                "le fil visé est signalé PENDANT le glissement, sinon le geste ne se découvre pas");
+        controller.release(false);
+
+        assertNull(controller.spliceCandidate());
+        assertEquals(2, bp.links().size(), "un fil coupé en deux");
+        assertFalse(bp.links().contains(original));
+        assertTrue(bp.links().stream().anyMatch(l ->
+                l.fromNode().equals(n1) && l.toNode().equals(n3)), "amont");
+        assertTrue(bp.links().stream().anyMatch(l ->
+                l.fromNode().equals(n3) && l.toNode().equals(n2)), "aval");
+
+        assertTrue(controller.undo(), "déplacement ET recâblage : un seul Ctrl+Z");
+        assertEquals(1, bp.links().size());
+        assertTrue(bp.links().contains(original));
+    }
+
+    /** Un nœud déjà sur le fil ne se réinsère pas sur lui-même. */
+    @Test
+    void unNoeudNeSInserePasSurSonPropreFil() {
+        wireUpAndPickMiddle();
+        Link original = bp.links().iterator().next();
+
+        dragOnto(n1, original);
+        assertNull(controller.spliceCandidate());
+        controller.release(false);
+        assertEquals(1, bp.links().size());
+    }
+
+    /** Déplacer plusieurs nœuds à la fois n'insère rien : quel nœud passerait ? */
+    @Test
+    void uneSelectionMultipleNeSInserePas() {
+        wireUpAndPickMiddle();
+        Link original = bp.links().iterator().next();
+        UUID n3 = addNode(1000, 1000);
+        UUID n4 = addNode(1100, 1000);
+        controller.selection().selectAll(List.of(n3, n4), false);
+
+        Vec2d a = controller.pinCenter(original.fromNode(), original.fromPin());
+        Vec2d b = controller.pinCenter(original.toNode(), original.toPin());
+        NodeGeometry.Box box = controller.boxOf(n3);
+        controller.press(box.x() + 2, box.y() + 2, true);
+        controller.drag((a.x() + b.x()) / 2 - box.width() / 2, (a.y() + b.y()) / 2);
+        assertNull(controller.spliceCandidate());
+        controller.release(true);
+        assertEquals(1, bp.links().size());
+    }
+
     // ---------------------------------------------- actions du menu contextuel (5.13)
 
     @Test

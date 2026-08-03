@@ -53,8 +53,64 @@ public final class NodeWidget {
         };
     }
 
+    // ------------------------------------------- châssis du nœud (5.13, aspect UE5)
+
+    /** Rayon d'arrondi, en unités monde. Deux pixels suffisent à casser l'angle droit. */
+    private static final int CORNER = 2;
+    private static final int SHADOW_LAYERS = 2;
+    private static final int SHADOW_OFFSET = 2;
+    private static final int SHADOW_COLOR = 0x40000000;
+    private static final int GLOW_RINGS = 3;
+    private static final int GLOW_ALPHA = 0x60;
+    /** Centre du pictogramme et retrait du titre, qui lui laisse la place. */
+    private static final int GLYPH_X = 9;
+    private static final int TITLE_INDENT = 9;
+
+    /**
+     * Rectangle à coins abattus. Pas d'anticrénelage — à cette échelle, retirer un
+     * pixel à chaque coin suffit à supprimer l'angle droit, et c'est tout ce qui
+     * distingue une boîte d'un nœud.
+     */
+    private static void roundedFill(GuiGraphics g, int x0, int y0, int x1, int y1,
+                                    int color, int radius) {
+        int r = Math.min(radius, Math.min((x1 - x0) / 2, (y1 - y0) / 2));
+        g.fill(x0 + r, y0, x1 - r, y1, color);
+        for (int i = 0; i < r; i++) {
+            // Chaque rangée d'extrémité rentre d'un pixel de plus : l'escalier fait
+            // l'arrondi.
+            int inset = r - i;
+            g.fill(x0 + inset - 1, y0 + i, x0 + r, y0 + i + 1, color);
+            g.fill(x1 - r, y0 + i, x1 - inset + 1, y0 + i + 1, color);
+            g.fill(x0 + inset - 1, y1 - i - 1, x0 + r, y1 - i, color);
+            g.fill(x1 - r, y1 - i - 1, x1 - inset + 1, y1 - i, color);
+        }
+        // Les flancs entre les deux arrondis.
+        g.fill(x0, y0 + r, x0 + r, y1 - r, color);
+        g.fill(x1 - r, y0 + r, x1, y1 - r, color);
+    }
+
+    /** Bandeau dégradé aux coins hauts abattus, pour épouser l'arrondi du nœud. */
+    private static void roundedTopFill(GuiGraphics g, int x0, int y0, int x1, int y1,
+                                       int top, int bottom) {
+        g.fillGradient(x0 + CORNER, y0, x1 - CORNER, y1, top, bottom);
+        for (int i = 0; i < CORNER; i++) {
+            int inset = CORNER - i;
+            g.fillGradient(x0 + inset - 1, y0 + i, x0 + CORNER, y1, top, bottom);
+            g.fillGradient(x1 - CORNER, y0 + i, x1 - inset + 1, y1, top, bottom);
+        }
+        g.fillGradient(x0, y0 + CORNER, x0 + CORNER, y1, top, bottom);
+        g.fillGradient(x1 - CORNER, y0 + CORNER, x1, y1, top, bottom);
+    }
+
+    /** Même teinte, alpha imposé — pour les anneaux du halo. */
+    private static int fade(int argb, int alpha) {
+        return (argb & 0x00FFFFFF) | ((alpha & 0xFF) << 24);
+    }
+
     /** Alpha appliqué à la couleur de catégorie sur l'en-tête. */
-    private static final int HEADER_ALPHA = 0x59000000;
+    /** Dégradé de l'en-tête : plus dense en haut, il s'éteint vers le corps du nœud. */
+    private static final int HEADER_ALPHA_TOP = 0x80;
+    private static final int HEADER_ALPHA_BOTTOM = 0x33;
 
     /** Sous ce zoom, plus de titre du tout ; en dessous de 0,5×, boîte + titre seul (UX §3). */
     private static final double TITLE_FADE_ZOOM = 0.35;
@@ -94,19 +150,31 @@ public final class NodeWidget {
         g.pose().scale((float) zoom, (float) zoom);
 
         boolean ghost = desc == null;
+        // Ombre portée : c'est elle qui décolle le nœud de la grille et qui donne la
+        // profondeur d'Unreal. Dessinée en premier, décalée, sous tout le reste.
+        for (int i = 0; i < SHADOW_LAYERS; i++) {
+            roundedFill(g, -i, SHADOW_OFFSET + i, w + i, h + SHADOW_OFFSET + i,
+                    SHADOW_COLOR, CORNER + 1);
+        }
         if (selected) {
-            g.fill(0, 0, w, h, selectedBorder());
-            g.fill(1, 1, w - 1, h - 1, nodeBackground());
+            // Halo : plusieurs anneaux de plus en plus transparents, plutôt qu'un
+            // liseré d'un pixel qui se perdait sur un fond clair.
+            for (int i = GLOW_RINGS; i >= 1; i--) {
+                roundedFill(g, -i, -i, w + i, h + i,
+                        fade(selectedBorder(), GLOW_ALPHA / i), CORNER + i);
+            }
+            roundedFill(g, 0, 0, w, h, selectedBorder(), CORNER);
+            roundedFill(g, 1, 1, w - 1, h - 1, nodeBackground(), CORNER);
         } else if (outlineColor != 0) {
             // Nœud fautif : liseré de la couleur de la sévérité (UX §8).
-            g.fill(0, 0, w, h, outlineColor);
-            g.fill(1, 1, w - 1, h - 1, nodeBackground());
+            roundedFill(g, 0, 0, w, h, outlineColor, CORNER);
+            roundedFill(g, 1, 1, w - 1, h - 1, nodeBackground(), CORNER);
         } else if (ghost) {
-            g.fill(0, 0, w, h, nodeBackground());
+            roundedFill(g, 0, 0, w, h, nodeBackground(), CORNER);
             dashedBorder(g, w, h, ghostColor());
         } else {
-            g.fill(0, 0, w, h, nodeBorder());
-            g.fill(1, 1, w - 1, h - 1, nodeBackground());
+            roundedFill(g, 0, 0, w, h, nodeBorder(), CORNER);
+            roundedFill(g, 1, 1, w - 1, h - 1, nodeBackground(), CORNER);
         }
 
         if (ghost) {
@@ -121,16 +189,24 @@ public final class NodeWidget {
                                       NodeDescriptor desc, int w, double zoom,
                                       @Nullable PinDimmer dimmer, @Nullable LiteralProvider literals,
                                       @Nullable LiteralEditState edit) {
-        g.fill(1, 1, w - 1, (int) NodeGeometry.TITLE_HEIGHT,
-                (categoryColor(desc.category()) & 0x00FFFFFF) | HEADER_ALPHA);
+        int category = categoryColor(desc.category());
+        int header = (int) NodeGeometry.TITLE_HEIGHT;
+        // Dégradé plutôt qu'aplat : c'est ce qui donne le relief de l'en-tête d'Unreal.
+        // Le haut est arrondi comme le nœud, sinon le bandeau déborderait des coins.
+        roundedTopFill(g, 1, 1, w - 1, header, fade(category, HEADER_ALPHA_TOP),
+                fade(category, HEADER_ALPHA_BOTTOM));
+        // Filet vif sous le titre : la catégorie se lit d'un coup d'œil, même quand le
+        // dégradé est sombre.
+        g.fill(1, header - 1, w - 1, header, fade(category, 0xC0));
         if (zoom < TITLE_FADE_ZOOM) {
             return;
         }
         int badge = permissionBadge(desc.permission());
-        // Le titre laisse la place au badge, sinon il passe dessous.
+        categoryGlyph(g, desc.category(), GLYPH_X, header / 2, fade(category, 0xFF));
+        // Le titre laisse la place au pictogramme ET au badge, sinon il passe dessous.
         String title = font.plainSubstrByWidth(I18n.get(desc.titleKey()),
-                w - 12 - (badge == 0 ? 0 : 8));
-        g.drawString(font, title, 6, 5, TITLE_COLOR, false);
+                w - 12 - TITLE_INDENT - (badge == 0 ? 0 : 8));
+        g.drawString(font, title, 6 + TITLE_INDENT, 5, TITLE_COLOR, false);
         if (badge != 0) {
             // Un nœud qui modifie le monde ou exige l'op doit se repérer sans survol :
             // c'est ce qui décide si un blueprint est refusé par le plafond du serveur.
@@ -251,6 +327,75 @@ public final class NodeWidget {
     private static int rowCenterY(int row) {
         return (int) (NodeGeometry.TITLE_HEIGHT + row * NodeGeometry.ROW_HEIGHT
                 + NodeGeometry.ROW_HEIGHT / 2);
+    }
+
+    // --------------------------------------------- pictogramme de catégorie (5.13)
+
+    /**
+     * Petit pictogramme dans l'en-tête, à la manière des icônes d'Unreal. Il vient de
+     * la <b>catégorie</b>, que le descripteur porte déjà : une vraie icône par nœud
+     * demanderait un champ de plus dans le descripteur, donc dans la surface d'API et
+     * dans la synchro réseau — beaucoup de tuyauterie pour ce que la catégorie dit
+     * déjà. Et une catégorie se reconnaît de plus loin qu'un nom.
+     *
+     * <p>Dessiné dans un carré de 7×7 centré sur ({@code cx}, {@code cy}).
+     */
+    private static void categoryGlyph(GuiGraphics g, String category, int cx, int cy, int color) {
+        switch (category) {
+            case "flow" -> { // ▶ un chevron
+                for (int dx = 0; dx <= 3; dx++) {
+                    int hh = 3 - dx;
+                    g.fill(cx - 2 + dx, cy - hh, cx - 1 + dx, cy + hh + 1, color);
+                }
+            }
+            case "math" -> { // +
+                g.fill(cx - 3, cy - 1, cx + 4, cy + 1, color);
+                g.fill(cx - 1, cy - 3, cx + 1, cy + 4, color);
+            }
+            case "logic" -> { // = deux barres
+                g.fill(cx - 3, cy - 2, cx + 4, cy - 1, color);
+                g.fill(cx - 3, cy + 1, cx + 4, cy + 2, color);
+            }
+            case "string", "text" -> { // deux guillemets
+                g.fill(cx - 3, cy - 3, cx - 1, cy, color);
+                g.fill(cx + 1, cy - 3, cx + 3, cy, color);
+            }
+            case "list", "struct" -> { // trois lignes
+                for (int dy = -3; dy <= 3; dy += 3) {
+                    g.fill(cx - 3, cy + dy, cx + 4, cy + dy + 1, color);
+                }
+            }
+            case "world" -> { // un bloc en perspective
+                g.fill(cx - 3, cy - 1, cx + 4, cy + 4, color);
+                g.fill(cx - 2, cy - 3, cx + 3, cy - 1, color);
+            }
+            case "entity" -> { // un losange
+                for (int dy = -3; dy <= 3; dy++) {
+                    int hw = 3 - Math.abs(dy);
+                    g.fill(cx - hw, cy + dy, cx + hw + 1, cy + dy + 1, color);
+                }
+            }
+            case "player" -> { // tête + épaules
+                g.fill(cx - 1, cy - 3, cx + 2, cy, color);
+                g.fill(cx - 3, cy + 1, cx + 4, cy + 4, color);
+            }
+            case "item" -> { // un carré évidé
+                g.fill(cx - 3, cy - 3, cx + 4, cy + 4, color);
+                g.fill(cx - 1, cy - 1, cx + 2, cy + 2, nodeBackground());
+            }
+            case "debug" -> { // un point d'exclamation
+                g.fill(cx - 1, cy - 3, cx + 1, cy + 1, color);
+                g.fill(cx - 1, cy + 2, cx + 1, cy + 4, color);
+            }
+            case "event" -> { // un éclair
+                g.fill(cx, cy - 3, cx + 3, cy - 2, color);
+                g.fill(cx - 1, cy - 2, cx + 2, cy, color);
+                g.fill(cx - 2, cy, cx + 3, cy + 1, color);
+                g.fill(cx - 3, cy + 1, cx, cy + 2, color);
+                g.fill(cx - 2, cy + 2, cx + 1, cy + 4, color);
+            }
+            default -> g.fill(cx - 2, cy - 2, cx + 3, cy + 3, color);
+        }
     }
 
     // ------------------------------------------------------------------- formes

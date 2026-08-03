@@ -163,6 +163,11 @@ public final class CanvasWidget {
         GridLayer.render(g, camera, width, height);
         renderComments(g, font);
         WireLayer.renderLinks(g, camera, controller, width, height);
+        if (debug.debugging()) {
+            WireLayer.renderExecFlow(g, camera, controller,
+                    link -> debug.hasRun(link.fromNode()) && debug.hasRun(link.toNode()),
+                    System.currentTimeMillis());
+        }
         renderNodes(g, font);
         renderRubber(g);
         WireLayer.renderPreview(g, camera, controller);
@@ -213,11 +218,6 @@ public final class CanvasWidget {
     }
 
     /**
-     * Ce que dit le survol, du plus précis au plus général : un pin, puis un champ
-     * éditable, puis le nœud lui-même. Rien au-dessus d'un panneau ou d'une fenêtre —
-     * une bulle par-dessus la palette gênerait plus qu'elle n'aiderait.
-     */
-    /**
      * Cache du survol. {@link #tooltipAt} teste les pins, les nœuds ET les fils — et
      * un fil coûte trente-deux distances. Recalculé à chaque frame, cela ferait des
      * centaines de milliers de racines carrées par seconde pour un texte qui, par
@@ -252,6 +252,11 @@ public final class CanvasWidget {
         return tooltipCache;
     }
 
+    /**
+     * Ce que dit le survol, du plus précis au plus général : un pin, puis un champ
+     * éditable, puis le nœud lui-même. Rien au-dessus d'un panneau ou d'une fenêtre —
+     * une bulle par-dessus la palette gênerait plus qu'elle n'aiderait.
+     */
     private List<String> tooltipAt(Font font, double mx, double my) {
         if (palette.isOpen() || picker.isOpen() || gotoState.isOpen() || contextMenu.isOpen()) {
             return List.of();

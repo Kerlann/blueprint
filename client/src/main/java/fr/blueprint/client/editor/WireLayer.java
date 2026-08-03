@@ -21,6 +21,12 @@ public final class WireLayer {
         return fr.blueprint.client.theme.Theme.current().execWire();
     }
     private static final int SELECTED_HALO = 0xFFFFFFFF;
+    /** Vert : « lâche ici et le nœud s'insère » — distinct du blanc de sélection. */
+    private static final int SPLICE_HALO = 0xFF9ECE6A;
+    /** Billes du flux d'exécution : trois par fil, un tour par seconde et demie. */
+    private static final int FLOW_BEADS = 3;
+    private static final long FLOW_PERIOD_MS = 1500;
+    private static final int FLOW_COLOR = 0xFFFFF3B0;
     /** Demi-diagonale du losange de conversion, en pixels écran. */
     private static final int COERCION_RADIUS = 3;
     /** En dessous, le losange serait un pixel isolé et ne dirait plus rien. */
@@ -54,7 +60,12 @@ public final class WireLayer {
             boolean exec = def != null && def.kind() == PinKind.EXEC;
             int color = exec ? execColor() : def != null ? def.type().color() : execColor();
             int worldWidth = exec ? EXEC_WIDTH : DATA_WIDTH;
-            if (link.equals(controller.selectedLink())) {
+            if (link.equals(controller.spliceCandidate())) {
+                // Le fil qu'on s'apprête à couper : sans ce halo, personne ne
+                // découvrirait qu'un nœud lâché dessus s'y insère.
+                drawCurve(g, camera, from.x(), from.y(), 1, to.x(), to.y(), -1,
+                        SPLICE_HALO, worldWidth + 4);
+            } else if (link.equals(controller.selectedLink())) {
                 // Un halo dessous : un fil sélectionné doit se voir sans changer de
                 // couleur, sinon on perd l'information de type qu'elle porte.
                 drawCurve(g, camera, from.x(), from.y(), 1, to.x(), to.y(), -1,
@@ -71,6 +82,42 @@ public final class WireLayer {
                 double[] mid = curvePoint(camera.toScreenX(from.x()), camera.toScreenY(from.y()), 1,
                         camera.toScreenX(to.x()), camera.toScreenY(to.y()), -1, 0.5);
                 drawDiamond(g, mid[0], mid[1], target.type().color());
+            }
+        }
+    }
+
+    /**
+     * Billes de flux sur les fils d'exécution déjà parcourus (5.13, débogage). C'est
+     * l'animation d'Unreal : elle montre le CHEMIN qu'a pris l'exécution, ce qu'aucun
+     * surlignage de nœud ne dit — deux nœuds allumés ne disent pas par où l'on est
+     * passé pour aller de l'un à l'autre.
+     *
+     * <p>Passe séparée, appelée seulement en débogage : hors session, elle ne coûte
+     * pas une itération.
+     */
+    public static void renderExecFlow(GuiGraphics g, Camera camera, CanvasController controller,
+                                      java.util.function.Predicate<Link> hot, long timeMs) {
+        for (Link link : controller.blueprint().links()) {
+            NodeShape.PinDef def = controller.pinDef(link.fromNode(), link.fromPin());
+            if (def == null || def.kind() != PinKind.EXEC || !hot.test(link)) {
+                continue;
+            }
+            Vec2d from = endpoint(controller, link.fromNode(), link.fromPin(), true);
+            Vec2d to = endpoint(controller, link.toNode(), link.toPin(), false);
+            if (from == null || to == null) {
+                continue;
+            }
+            double x0 = camera.toScreenX(from.x());
+            double y0 = camera.toScreenY(from.y());
+            double x3 = camera.toScreenX(to.x());
+            double y3 = camera.toScreenY(to.y());
+            double phase = (timeMs % FLOW_PERIOD_MS) / (double) FLOW_PERIOD_MS;
+            for (int i = 0; i < FLOW_BEADS; i++) {
+                double t = (phase + (double) i / FLOW_BEADS) % 1.0;
+                double[] p = curvePoint(x0, y0, 1, x3, y3, -1, t);
+                int x = (int) Math.round(p[0]);
+                int y = (int) Math.round(p[1]);
+                g.fill(x - 1, y - 1, x + 2, y + 2, FLOW_COLOR);
             }
         }
     }

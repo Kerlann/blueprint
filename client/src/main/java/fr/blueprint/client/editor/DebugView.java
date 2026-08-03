@@ -81,6 +81,15 @@ public final class DebugView {
         return values.size();
     }
 
+    /**
+     * Ce nœud a-t-il été traversé ? Le débogueur dépose une entrée pour CHAQUE nœud
+     * qui s'exécute — d'où {@code containsKey} et non « la liste est-elle vide » : un
+     * nœud sans pin s'exécute aussi, et sa liste est vide.
+     */
+    public boolean hasRun(UUID node) {
+        return values.containsKey(node);
+    }
+
     /** Déconnexion ou fermeture : tout s'efface, rien ne survit à l'écran. */
     public void clear() {
         debugging = false;
