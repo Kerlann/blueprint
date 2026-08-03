@@ -297,6 +297,32 @@ public final class StandardNodes {
                 })
                 .build());
 
+        // for_each (7.8) : parcourt une liste. Abaissé comme « for », avec la taille et
+        // l'accès fournis par les nœuds de liste synthétisés par le compilateur.
+        r.register(NodeType.builder(id("flow/for_each"))
+                .category(NodeCategories.FLOW)
+                .generic("T")
+                .execIn("exec_in").execOut("body").execOut("completed")
+                .in("list", PinTypes.listOf(PinTypes.generic("T")))
+                .out("element", PinTypes.generic("T"))
+                .out("index", PinTypes.INT)
+                .action(ctx -> {
+                    throw new IllegalStateException("flow/for_each est abaissé par le compilateur");
+                })
+                .build());
+
+        // gate (7.8) : un portail qui SE SOUVIENT. Trois entrées d'exécution — c'est ce
+        // qui le distingue d'un simple branchement, et ce qui a demandé au compilateur
+        // de savoir par quel pin on entre dans un nœud.
+        r.register(NodeType.builder(id("flow/gate"))
+                .category(NodeCategories.FLOW)
+                .execIn("enter").execIn("open").execIn("close")
+                .execOut("exit")
+                .action(ctx -> {
+                    throw new IllegalStateException("flow/gate est abaissé par le compilateur");
+                })
+                .build());
+
         r.register(NodeType.builder(id("flow/do_once"))
                 .category(NodeCategories.FLOW)
                 .exec()
@@ -341,6 +367,7 @@ public final class StandardNodes {
                 .build());
 
         // ----------------------------------------- monde, entités, items (7.3-7.5)
+        ListNodes.register(r);
         WorldNodes.register(r);
         EntityNodes.register(r);
         ItemNodes.register(r);

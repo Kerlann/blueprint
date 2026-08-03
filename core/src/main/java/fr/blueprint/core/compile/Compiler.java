@@ -47,7 +47,7 @@ public final class Compiler {
     private final NodeRegistryImpl registry;
     private final List<Instruction> out = new ArrayList<>();
     private final Map<String, Integer> slotOf = new HashMap<>();
-    private final Map<UUID, Integer> emittedAt = new HashMap<>();
+    private final Map<String, Integer> emittedAt = new HashMap<>();
     private final Set<String> constEmitted = new HashSet<>();
     // Mémoïsation des purs PAR PORTÉE DE BRANCHE (correction QA VM-COMP-001) : un pur
     // émis avant un embranchement domine les deux branches (réutilisable) ; un pur émis
@@ -102,14 +102,25 @@ public final class Compiler {
      * successeurs exec. Retourne l'index de début — la cible qu'un prédécesseur doit viser.
      */
     private int emitNode(UUID id) {
-        Integer existing = emittedAt.get(id);
+        return emitNode(id, null);
+    }
+
+    /**
+     * {@code entryPin} : le pin d'exécution PAR LEQUEL on entre. Presque tous les nœuds
+     * s'en moquent — mais un {@code gate} exécute du code différent selon qu'on l'ouvre,
+     * qu'on le ferme ou qu'on le traverse, et deux entrées différentes ne peuvent donc
+     * pas partager le même code émis (d'où la clé de mémoïsation composite).
+     */
+    private int emitNode(UUID id, @Nullable String entryPin) {
+        String key = id + "#" + (entryPin == null ? "" : entryPin);
+        Integer existing = emittedAt.get(key);
         if (existing != null) {
             return existing;
         }
         // L'index de début est réservé AVANT la préparation : une arête arrière (boucle)
         // revient sur les Const/purs du nœud, qui se ré-exécutent à chaque itération.
         int startIndex = out.size();
-        emittedAt.put(id, startIndex);
+        emittedAt.put(key, startIndex);
 
         Node node = bp.node(id);
         NodeType type = registry.get(node.typeId()).orElseThrow();   // garanti par la validation
@@ -142,6 +153,14 @@ public final class Compiler {
             }
             case "flow/for" -> {
                 emitFor(node, type);
+                return startIndex;
+            }
+            case "flow/for_each" -> {
+                emitForEach(node, type);
+                return startIndex;
+            }
+            case "flow/gate" -> {
+                emitGate(node, entryPin);
                 return startIndex;
             }
             case "flow/wait_until" -> {
@@ -186,7 +205,7 @@ public final class Compiler {
             if (branching) {
                 pureScopes.push(new HashSet<>(pureScopes.element()));
             }
-            execTargets.put(spec.name(), emitNode(links.get(0).toNode()));
+            execTargets.put(spec.name(), emitNode(links.get(0).toNode(), links.get(0).toPin()));
             if (branching) {
                 pureScopes.pop();
             }
@@ -290,6 +309,12 @@ public final class Compiler {
             Identifier.fromNamespaceAndPath("blueprint", "math/add");
     private static final Identifier LOGIC_LESS_EQ =
             Identifier.fromNamespaceAndPath("blueprint", "logic/less_eq");
+    private static final Identifier LOGIC_LESS =
+            Identifier.fromNamespaceAndPath("blueprint", "logic/less");
+    private static final Identifier LIST_SIZE =
+            Identifier.fromNamespaceAndPath("blueprint", "list/size");
+    private static final Identifier LIST_GET =
+            Identifier.fromNamespaceAndPath("blueprint", "list/get");
 
     /** Un Call pur synthétisé (add, less_eq…) : le compilateur fabrique ses instructions arithmétiques avec la bibliothèque standard. */
     private static Instruction.Call synth(Identifier type, UUID source,
@@ -309,7 +334,7 @@ public final class Compiler {
             return;
         }
         int before = out.size();
-        int target = emitNode(next.get(0).toNode());
+        int target = emitNode(next.get(0).toNode(), next.get(0).toPin());
         if (target != before) {
             out.add(new Instruction.Jmp(target, node.uuid()));
         }
@@ -330,7 +355,7 @@ public final class Compiler {
         }
         out.add(new Instruction.Jmp(-1, id));
         for (int i = 0; i < branches.size(); i++) {
-            int target = emitNode(branches.get(i).toNode());
+            int target = emitNode(branches.get(i).toNode(), branches.get(i).toPin());
             out.set(firstPlaceholder + i, new Instruction.CallSub(target, id));
         }
     }
@@ -387,7 +412,7 @@ public final class Compiler {
         emitNext(node, "completed");
         if (callSub >= 0) {
             out.set(callSub, new Instruction.CallSub(
-                    emitNode(from(id, "body").get(0).toNode()), id));
+                    emitNode(from(id, "body").get(0).toNode(), from(id, "body").get(0).toPin()), id));
         }
     }
 
@@ -423,8 +448,88 @@ public final class Compiler {
         emitNext(node, "completed");
         if (callSub >= 0) {
             out.set(callSub, new Instruction.CallSub(
-                    emitNode(from(id, "body").get(0).toNode()), id));
+                    emitNode(from(id, "body").get(0).toNode(), from(id, "body").get(0).toPin()), id));
         }
+    }
+
+    /**
+     * for_each : [taille][index=0][boucle: index<taille ?][élément=get(liste,index)]
+     * [CallSub corps][index+1][Jmp boucle] puis « completed ».
+     *
+     * <p>La taille est calculée UNE fois, avant la boucle : recalculer à chaque tour
+     * coûterait un appel de plus par élément, et la liste ne peut pas changer sous nos
+     * pieds — les nœuds de liste sont purs et immuables (7.8).
+     */
+    private void emitForEach(Node node, NodeType type) {
+        UUID id = node.uuid();
+        Instruction.PinBinding list = prepareInput(node, specOf(type, "list"));
+        int listSlot = list != null ? list.slot() : slotFor(id, "literal:list");
+        int size = slotFor(id, "__size");
+        out.add(synth(LIST_SIZE, id, Map.of("list", listSlot), "size", size));
+
+        int index = slotFor(id, "index");
+        out.add(new Instruction.Const(index,
+                LiteralValue.of(fr.blueprint.api.pin.PinTypes.INT, 0), id));
+
+        int loop = out.size();
+        int cmp = slotFor(id, "__cmp");
+        out.add(synth(LOGIC_LESS, id, Map.of("a", index, "b", size), "result", cmp));
+        int jmpIf = out.size();
+        out.add(new Instruction.JmpIf(cmp, -1, id));
+
+        int element = slotFor(id, "element");
+        out.add(synth(LIST_GET, id, Map.of("list", listSlot, "index", index), "element", element));
+        int callSub = -1;
+        if (!from(id, "body").isEmpty()) {
+            callSub = out.size();
+            out.add(new Instruction.CallSub(-1, id));
+        }
+        int one = slotFor(id, "__one");
+        out.add(new Instruction.Const(one,
+                LiteralValue.of(fr.blueprint.api.pin.PinTypes.INT, 1), id));
+        out.add(synth(MATH_ADD, id, Map.of("a", index, "b", one), "result", index));
+        out.add(new Instruction.Jmp(loop, id));
+
+        int completed = out.size();
+        out.set(jmpIf, new Instruction.JmpIf(cmp, completed, id));
+        emitNext(node, "completed");
+        if (callSub >= 0) {
+            var body = from(id, "body").get(0);
+            out.set(callSub, new Instruction.CallSub(emitNode(body.toNode(), body.toPin()), id));
+        }
+    }
+
+    /**
+     * gate : un drapeau en variable GRAPH, comme do_once — mais lu ou écrit selon le
+     * pin d'ENTRÉE. Fermé tant qu'on ne l'a pas ouvert : un état non initialisé vaut
+     * « faux », et un portail qu'on n'a jamais ouvert doit bloquer, pas laisser passer.
+     */
+    private void emitGate(Node node, @Nullable String entryPin) {
+        UUID id = node.uuid();
+        String variable = "__gate:" + id;
+        String entry = entryPin == null ? "enter" : entryPin;
+        if ("open".equals(entry) || "close".equals(entry)) {
+            int value = slotFor(id, "__set_" + entry);
+            out.add(new Instruction.Const(value, LiteralValue.of(
+                    fr.blueprint.api.pin.PinTypes.BOOL, "open".equals(entry)), id));
+            out.add(new Instruction.StoreVar(fr.blueprint.core.graph.VarScope.GRAPH,
+                    variable, value, id));
+            // Ouvrir ou fermer ne traverse PAS : dans Unreal non plus, ce sont des
+            // ordres, pas un passage.
+            out.add(new Instruction.Jmp(-1, id));
+            return;
+        }
+        int flag = slotFor(id, "__gate");
+        out.add(new Instruction.LoadVar(fr.blueprint.core.graph.VarScope.GRAPH,
+                variable, flag, id));
+        // JmpIf saute vers elseTarget quand la condition est FAUSSE : le pc+1 est donc
+        // le chemin « ouvert », et la cible le chemin « fermé ».
+        int jmpIf = out.size();
+        out.add(new Instruction.JmpIf(flag, -1, id));
+        emitNext(node, "exit");                         // ouvert → on traverse
+        int closed = out.size();
+        out.set(jmpIf, new Instruction.JmpIf(flag, closed, id));
+        out.add(new Instruction.Jmp(-1, id));           // fermé → fin de chaîne
     }
 
     /** wait_until : re-teste la condition chaque tick (Yield 1 + boucle). */

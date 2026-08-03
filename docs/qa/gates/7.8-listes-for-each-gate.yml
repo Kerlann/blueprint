@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "7.8"
+story_title: "Listes, for_each et gate"
+gate: "PASS"
+status_reason: "Les deux trous visibles de la bibliothèque sont bouchés, et le trou caché derrière (aucun nœud de liste) aussi. Le changement de compilateur — mémoïsation par (nœud, pin d'entrée) — est le minimum qui rende un portail à mémoire représentable, et il est couvert par trois tests."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T09:58:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "LIST-001"
+    severity: low
+    finding: "list/of a trois entrées fixes : construire une liste de dix éléments demande de chaîner des list/add"
+    suggested_action: "Des pins dynamiques (arité variable) sont un vrai chantier d'API — consigné v1.1 ; la composition marche en attendant"
+  - id: "GATE-001"
+    severity: low
+    finding: "Le portail démarre FERMÉ, là où Unreal démarre ouvert ; l'entrée « startClosed » n'existe pas"
+    suggested_action: "Assumé et documenté : un état non initialisé vaut faux, et une valeur initiale demanderait un crochet d'initialisation de graphe que le modèle n'a pas"
+  - id: "GATE-002"
+    severity: low
+    finding: "L'état d'un portail vit dans une variable GRAPH cachée (« __gate:<uuid> ») : elle apparaît dans le VarStore persisté, sans être visible dans le panneau des variables"
+    suggested_action: "Même mécanique que do_once depuis la 7.1b ; à masquer explicitement si un joueur s'en étonne"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 3 }
+  recommendations:
+    must_fix: []

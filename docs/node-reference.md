@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-78 nœuds dans 12 catégories.
+89 nœuds dans 13 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -259,6 +259,36 @@ permission `SAFE` · fuel 1
 | `completed` | exec | — |
 | `index` | `blueprint:double` | — |
 
+### `blueprint:flow/for_each` — For each
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `list` | `list<T>` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `body` | exec | — |
+| `completed` | exec | — |
+| `element` | `T` | — |
+| `index` | `blueprint:int` | — |
+
+### `blueprint:flow/gate` — Gate
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `enter` | exec | — |
+| `open` | exec | — |
+| `close` | exec | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exit` | exec | — |
+
 ### `blueprint:flow/return` — Return
 
 permission `SAFE` · fuel 1
@@ -406,6 +436,120 @@ permission `SAFE` · fuel 1 · P
 | Sorties | Type | Défaut |
 |---|---|---|
 | `stack` | `blueprint:itemstack` | — |
+
+
+## list
+
+### `blueprint:list/add` — Add to list
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+| `value` | `T` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `list<T>` | — |
+
+### `blueprint:list/contains` — List contains
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+| `value` | `T` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `found` | `blueprint:bool` | — |
+
+### `blueprint:list/empty` — Empty list
+
+permission `SAFE` · fuel 1 · P
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+
+### `blueprint:list/get` — Get element
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+| `index` | `blueprint:int` | `0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `element` | `T` | — |
+
+### `blueprint:list/index_of` — Index of
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+| `value` | `T` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `index` | `blueprint:int` | — |
+
+### `blueprint:list/is_empty` — Is list empty
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `empty` | `blueprint:bool` | — |
+
+### `blueprint:list/of` — Make list
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `T` | — |
+| `b` | `T` | — |
+| `c` | `T` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+
+### `blueprint:list/remove` — Remove from list
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+| `value` | `T` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `list<T>` | — |
+
+### `blueprint:list/size` — List size
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `size` | `blueprint:int` | — |
 
 
 ## logic

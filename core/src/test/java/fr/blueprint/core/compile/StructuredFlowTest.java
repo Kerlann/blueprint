@@ -277,6 +277,132 @@ class StructuredFlowTest {
         assertEquals(3.0, vars.get(VarScope.GRAPH, "c"));
     }
 
+    // ------------------------------------------------ for_each et gate (story 7.8)
+
+    @Test
+    void forEachParcourtChaqueElementEtRendSonIndex() {
+        declareVar("somme");
+        declareVar("fin");
+        UUID tick = add(StandardEvents.SERVER_TICK.id().toString());
+        UUID each = add("flow/for_each");
+
+        // liste = [10, 20, 30] construite par list/of
+        UUID made = add("list/of");
+        apply(new EditOperation.SetLiteral(made, "a", LiteralValue.of(PinTypes.INT, 10)));
+        apply(new EditOperation.SetLiteral(made, "b", LiteralValue.of(PinTypes.INT, 20)));
+        apply(new EditOperation.SetLiteral(made, "c", LiteralValue.of(PinTypes.INT, 30)));
+        apply(new EditOperation.AddLink(new Link(made, "list", each, "list")));
+
+        // corps : somme = somme + élément
+        UUID get = add("var/get");
+        apply(new EditOperation.SetLiteral(get, "var", LiteralValue.of(PinTypes.STRING, "somme")));
+        UUID sum = add("math/add");
+        UUID set = add("var/set");
+        apply(new EditOperation.SetLiteral(set, "var", LiteralValue.of(PinTypes.STRING, "somme")));
+        UUID done = varSet("fin", 1);
+
+        apply(new EditOperation.AddLink(new Link(tick, "exec_out", each, "exec_in")));
+        apply(new EditOperation.AddLink(new Link(each, "body", set, "exec_in")));
+        apply(new EditOperation.AddLink(new Link(each, "completed", done, "exec_in")));
+        apply(new EditOperation.AddLink(new Link(get, "value", sum, "a")));
+        apply(new EditOperation.AddLink(new Link(each, "element", sum, "b")));
+        apply(new EditOperation.AddLink(new Link(sum, "result", set, "value")));
+
+        VarStore vars = VarStore.inMemory();
+        assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
+        assertEquals(60.0, vars.get(VarScope.GRAPH, "somme"), "10 + 20 + 30");
+        assertEquals(1.0, vars.get(VarScope.GRAPH, "fin"), "« completed » après la boucle");
+    }
+
+    @Test
+    void forEachSurUneListeVideVaDirectementAuCompleted() {
+        declareVar("fin");
+        UUID tick = add(StandardEvents.SERVER_TICK.id().toString());
+        UUID each = add("flow/for_each");
+        UUID empty = add("list/empty");
+        apply(new EditOperation.AddLink(new Link(empty, "list", each, "list")));
+        UUID corps = varSet("jamais", 1);
+        declareVar("jamais");
+        UUID done = varSet("fin", 1);
+        apply(new EditOperation.AddLink(new Link(tick, "exec_out", each, "exec_in")));
+        apply(new EditOperation.AddLink(new Link(each, "body", corps, "exec_in")));
+        apply(new EditOperation.AddLink(new Link(each, "completed", done, "exec_in")));
+
+        VarStore vars = VarStore.inMemory();
+        assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
+        assertNull(vars.get(VarScope.GRAPH, "jamais"), "le corps n'a pas tourné");
+        assertEquals(1.0, vars.get(VarScope.GRAPH, "fin"));
+    }
+
+    /** Un portail neuf est FERMÉ : rien ne passe tant qu'on ne l'a pas ouvert. */
+    @Test
+    void unPortailNeufEstFerme() {
+        declareVar("passe");
+        UUID tick = add(StandardEvents.SERVER_TICK.id().toString());
+        UUID gate = add("flow/gate");
+        UUID apres = varSet("passe", 1);
+        apply(new EditOperation.AddLink(new Link(tick, "exec_out", gate, "enter")));
+        apply(new EditOperation.AddLink(new Link(gate, "exit", apres, "exec_in")));
+
+        VarStore vars = VarStore.inMemory();
+        assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
+        assertNull(vars.get(VarScope.GRAPH, "passe"));
+    }
+
+    /**
+     * Le portail se SOUVIENT : ouvert par une chaîne, il laisse passer la suivante.
+     * C'est ce qui a demandé au compilateur de savoir par quel pin on entre dans un nœud.
+     */
+    @Test
+    void unPortailOuvertLaissePasserLesExecutionsSuivantes() {
+        declareVar("passe");
+        UUID gate = add("flow/gate");
+
+        // Chaîne 1 : ouvre le portail.
+        UUID ouvre = add(StandardEvents.SERVER_TICK.id().toString());
+        apply(new EditOperation.AddLink(new Link(ouvre, "exec_out", gate, "open")));
+
+        // Chaîne 2 : le traverse.
+        UUID entre = add(StandardEvents.PLAYER_JOIN.id().toString());
+        apply(new EditOperation.AddLink(new Link(entre, "exec_out", gate, "enter")));
+        UUID apres = varSet("passe", 1);
+        apply(new EditOperation.AddLink(new Link(gate, "exit", apres, "exec_in")));
+
+        VarStore vars = VarStore.inMemory();
+        // Avant ouverture : rien ne passe.
+        assertInstanceOf(ExecResult.Done.class, compileAndRun(entre, vars));
+        assertNull(vars.get(VarScope.GRAPH, "passe"));
+
+        // On ouvre, puis on retraverse.
+        assertInstanceOf(ExecResult.Done.class, compileAndRun(ouvre, vars));
+        assertInstanceOf(ExecResult.Done.class, compileAndRun(entre, vars));
+        assertEquals(1.0, vars.get(VarScope.GRAPH, "passe"));
+    }
+
+    @Test
+    void unPortailRefermeBloqueANouveau() {
+        declareVar("passe");
+        UUID gate = add("flow/gate");
+        UUID ouvre = add(StandardEvents.SERVER_TICK.id().toString());
+        apply(new EditOperation.AddLink(new Link(ouvre, "exec_out", gate, "open")));
+        UUID ferme = add(StandardEvents.PLAYER_QUIT.id().toString());
+        apply(new EditOperation.AddLink(new Link(ferme, "exec_out", gate, "close")));
+        UUID entre = add(StandardEvents.PLAYER_JOIN.id().toString());
+        apply(new EditOperation.AddLink(new Link(entre, "exec_out", gate, "enter")));
+        UUID apres = varSet("passe", 1);
+        apply(new EditOperation.AddLink(new Link(gate, "exit", apres, "exec_in")));
+
+        VarStore vars = VarStore.inMemory();
+        compileAndRun(ouvre, vars);
+        compileAndRun(entre, vars);
+        assertEquals(1.0, vars.get(VarScope.GRAPH, "passe"));
+
+        vars.set(VarScope.GRAPH, "passe", null);
+        compileAndRun(ferme, vars);
+        compileAndRun(entre, vars);
+        assertNull(vars.get(VarScope.GRAPH, "passe"), "refermé : plus rien ne passe");
+    }
+
     @Test
     void switchAiguilleVersLaBonneBranche() {
         declareVar("chemin");
