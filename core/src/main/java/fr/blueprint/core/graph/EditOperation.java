@@ -21,7 +21,18 @@ import java.util.UUID;
  * calculée pendant l'application (l'état d'avant est capturé au bon moment).
  * L'encodage réseau ({@code encode()}) arrive avec les codecs de la story 1.4.
  */
-public sealed interface EditOperation {
+public sealed interface EditOperation permits
+        EditOperation.AddNode, EditOperation.RemoveNode, EditOperation.RestoreNode,
+        EditOperation.MoveNode, EditOperation.SetLiteral, EditOperation.SetConfig,
+        EditOperation.AddLink, EditOperation.RemoveLink, EditOperation.RestoreLink,
+        EditOperation.AddVariable, EditOperation.RemoveVariable,
+        EditOperation.RenameVariable, EditOperation.RetypeVariable,
+        EditOperation.SetScope, EditOperation.SetMeta,
+        EditOperation.AddComment, EditOperation.RemoveComment, EditOperation.EditComment,
+        // Écrans (épic 10) : rangés dans ScreenOps, ce fichier en porte déjà dix-huit.
+        ScreenOps.AddScreen, ScreenOps.RemoveScreen, ScreenOps.SetScreen,
+        ScreenOps.AddElement, ScreenOps.RemoveElement, ScreenOps.SetElement,
+        ScreenOps.RenameElement, ScreenOps.ReorderElement {
 
     /** Refus (le graphe n'a pas bougé) ou succès porteur de l'inverse. */
     record Result(@Nullable Diagnostic refusal, @Nullable EditOperation inverse) {

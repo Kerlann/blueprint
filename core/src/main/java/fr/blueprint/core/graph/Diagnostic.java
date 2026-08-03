@@ -24,6 +24,11 @@ public record Diagnostic(DiagnosticCode code, Severity severity, Target target, 
         record VariableTarget(String name) implements Target {}
 
         record GraphTarget() implements Target {}
+
+        /** Un élément d'écran : l'éditeur y recentre le concepteur, pas le canevas. */
+        record ElementTarget(String screen, String element) implements Target {}
+
+        record ScreenTarget(String screen) implements Target {}
     }
 
     public static Diagnostic error(DiagnosticCode code, Target target, Object... args) {
@@ -48,6 +53,14 @@ public record Diagnostic(DiagnosticCode code, Severity severity, Target target, 
 
     public static Target graph() {
         return new Target.GraphTarget();
+    }
+
+    public static Target element(String screen, String element) {
+        return new Target.ElementTarget(screen, element);
+    }
+
+    public static Target screen(String screen) {
+        return new Target.ScreenTarget(screen);
     }
 
     public String translationKey() {
