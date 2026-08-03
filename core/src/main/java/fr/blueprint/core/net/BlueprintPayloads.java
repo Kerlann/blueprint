@@ -386,6 +386,65 @@ public final class BlueprintPayloads {
     }
 
     /**
+     * C2S : une interaction <b>portant une valeur</b> — la ligne cliquée d'une liste,
+     * le texte d'une saisie, la position d'un curseur, l'état d'une case (story 10.8).
+     *
+     * <p>Un second paquet plutôt qu'un {@link ScreenInteraction} élargi : le clic simple
+     * est de loin le plus fréquent, et lui faire porter trois champs vides à chaque
+     * bouton pressé serait payer pour ce qui ne sert presque jamais.
+     *
+     * <p>Le serveur ne croit <b>rien</b> de ce paquet non plus (FR52). Il rejoue le type
+     * de l'élément, le filtre et la longueur du champ, et les bornes du curseur : un
+     * client modifié qui envoie dix mille caractères dans un champ limité à seize est
+     * <b>ignoré</b>, jamais tronqué — tronquer laisserait croire à une saisie que le
+     * joueur n'a pas faite.
+     */
+    public record ScreenValue(Identifier blueprint, String screen, String element,
+                              int instance, int index, String text, double number,
+                              boolean flag) implements CustomPacketPayload {
+        public static final Type<ScreenValue> TYPE = new Type<>(id("screen_value"));
+        public static final StreamCodec<ByteBuf, ScreenValue> CODEC =
+                StreamCodec.of(ScreenValue::write, ScreenValue::read);
+
+        // À la main plutôt que par composite : celui-ci s'arrête à huit champs, et il en
+        // faut huit ici — la limite serait atteinte au premier ajout.
+        private static void write(ByteBuf buffer, ScreenValue value) {
+            Identifier.STREAM_CODEC.encode(buffer, value.blueprint());
+            ByteBufCodecs.stringUtf8(MAX_NAME).encode(buffer, value.screen());
+            ByteBufCodecs.stringUtf8(MAX_NAME).encode(buffer, value.element());
+            ByteBufCodecs.VAR_INT.encode(buffer, value.instance());
+            ByteBufCodecs.VAR_INT.encode(buffer, value.index());
+            ByteBufCodecs.stringUtf8(MAX_VALUE_TEXT).encode(buffer, value.text());
+            ByteBufCodecs.DOUBLE.encode(buffer, value.number());
+            ByteBufCodecs.BOOL.encode(buffer, value.flag());
+        }
+
+        private static ScreenValue read(ByteBuf buffer) {
+            return new ScreenValue(
+                    Identifier.STREAM_CODEC.decode(buffer),
+                    ByteBufCodecs.stringUtf8(MAX_NAME).decode(buffer),
+                    ByteBufCodecs.stringUtf8(MAX_NAME).decode(buffer),
+                    ByteBufCodecs.VAR_INT.decode(buffer),
+                    ByteBufCodecs.VAR_INT.decode(buffer),
+                    ByteBufCodecs.stringUtf8(MAX_VALUE_TEXT).decode(buffer),
+                    ByteBufCodecs.DOUBLE.decode(buffer),
+                    ByteBufCodecs.BOOL.decode(buffer));
+        }
+
+        @Override
+        public Type<ScreenValue> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * Longueur maximale d'un texte de saisie <b>sur le fil</b>. Le décodeur s'arrête là ;
+     * le filtre de l'élément, plus strict, s'applique ensuite côté serveur.
+     */
+    public static final int MAX_VALUE_TEXT =
+            fr.blueprint.core.graph.screen.ElementOptions.MAX_INPUT_LENGTH;
+
+    /**
      * S2C : les modifications d'un tick, <b>en une seule trame</b> (AC3b). Un graphe qui
      * rafraîchit l'or, le niveau et une barre produit un paquet, pas trois.
      *

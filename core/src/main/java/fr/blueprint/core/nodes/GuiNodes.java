@@ -61,6 +61,45 @@ public final class GuiNodes {
                 (screen, element, ctx) -> ScreenUpdate.enabled(screen, element, ctx.in("enabled")));
         modifier(r, "set_progress", "value", PinTypes.DOUBLE, 0.0,
                 (screen, element, ctx) -> ScreenUpdate.progress(screen, element, ctx.in("value")));
+
+        // Les éléments riches (10.8). Les mêmes deux variantes, par la même fabrique :
+        // un tableau de scores se remplit chez vingt joueurs sans boucle for_each.
+        modifier(r, NodeCategories.GUI_RICH, "set_lines", "lines", PinTypes.listOf(PinTypes.STRING), java.util.List.of(),
+                (screen, element, ctx) -> ScreenUpdate.lines(screen, element,
+                        linesOf(ctx.in("lines"))));
+        modifier(r, NodeCategories.GUI_RICH, "set_item", "item", PinTypes.ITEMSTACK, null,
+                (screen, element, ctx) -> itemUpdate(screen, element, ctx.in("item")));
+        modifier(r, NodeCategories.GUI_RICH, "set_value", "value", PinTypes.DOUBLE, 0.0,
+                (screen, element, ctx) -> ScreenUpdate.value(screen, element,
+                        ctx.in("value"), ((Number) ctx.<Object>in("value")).doubleValue() != 0, ""));
+        modifier(r, NodeCategories.GUI_RICH, "set_input", "text", PinTypes.STRING, "",
+                (screen, element, ctx) -> ScreenUpdate.value(screen, element, 0, false,
+                        String.valueOf(ctx.<Object>in("text"))));
+    }
+
+    /** Une liste de n'importe quoi devient une liste de lignes : rien n'est jeté. */
+    private static java.util.List<String> linesOf(Object raw) {
+        if (!(raw instanceof java.util.List<?> list)) {
+            return java.util.List.of();
+        }
+        java.util.List<String> out = new java.util.ArrayList<>(list.size());
+        for (Object value : list) {
+            // Un saut de ligne dans une entrée couperait la liste en deux au décodage :
+            // il est remplacé plutôt que d'inventer un second séparateur.
+            out.add(String.valueOf(value).replace('\n', ' '));
+        }
+        return out;
+    }
+
+    private static ScreenUpdate itemUpdate(String screen, String element, Object raw) {
+        if (raw instanceof net.minecraft.world.item.ItemStack stack && !stack.isEmpty()) {
+            return ScreenUpdate.item(screen, element,
+                    net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()),
+                    stack.getCount());
+        }
+        // Un objet vide VIDE l'emplacement : c'est le seul moyen de le faire, et
+        // l'inverse — ignorer — laisserait l'ancien objet affiché pour toujours.
+        return ScreenUpdate.item(screen, element, null, 0);
     }
 
     /**
@@ -85,6 +124,28 @@ public final class GuiNodes {
                 .out("element", PinTypes.STRING)
                 .action(ctx -> relayOutputs(ctx, event))
                 .build());
+
+        // Les événements d'éléments riches (10.8) : même raison EXACTEMENT que le clic.
+        // Ils portent le nom écouté en littéral, donc la synthèse ne sait pas les
+        // produire — et sans ce littéral, launchGuiEvent ne saurait pas qui réveiller,
+        // si bien que chaque frappe dans un champ réveillerait tous les écouteurs de
+        // tous les écrans du serveur.
+        for (var rich : java.util.List.of(
+                fr.blueprint.core.event.StandardEvents.GUI_LIST_CLICKED,
+                fr.blueprint.core.event.StandardEvents.GUI_INPUT_CHANGED,
+                fr.blueprint.core.event.StandardEvents.GUI_VALUE_CHANGED)) {
+            var builder = NodeType.builder(rich.id())
+                    .category(NodeCategories.GUI)
+                    .entryPoint()
+                    .titleKey(rich.titleKey())
+                    .execOut("exec_out")
+                    .in("element", PinTypes.STRING, "");
+            for (var out : rich.outputs()) {
+                builder = builder.out(out.name(), out.type());
+            }
+            var richEvent = rich;
+            r.register(builder.action(ctx -> relayOutputs(ctx, richEvent)).build());
+        }
 
         // Ouverture et fermeture : enregistrés à la main eux aussi, pour la CATÉGORIE.
         // Synthétisés, ils atterriraient dans « event/player » — qui portait déjà
@@ -240,15 +301,27 @@ public final class GuiNodes {
     private static void modifier(NodeRegistry r, String name, String pin,
                                  fr.blueprint.api.pin.PinType type, Object defaultValue,
                                  Builder build) {
+        modifier(r, NodeCategories.GUI_UPDATE, name, pin, type, defaultValue, build);
+    }
+
+    private static void modifier(NodeRegistry r, fr.blueprint.api.node.NodeCategory category,
+                                 String name, String pin,
+                                 fr.blueprint.api.pin.PinType type, Object defaultValue,
+                                 Builder build) {
+        // Un défaut nul signifie « ce pin se CÂBLE, il ne se tape pas ». Un ItemStack
+        // n'a pas d'écriture littérale, et lui en inventer une faisait tomber
+        // l'enregistrement de tout le registre à l'initialisation.
+        java.util.function.UnaryOperator<NodeType.Builder> withPin =
+                builder -> defaultValue == null
+                        ? builder.in(pin, type) : builder.in(pin, type, defaultValue);
         // « screen » vide = l'écran modal ouvert. Depuis la 10.9, plusieurs surfaces
         // coexistent (un modal et des HUD) : une modification doit donc dire LAQUELLE
         // elle vise, sinon deux écrans portant un élément « or » se disputeraient.
-        r.register(NodeType.builder(id("gui/" + name))
-                .category(NodeCategories.GUI_UPDATE).exec().permission(Permission.GAMEPLAY)
+        r.register(withPin.apply(NodeType.builder(id("gui/" + name))
+                .category(category).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("screen", PinTypes.STRING, "")
-                .in("element", PinTypes.STRING, "")
-                .in(pin, type, defaultValue)
+                .in("element", PinTypes.STRING, ""))
                 .action(ctx -> {
                     if (!(ctx.in("player") instanceof ServerPlayer player)) {
                         ctx.fail(Component.translatable("blueprint.fault.gui_no_player"));
@@ -264,11 +337,10 @@ public final class GuiNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("gui/" + name + "_all"))
-                .category(NodeCategories.GUI_UPDATE).exec().permission(Permission.GAMEPLAY)
+        r.register(withPin.apply(NodeType.builder(id("gui/" + name + "_all"))
+                .category(category).exec().permission(Permission.GAMEPLAY)
                 .in("screen", PinTypes.STRING, "")
-                .in("element", PinTypes.STRING, "")
-                .in(pin, type, defaultValue)
+                .in("element", PinTypes.STRING, ""))
                 .action(ctx -> {
                     String element = String.valueOf(ctx.<Object>in("element"));
                     if (element.isBlank()) {

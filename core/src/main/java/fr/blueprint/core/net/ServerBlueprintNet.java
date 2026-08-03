@@ -49,6 +49,7 @@ public final class ServerBlueprintNet {
         c2s.registerLarge(BlueprintPayloads.SaveRequest.TYPE, BlueprintPayloads.SaveRequest.CODEC,
                 CHUNK_BYTES);
         c2s.register(BlueprintPayloads.SetEnabled.TYPE, BlueprintPayloads.SetEnabled.CODEC);
+        c2s.register(BlueprintPayloads.ScreenValue.TYPE, BlueprintPayloads.ScreenValue.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ListRequest.TYPE,
                 (payload, context) -> {
@@ -249,6 +250,9 @@ public final class ServerBlueprintNet {
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenInteraction.TYPE,
                 (payload, context) -> receiveClick(context.player(), payload));
 
+        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenValue.TYPE,
+                (payload, context) -> receiveValue(context.player(), payload));
+
         // Un joueur parti ne garde ni quota ni écran fantôme (10.3, AC5).
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
@@ -327,6 +331,103 @@ public final class ServerBlueprintNet {
         // répartiteur générique réveillerait tous les nœuds gui_clicked du serveur.
         BlueprintMod.emitGuiClick(server, click.blueprint(), player,
                 click.screen(), click.element());
+    }
+
+    /**
+     * Une interaction PORTANT UNE VALEUR : ligne de liste, saisie, curseur, case
+     * (story 10.8). Elle rejoue les mêmes cinq vérifications que le clic — par le même
+     * code, jamais par une copie : deux chemins de validation finiraient par diverger, et
+     * c'est le plus laxiste des deux qui déciderait.
+     *
+     * <p>Puis elle en ajoute une sixième, propre à la valeur : le type de l'élément doit
+     * accepter ce qu'on lui envoie, et la valeur elle-même doit tenir dans ce que
+     * l'élément déclare. Un client modifié qui envoie dix mille caractères dans un champ
+     * limité à seize est <b>ignoré</b>, jamais tronqué.
+     */
+    public static int receiveValue(ServerPlayer player,
+                                   BlueprintPayloads.ScreenValue value) {
+        var resolved = resolve(player, value.blueprint(), value.screen(), value.element(),
+                value.instance());
+        if (resolved == null) {
+            return 0;
+        }
+        var element = resolved.element();
+        var options = element.options();
+        net.minecraft.server.MinecraftServer server = player.level().getServer();
+
+        return switch (element.kind()) {
+            case LIST -> {
+                // L'indice doit exister DANS ce que le serveur a envoyé. Le client peut
+                // annoncer la ligne 900 d'une liste qui en compte trois.
+                var lines = SCREENS.linesOf(player.getUUID(), value.screen(), value.element());
+                if (value.index() < 0 || value.index() >= lines.size()) {
+                    yield 0;
+                }
+                yield BlueprintMod.emitGuiListClick(server, value.blueprint(), player,
+                        value.screen(), value.element(), value.index(),
+                        lines.get(value.index()));
+            }
+            case INPUT -> {
+                if (!options.accepts(value.text())) {
+                    BlueprintMod.LOGGER.warn(
+                            "Saisie refusée de {} sur « {} » : {} caractères, filtre {}",
+                            player.getGameProfile().name(), value.element(),
+                            value.text().length(), options.filter());
+                    yield 0;
+                }
+                yield BlueprintMod.emitGuiInputChanged(server, value.blueprint(), player,
+                        value.screen(), value.element(), value.text(), value.flag());
+            }
+            case TOGGLE -> BlueprintMod.emitGuiValueChanged(server, value.blueprint(), player,
+                    value.screen(), value.element(), value.flag() ? 1 : 0, value.flag());
+            case SLIDER -> {
+                // La valeur est RAMENÉE dans la plage et alignée sur le pas par le
+                // serveur : le client propose une position, il ne décide pas du nombre.
+                double snapped = options.snap(value.number());
+                yield BlueprintMod.emitGuiValueChanged(server, value.blueprint(), player,
+                        value.screen(), value.element(), snapped, snapped != options.min());
+            }
+            // Un élément qui n'accepte pas de valeur n'en reçoit pas : envoyer une
+            // saisie sur une étiquette est le genre de paquet qu'un client modifié
+            // essaie en premier.
+            default -> 0;
+        };
+    }
+
+    /** L'élément visé par une interaction, une fois les cinq vérifications passées. */
+    private record Resolved(Blueprint blueprint,
+                            fr.blueprint.core.graph.screen.Screen screen,
+                            fr.blueprint.core.graph.screen.ScreenElement element) {
+    }
+
+    private static @org.jetbrains.annotations.Nullable Resolved resolve(
+            ServerPlayer player, Identifier blueprintId, String screenName,
+            String elementName, int instance) {
+        if (!CLICKS.allow(player.getUUID())) {
+            BlueprintMod.LOGGER.warn("Interactions d'écran de {} au-delà du quota — ignorées",
+                    player.getGameProfile().name());
+            return null;
+        }
+        var open = SCREENS.of(player.getUUID());
+        if (open == null || !open.blueprint().equals(blueprintId)
+                || !open.screen().equals(screenName) || open.instance() != instance) {
+            return null;
+        }
+        net.minecraft.server.MinecraftServer server = player.level().getServer();
+        if (server == null) {
+            return null;
+        }
+        Blueprint bp = BlueprintManager.of(server).get(blueprintId).orElse(null);
+        var screen = bp == null || !bp.enabled() ? null : bp.screen(screenName);
+        if (screen == null) {
+            return null;
+        }
+        var element = screen.element(elementName);
+        if (element == null || !element.kind().interactive() || !element.enabled()
+                || !visibleThroughParents(screen, element)) {
+            return null;
+        }
+        return new Resolved(bp, screen, element);
     }
 
     /** Visible, et tous ses ancêtres aussi. Résistant aux cycles d'une sauvegarde abîmée. */

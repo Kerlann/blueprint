@@ -2,6 +2,7 @@ package fr.blueprint.client.screen;
 
 import fr.blueprint.core.graph.screen.ElementBinding;
 import fr.blueprint.core.graph.screen.ElementKind;
+import fr.blueprint.core.graph.screen.ElementOptions;
 import fr.blueprint.core.graph.screen.Extent;
 import fr.blueprint.core.graph.screen.LayoutSpec;
 import fr.blueprint.core.graph.screen.Screen;
@@ -47,7 +48,7 @@ class ScreenRenderBenchTest {
                     Extent.percent(0.8, 200, 600), Extent.percent(0.8, 120, 400),
                     ScreenText.EMPTY, null,
                     fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "",
-                    LayoutSpec.ABSOLUTE, ElementBinding.NONE, page == 0, true));
+                    LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, page == 0, true));
             for (int i = 0; i < 15; i++) {
                 elements.add(new ScreenElement("p" + page + "_e" + i, ElementKind.BUTTON,
                         "page" + page,
@@ -55,7 +56,7 @@ class ScreenRenderBenchTest {
                         i % 5 * 12, i * 6,
                         Extent.percent(0.3, 40, 120), Extent.of(16),
                         ScreenText.literal("Bouton " + i), null,
-                        fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, true, true));
+                        fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true));
             }
         }
         return new Screen("dense", false, elements);

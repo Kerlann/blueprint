@@ -84,7 +84,9 @@ class DesignerLocalizationTest {
                 new Family("blueprint.designer.cross.",
                         fr.blueprint.core.graph.screen.LayoutSpec.Cross.values()),
                 new Family("blueprint.designer.bind.",
-                        fr.blueprint.core.graph.screen.ElementBinding.Target.values()))) {
+                        fr.blueprint.core.graph.screen.ElementBinding.Target.values()),
+                new Family("blueprint.designer.filter.",
+                        fr.blueprint.core.graph.screen.ElementOptions.InputFilter.values()))) {
             for (Enum<?> value : family.values()) {
                 String key = family.prefix() + value.name().toLowerCase(Locale.ROOT);
                 if (!english.has(key)) {

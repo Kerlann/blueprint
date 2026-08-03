@@ -472,6 +472,58 @@ public class BlueprintMod implements ModInitializer {
                         fr.blueprint.core.event.StandardEvents.GUI_ELEMENT_CLICKED, values));
     }
 
+    /**
+     * Les événements d'éléments riches (10.8). Une seule fabrique pour les trois : elles
+     * ne diffèrent que par les sorties, et trois méthodes recopiées auraient fini par
+     * diverger sur le filtrage — qui est la seule partie délicate.
+     */
+    private static int emitGuiEvent(net.minecraft.server.MinecraftServer server,
+                                    net.minecraft.resources.Identifier blueprint,
+                                    fr.blueprint.api.event.EventType event,
+                                    net.minecraft.server.level.ServerPlayer player,
+                                    String screen, String element,
+                                    java.util.Map<String, Object> extra) {
+        var bridge = BRIDGES.get(server);
+        if (bridge == null) {
+            return 0;
+        }
+        java.util.Map<String, Object> values = new java.util.HashMap<>(extra);
+        values.put("player", player);
+        values.put("screen", screen);
+        values.put("element", element);
+        return bridge.launchGuiEvent(blueprint, event, element,
+                new fr.blueprint.core.event.TriggerContextImpl(event, values));
+    }
+
+    public static int emitGuiListClick(net.minecraft.server.MinecraftServer server,
+                                       net.minecraft.resources.Identifier blueprint,
+                                       net.minecraft.server.level.ServerPlayer player,
+                                       String screen, String element, int index, String line) {
+        return emitGuiEvent(server, blueprint,
+                fr.blueprint.core.event.StandardEvents.GUI_LIST_CLICKED, player, screen, element,
+                java.util.Map.of("index", index, "line", line));
+    }
+
+    public static int emitGuiInputChanged(net.minecraft.server.MinecraftServer server,
+                                          net.minecraft.resources.Identifier blueprint,
+                                          net.minecraft.server.level.ServerPlayer player,
+                                          String screen, String element,
+                                          String text, boolean submitted) {
+        return emitGuiEvent(server, blueprint,
+                fr.blueprint.core.event.StandardEvents.GUI_INPUT_CHANGED, player, screen, element,
+                java.util.Map.of("text", text, "submitted", submitted));
+    }
+
+    public static int emitGuiValueChanged(net.minecraft.server.MinecraftServer server,
+                                          net.minecraft.resources.Identifier blueprint,
+                                          net.minecraft.server.level.ServerPlayer player,
+                                          String screen, String element,
+                                          double value, boolean checked) {
+        return emitGuiEvent(server, blueprint,
+                fr.blueprint.core.event.StandardEvents.GUI_VALUE_CHANGED, player, screen, element,
+                java.util.Map.of("value", value, "checked", checked));
+    }
+
     /** Le nombre de blueprints qui écoutent ce signal — pour le retour de la commande. */
     public static int signalListeners(net.minecraft.server.MinecraftServer server, String name) {
         var bridge = BRIDGES.get(server);

@@ -87,9 +87,28 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 case VISIBLE -> element.withVisible(update.flag());
                 case ENABLED -> element.withEnabled(update.flag());
                 case PROGRESS -> element;   // la valeur vit à part : voir progress()
+                // Idem pour les éléments riches (10.8) : données d'exécution, pas
+                // propriétés du blueprint.
+                case LINES, ITEM, VALUE -> element;
             });
-            if (update.kind() == fr.blueprint.core.graph.screen.ScreenUpdate.Kind.PROGRESS) {
-                progress.put(update.element(), update.number());
+            switch (update.kind()) {
+                case PROGRESS -> progress.put(update.element(), update.number());
+                case LINES -> {
+                    lines.put(update.element(), update.linesValue());
+                    // Les lignes ont changé : un décalage gardé pointerait dans le vide,
+                    // et le joueur verrait une liste vide qu'il devrait remonter à la
+                    // main pour découvrir qu'elle est pleine.
+                    scroll.remove(update.element());
+                }
+                case ITEM -> items.put(update.element(), itemOf(update));
+                case VALUE -> {
+                    values.put(update.element(), update.number());
+                    checks.put(update.element(), update.flag());
+                    if (!update.text().isEmpty()) {
+                        inputs.put(update.element(), update.text());
+                    }
+                }
+                default -> { }
             }
         }
         // Le modèle a changé : la mise en page gardée ne vaut plus. C'est le SEUL autre
@@ -104,6 +123,31 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      * sauvegarde et l'export texte, où elle n'a rien à faire.
      */
     private final java.util.Map<String, Double> progress = new java.util.HashMap<>();
+
+    // Les valeurs des éléments riches (10.8), hors du modèle pour la même raison que le
+    // remplissage des barres : ce sont des données d'exécution, propres à ce joueur et à
+    // cette ouverture.
+    private final java.util.Map<String, java.util.List<String>> lines = new java.util.HashMap<>();
+    private final java.util.Map<String, Integer> scroll = new java.util.HashMap<>();
+    private final java.util.Map<String, String> inputs = new java.util.HashMap<>();
+    private final java.util.Map<String, Double> values = new java.util.HashMap<>();
+    private final java.util.Map<String, Boolean> checks = new java.util.HashMap<>();
+    private final java.util.Map<String, net.minecraft.world.item.ItemStack> items =
+            new java.util.HashMap<>();
+    /** Le champ de saisie actif : une seule frappe à la fois, comme partout. */
+    private @Nullable String editing;
+
+    private static net.minecraft.world.item.ItemStack itemOf(
+            fr.blueprint.core.graph.screen.ScreenUpdate update) {
+        var id = fr.blueprint.core.graph.screen.PackRef.texture(update.text());
+        if (update.text().isEmpty() || id == null) {
+            return net.minecraft.world.item.ItemStack.EMPTY;
+        }
+        var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.getOptional(id);
+        return item.map(value -> new net.minecraft.world.item.ItemStack(value,
+                Math.max(1, (int) update.number()))).orElse(
+                        net.minecraft.world.item.ItemStack.EMPTY);
+    }
 
     /** Ce que le peintre a besoin de savoir : textures absentes, survol, pression. */
     protected ScreenPainter.Visuals visuals(int mouseX, int mouseY) {
@@ -135,6 +179,41 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             @Override
             public double progress(String element) {
                 return progress.getOrDefault(element, 0.0);
+            }
+
+            @Override
+            public java.util.List<String> lines(String element) {
+                return lines.getOrDefault(element, java.util.List.of());
+            }
+
+            @Override
+            public int scroll(String element) {
+                return scroll.getOrDefault(element, 0);
+            }
+
+            @Override
+            public String input(String element) {
+                return inputs.getOrDefault(element, "");
+            }
+
+            @Override
+            public boolean focused(String element) {
+                return element.equals(editing);
+            }
+
+            @Override
+            public boolean checked(String element) {
+                return checks.getOrDefault(element, false);
+            }
+
+            @Override
+            public double value(String element) {
+                return values.getOrDefault(element, 0.0);
+            }
+
+            @Override
+            public net.minecraft.world.item.ItemStack item(String element) {
+                return items.get(element);
             }
         };
     }
@@ -170,9 +249,117 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      * <p>Rien n'est consommé quand l'écran n'a aucun élément atteignable : le joueur
      * s'attend alors à ce que la touche fasse ce qu'elle fait partout ailleurs.
      */
+    /** Une interaction porteuse de valeur, remontée telle quelle au serveur (10.8). */
+    public record Interaction(String element, int index, String text, double number,
+                              boolean flag) {
+    }
+
+    /** Prévenu quand un élément riche produit une valeur ; {@code null} hors du jeu. */
+    private @Nullable java.util.function.Consumer<Interaction> onValue;
+
+    public void setOnValue(java.util.function.Consumer<Interaction> consumer) {
+        this.onValue = consumer;
+    }
+
+    /** L'indice de la ligne sous le curseur, découpage et défilement compris. */
+    private int listIndexAt(fr.blueprint.core.graph.screen.ScreenElement element,
+                            fr.blueprint.core.graph.screen.ScreenLayout.@Nullable Rect rect,
+                            double mouseY) {
+        if (rect == null) {
+            return -1;
+        }
+        int inset = element.style().padding();
+        var view = viewOf(element, rect);
+        return view.indexAt(mouseY - rect.y() - inset, element.options().rowHeight());
+    }
+
+    private fr.blueprint.core.graph.screen.ListView viewOf(
+            fr.blueprint.core.graph.screen.ScreenElement element,
+            fr.blueprint.core.graph.screen.ScreenLayout.Rect rect) {
+        int inset = element.style().padding();
+        return new fr.blueprint.core.graph.screen.ListView(
+                lines.getOrDefault(element.name(), java.util.List.of()).size(),
+                fr.blueprint.core.graph.screen.ListView.rowsThatFit(
+                        rect.height() - 2 * inset, element.options().rowHeight()),
+                scroll.getOrDefault(element.name(), 0));
+    }
+
+    private double sliderValueAt(fr.blueprint.core.graph.screen.ScreenElement element,
+                                 fr.blueprint.core.graph.screen.ScreenLayout.@Nullable Rect rect,
+                                 double mouseX) {
+        if (rect == null || rect.width() <= 0) {
+            return element.options().min();
+        }
+        int inset = Math.max(2, element.style().padding());
+        double fraction = (mouseX - rect.x() - inset) / Math.max(1, rect.width() - 2 * inset);
+        return element.options().valueAt(fraction);
+    }
+
+    /** La molette fait défiler la liste sous le curseur, et elle seule. */
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double hAmount, double vAmount) {
+        String name = elementAt(mouseX, mouseY);
+        var element = name == null ? null : model.element(name);
+        if (element != null
+                && element.kind() == fr.blueprint.core.graph.screen.ElementKind.LIST) {
+            var rect = layout().get(name);
+            if (rect != null) {
+                var scrolled = viewOf(element, rect).scrolledBy((int) -Math.signum(vAmount));
+                scroll.put(name, scrolled.offset());
+                return true;
+            }
+        }
+        return super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
+    }
+
+    @Override
+    public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
+        var element = editing == null ? null : model.element(editing);
+        if (element == null) {
+            return super.charTyped(event);
+        }
+        String next = inputs.getOrDefault(editing, "") + event.codepointAsString();
+        // Le MÊME filtre que le serveur appliquera : refuser ici évite au joueur de
+        // taper quelque chose qui sera silencieusement rejeté à l'envoi.
+        if (element.options().accepts(next)) {
+            inputs.put(editing, next);
+            sendInput(editing, next, false);
+        }
+        return true;
+    }
+
+    private void sendInput(String element, String text, boolean submitted) {
+        if (onValue != null) {
+            onValue.accept(new Interaction(element, 0, text, 0, submitted));
+        }
+    }
+
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         int key = event.key();
+        if (editing != null) {
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE) {
+                String current = inputs.getOrDefault(editing, "");
+                if (!current.isEmpty()) {
+                    String next = current.substring(0, current.length() - 1);
+                    inputs.put(editing, next);
+                    sendInput(editing, next, false);
+                }
+                return true;
+            }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
+                    || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER) {
+                sendInput(editing, inputs.getOrDefault(editing, ""), true);
+                editing = null;
+                return true;
+            }
+            // Échap RELÂCHE le champ avant de fermer l'écran : sortir du menu d'un coup
+            // ferait perdre la saisie sans que le joueur ait voulu quitter.
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+                editing = null;
+                return true;
+            }
+        }
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) {
             return focus.move(model, event.hasShiftDown() ? -1 : 1) != null;
         }
@@ -211,11 +398,45 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
         String was = pressed;
         pressed = null;
-        if (was != null && was.equals(elementAt(event.x(), event.y()))) {
-            onClick.accept(was);
-            return true;
+        if (was == null || !was.equals(elementAt(event.x(), event.y()))) {
+            return super.mouseReleased(event);
         }
-        return super.mouseReleased(event);
+        var element = model.element(was);
+        if (element != null && onValue != null) {
+            var rect = layout().get(was);
+            switch (element.kind()) {
+                case LIST -> {
+                    int index = listIndexAt(element, rect, event.y());
+                    if (index >= 0) {
+                        onValue.accept(new Interaction(was, index, "", 0, false));
+                    }
+                    return true;
+                }
+                case TOGGLE -> {
+                    boolean next = !checks.getOrDefault(was, false);
+                    checks.put(was, next);
+                    onValue.accept(new Interaction(was, 0, "", next ? 1 : 0, next));
+                    return true;
+                }
+                case SLIDER -> {
+                    double picked = sliderValueAt(element, rect, event.x());
+                    values.put(was, picked);
+                    onValue.accept(new Interaction(was, 0, "", picked, picked != 0));
+                    return true;
+                }
+                case INPUT -> {
+                    // Le focus se prend au clic, comme tout champ : c'est aussi ce qui
+                    // fait qu'un seul reçoit les frappes.
+                    editing = was;
+                    return true;
+                }
+                default -> {
+                }
+            }
+        }
+        editing = null;
+        onClick.accept(was);
+        return true;
     }
 
     @Override

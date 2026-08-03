@@ -383,6 +383,8 @@ public final class ScriptParser {
         LayoutSpec layout = LayoutSpec.ABSOLUTE;
         fr.blueprint.core.graph.screen.ElementBinding binding =
                 fr.blueprint.core.graph.screen.ElementBinding.NONE;
+        fr.blueprint.core.graph.screen.ElementOptions options =
+                fr.blueprint.core.graph.screen.ElementOptions.NONE;
         boolean visible = true;
         boolean enabled = true;
 
@@ -443,6 +445,7 @@ public final class ScriptParser {
                 case "disabled" -> enabled = false;
                 case "layout" -> layout = parseLayout();
                 case "bind" -> binding = parseBinding();
+                case "opts" -> options = parseOptions();
                 case "uses" -> {
                     expect("sym", "(");
                     styleName = expect("string", null).text();
@@ -455,7 +458,8 @@ public final class ScriptParser {
         }
         try {
             return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                    text, texture, style, styleName, layout, binding, visible, enabled);
+                    text, texture, style, styleName, layout, binding, options,
+                    visible, enabled);
         } catch (IllegalArgumentException e) {
             throw new ParseError(kindToken.line(), e.getMessage());
         }
@@ -536,6 +540,38 @@ public final class ScriptParser {
         }
         expect("sym", ")");
         return binding;
+    }
+
+    /**
+     * {@code @opts(placeholder: "Nom", maxLength: 16, filter: identifier)} — les réglages
+     * propres au type (10.8). Tous optionnels, chacun avec son défaut.
+     */
+    private fr.blueprint.core.graph.screen.ElementOptions parseOptions() {
+        expect("sym", "(");
+        var options = fr.blueprint.core.graph.screen.ElementOptions.NONE;
+        boolean first = true;
+        while (first || eat("sym", ",")) {
+            first = false;
+            Token key = expect("word", null);
+            expect("sym", ":");
+            options = switch (key.text()) {
+                case "placeholder" -> options.withPlaceholder(expect("string", null).text());
+                case "maxLength" -> options.withMaxLength((int) number(next()));
+                case "filter" -> options.withFilter(enumOf(
+                        fr.blueprint.core.graph.screen.ElementOptions.InputFilter.class,
+                        expect("word", null), "filtre de saisie"));
+                case "min" -> options.withRange(number(next()), options.max());
+                case "max" -> options.withRange(options.min(), number(next()));
+                case "step" -> options.withStep(number(next()));
+                case "rowHeight" -> options.withRowHeight(number(next()));
+                case "entity" -> options.withEntity(
+                        Identifier.tryParse(expect("string", null).text()));
+                default -> throw new ParseError(key.line(),
+                        "réglage inconnu « " + key.text() + " »");
+            };
+        }
+        expect("sym", ")");
+        return options;
     }
 
     /** {@code @layout(column, gap: 4, cross: stretch)} — tout est optionnel sauf le mode. */

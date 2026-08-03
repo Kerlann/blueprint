@@ -347,6 +347,113 @@ public final class BlueprintGameTests {
     }
 
     /**
+     * VERIFY-10.8 automatisé : une liste alimentée par le graphe, un clic sur la
+     * troisième ligne, et le graphe reçoit l'<b>indice 2</b>.
+     *
+     * <p>Puis les trois refus que seul un vrai serveur exerce : un indice qui n'existe
+     * pas, une saisie trop longue pour son champ, et une saisie qui viole son filtre. Ces
+     * trois-là sont ce qu'un client modifié tente en premier, et ils ne peuvent pas se
+     * vérifier ailleurs — le client, lui, ne les enverrait jamais.
+     */
+    @GameTest(maxTicks = 200)
+    public void aListReportsTheClickedIndexAndRefusesTheRest(GameTestHelper helper) {
+        Identifier blueprintId = id("gui_list");
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        Blueprint bp = new Blueprint(blueprintId, new fr.blueprint.core.graph.BlueprintMeta(
+                "", "", "1.0.0", fr.blueprint.api.node.Permission.GAMEPLAY));
+        fr.blueprint.core.graph.GraphLoader.addScreen(bp,
+                new fr.blueprint.core.graph.screen.Screen("boutique", false, java.util.List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of("articles",
+                                        fr.blueprint.core.graph.screen.ElementKind.LIST,
+                                        10, 10, 120, 60)
+                                .withOptions(fr.blueprint.core.graph.screen.ElementOptions
+                                        .list(12)),
+                        fr.blueprint.core.graph.screen.ScreenElement.of("pseudo",
+                                        fr.blueprint.core.graph.screen.ElementKind.INPUT,
+                                        10, 80, 120, 16)
+                                .withOptions(fr.blueprint.core.graph.screen.ElementOptions
+                                        .input("Nom", 8,
+                                                fr.blueprint.core.graph.screen.ElementOptions
+                                                        .InputFilter.IDENTIFIER)))));
+        // Deux nœuds d'événement qui ÉCOUTENT : sans eux, une interaction acceptée
+        // réveillerait zéro écouteur — indistinguable d'un refus.
+        UUID onLine = uuid(blueprintId + ":line");
+        apply(bp, new EditOperation.AddNode(onLine,
+                StandardEvents.GUI_LIST_CLICKED.id(), new Vec2d(0, 0)));
+        apply(bp, new EditOperation.SetLiteral(onLine, "element",
+                LiteralValue.of(PinTypes.STRING, "articles")));
+        UUID onInput = uuid(blueprintId + ":input");
+        apply(bp, new EditOperation.AddNode(onInput,
+                StandardEvents.GUI_INPUT_CHANGED.id(), new Vec2d(0, 200)));
+        apply(bp, new EditOperation.SetLiteral(onInput, "element",
+                LiteralValue.of(PinTypes.STRING, "pseudo")));
+
+        manager.adopt(bp);
+        manager.setEnabled(blueprintId, true);
+
+        var player = helper.makeMockServerPlayerInLevel();
+        helper.assertTrue(fr.blueprint.core.net.ServerBlueprintNet.openScreen(
+                        player, blueprintId, "boutique"),
+                Component.literal("l'écran « boutique » n'a pas pu être ouvert"));
+        var open = fr.blueprint.core.net.ServerBlueprintNet.screens().of(player.getUUID());
+
+        // Cliquer AVANT que la liste ait reçu ses lignes ne doit rien déclencher : le
+        // serveur ne connaît alors aucune entrée à rendre au graphe.
+        int before = clickLine(player, blueprintId, open.instance(), 0);
+        helper.assertTrue(before == 0, Component.literal(
+                "une liste vide a répondu à un clic (" + before + ")"));
+
+        // Le graphe remplit la liste ; les lignes ne sont retenues qu'une fois PARTIES.
+        fr.blueprint.core.net.ServerBlueprintNet.queueUpdate(player,
+                fr.blueprint.core.graph.screen.ScreenUpdate.lines("boutique", "articles",
+                        java.util.List.of("Pomme", "Epee", "Potion")));
+        fr.blueprint.core.net.ServerBlueprintNet.screens().drain(player.getUUID());
+
+        helper.assertTrue(clickLine(player, blueprintId, open.instance(), 2) > 0,
+                Component.literal("le clic sur la troisième ligne a été rejeté"));
+
+        // Un indice hors de ce que le serveur a envoyé : refusé. Un client peut annoncer
+        // la ligne 900 d'une liste qui en compte trois.
+        helper.assertTrue(clickLine(player, blueprintId, open.instance(), 900) == 0,
+                Component.literal("un indice inexistant a été accepté"));
+        helper.assertTrue(clickLine(player, blueprintId, open.instance(), -1) == 0,
+                Component.literal("un indice négatif a été accepté"));
+
+        // Saisie : trop longue, puis interdite par le filtre. Ni l'une ni l'autre ne
+        // doit passer — et surtout, aucune ne doit être TRONQUÉE pour passer.
+        helper.assertTrue(typeInto(player, blueprintId, open.instance(),
+                "x".repeat(64)) == 0, Component.literal("une saisie trop longue a été acceptée"));
+        helper.assertTrue(typeInto(player, blueprintId, open.instance(),
+                "un nom") == 0, Component.literal("une saisie hors filtre a été acceptée"));
+        helper.assertTrue(typeInto(player, blueprintId, open.instance(),
+                "kerlann") > 0, Component.literal("une saisie valide a été rejetée"));
+
+        helper.succeedWhen(() -> cleanup(helper, blueprintId));
+    }
+
+    /**
+     * Rend le nombre d'écouteurs réveillés. Zéro signifie « refusé » : le blueprint
+     * déclare bien un nœud qui écoute cette liste, donc une interaction acceptée en
+     * réveille toujours au moins un.
+     */
+    private static int clickLine(net.minecraft.server.level.ServerPlayer player,
+                                 Identifier blueprintId, int instance, int index) {
+        return fr.blueprint.core.net.ServerBlueprintNet.receiveValue(player,
+                new fr.blueprint.core.net.BlueprintPayloads.ScreenValue(
+                        blueprintId, "boutique", "articles", instance, index, "", 0, false));
+    }
+
+    private static int typeInto(net.minecraft.server.level.ServerPlayer player,
+                                Identifier blueprintId, int instance, String text) {
+        return fr.blueprint.core.net.ServerBlueprintNet.receiveValue(player,
+                new fr.blueprint.core.net.BlueprintPayloads.ScreenValue(
+                        blueprintId, "boutique", "pseudo", instance, 0, text, 0, false));
+    }
+
+    /**
      * VERIFY-10.7 automatisé : une étiquette liée à une variable suit sa valeur quand le
      * graphe demande un rafraîchissement — et <b>rien ne circule</b> tant qu'il ne le
      * demande pas.

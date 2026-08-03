@@ -1,0 +1,64 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.8"
+story_title: "Éléments riches — liste, saisie, emplacement"
+gate: "PASS"
+status_reason: "Six types d'éléments, trois événements et huit modificateurs. Le défilement rend l'indice de l'ENTRÉE et non le rang à l'écran, le filtre de saisie est la même fonction des deux côtés, et un texte trop long est ignoré plutôt que tronqué. Le gametest exerce les trois refus qu'un client modifié tente en premier. Une limite assumée : l'aperçu d'entité dessine un cadre vide."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "RICH-001"
+    severity: high
+    finding: "Le serveur ne pouvait pas vérifier l'indice d'une ligne cliquée : il ne savait pas ce qu'il avait envoyé. Un client pouvait annoncer la ligne 900 d'une liste qui en compte trois, et le graphe aurait reçu un indice qui n'a jamais été affiché"
+    suggested_action: "Corrigé — ScreenSessions retient les lignes de chaque liste, par joueur. Retenues au moment où elles PARTENT et non quand elles sont mises en file : une modification écartée par la comparaison n'a rien changé chez le client, et la retenir aurait décalé la mémoire de ce qu'il affiche. Le gametest exerce l'indice hors bornes et l'indice négatif"
+  - id: "RICH-002"
+    severity: high
+    finding: "modifier() exigeait une valeur littérale par défaut pour chaque pin. Un ItemStack n'en a pas d'écriture : lui en inventer une faisait tomber l'initialisation de TOUT le registre de nœuds, et donc chaque test qui le charge"
+    suggested_action: "Corrigé — un défaut nul signifie « ce pin se câble, il ne se tape pas ». Trouvé par DemoBlueprintTest, dont les sept cas ont échoué d'un coup sur un ExceptionInInitializerError"
+  - id: "RICH-003"
+    severity: medium
+    finding: "Les trois nouveaux événements auraient été synthétisés dans « event/player », qui portait déjà quinze nœuds — et surtout sans leur littéral « element », donc sans le filtrage. Chaque frappe dans un champ aurait réveillé tous les écouteurs de tous les écrans du serveur"
+    suggested_action: "Corrigé — enregistrés à la main dans la catégorie GUI, avec le littéral, exactement comme le clic (10.4) et pour la même raison. Le garde-fou de catégorie a signalé le débordement"
+  - id: "RICH-004"
+    severity: medium
+    finding: "Les quatre modificateurs riches portaient « gui/update » à vingt nœuds"
+    suggested_action: "Corrigé — catégorie gui/rich. Un auteur cherchant « comment changer ce texte » aurait dû traverser tout ce qui concerne les listes"
+  - id: "RICH-005"
+    severity: medium
+    finding: "ENTITY_PREVIEW dessine un cadre vide : le rendu d'une entité demande une instance LivingEntity côté client, que fabriquer depuis un type sans la faire vivre dans le monde est un travail à part entière"
+    suggested_action: "Assumé et documenté. Le faire à moitié aurait produit exactement ce que les notes de la story interdisent — une créature qui existe pour être regardée, prend des dégâts et compte dans les quotas du monde. Le reste de l'élément (modèle, sérialisation, réglage, validation) est en place ; il ne manque que la fabrique"
+  - id: "RICH-006"
+    severity: low
+    finding: "Les onze réglages des six types vivent dans UN record, dont chaque champ ne concerne que certains types"
+    suggested_action: "Assumé et documenté champ par champ. Une hiérarchie de sous-types coûterait un encodage polymorphe en NBT, en BScript et sur le réseau, pour des réglages qui tiennent tous en un nombre ou une chaîne. Le concepteur, lui, ne montre que ceux qui agissent"
+  - id: "RICH-007"
+    severity: low
+    finding: "Les lignes d'une liste voyagent jointes par des sauts de ligne dans le champ texte d'une modification"
+    suggested_action: "Volontaire : un second champ de type liste sur le fil aurait demandé son propre encodage. Une ligne de liste ne contient jamais de saut de ligne — elle ne s'afficherait pas sur une ligne si c'était le cas — et set_lines les remplace par des espaces plutôt que de couper la liste en deux au décodage"
+  - id: "RICH-008"
+    severity: low
+    finding: "Le glisser-déposer d'objets sur un SLOT reste refusé"
+    suggested_action: "Décision reconduite de la story : un emplacement qui accepterait un dépôt serait un conteneur, avec la synchronisation d'inventaire, les transactions et la duplication en cas de désynchronisation. Minecraft a AbstractContainerMenu pour cela, et il ne se réimplémente pas à moitié"
+  - id: "RICH-009"
+    severity: low
+    finding: "Le rendu des six éléments (découpe, curseur de défilement, case, poignée) n'est vérifié par aucun test"
+    suggested_action: "Borné par construction : tout ce qui DÉCIDE — quelles lignes sont visibles, quel indice est sous le curseur, ce qu'un filtre accepte, où s'aligne une valeur — vit dans ListView et ElementOptions, couverts par quinze tests. Le rendu ne fait que lire. Reste à voir de ses yeux : VERIFY-10.8"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 3, low: 4 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "receiveValue rejoue les cinq vérifications du clic par le MÊME code (resolve). Deux chemins de validation finiraient par diverger, et c'est le plus laxiste des deux qui déciderait."
+      - "Le switch exhaustif sur ScreenUpdate.Kind est ce qui a forcé le client à traiter les trois nouveaux types. Garder l'énumération scellée : l'oubli donnerait des listes qui ne se remplissent jamais, sans un mot."
+evidence:
+  tests_reviewed: 993
+  gametests: 14
+  new_tests:
+    - "RichElementsTest (15) — défilement et indice réel, filtre des deux côtés, texte trop long refusé, alignement d'un curseur, aller-retour des lignes"
+    - "Gametest aListReportsTheClickedIndexAndRefusesTheRest — clic sur la troisième ligne, puis indice inexistant, indice négatif, saisie trop longue et saisie hors filtre"
+  risks_without_gate:
+    - "Un indice qui vaudrait le rang à l'écran donnerait un clic juste tant qu'on n'a pas défilé, et faux ensuite : le pire des défauts, puisqu'il passe tous les essais rapides."
+    - "Un champ de saisie est la seule surface où un joueur écrit du texte libre qui atteint le serveur. Le filtre et la longueur sont revérifiés côté serveur, et un dépassement est ignoré — jamais tronqué."
+quality_score: 88
+expires: "2026-08-18T00:00:00Z"

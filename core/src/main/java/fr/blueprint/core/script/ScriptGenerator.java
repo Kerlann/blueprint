@@ -182,6 +182,9 @@ public final class ScriptGenerator {
         if (!element.enabled()) {
             sb.append(" @disabled");
         }
+        if (!element.options().equals(fr.blueprint.core.graph.screen.ElementOptions.NONE)) {
+            sb.append(" @opts(").append(renderOptions(element.options())).append(')');
+        }
         if (element.isBound()) {
             sb.append(" @bind(").append(renderBinding(element.binding())).append(')');
         }
@@ -221,6 +224,37 @@ public final class ScriptGenerator {
             head += "[" + num(extent.min()) + ", " + num(extent.max()) + "]";
         }
         return head;
+    }
+
+    /** Seuls les réglages qui s'écartent du défaut sont écrits (10.8). */
+    private String renderOptions(fr.blueprint.core.graph.screen.ElementOptions o) {
+        var none = fr.blueprint.core.graph.screen.ElementOptions.NONE;
+        java.util.List<String> parts = new ArrayList<>();
+        if (!o.placeholder().isEmpty()) {
+            parts.add("placeholder: " + quote(o.placeholder()));
+        }
+        if (o.maxLength() != none.maxLength()) {
+            parts.add("maxLength: " + o.maxLength());
+        }
+        if (o.filter() != none.filter()) {
+            parts.add("filter: " + lower(o.filter().name()));
+        }
+        if (o.min() != none.min()) {
+            parts.add("min: " + num(o.min()));
+        }
+        if (o.max() != none.max()) {
+            parts.add("max: " + num(o.max()));
+        }
+        if (o.step() != none.step()) {
+            parts.add("step: " + num(o.step()));
+        }
+        if (o.rowHeight() != none.rowHeight()) {
+            parts.add("rowHeight: " + num(o.rowHeight()));
+        }
+        if (o.entity() != null) {
+            parts.add("entity: " + quote(o.entity().toString()));
+        }
+        return String.join(", ", parts);
     }
 
     /** {@code "argent", text, format: "Or : %s"} — seuls les écarts au défaut sont écrits. */

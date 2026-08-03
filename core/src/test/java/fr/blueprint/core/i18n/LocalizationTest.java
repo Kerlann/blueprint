@@ -300,7 +300,9 @@ class LocalizationTest {
                     || key.startsWith("blueprint.designer.main.")
                     || key.startsWith("blueprint.designer.cross.")
                     // Cibles de liaison (10.7) : une clé par valeur d'énumération.
-                    || key.startsWith("blueprint.designer.bind.")) {
+                    || key.startsWith("blueprint.designer.bind.")
+                    // Filtres de saisie (10.8) : une clé par valeur d'énumération.
+                    || key.startsWith("blueprint.designer.filter.")) {
                 continue;
             }
             dead.add(key);

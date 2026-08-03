@@ -45,6 +45,47 @@ public final class ScreenPainter {
             return 0;
         }
 
+        // ------------------------------------------- éléments riches (story 10.8)
+        // Toutes ces valeurs sont des données d'EXÉCUTION : propres à ce joueur et à
+        // cette ouverture, jamais des propriétés du blueprint. Les écrire dans le
+        // modèle les ferait voyager dans la sauvegarde et l'export texte, où elles
+        // n'ont rien à faire.
+
+        /** Les lignes d'une liste, telles que le graphe les a envoyées. */
+        default java.util.List<String> lines(String element) {
+            return java.util.List.of();
+        }
+
+        /** De combien de lignes cette liste est défilée. */
+        default int scroll(String element) {
+            return 0;
+        }
+
+        /** Le texte saisi dans ce champ ; vide = l'indication s'affiche à la place. */
+        default String input(String element) {
+            return "";
+        }
+
+        /** Ce champ a-t-il le focus ? Le curseur de saisie ne clignote que là. */
+        default boolean focused(String element) {
+            return false;
+        }
+
+        /** L'état d'une case à cocher. */
+        default boolean checked(String element) {
+            return false;
+        }
+
+        /** La valeur d'un curseur, déjà ramenée dans sa plage. */
+        default double value(String element) {
+            return 0;
+        }
+
+        /** L'objet d'un emplacement, ou {@code null} s'il est vide. */
+        default @Nullable net.minecraft.world.item.ItemStack item(String element) {
+            return null;
+        }
+
         /** Un élément masqué par le graphe (10.4) ne se dessine pas… sauf en conception. */
         default boolean forceVisible(String element) {
             return false;
@@ -179,6 +220,33 @@ public final class ScreenPainter {
                     g.fill(left, top, filled, bottom, style.textColor());
                 }
             }
+            // ------------------------------------------ éléments riches (10.8)
+            case LIST -> {
+                fillBox(g, left, top, right, bottom, background, style, scale);
+                paintList(g, font, element, style, left, top, right, bottom, scale, visuals);
+            }
+            case INPUT -> {
+                fillBox(g, left, top, right, bottom, background, style, scale);
+                paintInput(g, font, element, style, left, top, right, bottom, scale, visuals);
+            }
+            case TOGGLE -> {
+                fillBox(g, left, top, right, bottom, background, style, scale);
+                paintToggle(g, element, style, left, top, right, bottom, scale, visuals);
+            }
+            case SLIDER -> {
+                fillBox(g, left, top, right, bottom, background, style, scale);
+                paintSlider(g, element, style, left, top, right, bottom, scale, visuals);
+            }
+            case SLOT -> {
+                fillBox(g, left, top, right, bottom, background, style, scale);
+                var stack = visuals.item(element.name());
+                if (stack != null && !stack.isEmpty()) {
+                    // Centré dans son cadre : un objet fait seize pixels, l'emplacement
+                    // ce que l'auteur a décidé.
+                    g.renderItem(stack, (left + right) / 2 - 8, (top + bottom) / 2 - 8);
+                }
+            }
+            case ENTITY_PREVIEW -> fillBox(g, left, top, right, bottom, background, style, scale);
             default -> fillBox(g, left, top, right, bottom, background, style, scale);
         }
 
@@ -219,6 +287,110 @@ public final class ScreenPainter {
                     Math.max(0, right - left - 2));
             g.drawString(font, detail, left + 1, top + 1 + font.lineHeight, 0xFFFFFFFF, true);
         }
+    }
+
+    /**
+     * Une liste : ses lignes visibles, DÉCOUPÉES à son cadre, et son curseur.
+     *
+     * <p>Le découpage n'est pas cosmétique : sans lui, une liste de cent entrées
+     * dessinerait les cent, par-dessus tout le reste de l'écran — le panneau qui la
+     * contient, les boutons voisins, et jusqu'aux bords de la fenêtre.
+     */
+    private static void paintList(GuiGraphics g, Font font, ScreenElement element,
+                                  ElementStyle style, int left, int top, int right, int bottom,
+                                  int scale, Visuals visuals) {
+        java.util.List<String> lines = visuals.lines(element.name());
+        int rowHeight = Math.max(1, (int) Math.round(element.options().rowHeight() * scale));
+        int inset = style.padding() * scale;
+        var view = new fr.blueprint.core.graph.screen.ListView(lines.size(),
+                fr.blueprint.core.graph.screen.ListView.rowsThatFit(
+                        (double) (bottom - top - 2 * inset) / scale, element.options().rowHeight()),
+                visuals.scroll(element.name()));
+
+        g.enableScissor(left + inset, top + inset, right - inset, bottom - inset);
+        int y = top + inset;
+        for (int index : view.visibleIndices()) {
+            String line = font.plainSubstrByWidth(lines.get(index),
+                    right - left - 2 * inset - (view.scrollable() ? 4 : 0));
+            g.drawString(font, line, left + inset + 1, y + 1, style.textColor(), false);
+            y += rowHeight;
+        }
+        g.disableScissor();
+
+        if (view.scrollable()) {
+            // Le curseur vit HORS du découpage : il borde la liste, il n'en fait pas
+            // partie, et le découper le ferait disparaître au dernier cran.
+            int trackTop = top + inset;
+            int trackHeight = bottom - top - 2 * inset;
+            int thumbHeight = Math.max(4, (int) (trackHeight * view.thumbFraction()));
+            int thumbTop = trackTop + (int) ((trackHeight - thumbHeight) * view.thumbPosition());
+            g.fill(right - inset - 2, trackTop, right - inset, bottom - inset, style.border());
+            g.fill(right - inset - 2, thumbTop, right - inset, thumbTop + thumbHeight,
+                    style.textColor());
+        }
+    }
+
+    /**
+     * Un champ de saisie. L'<b>indication</b> se montre quand il est vide, en grisé : un
+     * champ vide sans indication ne dit pas ce qu'on attend, et c'est la première chose
+     * qu'on cherche en le regardant.
+     */
+    private static void paintInput(GuiGraphics g, Font font, ScreenElement element,
+                                   ElementStyle style, int left, int top, int right, int bottom,
+                                   int scale, Visuals visuals) {
+        String typed = visuals.input(element.name());
+        boolean focused = visuals.focused(element.name());
+        int inset = Math.max(2, style.padding() * scale);
+        int baseline = (top + bottom) / 2 - font.lineHeight / 2;
+
+        String shown = typed.isEmpty() && !focused ? element.options().placeholder() : typed;
+        int color = typed.isEmpty() && !focused
+                ? (style.textColor() & 0x00FFFFFF) | 0x80000000 : style.textColor();
+        // La FIN visible, comme dans tout champ de saisie : c'est là qu'on tape.
+        int room = right - left - 2 * inset - (focused ? 3 : 0);
+        while (font.width(shown) > room && shown.length() > 1) {
+            shown = shown.substring(1);
+        }
+        g.drawString(font, shown, left + inset, baseline, color, false);
+        if (focused) {
+            g.fill(left + inset + font.width(shown) + 1, baseline - 1,
+                    left + inset + font.width(shown) + 2, baseline + font.lineHeight,
+                    style.textColor());
+        }
+    }
+
+    /** Une case à cocher : le carré, et la marque quand elle est cochée. */
+    private static void paintToggle(GuiGraphics g, ScreenElement element, ElementStyle style,
+                                    int left, int top, int right, int bottom,
+                                    int scale, Visuals visuals) {
+        int size = Math.min(right - left, bottom - top) - 2 * scale;
+        int boxLeft = left + scale;
+        int boxTop = (top + bottom) / 2 - size / 2;
+        g.fill(boxLeft, boxTop, boxLeft + size, boxTop + size, style.border());
+        int innerInset = Math.max(1, scale);
+        g.fill(boxLeft + innerInset, boxTop + innerInset,
+                boxLeft + size - innerInset, boxTop + size - innerInset,
+                visuals.checked(element.name()) ? style.textColor() : style.background());
+    }
+
+    /** Un curseur : la piste, la portion parcourue, et la poignée. */
+    private static void paintSlider(GuiGraphics g, ScreenElement element, ElementStyle style,
+                                    int left, int top, int right, int bottom,
+                                    int scale, Visuals visuals) {
+        var options = element.options();
+        double fraction = options.fractionOf(visuals.value(element.name()));
+        int inset = Math.max(2, style.padding() * scale);
+        int trackTop = (top + bottom) / 2 - scale;
+        int trackLeft = left + inset;
+        int trackRight = right - inset;
+
+        g.fill(trackLeft, trackTop, trackRight, trackTop + 2 * scale, style.border());
+        int filled = trackLeft + (int) ((trackRight - trackLeft) * fraction);
+        g.fill(trackLeft, trackTop, filled, trackTop + 2 * scale, style.textColor());
+        // La poignée est bornée dans la piste : à fraction 1 elle sortirait du cadre.
+        int handle = Math.clamp(filled, trackLeft + 2 * scale, trackRight - 2 * scale);
+        g.fill(handle - 2 * scale, top + inset, handle + 2 * scale, bottom - inset,
+                style.textColor());
     }
 
     private static void fillBox(GuiGraphics g, int left, int top, int right, int bottom,

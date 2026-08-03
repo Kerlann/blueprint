@@ -29,7 +29,13 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
 
     /** Les cinq modificateurs. Leur ordre n'est jamais transmis : seul le nom l'est. */
     public enum Kind {
-        TEXT, TEXTURE, VISIBLE, ENABLED, PROGRESS
+        TEXT, TEXTURE, VISIBLE, ENABLED, PROGRESS,
+        /** Les lignes d'une liste, jointes par des sauts de ligne (story 10.8). */
+        LINES,
+        /** L'objet d'un emplacement : identifiant dans le texte, quantité dans le nombre. */
+        ITEM,
+        /** La valeur d'un curseur, ou le texte d'un champ de saisie. */
+        VALUE
     }
 
     public ScreenUpdate {
@@ -72,6 +78,37 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
 
     public static ScreenUpdate progress(String screen, String element, double value) {
         return new ScreenUpdate(screen, element, Kind.PROGRESS, "", false, value);
+    }
+
+    /**
+     * Les lignes d'une liste. Elles voyagent <b>jointes par des sauts de ligne</b> dans
+     * le champ texte : un second champ de type liste sur le fil aurait demandé son propre
+     * encodage, alors qu'une ligne de liste ne contient jamais de saut de ligne — elle
+     * ne s'afficherait pas sur une ligne si c'était le cas.
+     */
+    public static ScreenUpdate lines(String screen, String element,
+                                     java.util.List<String> values) {
+        return new ScreenUpdate(screen, element, Kind.LINES,
+                String.join("\n", values), false, values.size());
+    }
+
+    /** Les lignes portées par cette modification ; vide si ce n'en est pas une. */
+    public java.util.List<String> linesValue() {
+        if (kind != Kind.LINES || text.isEmpty()) {
+            return java.util.List.of();
+        }
+        return java.util.List.of(text.split("\n", -1));
+    }
+
+    public static ScreenUpdate item(String screen, String element,
+                                    @Nullable Identifier id, int count) {
+        return new ScreenUpdate(screen, element, Kind.ITEM,
+                id == null ? "" : id.toString(), false, count);
+    }
+
+    public static ScreenUpdate value(String screen, String element, double number,
+                                     boolean checked, String text) {
+        return new ScreenUpdate(screen, element, Kind.VALUE, text, checked, number);
     }
 
     /**

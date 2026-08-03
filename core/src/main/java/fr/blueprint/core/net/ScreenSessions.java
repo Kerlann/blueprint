@@ -54,6 +54,17 @@ public final class ScreenSessions {
      */
     private final Map<UUID, LinkedHashMap<String, Identifier>> huds = new HashMap<>();
 
+    /**
+     * Les lignes envoyées à chaque liste, par joueur (story 10.8).
+     *
+     * <p>Le serveur doit pouvoir vérifier qu'un indice cliqué EXISTE : un client peut
+     * annoncer la ligne 900 d'une liste qui en compte trois. Sans cette mémoire, il
+     * faudrait le croire — et rendre au graphe une ligne qui n'a jamais été affichée.
+     *
+     * <p>Clé : « écran/élément ». Vidée à chaque ouverture, comme le reste.
+     */
+    private final Map<UUID, Map<String, List<String>>> lines = new HashMap<>();
+
     private int nextInstance = 1;
 
     /**
@@ -68,6 +79,7 @@ public final class ScreenSessions {
         // reçu — et le premier rafraîchissement ne partirait pas.
         displayed.remove(player);
         pending.remove(player);
+        lines.remove(player);
         return instance;
     }
 
@@ -183,6 +195,15 @@ public final class ScreenSessions {
         Map<String, ScreenUpdate> shown =
                 displayed.computeIfAbsent(player, p -> new HashMap<>());
         shown.putAll(waiting);
+        // Les lignes sont retenues au moment où elles PARTENT, pas quand elles sont
+        // mises en file : une modification écartée par la comparaison n'a rien changé
+        // chez le client, et la retenir décalerait la mémoire de ce qu'il affiche.
+        for (ScreenUpdate update : waiting.values()) {
+            if (update.kind() == ScreenUpdate.Kind.LINES) {
+                lines.computeIfAbsent(player, p -> new HashMap<>())
+                        .put(update.screen() + "/" + update.element(), update.linesValue());
+            }
+        }
         return List.copyOf(waiting.values());
     }
 
@@ -268,9 +289,19 @@ public final class ScreenSessions {
     }
 
     /** Un joueur parti ne laisse pas d'écran fantôme. */
+    /** Ce que ce joueur voit dans cette liste — vide s'il n'a rien reçu. */
+    public List<String> linesOf(UUID player, String screen, String element) {
+        Map<String, List<String>> byElement = lines.get(player);
+        if (byElement == null) {
+            return List.of();
+        }
+        return byElement.getOrDefault(screen + "/" + element, List.of());
+    }
+
     public void forget(UUID player) {
         closed(player);
         huds.remove(player);
+        lines.remove(player);
     }
 
     public int size() {

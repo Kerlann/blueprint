@@ -470,6 +470,27 @@ public final class ScreenDesignerWidget {
             }
         }
 
+        // Les réglages propres au type (10.8). Chacun n'apparaît que là où il agit : un
+        // « pas » sur une étiquette ou une « hauteur de ligne » sur un bouton seraient
+        // des champs qu'on remplit sans que rien ne change.
+        java.util.List<ElementPropertiesState.Field> richFields = optionFieldsOf(element.kind());
+        if (!richFields.isEmpty()) {
+            y += 2;
+            if (element.kind() == ElementKind.INPUT) {
+                rows.add(new Row(y, I18n.get("blueprint.designer.filter"),
+                        enumChips(fr.blueprint.core.graph.screen.ElementOptions.InputFilter.values(),
+                                element.options().filter(), "blueprint.designer.filter.",
+                                filter -> apply(properties.setFilter(filter))), null, null));
+                y += ROW;
+            }
+            for (var field : richFields) {
+                rows.add(new Row(y, I18n.get(fieldKey(field)), java.util.List.of(), field,
+                        properties.isEditing(field) ? properties.buffer() + "_"
+                                : properties.valueOf(field)));
+                y += ROW;
+            }
+        }
+
         // La liaison (10.7). La variable se CHOISIT : la taper laisserait passer une
         // faute de frappe que seul le validateur signalerait, une fois le geste oublié.
         y += 2;
@@ -583,6 +604,26 @@ public final class ScreenDesignerWidget {
             case BIND_MIN, BIND_MAX ->
                     target == fr.blueprint.core.graph.screen.ElementBinding.Target.PROGRESS;
             default -> true;
+        };
+    }
+
+    /**
+     * Les réglages qui ont un sens pour ce type d'élément (10.8).
+     *
+     * <p>Montrer les onze à chaque fois aurait été plus court à écrire et pénible à
+     * utiliser : l'auteur devrait deviner lesquels agissent, et un champ rempli sans
+     * effet est exactement ce qui fait douter d'un outil.
+     */
+    private static java.util.List<ElementPropertiesState.Field> optionFieldsOf(ElementKind kind) {
+        return switch (kind) {
+            case INPUT -> java.util.List.of(ElementPropertiesState.Field.PLACEHOLDER,
+                    ElementPropertiesState.Field.MAX_LENGTH);
+            case SLIDER -> java.util.List.of(ElementPropertiesState.Field.OPT_MIN,
+                    ElementPropertiesState.Field.OPT_MAX,
+                    ElementPropertiesState.Field.STEP);
+            case LIST -> java.util.List.of(ElementPropertiesState.Field.ROW_HEIGHT);
+            case ENTITY_PREVIEW -> java.util.List.of(ElementPropertiesState.Field.ENTITY);
+            default -> java.util.List.of();
         };
     }
 

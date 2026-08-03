@@ -114,6 +114,7 @@ class fr.blueprint.api.node.NodeCategories
   field public static final fr.blueprint.api.node.NodeCategory FLOW_LOOP
   field public static final fr.blueprint.api.node.NodeCategory GUI
   field public static final fr.blueprint.api.node.NodeCategory GUI_BIND
+  field public static final fr.blueprint.api.node.NodeCategory GUI_RICH
   field public static final fr.blueprint.api.node.NodeCategory GUI_UPDATE
   field public static final fr.blueprint.api.node.NodeCategory ITEM
   field public static final fr.blueprint.api.node.NodeCategory LIST

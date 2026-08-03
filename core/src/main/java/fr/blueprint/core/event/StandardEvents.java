@@ -160,6 +160,45 @@ public final class StandardEvents {
             .out("element", PinTypes.STRING)
             .dispatch(Dispatch.GLOBAL).build();
 
+    /**
+     * Une ligne de liste a été cliquée (story 10.8, AC2).
+     *
+     * <p>Rend l'<b>indice dans la liste</b> et le texte de la ligne, pas seulement le nom
+     * de l'élément : une liste n'a qu'un nom pour cent entrées, et sans l'indice le
+     * graphe ne saurait pas laquelle on a choisie.
+     */
+    public static final EventType GUI_LIST_CLICKED = EventType.builder(id("gui_list_clicked"))
+            .out("player", PinTypes.PLAYER)
+            .out("screen", PinTypes.STRING)
+            .out("element", PinTypes.STRING)
+            .out("index", PinTypes.INT)
+            .out("line", PinTypes.STRING)
+            .dispatch(Dispatch.GLOBAL).build();
+
+    /**
+     * Le contenu d'un champ de saisie a changé, ou a été validé par {@code Entrée}.
+     *
+     * <p>{@code submitted} distingue les deux : réagir à chaque frappe convient à une
+     * recherche qui filtre, valider convient à un formulaire. Deux événements séparés
+     * auraient obligé l'auteur à en câbler deux pour le cas courant.
+     */
+    public static final EventType GUI_INPUT_CHANGED = EventType.builder(id("gui_input_changed"))
+            .out("player", PinTypes.PLAYER)
+            .out("screen", PinTypes.STRING)
+            .out("element", PinTypes.STRING)
+            .out("text", PinTypes.STRING)
+            .out("submitted", PinTypes.BOOL)
+            .dispatch(Dispatch.GLOBAL).build();
+
+    /** Une case a été cochée ou un curseur déplacé (story 10.8, AC5b). */
+    public static final EventType GUI_VALUE_CHANGED = EventType.builder(id("gui_value_changed"))
+            .out("player", PinTypes.PLAYER)
+            .out("screen", PinTypes.STRING)
+            .out("element", PinTypes.STRING)
+            .out("value", PinTypes.DOUBLE)
+            .out("checked", PinTypes.BOOL)
+            .dispatch(Dispatch.GLOBAL).build();
+
     private StandardEvents() {
     }
 
@@ -183,6 +222,9 @@ public final class StandardEvents {
         registry.register(SIGNAL);
         registry.register(COMMAND);
         registry.register(GUI_OPENED);
+        registry.register(GUI_LIST_CLICKED);
+        registry.register(GUI_INPUT_CHANGED);
+        registry.register(GUI_VALUE_CHANGED);
         registry.register(GUI_CLOSED);
         registry.register(GUI_ELEMENT_CLICKED);
     }

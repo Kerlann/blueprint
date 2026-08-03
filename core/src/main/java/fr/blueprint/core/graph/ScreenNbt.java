@@ -111,9 +111,53 @@ public final class ScreenNbt {
         if (element.isBound()) {
             tag.put("bind", encodeBinding(element.binding()));
         }
+        // Écrits seulement quand ils s'écartent du défaut : un écran des cinq types
+        // d'origine pèse exactement ce qu'il pesait.
+        if (!element.options().equals(fr.blueprint.core.graph.screen.ElementOptions.NONE)) {
+            tag.put("opts", encodeOptions(element.options()));
+        }
         tag.putBoolean("visible", element.visible());
         tag.putBoolean("enabled", element.enabled());
         return tag;
+    }
+
+    private static CompoundTag encodeOptions(
+            fr.blueprint.core.graph.screen.ElementOptions o) {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("placeholder", o.placeholder());
+        tag.putInt("maxLength", o.maxLength());
+        tag.putString("filter", o.filter().name().toLowerCase(Locale.ROOT));
+        tag.putDouble("min", o.min());
+        tag.putDouble("max", o.max());
+        tag.putDouble("step", o.step());
+        tag.putDouble("rowHeight", o.rowHeight());
+        if (o.entity() != null) {
+            tag.putString("entity", o.entity().toString());
+        }
+        return tag;
+    }
+
+    /**
+     * Les réglages de type (10.8). Absents — tout écran d'avant — valent {@code NONE} :
+     * c'est ce qui fait qu'un fichier enregistré ne change pas de sens en changeant de
+     * version du mod.
+     */
+    private static fr.blueprint.core.graph.screen.ElementOptions decodeOptions(CompoundTag tag) {
+        if (tag.isEmpty()) {
+            return fr.blueprint.core.graph.screen.ElementOptions.NONE;
+        }
+        var none = fr.blueprint.core.graph.screen.ElementOptions.NONE;
+        String entity = tag.getStringOr("entity", "");
+        return new fr.blueprint.core.graph.screen.ElementOptions(
+                tag.getStringOr("placeholder", ""),
+                tag.getIntOr("maxLength", none.maxLength()),
+                enumOr(fr.blueprint.core.graph.screen.ElementOptions.InputFilter.class,
+                        tag.getStringOr("filter", ""), none.filter()),
+                tag.getDoubleOr("min", none.min()),
+                tag.getDoubleOr("max", none.max()),
+                tag.getDoubleOr("step", none.step()),
+                tag.getDoubleOr("rowHeight", none.rowHeight()),
+                entity.isEmpty() ? null : Identifier.tryParse(entity));
     }
 
     private static CompoundTag encodeBinding(fr.blueprint.core.graph.screen.ElementBinding b) {
@@ -254,6 +298,7 @@ public final class ScreenNbt {
                 tag.getStringOr("styleName", ""),
                 decodeLayout(tag.getCompoundOrEmpty("layout")),
                 decodeBinding(tag.getCompoundOrEmpty("bind")),
+                decodeOptions(tag.getCompoundOrEmpty("opts")),
                 tag.getBooleanOr("visible", true),
                 tag.getBooleanOr("enabled", true));
     }

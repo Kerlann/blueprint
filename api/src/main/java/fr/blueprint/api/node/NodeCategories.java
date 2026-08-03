@@ -105,6 +105,15 @@ public final class NodeCategories {
      * nœuds qui ne forcent rien.
      */
     public static final NodeCategory GUI_BIND = new NodeCategory("gui/bind");
+    /**
+     * Alimenter les éléments RICHES : lignes d'une liste, objet d'un emplacement, valeur
+     * d'un curseur ou d'une saisie (story 10.8).
+     *
+     * <p>Séparés des modificateurs simples, qui portaient déjà douze nœuds : les y
+     * ajouter aurait donné vingt entrées dans un même repli, et un auteur cherchant
+     * « comment changer ce texte » aurait dû traverser tout ce qui concerne les listes.
+     */
+    public static final NodeCategory GUI_RICH = new NodeCategory("gui/rich");
 
     /** Tick, commande, signal : ce qui ne vient ni d'un joueur ni du monde. */
     public static final NodeCategory EVENT_SERVER = new NodeCategory("event/server");

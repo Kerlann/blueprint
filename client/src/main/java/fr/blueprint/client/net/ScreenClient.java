@@ -46,6 +46,11 @@ public final class ScreenClient {
                             payload.instance(), ScreenClient::notifyClosed, element ->
                             sendClick(payload.blueprint(), model.name(), element,
                                     payload.instance()));
+                    // Les éléments riches (10.8) remontent une VALEUR, par un second
+                    // paquet : le clic simple reste au minimum, et c'est de loin le plus
+                    // fréquent.
+                    screen.setOnValue(interaction -> sendValue(payload.blueprint(),
+                            model.name(), payload.instance(), interaction));
                     context.client().setScreen(screen);
                 });
 
@@ -82,6 +87,16 @@ public final class ScreenClient {
         if (ClientPlayNetworking.canSend(BlueprintPayloads.ScreenInteraction.TYPE)) {
             ClientPlayNetworking.send(new BlueprintPayloads.ScreenInteraction(
                     blueprint, screen, element, instance));
+        }
+    }
+
+    private static void sendValue(net.minecraft.resources.Identifier blueprint, String screen,
+                                  int instance,
+                                  fr.blueprint.client.screen.BlueprintScreen.Interaction value) {
+        if (ClientPlayNetworking.canSend(BlueprintPayloads.ScreenValue.TYPE)) {
+            ClientPlayNetworking.send(new BlueprintPayloads.ScreenValue(
+                    blueprint, screen, value.element(), instance, value.index(),
+                    value.text(), value.number(), value.flag()));
         }
     }
 

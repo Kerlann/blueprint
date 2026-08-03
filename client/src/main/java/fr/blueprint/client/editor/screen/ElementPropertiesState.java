@@ -32,7 +32,9 @@ public final class ElementPropertiesState {
         /** Réglages de disposition d'un conteneur (story 10.10). */
         GAP, CROSS_GAP, COLUMNS,
         /** Liaison de données (story 10.7). */
-        BIND_FORMAT, BIND_DECIMALS, BIND_MIN, BIND_MAX
+        BIND_FORMAT, BIND_DECIMALS, BIND_MIN, BIND_MAX,
+        /** Réglages propres aux éléments riches (story 10.8). */
+        PLACEHOLDER, MAX_LENGTH, OPT_MIN, OPT_MAX, STEP, ROW_HEIGHT, ENTITY
     }
 
     private @Nullable ScreenElement element;
@@ -126,6 +128,14 @@ public final class ElementPropertiesState {
             case BIND_DECIMALS -> String.valueOf(element.binding().decimals());
             case BIND_MIN -> number(element.binding().min());
             case BIND_MAX -> number(element.binding().max());
+            case PLACEHOLDER -> element.options().placeholder();
+            case MAX_LENGTH -> String.valueOf(element.options().maxLength());
+            case OPT_MIN -> number(element.options().min());
+            case OPT_MAX -> number(element.options().max());
+            case STEP -> number(element.options().step());
+            case ROW_HEIGHT -> number(element.options().rowHeight());
+            case ENTITY -> element.options().entity() == null ? ""
+                    : element.options().entity().toString();
         };
     }
 
@@ -143,12 +153,14 @@ public final class ElementPropertiesState {
         return switch (editing) {
             case NAME -> nameAvailable.test(buffer.trim());
             case X, Y, PADDING, GAP, CROSS_GAP, COLUMNS,
-                 BIND_DECIMALS, BIND_MIN, BIND_MAX -> parseNumber(buffer) != null;
+                 BIND_DECIMALS, BIND_MIN, BIND_MAX,
+                 MAX_LENGTH, OPT_MIN, OPT_MAX, STEP, ROW_HEIGHT -> parseNumber(buffer) != null;
             case WIDTH, HEIGHT -> parseExtent(buffer, Extent.of(0)) != null;
             case TEXTURE -> buffer.isBlank()
                     || fr.blueprint.core.graph.screen.PackRef.texture(buffer) != null;
             case BACKGROUND, BORDER, TEXT_COLOR, HOVER -> parseHex(buffer) != null;
-            case TEXT, BIND_FORMAT -> true;
+            case TEXT, BIND_FORMAT, PLACEHOLDER -> true;
+            case ENTITY -> buffer.isBlank() || Identifier.tryParse(buffer.trim()) != null;
         };
     }
 
@@ -188,6 +200,18 @@ public final class ElementPropertiesState {
                     .withRange(parseNumber(buffer), element.binding().max()));
             case BIND_MAX -> element.withBinding(element.binding()
                     .withRange(element.binding().min(), parseNumber(buffer)));
+            case PLACEHOLDER -> element.withOptions(element.options().withPlaceholder(buffer));
+            case MAX_LENGTH -> element.withOptions(
+                    element.options().withMaxLength((int) (double) parseNumber(buffer)));
+            case OPT_MIN -> element.withOptions(element.options()
+                    .withRange(parseNumber(buffer), element.options().max()));
+            case OPT_MAX -> element.withOptions(element.options()
+                    .withRange(element.options().min(), parseNumber(buffer)));
+            case STEP -> element.withOptions(element.options().withStep(parseNumber(buffer)));
+            case ROW_HEIGHT -> element.withOptions(
+                    element.options().withRowHeight(parseNumber(buffer)));
+            case ENTITY -> element.withOptions(element.options().withEntity(
+                    buffer.isBlank() ? null : Identifier.tryParse(buffer.trim())));
         };
         cancel();
         return out;
@@ -258,6 +282,13 @@ public final class ElementPropertiesState {
     public @Nullable ScreenElement setLayoutCross(
             fr.blueprint.core.graph.screen.LayoutSpec.Cross cross) {
         return element == null ? null : element.withLayout(element.layout().withCross(cross));
+    }
+
+    /** Change ce qu'un champ de saisie accepte (10.8). */
+    public @Nullable ScreenElement setFilter(
+            fr.blueprint.core.graph.screen.ElementOptions.InputFilter filter) {
+        return element == null ? null
+                : element.withOptions(element.options().withFilter(filter));
     }
 
     /**

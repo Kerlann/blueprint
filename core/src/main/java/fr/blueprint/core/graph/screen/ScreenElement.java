@@ -26,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
  * @param style   apparence par état, quand aucun style nommé n'est suivi
  * @param styleName nom d'un style de l'écran, ou vide pour le style en ligne
  * @param layout  comment ce conteneur range ses enfants ; ignoré sur un non-conteneur
+ * @param options réglages propres au type (10.8), ou {@link ElementOptions#NONE}
  * @param binding ce que cet élément montre d'une variable, ou {@link ElementBinding#NONE}
  * @param visible visibilité initiale ; le graphe peut la changer (10.4)
  * @param enabled activation initiale d'un élément interactif
@@ -35,7 +36,7 @@ public record ScreenElement(String name, ElementKind kind, @Nullable String pare
                             Extent width, Extent height,
                             ScreenText text, @Nullable Identifier texture,
                             ElementStyle style, String styleName, LayoutSpec layout,
-                            ElementBinding binding,
+                            ElementBinding binding, ElementOptions options,
                             boolean visible, boolean enabled) {
 
     /** Taille minimale d'un élément, en unités : en dessous, il ne se clique plus. */
@@ -69,6 +70,9 @@ public record ScreenElement(String name, ElementKind kind, @Nullable String pare
         if (binding == null) {
             binding = ElementBinding.NONE;
         }
+        if (options == null) {
+            options = ElementOptions.NONE;
+        }
     }
 
     /** Vrai si cet élément suit un style nommé de l'écran plutôt que le sien. */
@@ -86,59 +90,67 @@ public record ScreenElement(String name, ElementKind kind, @Nullable String pare
                                    double width, double height) {
         return new ScreenElement(name, kind, null, Anchor.TOP_LEFT, x, y,
                 Extent.of(width), Extent.of(height), ScreenText.EMPTY, null,
-                ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, true, true);
+                ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE,
+                ElementOptions.NONE, true, true);
     }
 
     public ScreenElement withParent(@Nullable String newParent) {
         return new ScreenElement(name, kind, newParent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, visible, enabled);
+                text, texture, style, styleName, layout, binding, options, visible, enabled);
     }
 
     public ScreenElement withAnchor(Anchor newAnchor) {
         return new ScreenElement(name, kind, parent, newAnchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, visible, enabled);
+                text, texture, style, styleName, layout, binding, options, visible, enabled);
     }
 
     public ScreenElement movedTo(double newX, double newY) {
         return new ScreenElement(name, kind, parent, anchor, newX, newY, width, height,
-                text, texture, style, styleName, layout, binding, visible, enabled);
+                text, texture, style, styleName, layout, binding, options, visible, enabled);
     }
 
     public ScreenElement resized(Extent newWidth, Extent newHeight) {
         return new ScreenElement(name, kind, parent, anchor, x, y, newWidth, newHeight,
-                text, texture, style, styleName, layout, binding, visible, enabled);
+                text, texture, style, styleName, layout, binding, options, visible, enabled);
     }
 
     public ScreenElement renamed(String newName) {
         return new ScreenElement(newName, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, visible, enabled);
+                text, texture, style, styleName, layout, binding, options, visible, enabled);
     }
 
     public ScreenElement styled(ElementStyle newStyle) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, newStyle, styleName, layout, binding, visible, enabled);
+                text, texture, newStyle, styleName, layout, binding, options, visible, enabled);
     }
 
     public ScreenElement withText(ScreenText newText) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                newText, texture, style, styleName, layout, binding, visible, enabled);
+                newText, texture, style, styleName, layout, binding, options, visible, enabled);
     }
 
     public ScreenElement withTexture(@Nullable Identifier newTexture) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, newTexture, style, styleName, layout, binding, visible, enabled);
+                text, newTexture, style, styleName, layout, binding, options, visible, enabled);
     }
 
     /** Suit un style nommé de l'écran ; une chaîne vide repasse au style en ligne. */
     public ScreenElement withStyleName(String newStyleName) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, newStyleName, layout, binding, visible, enabled);
+                text, texture, style, newStyleName, layout, binding, options, visible, enabled);
     }
 
     /** Lie l'élément à une variable ; {@link ElementBinding#NONE} l'en détache. */
     public ScreenElement withBinding(ElementBinding newBinding) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, newBinding, visible, enabled);
+                text, texture, style, styleName, layout, newBinding, options, visible, enabled);
+    }
+
+    /** Change les réglages propres au type (10.8). */
+    public ScreenElement withOptions(ElementOptions newOptions) {
+        return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
+                text, texture, style, styleName, layout, binding, newOptions,
+                visible, enabled);
     }
 
     /** Vrai si cet élément montre une variable — un seul gui/refresh les met à jour. */
@@ -149,16 +161,16 @@ public record ScreenElement(String name, ElementKind kind, @Nullable String pare
     /** Change la disposition — n'a d'effet visible que sur un conteneur. */
     public ScreenElement withLayout(LayoutSpec newLayout) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, newLayout, binding, visible, enabled);
+                text, texture, style, styleName, newLayout, binding, options, visible, enabled);
     }
 
     public ScreenElement withVisible(boolean newVisible) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, newVisible, enabled);
+                text, texture, style, styleName, layout, binding, options, newVisible, enabled);
     }
 
     public ScreenElement withEnabled(boolean newEnabled) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, visible, newEnabled);
+                text, texture, style, styleName, layout, binding, options, visible, newEnabled);
     }
 }

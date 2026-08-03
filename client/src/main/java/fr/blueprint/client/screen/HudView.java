@@ -99,6 +99,12 @@ public final class HudView {
                         case VISIBLE -> element.withVisible(update.flag());
                         case ENABLED -> element.withEnabled(update.flag());
                         case PROGRESS -> element;
+                        // Les valeurs des éléments riches (10.8) vivent à part, comme
+                        // le remplissage des barres : ce sont des données d'exécution,
+                        // propres à ce joueur et à cette ouverture, pas des propriétés
+                        // du blueprint. Les écrire dans le modèle les ferait voyager
+                        // dans la sauvegarde et l'export texte.
+                        case LINES, ITEM, VALUE -> element;
                     }));
             if (update.kind() == ScreenUpdate.Kind.PROGRESS) {
                 progress.computeIfAbsent(update.screen(), s -> new LinkedHashMap<>())

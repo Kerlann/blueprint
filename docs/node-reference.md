@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-209 nœuds dans 37 catégories.
+220 nœuds dans 38 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -674,6 +674,40 @@ permission `SAFE` · fuel 1 · E
 | `player` | `blueprint:player` | — |
 | `screen` | `blueprint:string` | — |
 
+### `blueprint:event/gui_input_changed` — Input changed
+
+permission `SAFE` · fuel 1 · E
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `element` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | — |
+| `element` | `blueprint:string` | — |
+| `text` | `blueprint:string` | — |
+| `submitted` | `blueprint:bool` | — |
+
+### `blueprint:event/gui_list_clicked` — List line clicked
+
+permission `SAFE` · fuel 1 · E
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `element` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | — |
+| `element` | `blueprint:string` | — |
+| `index` | `blueprint:int` | — |
+| `line` | `blueprint:string` | — |
+
 ### `blueprint:event/gui_opened` — On screen opened
 
 permission `SAFE` · fuel 1 · E
@@ -683,6 +717,23 @@ permission `SAFE` · fuel 1 · E
 | `exec_out` | exec | — |
 | `player` | `blueprint:player` | — |
 | `screen` | `blueprint:string` | — |
+
+### `blueprint:event/gui_value_changed` — Value changed
+
+permission `SAFE` · fuel 1 · E
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `element` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | — |
+| `element` | `blueprint:string` | — |
+| `value` | `blueprint:double` | — |
+| `checked` | `blueprint:bool` | — |
 
 ### `blueprint:gui/close` — Close screen
 
@@ -783,6 +834,133 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 | `sent` | `blueprint:int` | — |
+
+
+## gui/rich
+
+### `blueprint:gui/set_input` — Set input text
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_input_all` — Set input text (everyone)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_item` — Set slot item
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `item` | `blueprint:itemstack` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_item_all` — Set slot item (everyone)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `item` | `blueprint:itemstack` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_lines` — Set list lines
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `lines` | `list<blueprint:string>` | `[]` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_lines_all` — Set list lines (everyone)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `lines` | `list<blueprint:string>` | `[]` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_value` — Set value
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_value_all` — Set value (everyone)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
 
 
 ## gui/update

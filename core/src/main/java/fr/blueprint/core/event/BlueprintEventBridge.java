@@ -219,6 +219,30 @@ public final class BlueprintEventBridge {
      * Un autre blueprint ne doit pas pouvoir écouter les boutons d'un menu qui n'est
      * pas le sien — un nom d'élément est court, les collisions seraient la règle.
      */
+    /**
+     * Les événements d'éléments riches (10.8) : même filtrage par littéral que le clic,
+     * pour la même raison — sans lui, chaque saisie réveillerait tous les écouteurs de
+     * chaque écran du serveur.
+     */
+    public int launchGuiEvent(Identifier blueprintId, EventType event, String element,
+                              TriggerContext trigger) {
+        Blueprint bp = manager.get(blueprintId).orElse(null);
+        if (bp == null || !bp.enabled()) {
+            return 0;
+        }
+        int launched = 0;
+        for (Node node : bp.nodes().values()) {
+            if (element.equals(literalName(node, event.id(), "element"))) {
+                Ir ir = compiled(bp, node.uuid());
+                if (ir != null) {
+                    scheduler.launch(bp.id(), ir, envFactory.create(bp, trigger));
+                    launched++;
+                }
+            }
+        }
+        return launched;
+    }
+
     public int launchGuiClick(Identifier blueprintId, String element, TriggerContext trigger) {
         Blueprint bp = manager.get(blueprintId).orElse(null);
         if (bp == null || !bp.enabled()) {
