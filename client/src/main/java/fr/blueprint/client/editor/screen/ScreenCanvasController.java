@@ -713,6 +713,348 @@ public final class ScreenCanvasController {
         }
     }
 
+    // ------------------------------------------------------- précision et cadrage
+
+    /**
+     * Décale la sélection au clavier. La souris ne descend pas sous le pixel de la
+     * surface ; les flèches, si — et c'est le seul moyen de poser un élément
+     * <b>exactement</b> à 3 unités du bord.
+     */
+    public boolean nudgeSelection(double dx, double dy) {
+        Screen screen = screen();
+        if (screen == null || selection.isEmpty()) {
+            return false;
+        }
+        boolean any = false;
+        history.beginGesture();
+        try {
+            for (String name : movable()) {
+                ScreenElement element = screen.element(name);
+                if (element != null) {
+                    any |= applyTracked(new ScreenOps.SetElement(screenName,
+                            element.movedTo(element.x() + dx, element.y() + dy)));
+                }
+            }
+        } finally {
+            history.endGesture();
+        }
+        return any;
+    }
+
+    /** Les six alignements, sur le rectangle englobant de la sélection. */
+    public enum Align { LEFT, CENTER_X, RIGHT, TOP, CENTER_Y, BOTTOM }
+
+    /**
+     * Aligne la sélection. Sur un graphe, deux nœuds mal alignés restent lisibles ; sur
+     * un écran, deux unités d'écart <b>se voient</b> — et régler ça à la main, élément
+     * par élément, est exactement ce qui décourage de soigner un menu.
+     *
+     * <p>Le rectangle englobant sert de référence, comme dans tout éditeur : aligner à
+     * gauche colle tout le monde au plus à gauche, pas à une valeur arbitraire.
+     */
+    public boolean alignSelection(Align align) {
+        Screen screen = screen();
+        if (screen == null || selection.size() < 2) {
+            return false;
+        }
+        List<String> targets = List.copyOf(movable());
+        ScreenLayout.Rect bounds = boundsOf(screen, targets);
+        if (bounds == null) {
+            return false;
+        }
+        boolean any = false;
+        history.beginGesture();
+        try {
+            for (String name : targets) {
+                ScreenElement element = screen.element(name);
+                if (element == null) {
+                    continue;
+                }
+                ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
+                        Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+                double x = switch (align) {
+                    case LEFT -> bounds.x();
+                    case CENTER_X -> bounds.x() + (bounds.width() - rect.width()) / 2;
+                    case RIGHT -> bounds.right() - rect.width();
+                    default -> rect.x();
+                };
+                double y = switch (align) {
+                    case TOP -> bounds.y();
+                    case CENTER_Y -> bounds.y() + (bounds.height() - rect.height()) / 2;
+                    case BOTTOM -> bounds.bottom() - rect.height();
+                    default -> rect.y();
+                };
+                if (x != rect.x() || y != rect.y()) {
+                    place(screen, element,
+                            new ScreenLayout.Rect(x, y, rect.width(), rect.height()));
+                    any = true;
+                }
+            }
+        } finally {
+            history.endGesture();
+        }
+        return any;
+    }
+
+    /**
+     * Répartit la sélection à intervalles égaux entre ses deux extrêmes. Trois boutons
+     * empilés « à peu près » se voient ; les espacer à la main demande de calculer, ce
+     * qu'un concepteur ne devrait jamais avoir à faire.
+     */
+    public boolean distributeSelection(boolean vertical) {
+        Screen screen = screen();
+        if (screen == null || selection.size() < 3) {
+            return false;
+        }
+        List<String> targets = new ArrayList<>(movable());
+        if (targets.size() < 3) {
+            return false;
+        }
+        Map<String, ScreenLayout.Rect> rects = new HashMap<>();
+        for (String name : targets) {
+            ScreenElement element = screen.element(name);
+            if (element != null) {
+                rects.put(name, ScreenLayout.resolve(screen, element,
+                        Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT));
+            }
+        }
+        targets.removeIf(name -> !rects.containsKey(name));
+        if (targets.size() < 3) {
+            return false;
+        }
+        targets.sort(java.util.Comparator.comparingDouble(
+                name -> vertical ? rects.get(name).y() : rects.get(name).x()));
+
+        ScreenLayout.Rect first = rects.get(targets.getFirst());
+        ScreenLayout.Rect last = rects.get(targets.getLast());
+        double start = vertical ? first.y() : first.x();
+        double end = vertical ? last.y() : last.x();
+        double step = (end - start) / (targets.size() - 1);
+
+        history.beginGesture();
+        try {
+            for (int i = 1; i < targets.size() - 1; i++) {
+                ScreenElement element = screen.element(targets.get(i));
+                ScreenLayout.Rect rect = rects.get(targets.get(i));
+                if (element == null) {
+                    continue;
+                }
+                double at = start + step * i;
+                place(screen, element, vertical
+                        ? new ScreenLayout.Rect(rect.x(), at, rect.width(), rect.height())
+                        : new ScreenLayout.Rect(at, rect.y(), rect.width(), rect.height()));
+            }
+        } finally {
+            history.endGesture();
+        }
+        return true;
+    }
+
+    /** Le rectangle englobant d'un groupe, ou {@code null} si rien n'est résolvable. */
+    private static ScreenLayout.@Nullable Rect boundsOf(Screen screen, List<String> names) {
+        double left = Double.MAX_VALUE;
+        double top = Double.MAX_VALUE;
+        double right = -Double.MAX_VALUE;
+        double bottom = -Double.MAX_VALUE;
+        boolean any = false;
+        for (String name : names) {
+            ScreenElement element = screen.element(name);
+            if (element == null) {
+                continue;
+            }
+            ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
+                    Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+            left = Math.min(left, rect.x());
+            top = Math.min(top, rect.y());
+            right = Math.max(right, rect.right());
+            bottom = Math.max(bottom, rect.bottom());
+            any = true;
+        }
+        return any ? new ScreenLayout.Rect(left, top, right - left, bottom - top) : null;
+    }
+
+    // --------------------------------------------------------- visibilité groupée
+
+    /** Bascule la visibilité (ou l'activation) de toute la sélection d'un coup. */
+    public boolean toggleSelection(boolean visibility) {
+        Screen screen = screen();
+        if (screen == null || selection.isEmpty()) {
+            return false;
+        }
+        // La cible commune vient du PREMIER élément : sans elle, une sélection mixte
+        // basculerait chacun de son côté et rien ne changerait à l'écran.
+        ScreenElement first = screen.element(selection.ids().iterator().next());
+        if (first == null) {
+            return false;
+        }
+        boolean target = visibility ? !first.visible() : !first.enabled();
+        boolean any = false;
+        history.beginGesture();
+        try {
+            for (String name : selection.ids()) {
+                ScreenElement element = screen.element(name);
+                if (element == null) {
+                    continue;
+                }
+                any |= applyTracked(new ScreenOps.SetElement(screenName,
+                        visibility ? element.withVisible(target) : element.withEnabled(target)));
+            }
+        } finally {
+            history.endGesture();
+        }
+        return any;
+    }
+
+    // ------------------------------------------------------------ presse-papiers
+
+    /** Ce qui a été copié, et de quel écran — le collage recrée des noms libres. */
+    private static List<ScreenElement> clipboard = List.of();
+
+    public boolean copySelection() {
+        Screen screen = screen();
+        if (screen == null || selection.isEmpty()) {
+            return false;
+        }
+        List<ScreenElement> copied = new ArrayList<>();
+        for (String name : selection.ids()) {
+            ScreenElement element = screen.element(name);
+            if (element != null) {
+                copied.add(element);
+            }
+        }
+        clipboard = List.copyOf(copied);
+        return !clipboard.isEmpty();
+    }
+
+    /**
+     * Colle dans l'écran COURANT — y compris un autre que celui d'origine, ce qui est
+     * tout l'intérêt : recomposer une page à partir d'une autre sans tout redessiner.
+     *
+     * <p>Un élément dont le parent n'existe pas dans l'écran d'arrivée est collé à la
+     * racine plutôt que refusé : perdre le geste vaudrait moins que d'avoir à le
+     * rattacher soi-même.
+     */
+    public boolean paste() {
+        Screen screen = screen();
+        if (screen == null || clipboard.isEmpty()) {
+            return false;
+        }
+        Set<String> taken = new java.util.HashSet<>(screen.elements().keySet());
+        Map<String, String> renames = new java.util.LinkedHashMap<>();
+        for (ScreenElement source : clipboard) {
+            String fresh = freshName(taken, source.name());
+            taken.add(fresh);
+            renames.put(source.name(), fresh);
+        }
+        List<String> created = new ArrayList<>();
+        history.beginGesture();
+        try {
+            for (ScreenElement source : clipboard) {
+                String parent = renames.containsKey(source.parent())
+                        ? renames.get(source.parent())
+                        : (source.parent() != null && screen().element(source.parent()) == null
+                        ? null : source.parent());
+                ScreenElement copy = source.renamed(renames.get(source.name()))
+                        .withParent(parent)
+                        .movedTo(source.x() + GRID_STEP, source.y() + GRID_STEP);
+                if (applyTracked(new ScreenOps.AddElement(screenName, copy))) {
+                    created.add(copy.name());
+                }
+            }
+        } finally {
+            history.endGesture();
+        }
+        if (created.isEmpty()) {
+            return false;
+        }
+        selection.selectAll(created, false);
+        return true;
+    }
+
+    // ------------------------------------------------------------ gestion d'écran
+
+    /** Crée un écran et bascule dessus. Rend son nom, ou {@code null} si refusé. */
+    public @Nullable String addScreen(String base) {
+        Set<String> taken = new java.util.HashSet<>(blueprint.screens().keySet());
+        String name = freshName(taken, base);
+        history.beginGesture();
+        try {
+            if (!applyTracked(new ScreenOps.AddScreen(Screen.empty(name)))) {
+                return null;
+            }
+        } finally {
+            history.endGesture();
+        }
+        setScreenName(name);
+        return name;
+    }
+
+    /** Supprime l'écran courant et bascule sur ce qu'il reste. */
+    public boolean removeCurrentScreen() {
+        if (screen() == null) {
+            return false;
+        }
+        history.beginGesture();
+        try {
+            if (!applyTracked(new ScreenOps.RemoveScreen(screenName))) {
+                return false;
+            }
+        } finally {
+            history.endGesture();
+        }
+        setScreenName(blueprint.screens().keySet().stream().findFirst().orElse(""));
+        return true;
+    }
+
+    /**
+     * Modal ↔ HUD. Le passage en HUD peut être <b>refusé</b> : un HUD ne capte pas la
+     * souris, donc un écran qui contient des boutons y serait un leurre — et c'est
+     * `ScreenRules` qui le dit, pas ce contrôleur.
+     */
+    public boolean toggleHud() {
+        Screen screen = screen();
+        if (screen == null) {
+            return false;
+        }
+        Screen flipped = screen.withHud(!screen.hud());
+        for (ScreenElement element : flipped.elements().values()) {
+            Diagnostic refusal = fr.blueprint.core.graph.ScreenRules.checkPlacement(
+                    screenName, flipped, element,
+                    fr.blueprint.core.graph.GraphLimits.DEFAULT);
+            if (refusal != null) {
+                lastRefusal = refusal;
+                return false;
+            }
+        }
+        history.beginGesture();
+        try {
+            return applyTracked(new ScreenOps.SetScreen(flipped));
+        } finally {
+            history.endGesture();
+        }
+    }
+
+    /** Renomme l'écran courant : un écran est désigné par son nom dans `gui/open`. */
+    public boolean renameCurrentScreen(String to) {
+        Screen screen = screen();
+        if (screen == null || to == null || to.isBlank() || blueprint.screen(to) != null) {
+            return false;
+        }
+        history.beginGesture();
+        try {
+            // Ajouter le nouveau AVANT de retirer l'ancien : si l'ajout est refusé
+            // (plafond atteint), l'écran d'origine est toujours là.
+            if (!applyTracked(new ScreenOps.AddScreen(screen.renamed(to)))) {
+                return false;
+            }
+            applyTracked(new ScreenOps.RemoveScreen(screenName));
+        } finally {
+            history.endGesture();
+        }
+        setScreenName(to);
+        return true;
+    }
+
     private boolean applyTracked(EditOperation op) {
         EditOperation.Result result = op.apply(blueprint, lookup);
         if (result.applied()) {

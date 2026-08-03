@@ -223,6 +223,19 @@ public final class ScreenDesignerWidget {
             y += ROW;
         }
         g.drawString(font, I18n.get("blueprint.designer.add_screen"), 6, y, DIM_TEXT, false);
+        y += ROW;
+        // Les actions de l'écran COURANT, sous sa liste : renommer, supprimer, et le
+        // passage modal ↔ HUD, qui n'existaient nulle part — on pouvait créer un écran
+        // et plus jamais le défaire.
+        Screen current = controller.screen();
+        boolean hud = current != null && current.hud();
+        String mode = hud ? I18n.get("blueprint.designer.screen_hud")
+                : I18n.get("blueprint.designer.screen_modal");
+        g.drawString(font, mode, 6, y, hud ? SELECTED : DIM_TEXT, false);
+        y += ROW;
+        g.drawString(font, I18n.get("blueprint.designer.rename_screen"), 6, y, DIM_TEXT, false);
+        y += ROW;
+        g.drawString(font, I18n.get("blueprint.designer.remove_screen"), 6, y, DIM_TEXT, false);
         y += ROW + 4;
 
         g.drawString(font, I18n.get("blueprint.designer.elements"), 4, y, DIM_TEXT, false);
@@ -231,6 +244,62 @@ public final class ScreenDesignerWidget {
             g.drawString(font, I18n.get(kindKey(kind)), 6, y, TEXT, false);
             y += ROW;
         }
+        y += 4;
+        renderLayers(g, font, y);
+    }
+
+    /**
+     * La liste des éléments, du <b>dessus vers le dessous</b> — l'ordre de dessin lu à
+     * l'envers, comme dans tout éditeur graphique.
+     *
+     * <p>C'est la seule façon d'atteindre un parent entièrement recouvert par ses
+     * enfants : sur le canevas, cliquer dessus attrape l'enfant, toujours. Sans cette
+     * liste, un panneau de fond devenait injoignable dès qu'on avait posé quelque chose
+     * par-dessus — et il n'y avait plus aucun moyen de le déplacer ni de le supprimer.
+     */
+    private void renderLayers(GuiGraphics g, Font font, int startY) {
+        Screen screen = controller.screen();
+        if (screen == null) {
+            return;
+        }
+        g.drawString(font, I18n.get("blueprint.designer.layers"), 4, startY, DIM_TEXT, false);
+        int y = startY + ROW;
+        for (String name : layerOrder(screen)) {
+            if (y + ROW > height) {
+                break;   // le panneau ne déborde pas : le reste s'atteint au canevas
+            }
+            ScreenElement element = screen.element(name);
+            boolean selected = controller.selection().isSelected(name);
+            int depth = depthOf(screen, name);
+            // L'œil dit d'un coup ce qui est masqué — sans lui, un élément invisible
+            // à la conception se confond avec un élément absent.
+            g.drawString(font, element.visible() ? "◉" : "○", 4, y,
+                    element.visible() ? TEXT : DIM_TEXT, false);
+            g.drawString(font, font.plainSubstrByWidth(name, PALETTE_WIDTH - 18 - depth * 4),
+                    14 + depth * 4, y, selected ? SELECTED : TEXT, false);
+            y += ROW;
+        }
+    }
+
+    /** Du dessus vers le dessous, chaque enfant sous son parent. */
+    private static List<String> layerOrder(Screen screen) {
+        List<String> out = new java.util.ArrayList<>(screen.elements().keySet());
+        java.util.Collections.reverse(out);
+        return out;
+    }
+
+    private static int depthOf(Screen screen, String name) {
+        int depth = 0;
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        seen.add(name);
+        ScreenElement element = screen.element(name);
+        String cursor = element == null ? null : element.parent();
+        while (cursor != null && seen.add(cursor) && depth < 4) {
+            depth++;
+            ScreenElement up = screen.element(cursor);
+            cursor = up == null ? null : up.parent();
+        }
+        return depth;
     }
 
     private static String kindKey(ElementKind kind) {
@@ -314,6 +383,26 @@ public final class ScreenDesignerWidget {
             addScreen();
             return true;
         }
+        y += ROW;
+        if (my >= y && my < y + ROW) {
+            if (!controller.toggleHud()) {
+                reportRefusal();
+            }
+            return true;
+        }
+        y += ROW;
+        if (my >= y && my < y + ROW) {
+            // Le renommage se fait dans le champ du panneau de droite, réutilisé : un
+            // second éditeur de texte donnerait deux comportements de frappe à retenir.
+            renamingScreen = controller.screenName();
+            screenBuffer = controller.screenName();
+            return true;
+        }
+        y += ROW;
+        if (my >= y && my < y + ROW) {
+            controller.removeCurrentScreen();
+            return true;
+        }
         y += ROW + 4 + ROW;
         for (ElementKind kind : ElementKind.values()) {
             if (my >= y && my < y + ROW) {
@@ -327,8 +416,24 @@ public final class ScreenDesignerWidget {
             }
             y += ROW;
         }
+        y += 4 + ROW;
+        // La liste des calques : sélectionner, et basculer la visibilité par l'œil.
+        Screen screen = controller.screen();
+        if (screen != null) {
+            for (String name : layerOrder(screen)) {
+                if (my >= y && my < y + ROW) {
+                    controller.selection().selectAll(List.of(name), false);
+                    return true;
+                }
+                y += ROW;
+            }
+        }
         return true;
     }
+
+    /** L'écran en cours de renommage, et ce qui est tapé. */
+    private @Nullable String renamingScreen;
+    private String screenBuffer = "";
 
     private void addScreen() {
         String base = I18n.get("blueprint.designer.new_screen_name");
@@ -395,20 +500,48 @@ public final class ScreenDesignerWidget {
     // ------------------------------------------------------------------ clavier
 
     public boolean keyPressed(KeyEvent e) {
+        if (renamingScreen != null) {
+            return screenNameKey(e);
+        }
         if (properties.editing() != null) {
             return editKey(e);
         }
+        // Les flèches : le seul moyen de poser un élément à l'unité près. Shift passe
+        // à dix — un cran de grille visible, pour traverser sans marteler la touche.
+        double step = e.hasShiftDown() ? 10 : 1;
         return switch (e.key()) {
+            case GLFW.GLFW_KEY_LEFT -> nudge(-step, 0);
+            case GLFW.GLFW_KEY_RIGHT -> nudge(step, 0);
+            case GLFW.GLFW_KEY_UP -> nudge(0, -step);
+            case GLFW.GLFW_KEY_DOWN -> nudge(0, step);
             case GLFW.GLFW_KEY_DELETE -> {
                 controller.deleteSelection();
                 yield true;
             }
-            case GLFW.GLFW_KEY_D -> {
-                if (e.hasControlDown()) {
-                    controller.duplicateSelection();
-                    yield true;
+            case GLFW.GLFW_KEY_ESCAPE -> {
+                // Échap désélectionne AVANT de fermer l'éditeur : sinon on perdrait sa
+                // fenêtre pour avoir voulu annuler une sélection.
+                if (controller.selection().isEmpty()) {
+                    yield false;
                 }
-                yield false;
+                controller.selection().clear();
+                yield true;
+            }
+            case GLFW.GLFW_KEY_D -> control(e, controller::duplicateSelection);
+            case GLFW.GLFW_KEY_C -> control(e, controller::copySelection);
+            case GLFW.GLFW_KEY_V -> control(e, controller::paste);
+            case GLFW.GLFW_KEY_A -> control(e, () -> {
+                Screen screen = controller.screen();
+                if (screen == null) {
+                    return false;
+                }
+                controller.selection().selectAll(List.copyOf(screen.elements().keySet()), false);
+                return true;
+            });
+            case GLFW.GLFW_KEY_H -> control(e, () -> controller.toggleSelection(true));
+            case GLFW.GLFW_KEY_G -> {
+                controller.toggleSnap();
+                yield true;
             }
             case GLFW.GLFW_KEY_PAGE_UP -> {
                 controller.reorderSelection(1);
@@ -418,8 +551,48 @@ public final class ScreenDesignerWidget {
                 controller.reorderSelection(-1);
                 yield true;
             }
+            // Alignement au pavé numérique : la disposition des touches DESSINE
+            // l'alignement obtenu, ce qu'aucun raccourci alphabétique ne fait.
+            case GLFW.GLFW_KEY_KP_4 -> align(ScreenCanvasController.Align.LEFT);
+            case GLFW.GLFW_KEY_KP_5 -> align(ScreenCanvasController.Align.CENTER_X);
+            case GLFW.GLFW_KEY_KP_6 -> align(ScreenCanvasController.Align.RIGHT);
+            case GLFW.GLFW_KEY_KP_8 -> align(ScreenCanvasController.Align.TOP);
+            case GLFW.GLFW_KEY_KP_2 -> align(ScreenCanvasController.Align.BOTTOM);
+            case GLFW.GLFW_KEY_KP_0 -> align(ScreenCanvasController.Align.CENTER_Y);
+            case GLFW.GLFW_KEY_KP_ADD -> {
+                controller.distributeSelection(true);
+                yield true;
+            }
+            case GLFW.GLFW_KEY_KP_SUBTRACT -> {
+                controller.distributeSelection(false);
+                yield true;
+            }
             default -> false;
         };
+    }
+
+    private boolean nudge(double dx, double dy) {
+        if (controller.selection().isEmpty()) {
+            return false;
+        }
+        controller.nudgeSelection(dx, dy);
+        reportRefusal();
+        return true;
+    }
+
+    private boolean align(ScreenCanvasController.Align align) {
+        controller.alignSelection(align);
+        return true;
+    }
+
+    /** N'agit que si Ctrl est enfoncé — sinon la touche reste libre pour le jeu. */
+    private boolean control(KeyEvent e, java.util.function.BooleanSupplier action) {
+        if (!e.hasControlDown()) {
+            return false;
+        }
+        action.getAsBoolean();
+        reportRefusal();
+        return true;
     }
 
     private boolean editKey(KeyEvent e) {
@@ -452,10 +625,36 @@ public final class ScreenDesignerWidget {
     }
 
     public boolean charTyped(CharacterEvent e) {
+        if (renamingScreen != null) {
+            screenBuffer += (char) e.codepoint();
+            return true;
+        }
         if (properties.editing() == null) {
             return false;
         }
         properties.type((char) e.codepoint());
+        return true;
+    }
+
+    /** La frappe du nom d'écran : mêmes touches que le panneau de propriétés. */
+    private boolean screenNameKey(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> renamingScreen = null;
+            case GLFW.GLFW_KEY_BACKSPACE -> {
+                if (!screenBuffer.isEmpty()) {
+                    screenBuffer = screenBuffer.substring(0, screenBuffer.length() - 1);
+                }
+            }
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+                if (!controller.renameCurrentScreen(screenBuffer.trim())) {
+                    message = I18n.get("blueprint.designer.bad_screen_name", screenBuffer);
+                }
+                renamingScreen = null;
+            }
+            default -> {
+                return false;
+            }
+        }
         return true;
     }
 }
