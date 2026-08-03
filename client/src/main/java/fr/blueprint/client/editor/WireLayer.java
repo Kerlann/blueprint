@@ -15,8 +15,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class WireLayer {
 
-    private static final int EXEC_COLOR = 0xFFE6E6E6;
     private static final double TENSION = 0.55;
+
+    private static int execColor() {
+        return fr.blueprint.client.theme.Theme.current().execWire();
+    }
     private static final int DATA_WIDTH = 2;
     private static final int EXEC_WIDTH = 3;
     /** Marge monde ajoutée au champ visible pour le culling des liens. */
@@ -44,7 +47,7 @@ public final class WireLayer {
             }
             NodeShape.PinDef def = controller.pinDef(link.fromNode(), link.fromPin());
             boolean exec = def != null && def.kind() == PinKind.EXEC;
-            int color = exec ? EXEC_COLOR : def != null ? def.type().color() : EXEC_COLOR;
+            int color = exec ? execColor() : def != null ? def.type().color() : execColor();
             drawCurve(g, camera, from.x(), from.y(), 1, to.x(), to.y(), -1,
                     color, exec ? EXEC_WIDTH : DATA_WIDTH);
         }
@@ -64,7 +67,7 @@ public final class WireLayer {
         int dir = from.output() ? 1 : -1;
         drawCurve(g, camera, start.x(), start.y(), dir,
                 controller.wireCursorX(), controller.wireCursorY(), -dir,
-                exec ? EXEC_COLOR : from.type().color(), exec ? EXEC_WIDTH : DATA_WIDTH);
+                exec ? execColor() : from.type().color(), exec ? EXEC_WIDTH : DATA_WIDTH);
     }
 
     /** Centre du pin, ou secours au bord de la boîte (fantôme sans forme connue). */

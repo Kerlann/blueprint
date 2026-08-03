@@ -36,10 +36,8 @@ import java.util.UUID;
  */
 public final class CanvasWidget {
 
-    // Couleurs de la spec UX §12 — le thème JSON rechargeable est la story 5.7.
-    private static final int BACKGROUND = 0xFF1A1B1E;
-    private static final int GRID = 0xFF242629;
-    private static final int GRID_MAJOR = 0xFF2E3135;
+    // Couleurs du canevas : jetons du thème (5.7) ; le chrome des panneaux reste
+    // en constantes locales (consigné).
     private static final int RUBBER_FILL = 0x337AA2F7;
     private static final int RUBBER_BORDER = 0xFF7AA2F7;
 
@@ -65,6 +63,9 @@ public final class CanvasWidget {
     /** Renommage d'une boîte de commentaire (double-clic sur son titre). */
     private @Nullable UUID commentRenaming;
     private String commentBuffer = "";
+    private final GotoState gotoState = new GotoState();
+    private int minimapLeft;
+    private int minimapTop;
     private final PickerState picker = new PickerState();
     private final java.util.Map<Identifier, ItemStack> iconCache = new java.util.HashMap<>();
     private @Nullable List<PickerState.Entry> itemEntries;
@@ -105,6 +106,9 @@ public final class CanvasWidget {
         }
         entries.sort(Comparator.comparing(NodeSearch.Entry::title));
         this.configDir = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir();
+        // Thème rechargé à chaque ouverture : modifiable sans recompiler (5.7).
+        fr.blueprint.client.theme.Theme.set(
+                fr.blueprint.client.theme.ThemeLoader.load(configDir));
         this.palette = new PaletteState(new NodeSearch(entries), descriptors::descriptor,
                 fr.blueprint.client.config.PalettePrefs.load(configDir),
                 () -> session.blueprint().meta().permissionCap());
@@ -139,7 +143,7 @@ public final class CanvasWidget {
             diagnostics.accept(fr.blueprint.core.graph.GraphValidator
                     .validate(controller.blueprint(), lookup).diagnostics());
         }
-        g.fill(0, 0, width, height, BACKGROUND);
+        g.fill(0, 0, width, height, fr.blueprint.client.theme.Theme.current().canvasBackground());
         renderGrid(g);
         renderComments(g, font);
         WireLayer.renderLinks(g, camera, controller, width, height);
@@ -166,9 +170,53 @@ public final class CanvasWidget {
             }
         }
         ScriptView.render(g, font, scriptView, width, height);
+        int rightPanel = scriptView.visible() ? width - ScriptView.panelLeft(width)
+                : panelVisible ? DetailsPanel.WIDTH : 0;
+        minimapLeft = Minimap.left(width, rightPanel);
+        minimapTop = Minimap.top(height);
+        Minimap.render(g, camera, controller.boxes(), minimapLeft, minimapTop,
+                canvasWidth(), height);
+        renderGoto(g, font);
         renderEnumOptions(g, font);
         PalettePopup.render(g, font, palette, width, height);
         RegistryPickerPopup.render(g, font, picker, this::iconOf, width, height, mouseX, mouseY);
+    }
+
+    private int canvasWidth() {
+        return scriptView.visible() ? ScriptView.panelLeft(width) : width;
+    }
+
+    /** « Aller au nœud » (Ctrl+F, 5.7) : petite recherche centrée en haut. */
+    private void renderGoto(GuiGraphics g, Font font) {
+        if (!gotoState.isOpen()) {
+            return;
+        }
+        int w = 200;
+        int x = (width - w) / 2;
+        int y = ToolbarWidget.HEIGHT + 8;
+        int h = 16 + Math.max(1, gotoState.results().size()) * 11 + 3;
+        g.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xFF3A3D42);
+        g.fill(x, y, x + w, y + h, 0xF01A1B1E);
+        g.drawString(font, I18n.get("blueprint.editor.goto") + " " + gotoState.query() + "_",
+                x + 4, y + 3, 0xFFE6E6E6, false);
+        for (int i = 0; i < gotoState.results().size(); i++) {
+            int rowY = y + 16 + i * 11;
+            if (i == gotoState.selectedIndex()) {
+                g.fill(x + 1, rowY - 1, x + w - 1, rowY + 10, 0xFF2F3A55);
+            }
+            g.drawString(font, font.plainSubstrByWidth(
+                    gotoState.results().get(i).title(), w - 8), x + 4, rowY, 0xFFD5D8DC, false);
+        }
+    }
+
+    private void openGoto() {
+        List<GotoState.Target> targets = new ArrayList<>();
+        for (NodeGeometry.Box b : controller.boxes()) {
+            NodeDescriptor desc = descriptors.descriptor(b.node().typeId());
+            targets.add(new GotoState.Target(b.node().uuid(),
+                    desc != null ? I18n.get(desc.titleKey()) : b.node().typeId().toString()));
+        }
+        gotoState.open(targets);
     }
 
     /** Liste déroulante d'une énumération en édition (direction, 5.2c). */
@@ -216,11 +264,12 @@ public final class CanvasWidget {
     }
 
     private void renderGrid(GuiGraphics g) {
+        var theme = fr.blueprint.client.theme.Theme.current();
         // Les mineures s'effacent sous 0,5× ; les majeures restent (UX §3).
         if (camera.zoom() >= Camera.GRID_FADE_ZOOM) {
-            renderGridLines(g, Camera.GRID_STEP, GRID);
+            renderGridLines(g, Camera.GRID_STEP, theme.grid());
         }
-        renderGridLines(g, Camera.GRID_MAJOR_STEP, GRID_MAJOR);
+        renderGridLines(g, Camera.GRID_MAJOR_STEP, theme.gridMajor());
     }
 
     private void renderGridLines(GuiGraphics g, double step, int color) {
@@ -354,6 +403,18 @@ public final class CanvasWidget {
             } else {
                 picker.close();
             }
+            return true;
+        }
+        if (gotoState.isOpen()) {
+            gotoState.close();
+            return true;
+        }
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && Minimap.contains(e.x(), e.y(), minimapLeft, minimapTop)
+                && !controller.boxes().isEmpty()) {
+            double[] world = Minimap.toWorld(NodeGeometry.boundsOf(controller.boxes()),
+                    e.x() - minimapLeft, e.y() - minimapTop);
+            camera.centerOn(world[0], world[1], canvasWidth(), height);
             return true;
         }
         if (literalEdit.isOpen() && literalEdit.mode() == LiteralEditState.Mode.ENUM) {
@@ -848,6 +909,24 @@ public final class CanvasWidget {
             }
             return true;
         }
+        if (gotoState.isOpen()) {
+            switch (e.key()) {
+                case GLFW.GLFW_KEY_ESCAPE -> gotoState.close();
+                case GLFW.GLFW_KEY_UP -> gotoState.moveSelection(-1);
+                case GLFW.GLFW_KEY_DOWN -> gotoState.moveSelection(1);
+                case GLFW.GLFW_KEY_BACKSPACE -> gotoState.backspace();
+                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+                    GotoState.Target target = gotoState.selectedTarget();
+                    if (target != null) {
+                        controller.focusNode(target.node(), canvasWidth(), height);
+                    }
+                    gotoState.close();
+                }
+                default -> {
+                }
+            }
+            return true;
+        }
         if (commentRenaming != null) {
             switch (e.key()) {
                 case GLFW.GLFW_KEY_ESCAPE -> {
@@ -921,7 +1000,11 @@ public final class CanvasWidget {
                 return true;
             }
             case GLFW.GLFW_KEY_F -> {
-                frameAll();
+                if (e.hasControlDown()) {
+                    openGoto(); // Ctrl+F : aller au nœud (UX §11)
+                } else {
+                    frameAll();
+                }
                 return true;
             }
             case GLFW.GLFW_KEY_TAB -> {
@@ -1060,6 +1143,10 @@ public final class CanvasWidget {
         }
         if (commentRenaming != null && e.isAllowedChatCharacter()) {
             commentBuffer += e.codepointAsString();
+            return true;
+        }
+        if (gotoState.isOpen() && e.isAllowedChatCharacter()) {
+            gotoState.type(e.codepointAsString());
             return true;
         }
         if (literalEdit.isOpen() && e.isAllowedChatCharacter()) {

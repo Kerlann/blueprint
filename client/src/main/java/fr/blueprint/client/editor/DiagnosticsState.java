@@ -103,9 +103,9 @@ public final class DiagnosticsState {
             Diagnostic d = report.get(i);
             if (node.equals(nodeOf(d))) {
                 if (d.severity() == Diagnostic.Severity.ERROR) {
-                    return 0xFFF7768E;
+                    return fr.blueprint.client.theme.Theme.current().error();
                 }
-                color = 0xFFE0AF68;
+                color = fr.blueprint.client.theme.Theme.current().warning();
             }
         }
         return color;

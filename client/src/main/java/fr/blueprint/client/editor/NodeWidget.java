@@ -21,13 +21,25 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class NodeWidget {
 
-    // Couleurs de la spec UX §12 — le thème JSON rechargeable est la story 5.7.
-    private static final int NODE_BACKGROUND = 0xFF2B2D31;
-    private static final int NODE_BORDER = 0xFF3A3D42;
-    private static final int SELECTED_BORDER = 0xFF7AA2F7;
-    private static final int GHOST_COLOR = 0xFFC74A5B;
+    // Les couleurs structurelles viennent du thème (5.7) ; le texte reste local.
     private static final int TITLE_COLOR = 0xFFE6E6E6;
     private static final int PIN_LABEL_COLOR = 0xFFABB2BF;
+
+    private static int nodeBackground() {
+        return fr.blueprint.client.theme.Theme.current().nodeBackground();
+    }
+
+    private static int nodeBorder() {
+        return fr.blueprint.client.theme.Theme.current().nodeBorder();
+    }
+
+    private static int selectedBorder() {
+        return fr.blueprint.client.theme.Theme.current().nodeSelected();
+    }
+
+    private static int ghostColor() {
+        return fr.blueprint.client.theme.Theme.current().ghost();
+    }
 
     /** Alpha appliqué à la couleur de catégorie sur l'en-tête. */
     private static final int HEADER_ALPHA = 0x59000000;
@@ -68,18 +80,18 @@ public final class NodeWidget {
 
         boolean ghost = desc == null;
         if (selected) {
-            g.fill(0, 0, w, h, SELECTED_BORDER);
-            g.fill(1, 1, w - 1, h - 1, NODE_BACKGROUND);
+            g.fill(0, 0, w, h, selectedBorder());
+            g.fill(1, 1, w - 1, h - 1, nodeBackground());
         } else if (outlineColor != 0) {
             // Nœud fautif : liseré de la couleur de la sévérité (UX §8).
             g.fill(0, 0, w, h, outlineColor);
-            g.fill(1, 1, w - 1, h - 1, NODE_BACKGROUND);
+            g.fill(1, 1, w - 1, h - 1, nodeBackground());
         } else if (ghost) {
-            g.fill(0, 0, w, h, NODE_BACKGROUND);
-            dashedBorder(g, w, h, GHOST_COLOR);
+            g.fill(0, 0, w, h, nodeBackground());
+            dashedBorder(g, w, h, ghostColor());
         } else {
-            g.fill(0, 0, w, h, NODE_BORDER);
-            g.fill(1, 1, w - 1, h - 1, NODE_BACKGROUND);
+            g.fill(0, 0, w, h, nodeBorder());
+            g.fill(1, 1, w - 1, h - 1, nodeBackground());
         }
 
         if (ghost) {
@@ -172,8 +184,8 @@ public final class NodeWidget {
         }
         if (pin.type() == PinTypes.BOOL) {
             boolean on = value.value() instanceof Boolean b && b;
-            g.fill(x2 - 8, cy - 4, x2, cy + 4, NODE_BORDER);
-            g.fill(x2 - 7, cy - 3, x2 - 1, cy + 3, on ? BOOL_ON : NODE_BACKGROUND);
+            g.fill(x2 - 8, cy - 4, x2, cy + 4, nodeBorder());
+            g.fill(x2 - 7, cy - 3, x2 - 1, cy + 3, on ? BOOL_ON : nodeBackground());
             return;
         }
         String text = LiteralEditState.display(pin.type(), value);
@@ -190,7 +202,7 @@ public final class NodeWidget {
             return;
         }
         String title = font.plainSubstrByWidth(typeId.toString(), w - 12);
-        g.drawString(font, title, 6, 5, GHOST_COLOR, false);
+        g.drawString(font, title, 6, 5, ghostColor(), false);
         if (zoom < DETAIL_FADE_ZOOM) {
             return;
         }
@@ -231,7 +243,7 @@ public final class NodeWidget {
             case ARRAY -> g.fill(cx - 3, cy - 3, cx + 4, cy + 4, color);
             case MAP -> {
                 g.fill(cx - 3, cy - 3, cx + 4, cy + 4, color);
-                g.fill(cx - 1, cy - 1, cx + 2, cy + 2, NODE_BACKGROUND);
+                g.fill(cx - 1, cy - 1, cx + 2, cy + 2, nodeBackground());
             }
         }
     }
