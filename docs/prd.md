@@ -112,13 +112,13 @@ mappings Mojang). Tout le produit décrit ici est à construire par-dessus.
 
 #### Interfaces graphiques (épic 10)
 
-- **FR45** — Un blueprint peut posséder un ou plusieurs **écrans**, composés d'éléments (panneau, étiquette, bouton, image, barre de progression) positionnés librement.
+- **FR45** — Un blueprint peut posséder un ou plusieurs **écrans**, composés d'éléments (panneau, étiquette, bouton, image, barre, liste défilante, champ de saisie, emplacement d'objet) positionnés librement.
 - **FR46** — Les écrans se conçoivent **à la souris** : poser, déplacer, redimensionner, sélectionner, aligner — sans écrire une ligne.
 - **FR46b** — Un écran s'**adapte** : ancres, tailles en pourcentage et bornes lui permettent de rester utilisable de 320×180 à 960×540 unités d'interface, c'est-à-dire à toutes les résolutions et tous les réglages de *GUI scale* courants.
 - **FR47** — Chaque élément porte un **nom** unique dans son écran ; c'est par ce nom que le graphe le désigne.
-- **FR48** — Un nœud ouvre un écran pour un joueur donné, un autre le ferme ; un événement se déclenche quand un élément est **cliqué**, quand l'écran s'ouvre et quand il se ferme.
+- **FR48** — Un nœud ouvre un écran pour un joueur donné, un autre le ferme ; un événement se déclenche quand un élément est **cliqué**, quand l'écran s'ouvre et quand il se ferme. `Échap` ferme toujours : aucun écran ne peut refuser de se fermer.
 - **FR49** — Le graphe peut **modifier** un écran ouvert : texte d'une étiquette, image, visibilité, activation d'un bouton, valeur d'une barre. Les modifications d'un même tick partent groupées, seules celles qui ont changé sont transmises, et une mise à jour destinée à un écran refermé est ignorée.
-- **FR49b** — Un élément peut être **lié** à une variable du blueprint : l'écran suit sa valeur automatiquement, avec un format d'affichage, sans qu'aucun nœud d'affichage soit appelé.
+- **FR49b** — Un élément peut être **lié** à une variable du blueprint, avec un format d'affichage. Un seul nœud `gui/refresh` met alors à jour tout l'écran ; rien ne circule tant qu'il n'est pas appelé.
 - **FR50** — L'apparence est **personnalisable** : couleurs, bordures, neuf-tranches, et images fournies par des **packs** — des dossiers de `config/blueprint/scripts/` qu'un joueur dépose chez lui et peut donner à un autre. Une texture absente affiche un remplaçant qui **nomme le pack manquant** et ne fait jamais planter le client.
 - **FR51** — Les écrans traversent la sauvegarde, la synchronisation réseau et BScript comme le reste du blueprint : même enregistrement, même permission, même verrou.
 - **FR52** — Le serveur ne fait **jamais** confiance à ce qu'un client déclare avoir cliqué : l'écran ouvert, l'existence de l'élément et la cadence sont vérifiés côté serveur.
@@ -487,8 +487,13 @@ demande de choisir plutôt que de subir — est hors de portée.*
 
 **Story 10.7 — Liaison de données**
 - AC1 : un élément se lie à une variable (étiquette → texte, barre → valeur) avec un format d'affichage ; l'écran suit sans qu'aucun nœud ne soit appelé.
-- AC2 : comparaison en fin de tick sur les seuls écrans OUVERTS — le coût suit le nombre d'écrans affichés, pas le nombre d'écritures de variables.
+- AC2 : la mise à jour part quand le graphe appelle `gui/refresh`, JAMAIS toute seule — coût nul au repos, aucun balayage par tick, et le client ne recalcule sa mise en page que sur paquet ou redimensionnement.
 - AC3 : une variable liée qui disparaît produit un diagnostic à l'édition, pas un écran vide en jeu.
+
+**Story 10.8 — Liste défilante, champ de saisie, emplacement d'objet**
+- AC1 : `LIST` (gabarit de ligne répété, défilement, découpe), `INPUT` (filtre, longueur, revérifiés côté serveur), `SLOT` (affiche un itemstack et son infobulle).
+- AC2 : la liste est alimentée par une `list<T>` du graphe ; un clic rend l'INDICE et la valeur, pas seulement le nom de l'élément.
+- AC3 : pas de glisser-déposer d'objets — un slot qui accepte un dépôt est un CONTENEUR, avec ses transactions et ses duplications ; on passe par des boutons et les nœuds d'inventaire.
 
 **Story 10.6 — Quotas, accessibilité et documentation**
 - AC1 : plafond d'éléments par écran et d'écrans par blueprint, configurables comme les quotas de graphe.
