@@ -73,6 +73,9 @@ public final class BlueprintNet {
                     }
                 });
 
+        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.FileList.TYPE,
+                (payload, context) -> files = List.copyOf(payload.files()));
+
         ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.GraphData.TYPE,
                 (payload, context) -> {
                     Blueprint graph = GraphSync.fromBytes(payload.data(),
@@ -130,6 +133,7 @@ public final class BlueprintNet {
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             known = List.of();
+            files = List.of();
             writable = false;
             active = null;
             activeId = null;
@@ -164,6 +168,31 @@ public final class BlueprintNet {
         }
         listPending = show;
         ClientPlayNetworking.send(new BlueprintPayloads.ListRequest(0));
+    }
+
+    /** Le serveur laisse-t-il ce joueur écrire ? Annoncé avec la liste. */
+    public static boolean writable() {
+        return writable;
+    }
+
+    /** Les fichiers importables annoncés par le serveur (navigateur F6). */
+    private static List<String> files = List.of();
+
+    public static List<String> files() {
+        return files;
+    }
+
+    public static void requestFiles() {
+        if (connected() && ClientPlayNetworking.canSend(
+                BlueprintPayloads.FileListRequest.TYPE)) {
+            ClientPlayNetworking.send(new BlueprintPayloads.FileListRequest());
+        }
+    }
+
+    public static void requestImport(String file) {
+        if (connected() && ClientPlayNetworking.canSend(BlueprintPayloads.ImportRequest.TYPE)) {
+            ClientPlayNetworking.send(new BlueprintPayloads.ImportRequest(file));
+        }
     }
 
     public static void requestOpen(Identifier id) {

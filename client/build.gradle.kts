@@ -67,6 +67,8 @@ tasks.jacocoTestCoverageVerification {
                 exclude("fr/blueprint/client/editor/screen/ScreenDesignerWidget*")
                 exclude("fr/blueprint/client/editor/screen/ModeTabs*")
                 exclude("fr/blueprint/client/screen/**")
+                // Navigateur (F6) : BrowserState est testé, l'écran ne se teste pas.
+                exclude("fr/blueprint/client/browser/BlueprintBrowserScreen*")
             })
             limit {
                 // Mesuré à 0,83 : un point de marge, assez pour ne pas casser sur une

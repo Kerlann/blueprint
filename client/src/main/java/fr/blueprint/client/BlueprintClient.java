@@ -31,10 +31,13 @@ public class BlueprintClient implements ClientModInitializer {
         KeyMapping openEditor = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.blueprint.open_editor", GLFW.GLFW_KEY_F6, category));
 
+        // F6 ouvre le NAVIGATEUR, pas une démo. Reprendre le dernier blueprint édité
+        // paraissait pratique et ne l'était pas : on ne pouvait plus en atteindre un
+        // autre sans passer par la commande, l'identifiant complet tapé de mémoire.
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             while (openEditor.consumeClick()) {
-                if (lastEdited != null && fr.blueprint.client.net.BlueprintNet.connected()) {
-                    fr.blueprint.client.net.BlueprintNet.requestOpen(lastEdited);
+                if (fr.blueprint.client.net.BlueprintNet.connected()) {
+                    mc.setScreen(new fr.blueprint.client.browser.BlueprintBrowserScreen());
                 } else {
                     openDemoEditor(mc);
                 }

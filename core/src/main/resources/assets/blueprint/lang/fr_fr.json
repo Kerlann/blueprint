@@ -487,5 +487,14 @@
   "blueprint.editor.vars.retype_warning": "%s lien(s) seront invalidés — recliquez T pour confirmer",
   "blueprint.editor.diag.summary": "%s erreur(s), %s avertissement(s)",
   "key.blueprint.open_editor": "Ouvrir l'éditeur de blueprint (démo)",
-  "key.category.blueprint.main": "Blueprint"
+  "key.category.blueprint.main": "Blueprint",
+  "blueprint.browser.title": "Blueprints",
+  "blueprint.browser.filter": "Rechercher : %s",
+  "blueprint.browser.empty": "Rien ici — créez-en un ci-dessous.",
+  "blueprint.browser.create": "[Ctrl+N] Nouveau blueprint…",
+  "blueprint.browser.creating": "Nouveau blueprint : %s",
+  "blueprint.browser.bad_id": "« %s » n'est pas un identifiant utilisable",
+  "blueprint.browser.hint": "Entrée ouvre · Tab cache les fichiers · F5 rafraîchit · Ctrl+F cherche",
+  "blueprint.browser.writable": "modifiable",
+  "blueprint.browser.readonly": "lecture seule"
 }

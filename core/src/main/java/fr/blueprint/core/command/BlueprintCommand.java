@@ -410,8 +410,7 @@ public final class BlueprintCommand {
     }
 
     private static java.nio.file.Path exportsDir() {
-        return net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir()
-                .resolve("blueprint").resolve("exports");
+        return fr.blueprint.core.BlueprintPaths.exports();
     }
 
     private static int export(CommandContext<CommandSourceStack> ctx) {

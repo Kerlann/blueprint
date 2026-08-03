@@ -62,6 +62,59 @@ public final class ServerBlueprintNet {
                             ids, mayEdit(config, context)));
                 });
 
+        c2s.register(BlueprintPayloads.FileListRequest.TYPE,
+                BlueprintPayloads.FileListRequest.CODEC);
+        s2c.register(BlueprintPayloads.FileList.TYPE, BlueprintPayloads.FileList.CODEC);
+        c2s.register(BlueprintPayloads.ImportRequest.TYPE, BlueprintPayloads.ImportRequest.CODEC);
+
+        // Les fichiers importables. Réservé à qui peut éditer : la liste des fichiers
+        // du serveur n'est pas une information publique.
+        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.FileListRequest.TYPE,
+                (payload, context) -> {
+                    if (!mayEdit(config, context) || !allowed(REQUESTS, context, "fichiers")) {
+                        return;
+                    }
+                    context.responseSender().sendPacket(
+                            new BlueprintPayloads.FileList(fr.blueprint.core.BlueprintFiles
+                                    .listExports(fr.blueprint.core.BlueprintPaths.exports())));
+                });
+
+        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ImportRequest.TYPE,
+                (payload, context) -> {
+                    if (!mayEdit(config, context) || !allowed(SAVES, context, "import")) {
+                        deny(context, Identifier.withDefaultNamespace("import"),
+                                BlueprintPayloads.SaveStatus.DENIED, -1);
+                        return;
+                    }
+                    Blueprint imported = fr.blueprint.core.BlueprintFiles.importFile(
+                            fr.blueprint.core.BlueprintPaths.exports(), payload.file(),
+                            BlueprintMod.registries());
+                    // Le garde s'applique à un fichier comme à un paquet : un .bp posé
+                    // à la main est du contenu extérieur, exactement comme le réseau.
+                    if (imported == null || !GraphGuard.inspect(imported.id(), imported,
+                            BlueprintMod.registries().nodes(), LIMITS).accepted()) {
+                        deny(context, Identifier.withDefaultNamespace("import"),
+                                BlueprintPayloads.SaveStatus.INVALID, -1);
+                        return;
+                    }
+                    BlueprintManager manager = BlueprintManager.of(context.server());
+                    if (!manager.adopt(imported)) {
+                        // Déjà présent : l'ouvrir plutôt que refuser. Le joueur voulait
+                        // travailler dessus, pas apprendre qu'il existe.
+                        Blueprint existing = manager.get(imported.id()).orElse(null);
+                        if (existing != null) {
+                            sendGraph(context, existing, true);
+                            return;
+                        }
+                        deny(context, imported.id(),
+                                BlueprintPayloads.SaveStatus.INVALID, -1);
+                        return;
+                    }
+                    BlueprintMod.LOGGER.info("Blueprint « {} » importé par {}",
+                            imported.id(), name(context));
+                    sendGraph(context, imported, true);
+                });
+
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.OpenRequest.TYPE,
                 (payload, context) -> {
                     if (!allowed(REQUESTS, context, "ouverture")) {

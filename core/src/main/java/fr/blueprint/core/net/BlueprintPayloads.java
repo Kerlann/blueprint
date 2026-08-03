@@ -70,6 +70,50 @@ public final class BlueprintPayloads {
         }
     }
 
+    /**
+     * C2S : les fichiers importables du serveur. Le navigateur (F6) en a besoin —
+     * sans eux, importer demandait de connaître par cœur le nom d'un fichier posé
+     * dans un dossier qu'on ne voit pas depuis le jeu.
+     */
+    public record FileListRequest() implements CustomPacketPayload {
+        public static final Type<FileListRequest> TYPE = new Type<>(id("bp_files_request"));
+        public static final StreamCodec<ByteBuf, FileListRequest> CODEC =
+                StreamCodec.unit(new FileListRequest());
+
+        @Override
+        public Type<FileListRequest> type() {
+            return TYPE;
+        }
+    }
+
+    /** S2C : les noms de fichiers {@code .bp} présents, sans leur extension. */
+    public record FileList(java.util.List<String> files) implements CustomPacketPayload {
+        public static final Type<FileList> TYPE = new Type<>(id("bp_files"));
+        public static final StreamCodec<ByteBuf, FileList> CODEC =
+                ByteBufCodecs.stringUtf8(MAX_NAME).apply(ByteBufCodecs.list(MAX_LIST))
+                        .map(FileList::new, FileList::files);
+
+        @Override
+        public Type<FileList> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * C2S : importer un fichier puis l'ouvrir. Le nom n'est <b>pas</b> cru : le serveur
+     * refuse tout ce qui n'est pas un nom de fichier de son propre dossier.
+     */
+    public record ImportRequest(String file) implements CustomPacketPayload {
+        public static final Type<ImportRequest> TYPE = new Type<>(id("bp_import_request"));
+        public static final StreamCodec<ByteBuf, ImportRequest> CODEC =
+                ByteBufCodecs.stringUtf8(MAX_NAME).map(ImportRequest::new, ImportRequest::file);
+
+        @Override
+        public Type<ImportRequest> type() {
+            return TYPE;
+        }
+    }
+
     /** C2S : demande d'ouverture d'un blueprint pour édition. */
     public record OpenRequest(Identifier blueprint) implements CustomPacketPayload {
         public static final Type<OpenRequest> TYPE = new Type<>(id("bp_open_request"));

@@ -49,6 +49,27 @@ public final class BlueprintFiles {
     }
 
     /** Lit {@code <nom>.bp} (BScript ou NBT hérité) ; null si absent ou indécodable. */
+    /**
+     * Les {@code .bp} du dossier, sans leur extension et triés — ce que le navigateur
+     * propose à l'import. Un dossier illisible rend une liste vide plutôt qu'une
+     * erreur : ne rien pouvoir importer se comprend tout seul.
+     */
+    public static java.util.List<String> listExports(Path exportsDir) {
+        if (!Files.isDirectory(exportsDir)) {
+            return java.util.List.of();
+        }
+        try (var files = Files.list(exportsDir)) {
+            return files.map(path -> path.getFileName().toString())
+                    .filter(name -> name.endsWith(".bp"))
+                    .map(name -> name.substring(0, name.length() - 3))
+                    .sorted()
+                    .toList();
+        } catch (IOException e) {
+            BlueprintMod.LOGGER.warn("Dossier d'exports illisible : {}", exportsDir, e);
+            return java.util.List.of();
+        }
+    }
+
     public static @Nullable Blueprint importFile(Path exportsDir, String name,
                                                  PluginLoader.LoadedRegistries registries) {
         // L'extension est tolérée : le joueur voit « demo_boutique.bp » dans son
