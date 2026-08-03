@@ -26,12 +26,21 @@ import java.util.UUID;
  */
 public final class AutoLayout {
 
+    // Ces trois espacements doivent rester plus grands qu'un nœud, sinon la mise en page
+    // automatique en empile qui se touchent. Ils ont été augmentés avec les dimensions
+    // des nœuds — un nœud de huit rangées mesure aujourd'hui 150 de haut, contre 114
+    // auparavant, ce qui dépassait l'ancien pas vertical de 140.
+    //
+    // Le lien avec NodeGeometry ne peut pas être une référence : la géométrie vit côté
+    // client, la mise en page côté serveur. Il est donc tenu par un test
+    // (AutoLayoutSpacingTest), qui échoue si l'un des deux bouge sans l'autre.
+
     /** Espacement horizontal entre couches exec. */
-    public static final double COLUMN = 240;
+    public static final double COLUMN = 300;
     /** Espacement vertical entre nœuds d'une même couche. */
-    public static final double ROW = 140;
+    public static final double ROW = 200;
     /** Décalage des purs, entre leur colonne et la précédente. */
-    public static final double PURE_SHIFT = 170;
+    public static final double PURE_SHIFT = 210;
 
     private AutoLayout() {
     }

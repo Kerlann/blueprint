@@ -205,12 +205,16 @@ public final class NodeWidget {
         categoryGlyph(g, desc.category(), GLYPH_X, header / 2, fade(category, 0xFF));
         // Le titre laisse la place au pictogramme ET au badge, sinon il passe dessous.
         String title = font.plainSubstrByWidth(I18n.get(desc.titleKey()),
-                w - 12 - TITLE_INDENT - (badge == 0 ? 0 : 8));
-        g.drawString(font, title, 6 + TITLE_INDENT, 5, TITLE_COLOR, false);
+                w - 12 - TITLE_INDENT - (badge == 0 ? 0 : 10));
+        // Centré dans l'en-tête plutôt que posé à cinq pixels du haut : la valeur en dur
+        // convenait à un bandeau de 18, elle laissait le titre collé au bord dès qu'il a
+        // grandi.
+        g.drawString(font, title, 6 + TITLE_INDENT,
+                (header - font.lineHeight) / 2 + 1, TITLE_COLOR, false);
         if (badge != 0) {
             // Un nœud qui modifie le monde ou exige l'op doit se repérer sans survol :
             // c'est ce qui décide si un blueprint est refusé par le plafond du serveur.
-            g.fill(w - 10, 4, w - 4, 10, badge);
+            g.fill(w - 11, header / 2 - 3, w - 5, header / 2 + 3, badge);
         }
 
         if (zoom < DETAIL_FADE_ZOOM) {
@@ -222,8 +226,20 @@ public final class NodeWidget {
             boolean dim = dimmer != null && dimmer.dimmed(pin.name(), false);
             drawPin(g, pin.type().shape(), dim(pin.type().color(), dim),
                     (int) NodeGeometry.PIN_INSET, cy);
-            String label = font.plainSubstrByWidth(pin.name(), w / 2 - 14);
-            g.drawString(font, label, (int) NodeGeometry.PIN_INSET + 7, cy - 4,
+            // Le libellé s'arrête au bord du CHAMP quand la rangée en porte un. Il était
+            // borné à « w / 2 - 14 », ce qui tenait par coïncidence à 140 de large et
+            // recouvrait le champ dès qu'on élargissait le nœud.
+            boolean hasField = pin.kind() == PinKind.DATA && literals != null
+                    && literals.literalOf(pin.name()) != null;
+            // Un booléen se CLIQUE, il ne se saisit pas : sa case fait douze pixels, et
+            // le libellé peut occuper tout le reste. Le traiter comme un champ de saisie
+            // laissait sept caractères à « through_fluids ».
+            double room = hasField && pin.type() == PinTypes.BOOL
+                    ? NodeGeometry.checkboxLabelWidth(w, i < desc.outputs().size())
+                    : NodeGeometry.inputLabelWidth(w, hasField);
+            String label = font.plainSubstrByWidth(pin.name(), (int) room);
+            g.drawString(font, label,
+                    (int) (NodeGeometry.PIN_INSET + NodeGeometry.LABEL_GAP), cy - 4,
                     dim(PIN_LABEL_COLOR, dim), false);
             if (pin.kind() == PinKind.DATA && literals != null) {
                 renderLiteral(g, font, box, w, i, pin, literals, edit,
@@ -236,8 +252,13 @@ public final class NodeWidget {
             int cx = w - (int) NodeGeometry.PIN_INSET;
             boolean dim = dimmer != null && dimmer.dimmed(pin.name(), true);
             drawPin(g, pin.type().shape(), dim(pin.type().color(), dim), cx, cy);
-            String label = font.plainSubstrByWidth(pin.name(), w / 2 - 14);
-            g.drawString(font, label, cx - 7 - font.width(label), cy - 4,
+            boolean facingField = i < desc.inputs().size()
+                    && desc.inputs().get(i).kind() == PinKind.DATA && literals != null
+                    && literals.literalOf(desc.inputs().get(i).name()) != null;
+            String label = font.plainSubstrByWidth(pin.name(),
+                    (int) NodeGeometry.outputLabelWidth(w, facingField));
+            g.drawString(font, label,
+                    cx - (int) NodeGeometry.LABEL_GAP - font.width(label), cy - 4,
                     dim(PIN_LABEL_COLOR, dim), false);
         }
     }
@@ -258,17 +279,23 @@ public final class NodeWidget {
         int x1 = (int) (w * NodeGeometry.LITERAL_LEFT);
         int x2 = (int) (w * (rowHasOutput ? NodeGeometry.LITERAL_RIGHT
                 : NodeGeometry.LITERAL_WIDE_RIGHT));
-        int top = (int) (NodeGeometry.TITLE_HEIGHT + row * NodeGeometry.ROW_HEIGHT);
-        int cy = top + (int) NodeGeometry.ROW_HEIGHT / 2;
+        // Le champ DESSINÉ et la zone CLIQUABLE partent du même calcul : les deux se
+        // déduisaient chacune leurs bords, et toute marge ajoutée d'un côté faisait
+        // cliquer à côté de ce qu'on voyait.
+        int rowTop = (int) (NodeGeometry.TITLE_HEIGHT + row * NodeGeometry.ROW_HEIGHT);
+        int top = rowTop + (int) NodeGeometry.FIELD_INSET_Y;
+        int bottom = rowTop + (int) NodeGeometry.ROW_HEIGHT - (int) NodeGeometry.FIELD_INSET_Y;
+        int cy = rowTop + (int) NodeGeometry.ROW_HEIGHT / 2;
 
         boolean editing = edit != null && edit.isOpen()
                 && box.node().uuid().equals(edit.node()) && pin.name().equals(edit.pin());
         if (editing) {
-            g.fill(x1 - 1, top, x2 + 1, top + (int) NodeGeometry.ROW_HEIGHT, LITERAL_EDIT_BG);
+            g.fill(x1 - 1, top, x2 + 1, bottom, LITERAL_EDIT_BG);
             int border = edit.isValid() ? LITERAL_EDIT_BORDER : LITERAL_INVALID_BORDER;
             g.fill(x1 - 1, top, x2 + 1, top + 1, border);
-            g.fill(x1 - 1, top + (int) NodeGeometry.ROW_HEIGHT - 1, x2 + 1,
-                    top + (int) NodeGeometry.ROW_HEIGHT, border);
+            g.fill(x1 - 1, bottom - 1, x2 + 1, bottom, border);
+            g.fill(x1 - 1, top, x1, bottom, border);
+            g.fill(x2, top, x2 + 1, bottom, border);
             String shown = edit.mode() == LiteralEditState.Mode.ENUM
                     ? "‹ " + edit.options().get(edit.optionIndex()).getName() + " ›"
                     : edit.text() + "_";
@@ -293,12 +320,11 @@ public final class NodeWidget {
         // Champ CREUSÉ, visible même vide : un littéral qu'on peut modifier doit se
         // voir comme un champ, pas comme du texte gris posé là. C'était le premier
         // reproche fait à l'éditeur en jeu.
-        g.fill(x1 - 1, top + 2, x2 + 1, top + (int) NodeGeometry.ROW_HEIGHT - 2, LITERAL_FIELD_BG);
-        g.fill(x1 - 1, top + 2, x2 + 1, top + 3, LITERAL_FIELD_BORDER);
-        g.fill(x1 - 1, top + (int) NodeGeometry.ROW_HEIGHT - 3, x2 + 1,
-                top + (int) NodeGeometry.ROW_HEIGHT - 2, LITERAL_FIELD_BORDER);
-        g.fill(x1 - 1, top + 2, x1, top + (int) NodeGeometry.ROW_HEIGHT - 2, LITERAL_FIELD_BORDER);
-        g.fill(x2, top + 2, x2 + 1, top + (int) NodeGeometry.ROW_HEIGHT - 2, LITERAL_FIELD_BORDER);
+        g.fill(x1 - 1, top, x2 + 1, bottom, LITERAL_FIELD_BG);
+        g.fill(x1 - 1, top, x2 + 1, top + 1, LITERAL_FIELD_BORDER);
+        g.fill(x1 - 1, bottom - 1, x2 + 1, bottom, LITERAL_FIELD_BORDER);
+        g.fill(x1 - 1, top, x1, bottom, LITERAL_FIELD_BORDER);
+        g.fill(x2, top, x2 + 1, bottom, LITERAL_FIELD_BORDER);
 
         String text = LiteralEditState.display(pin.type(), value);
         if (text.isEmpty()) {
@@ -314,13 +340,15 @@ public final class NodeWidget {
             return;
         }
         String title = font.plainSubstrByWidth(typeId.toString(), w - 12);
-        g.drawString(font, title, 6, 5, ghostColor(), false);
+        g.drawString(font, title, 6,
+                ((int) NodeGeometry.TITLE_HEIGHT - font.lineHeight) / 2 + 1,
+                ghostColor(), false);
         if (zoom < DETAIL_FADE_ZOOM) {
             return;
         }
         String message = font.plainSubstrByWidth(
                 I18n.get("blueprint.editor.ghost", typeId.getNamespace()), w - 12);
-        g.drawString(font, message, 6, (int) NodeGeometry.TITLE_HEIGHT + 4,
+        g.drawString(font, message, 6, (int) NodeGeometry.TITLE_HEIGHT + 6,
                 PIN_LABEL_COLOR, false);
     }
 

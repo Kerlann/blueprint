@@ -20,12 +20,31 @@ import java.util.List;
  */
 public final class NodeGeometry {
 
-    public static final double WIDTH = 140;
-    public static final double TITLE_HEIGHT = 18;
-    public static final double ROW_HEIGHT = 12;
+    /**
+     * Les dimensions d'un nœud, <b>élargies</b>. À 140 × 12, un champ de valeur mesurait
+     * trente pixels — moins de six caractères — et deux rangées voisines se touchaient,
+     * si bien qu'on ne savait plus quel champ appartenait à quelle entrée.
+     *
+     * <p>Tout ce qui se place à l'intérieur se calcule désormais à partir de ces nombres,
+     * jamais en fractions choisies à l'œil. C'est ce qui permet de les changer sans que
+     * les libellés recouvrent les champs — ce qui est arrivé au premier essai.
+     */
+    public static final double WIDTH = 200;
+    public static final double TITLE_HEIGHT = 22;
+    public static final double ROW_HEIGHT = 16;
 
     /** Distance du centre d'un pin au bord vertical de son nœud. */
-    public static final double PIN_INSET = 7;
+    public static final double PIN_INSET = 8;
+
+    /** Espace entre un pin et le début de son libellé. */
+    public static final double LABEL_GAP = 8;
+
+    /**
+     * Marge verticale d'un champ dans sa rangée. Sans elle, deux champs de rangées
+     * voisines se touchaient bord à bord et formaient une colonne continue : l'auteur ne
+     * voyait plus où finissait l'un et où commençait l'autre.
+     */
+    public static final double FIELD_INSET_Y = 3;
 
     /** Rangées présumées d'un nœud fantôme (forme inconnue). */
     private static final int GHOST_ROWS = 3;
@@ -90,16 +109,75 @@ public final class NodeGeometry {
     }
 
     /** Bord gauche de la zone littérale, en fraction de la largeur du nœud. */
-    public static final double LITERAL_LEFT = 0.38;
+    public static final double LITERAL_LEFT = 0.34;
+
     /**
-     * Bord droit de la zone littérale. 0,60 et pas plus : un label de sortie
-     * right-aligned peut commencer dès 0,62·largeur (QA 5.2b — chevauchement réel
-     * sur math/add rangée 0 : entrée « a » + sortie « result »).
+     * Bord droit de la zone littérale quand la rangée porte AUSSI une sortie.
+     *
+     * <p>La contrainte réelle n'a jamais été ce nombre mais le libellé de sortie, aligné
+     * à droite. On la tenait en gardant le champ étroit — d'où trente pixels utilisables,
+     * la première plainte du terrain sur l'éditeur. Les libellés sont désormais
+     * <b>bornés par le champ</b> ({@link #inputLabelWidth}, {@link #outputLabelWidth}) :
+     * c'est le champ qui décide, et il peut donc s'élargir sans rien recouvrir.
      */
-    public static final double LITERAL_RIGHT = 0.60;
+    public static final double LITERAL_RIGHT = 0.66;
 
     /** Bord droit quand la rangée ne porte AUCUN pin de sortie : rien à chevaucher. */
-    public static final double LITERAL_WIDE_RIGHT = 0.88;
+    public static final double LITERAL_WIDE_RIGHT = 0.92;
+
+    /**
+     * Place disponible pour le libellé d'une entrée, en unités de monde.
+     *
+     * <p>Calculée depuis le bord du champ quand la rangée en porte un, et non par une
+     * fraction fixe : {@code w / 2 - 14} tenait par coïncidence à 140 de large et
+     * recouvrait le champ dès qu'on élargissait le nœud.
+     */
+    public static double inputLabelWidth(double nodeWidth, boolean rowHasLiteral) {
+        return Math.max(8, labelSplitLeft(nodeWidth, rowHasLiteral) - PIN_INSET - LABEL_GAP);
+    }
+
+    /** Idem pour une sortie, alignée à droite : c'est son bord GAUCHE que le champ borne. */
+    public static double outputLabelWidth(double nodeWidth, boolean rowHasLiteral) {
+        return Math.max(8, nodeWidth - PIN_INSET - LABEL_GAP
+                - labelSplitRight(nodeWidth, rowHasLiteral));
+    }
+
+    /**
+     * Largeur d'une case à cocher, bord compris. Un booléen ne se saisit pas : il se
+     * clique. Son « champ » n'occupe donc que ce carré, et le libellé peut s'étendre
+     * jusque-là.
+     *
+     * <p>Ce n'est pas un détail : les noms de pins les plus longs du registre sont
+     * justement des booléens ({@code through_fluids}, {@code thundering}). Les traiter
+     * comme des champs de saisie leur laissait sept caractères sur quatorze.
+     */
+    public static final double CHECKBOX_WIDTH = 12;
+
+    /** Où le libellé d'entrée doit s'arrêter : au champ, ou au milieu de la rangée. */
+    private static double labelSplitLeft(double nodeWidth, boolean rowHasLiteral) {
+        return rowHasLiteral ? nodeWidth * LITERAL_LEFT - 4
+                : nodeWidth / 2 - LABEL_GAP / 2;
+    }
+
+    /**
+     * Place pour le libellé d'une entrée dont la valeur est une <b>case à cocher</b> :
+     * tout l'espace jusqu'à la case, qui reste calée sur le bord droit de la zone.
+     */
+    public static double checkboxLabelWidth(double nodeWidth, boolean rowHasOutput) {
+        double right = nodeWidth * (rowHasOutput ? LITERAL_RIGHT : LITERAL_WIDE_RIGHT)
+                - CHECKBOX_WIDTH - 4;
+        return Math.max(8, right - PIN_INSET - LABEL_GAP);
+    }
+
+    /**
+     * Où le libellé de sortie peut commencer. Sans champ, les deux libellés se partagent
+     * la rangée avec {@link #LABEL_GAP} au milieu — un partage à 55 % / 45 %, écrit sans
+     * y penser au premier essai, les faisait se chevaucher de dix-huit pixels.
+     */
+    private static double labelSplitRight(double nodeWidth, boolean rowHasLiteral) {
+        return rowHasLiteral ? nodeWidth * LITERAL_RIGHT + 4
+                : nodeWidth / 2 + LABEL_GAP / 2;
+    }
 
     /**
      * Zone cliquable/rendue de la valeur littérale d'un pin d'entrée (5.2b) —
@@ -117,9 +195,11 @@ public final class NodeGeometry {
      */
     public static Camera.Rect literalZone(Box box, int row, boolean rowHasOutput) {
         double right = rowHasOutput ? LITERAL_RIGHT : LITERAL_WIDE_RIGHT;
-        double top = box.y() + TITLE_HEIGHT + row * ROW_HEIGHT;
+        // Le champ ne remplit plus toute la rangée : la marge est ce qui le détache de
+        // celui du dessus, et ce qui fait qu'on voit à quelle entrée il appartient.
+        double top = box.y() + TITLE_HEIGHT + row * ROW_HEIGHT + FIELD_INSET_Y;
         return new Camera.Rect(box.x() + box.width() * LITERAL_LEFT, top,
-                box.x() + box.width() * right, top + ROW_HEIGHT);
+                box.x() + box.width() * right, top + ROW_HEIGHT - 2 * FIELD_INSET_Y);
     }
 
     /** Boîte monde d'un nœud ; {@code ghost} = type inconnu du registre. */
