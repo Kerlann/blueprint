@@ -119,6 +119,8 @@ class fr.blueprint.api.node.NodeCategories
   field public static final fr.blueprint.api.node.NodeCategory MATH
   field public static final fr.blueprint.api.node.NodeCategory MATH_ARITHMETIC
   field public static final fr.blueprint.api.node.NodeCategory MATH_FUNCTION
+  field public static final fr.blueprint.api.node.NodeCategory MATH_POSITION
+  field public static final fr.blueprint.api.node.NodeCategory MATH_VECTOR
   field public static final fr.blueprint.api.node.NodeCategory MISC
   field public static final fr.blueprint.api.node.NodeCategory PLAYER
   field public static final fr.blueprint.api.node.NodeCategory STRING

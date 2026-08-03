@@ -367,8 +367,50 @@ public final class StandardNodes {
                 })
                 .build());
 
+        // ------------------------------------------------- signaux (batch 1, 5.15)
+        // Même forme que command, et pour la même raison : le littéral « name »
+        // déclare le signal ÉCOUTÉ, donc le nœud porte une entrée et échappe à la
+        // synthèse. Sans cela, tout signal réveillerait tous les nœuds signal et
+        // l'auteur devrait filtrer à la main à chaque fois.
+        r.register(NodeType.builder(
+                        fr.blueprint.core.event.StandardEvents.SIGNAL.id())
+                .category(NodeCategories.EVENT_SERVER)
+                .entryPoint()
+                .titleKey(fr.blueprint.core.event.StandardEvents.SIGNAL.titleKey())
+                .execOut("exec_out")
+                .in("name", PinTypes.STRING, "")
+                .out("payload", PinTypes.STRING)
+                .action(ctx -> {
+                    Object payload = ctx.trigger().output("payload");
+                    ctx.out("payload", payload == null ? "" : payload);
+                })
+                .build());
+
+        // L'émetteur. C'est LA primitive « un blueprint en appelle un autre » :
+        // l'événement signal existait depuis la 7.6 et rien au monde ne le
+        // déclenchait — un point d'entrée mort, qu'on pouvait poser et câbler.
+        r.register(NodeType.builder(id("signal/emit"))
+                .category(NodeCategories.EVENT_SERVER).exec()
+                .in("name", PinTypes.STRING, "")
+                .in("payload", PinTypes.STRING, "")
+                .action(ctx -> {
+                    String name = ctx.in("name");
+                    if (name == null || name.isBlank()) {
+                        ctx.fail(Component.translatable("blueprint.fault.signal_unnamed"));
+                        return;
+                    }
+                    String payload = ctx.in("payload");
+                    if (!fr.blueprint.core.BlueprintMod.emitSignal(
+                            ctx.server(), name, payload == null ? "" : payload)) {
+                        ctx.fail(Component.translatable("blueprint.fault.signal_budget",
+                                fr.blueprint.core.event.BlueprintEventBridge.MAX_SIGNALS_PER_TICK));
+                    }
+                })
+                .build());
+
         // ----------------------------------------- monde, entités, items (7.3-7.5)
         ListNodes.register(r);
+        VectorNodes.register(r);
         WorldNodes.register(r);
         EntityNodes.register(r);
         ItemNodes.register(r);

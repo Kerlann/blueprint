@@ -33,6 +33,10 @@ public final class NodeCategories {
     public static final NodeCategory MATH_ARITHMETIC = new NodeCategory("math/arithmetic");
     /** Minimum, maximum, valeur absolue, arrondi, aléatoire, conversions. */
     public static final NodeCategory MATH_FUNCTION = new NodeCategory("math/function");
+    /** Vecteurs : construction, décomposition, arithmétique. */
+    public static final NodeCategory MATH_VECTOR = new NodeCategory("math/vector");
+    /** Positions de bloc, et passage vec3 ↔ blockpos. */
+    public static final NodeCategory MATH_POSITION = new NodeCategory("math/position");
 
     /** Comparaisons : inférieur, supérieur, égal. */
     public static final NodeCategory LOGIC_COMPARE = new NodeCategory("logic/compare");

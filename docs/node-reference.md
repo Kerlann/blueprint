@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-89 nœuds dans 21 catégories.
+107 nœuds dans 23 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -203,10 +203,28 @@ permission `SAFE` · fuel 1 · E
 
 permission `SAFE` · fuel 1 · E
 
+| Entrées | Type | Défaut |
+|---|---|---|
+| `name` | `blueprint:string` | `` |
+
 | Sorties | Type | Défaut |
 |---|---|---|
 | `exec_out` | exec | — |
-| `name` | `blueprint:string` | — |
+| `payload` | `blueprint:string` | — |
+
+### `blueprint:signal/emit` — Emit signal
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `name` | `blueprint:string` | `` |
+| `payload` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
 
 
 ## event/world
@@ -843,6 +861,239 @@ permission `SAFE` · fuel 1 · P
 | Sorties | Type | Défaut |
 |---|---|---|
 | `result` | `blueprint:int` | — |
+
+
+## math/position
+
+### `blueprint:pos/distance` — Distance between positions
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:blockpos` | — |
+| `b` | `blueprint:blockpos` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `distance` | `blueprint:double` | — |
+
+### `blueprint:pos/make` — Make position
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `x` | `blueprint:int` | `0` |
+| `y` | `blueprint:int` | `0` |
+| `z` | `blueprint:int` | `0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `pos` | `blueprint:blockpos` | — |
+
+### `blueprint:pos/offset` — Offset position
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `pos` | `blueprint:blockpos` | — |
+| `dx` | `blueprint:int` | `0` |
+| `dy` | `blueprint:int` | `0` |
+| `dz` | `blueprint:int` | `0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `pos` | `blueprint:blockpos` | — |
+
+### `blueprint:pos/relative` — Position in direction
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `pos` | `blueprint:blockpos` | — |
+| `direction` | `blueprint:direction` | `up` |
+| `distance` | `blueprint:int` | `1` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `pos` | `blueprint:blockpos` | — |
+
+### `blueprint:pos/split` — Break position
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `pos` | `blueprint:blockpos` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `x` | `blueprint:int` | — |
+| `y` | `blueprint:int` | — |
+| `z` | `blueprint:int` | — |
+
+### `blueprint:pos/to_vec` — Position to vector
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `pos` | `blueprint:blockpos` | — |
+| `centered` | `blueprint:bool` | `true` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+### `blueprint:vec/to_pos` — Vector to position
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `pos` | `blueprint:blockpos` | — |
+
+
+## math/vector
+
+### `blueprint:vec/add` — Add vectors
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:vec3` | — |
+| `b` | `blueprint:vec3` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+### `blueprint:vec/distance` — Distance
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:vec3` | — |
+| `b` | `blueprint:vec3` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `distance` | `blueprint:double` | — |
+
+### `blueprint:vec/dot` — Dot product
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:vec3` | — |
+| `b` | `blueprint:vec3` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `dot` | `blueprint:double` | — |
+
+### `blueprint:vec/length` — Vector length
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `length` | `blueprint:double` | — |
+
+### `blueprint:vec/make` — Make vector
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `x` | `blueprint:double` | `0.0` |
+| `y` | `blueprint:double` | `0.0` |
+| `z` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+### `blueprint:vec/normalize` — Normalize
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+### `blueprint:vec/offset` — Offset vector
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+| `dx` | `blueprint:double` | `0.0` |
+| `dy` | `blueprint:double` | `0.0` |
+| `dz` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+### `blueprint:vec/scale` — Scale vector
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+| `factor` | `blueprint:double` | `1.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+### `blueprint:vec/split` — Break vector
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `x` | `blueprint:double` | — |
+| `y` | `blueprint:double` | — |
+| `z` | `blueprint:double` | — |
+
+### `blueprint:vec/sub` — Subtract vectors
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:vec3` | — |
+| `b` | `blueprint:vec3` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `vec` | `blueprint:vec3` | — |
 
 
 ## misc

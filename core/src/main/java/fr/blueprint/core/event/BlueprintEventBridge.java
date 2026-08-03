@@ -128,8 +128,89 @@ public final class BlueprintEventBridge {
         return launched;
     }
 
+    // ------------------------------------------------- signaux (5.15 / batch 1)
+
+    /**
+     * Budget d'émissions par tick. Un signal peut en émettre un autre : sans borne,
+     * un blueprint qui s'auto-signale remplit la file d'exécution sans jamais la
+     * vider — le budget de carburant se partage entre exécutions, donc chacune
+     * avance moins vite à mesure qu'il y en a plus, et la mémoire monte jusqu'au
+     * crash. La borne coupe la récursion là où elle se voit.
+     */
+    public static final int MAX_SIGNALS_PER_TICK = 64;
+
+    private int signalsThisTick;
+    private boolean signalBudgetWarned;
+
+    /** Appelé en fin de tick : le budget de signaux repart à neuf. */
+    public void endTick() {
+        signalsThisTick = 0;
+        signalBudgetWarned = false;
+    }
+
+    /**
+     * Déclenche les blueprints actifs dont un nœud {@code event/signal} porte ce nom
+     * en littéral. Retourne le nombre de lancements, ou −1 si le budget du tick est
+     * épuisé — l'appelant doit le dire, pas l'avaler.
+     */
+    public int launchSignal(String name, TriggerContext trigger) {
+        if (signalsThisTick >= MAX_SIGNALS_PER_TICK) {
+            if (!signalBudgetWarned) {
+                signalBudgetWarned = true;
+                fr.blueprint.core.BlueprintMod.LOGGER.warn(
+                        "Budget de signaux épuisé ({}/tick) : « {} » ignoré. "
+                                + "Un blueprint s'auto-signale probablement en boucle.",
+                        MAX_SIGNALS_PER_TICK, name);
+            }
+            return -1;
+        }
+        signalsThisTick++;
+        int launched = 0;
+        for (Blueprint bp : manager.all()) {
+            if (!bp.enabled()) {
+                continue;
+            }
+            for (Node node : bp.nodes().values()) {
+                if (name.equals(signalNameOf(node))) {
+                    Ir ir = compiled(bp, node.uuid());
+                    if (ir != null) {
+                        scheduler.launch(bp.id(), ir, envFactory.create(bp, trigger));
+                        launched++;
+                    }
+                }
+            }
+        }
+        return launched;
+    }
+
+    private static @org.jetbrains.annotations.Nullable String signalNameOf(Node node) {
+        return literalName(node, StandardEvents.SIGNAL.id());
+    }
+
+    /** Combien de nœuds actifs écoutent ce signal — sans rien lancer. */
+    public int signalListeners(String name) {
+        int count = 0;
+        for (Blueprint bp : manager.all()) {
+            if (!bp.enabled()) {
+                continue;
+            }
+            for (Node node : bp.nodes().values()) {
+                if (name.equals(signalNameOf(node))) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
     private static @org.jetbrains.annotations.Nullable String commandNameOf(Node node) {
-        if (!StandardEvents.COMMAND.id().equals(node.typeId())) {
+        return literalName(node, StandardEvents.COMMAND.id());
+    }
+
+    /** Le littéral « name » d'un nœud d'événement de ce type, s'il est renseigné. */
+    private static @org.jetbrains.annotations.Nullable String literalName(
+            Node node, Identifier eventId) {
+        if (!eventId.equals(node.typeId())) {
             return null;
         }
         var literal = node.literal("name");

@@ -112,6 +112,12 @@ public class BlueprintMod implements ModInitializer {
                     fr.blueprint.core.event.StandardEvents.SERVER_TICK, payload -> {
                     });
             schedulerOf(server).tick(config.fuelPerTick());
+            // Après l'ordonnancement : le budget de signaux du tick repart à neuf.
+            // Avant, il bornerait les signaux émis PENDANT ce tick de façon décalée.
+            var bridge = BRIDGES.get(server);
+            if (bridge != null) {
+                bridge.endTick();
+            }
         });
 
         registerWorldEventBridges();
@@ -315,6 +321,31 @@ public class BlueprintMod implements ModInitializer {
     private static final java.util.Map<net.minecraft.server.MinecraftServer,
             fr.blueprint.core.event.BlueprintEventBridge> BRIDGES =
             java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
+     * Émet un signal nommé vers les blueprints qui l'écoutent (nœud
+     * {@code signal/emit} et commande {@code /blueprint signal}).
+     *
+     * @return faux si le budget de signaux du tick est épuisé — l'appelant doit le
+     *         dire à l'auteur, pas l'avaler : c'est le symptôme d'une boucle.
+     */
+    public static boolean emitSignal(net.minecraft.server.MinecraftServer server,
+                                     String name, String payload) {
+        var bridge = BRIDGES.get(server);
+        if (bridge == null) {
+            return true; // pas de pont = pas d'écouteur ; ce n'est pas une faute
+        }
+        java.util.Map<String, Object> values = new java.util.HashMap<>();
+        values.put("payload", payload);
+        return bridge.launchSignal(name, new fr.blueprint.core.event.TriggerContextImpl(
+                fr.blueprint.core.event.StandardEvents.SIGNAL, values)) >= 0;
+    }
+
+    /** Le nombre de blueprints qui écoutent ce signal — pour le retour de la commande. */
+    public static int signalListeners(net.minecraft.server.MinecraftServer server, String name) {
+        var bridge = BRIDGES.get(server);
+        return bridge == null ? 0 : bridge.signalListeners(name);
+    }
 
     /** Exécute /bpc <nom> [texte] : lance les blueprints déclarant la commande. */
     private static int runBpc(

@@ -87,6 +87,22 @@ public final class BlueprintCommand {
                 .then(literal("demo")
                         .requires(admin)
                         .executes(BlueprintCommand::demo))
+                // Signal (batch 1) : émettre depuis l'extérieur — une autre commande,
+                // un bloc de commande, un mod. Sans permission d'admin : un signal ne
+                // peut rien faire que le blueprint qui l'écoute n'ait déjà le droit
+                // de faire, et son plafond de permission reste le sien.
+                .then(literal("signal")
+                        .then(com.mojang.brigadier.builder.RequiredArgumentBuilder
+                                .<CommandSourceStack, String>argument("name",
+                                        com.mojang.brigadier.arguments.StringArgumentType.word())
+                                .executes(ctx -> signal(ctx, ""))
+                                .then(com.mojang.brigadier.builder.RequiredArgumentBuilder
+                                        .<CommandSourceStack, String>argument("payload",
+                                                com.mojang.brigadier.arguments.StringArgumentType
+                                                        .greedyString())
+                                        .executes(ctx -> signal(ctx,
+                                                com.mojang.brigadier.arguments.StringArgumentType
+                                                        .getString(ctx, "payload"))))))
                 // Débogage (9.1a) : réservé aux administrateurs — voir les valeurs qui
                 // circulent, c'est voir ce que fait le graphe d'un autre joueur.
                 .then(literal("debug")
@@ -398,6 +414,26 @@ public final class BlueprintCommand {
         ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.imported",
                 bp.id().toString(), bp.nodes().size()), true);
         return 1;
+    }
+
+    private static int signal(CommandContext<CommandSourceStack> ctx, String payload) {
+        String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
+        var server = ctx.getSource().getServer();
+        int listeners = fr.blueprint.core.BlueprintMod.signalListeners(server, name);
+        if (listeners == 0) {
+            // Dire « personne n'écoute » plutôt que « émis » : sans cela, un nom mal
+            // orthographié se comporte exactement comme un signal qui fonctionne.
+            ctx.getSource().sendFailure(Component.translatable(
+                    "blueprint.cmd.signal_unheard", name));
+            return 0;
+        }
+        if (!fr.blueprint.core.BlueprintMod.emitSignal(server, name, payload)) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.signal_budget"));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable(
+                "blueprint.cmd.signal_sent", name, listeners), false);
+        return listeners;
     }
 
     private static int demo(CommandContext<CommandSourceStack> ctx) {

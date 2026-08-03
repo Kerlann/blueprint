@@ -53,8 +53,14 @@ public final class StandardEvents {
             .out("message", PinTypes.STRING)
             .dispatch(Dispatch.PER_PLAYER).build();
 
+    /**
+     * Signal nommé, émis par un autre blueprint ({@code signal/emit}) ou par
+     * {@code /blueprint signal}. C'est la primitive « un blueprint en appelle un
+     * autre » : le nœud d'événement porte le nom écouté en littéral, exactement
+     * comme {@link #COMMAND}, et n'est donc PAS synthétisé.
+     */
     public static final EventType SIGNAL = EventType.builder(id("signal"))
-            .out("name", PinTypes.STRING)
+            .out("payload", PinTypes.STRING)
             .dispatch(Dispatch.GLOBAL).build();
 
     /**
