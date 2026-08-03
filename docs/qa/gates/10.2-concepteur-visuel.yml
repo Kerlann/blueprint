@@ -1,0 +1,48 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.2"
+story_title: "Concepteur visuel d'écrans"
+gate: "PASS"
+status_reason: "On pose, on saisit, on déplace, on redimensionne à la souris, et le résultat s'annule d'un seul Ctrl+Z partagé avec le graphe. Six défauts trouvés en revue ont été corrigés avant le gate, dont un trou réseau que la story 10.1 avait ouvert sans qu'il soit vu."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T18:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "DESIGN-001"
+    severity: high
+    finding: "GraphGuard.inspect ne regardait pas les écrans, alors qu'ils voyagent dans l'instantané depuis la 10.1 : un client pouvait envoyer dix mille écrans, des noms d'un mégaoctet, ou un bouton dans un HUD que le concepteur refuse de poser"
+    suggested_action: "Corrigé — plafonds NetLimits (maxScreens, maxElementsPerScreen) ET la même ScreenRules que l'éditeur ; cinq tests d'abus dans NetSecurityTest. C'est la réponse à SCREEN-005 du gate 10.1"
+  - id: "DESIGN-002"
+    severity: high
+    finding: "Déplacer un cadre ET son bouton appliquait le décalage deux fois à l'enfant, qui s'échappait un peu plus à chaque geste répété"
+    suggested_action: "Corrigé — seules les racines de la sélection bougent ; test deplacerUnGroupeNAppliquePasDeuxFoisLeDecalageAuxEnfants"
+  - id: "DESIGN-003"
+    severity: medium
+    finding: "Dupliquer un groupe rattachait la copie de l'enfant à l'ORIGINAL : deux boutons dans le cadre de départ, et un cadre copié vide"
+    suggested_action: "Corrigé — noms réservés avant écriture, copies rattachées entre elles, parents copiés avant leurs enfants ; test dupliquerUnGroupeRattacheLesEnfantsALaCopie"
+  - id: "DESIGN-004"
+    severity: medium
+    finding: "Une taille en pourcentage redevenait fixe au premier redimensionnement, détruisant sans le dire l'adaptation choisie par l'auteur"
+    suggested_action: "Corrigé — ScreenLayout.fit conserve la nature de la longueur ; test unRedimensionnementPreserveLaNatureRelativeDeLaTaille"
+  - id: "DESIGN-005"
+    severity: medium
+    finding: "Le rectangle élastique avec Shift REMPLAÇAIT la sélection au lieu de s'y ajouter — l'inverse de ce que Shift fait partout ailleurs dans l'éditeur"
+    suggested_action: "Corrigé — l'état additif est figé à la presse ; test unRectangleElastiqueAdditifAjouteALaSelection"
+  - id: "DESIGN-006"
+    severity: medium
+    finding: "Le concepteur confinait TOUT élément dans les 320×180, y compris à la racine — alors que le modèle en fait un simple avertissement. Un menu visant volontairement les grandes fenêtres devenait impossible à dessiner"
+    suggested_action: "Corrigé — seuls les enfants sont confinés dans leur parent (AC4) ; test unElementRacinePeutDeborderDeLaZoneGarantie"
+  - id: "DESIGN-007"
+    severity: low
+    finding: "Le rendu d'un élément n'est vérifié par aucun test : ScreenPainter dessine, et le dessin ne se teste pas headless"
+    suggested_action: "Assumé et borné — toute la GÉOMÉTRIE qu'il utilise (ScreenLayout, DesignSurface) est testée, et le peintre est le MÊME que celui du rendu en jeu (10.3). Reste à voir de ses yeux : VERIFY-10.2"
+  - id: "DESIGN-008"
+    severity: low
+    finding: "Le texte n'est pas mis à l'échelle dans l'aperçu : un libellé s'y montre plus petit, proportionnellement, qu'en jeu"
+    suggested_action: "Choix délibéré — agrandir la police d'un facteur entier donnerait un aperçu trompeur, puisqu'en jeu elle garde sa taille. Mieux vaut un texte petit et juste qu'un texte gros et faux"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 4, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "DESIGN-007 : la fidélité de l'aperçu est un point de la session de vérification finale (VERIFY-10.2)"

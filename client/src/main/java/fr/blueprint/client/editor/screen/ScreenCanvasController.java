@@ -98,6 +98,8 @@ public final class ScreenCanvasController {
     private @Nullable String primary;
     private double grabX;
     private double grabY;
+    /** Shift au moment de la presse : un rectangle élastique additif AJOUTE. */
+    private boolean rubberAdditive;
     private double rubberStartX;
     private double rubberStartY;
     private double rubberEndX;
@@ -153,6 +155,14 @@ public final class ScreenCanvasController {
 
     public void toggleSnap() {
         snapEnabled = !snapEnabled;
+    }
+
+    /**
+     * Enregistre l'inverse d'une opération appliquée en dehors du contrôleur — la
+     * création d'un écran, par exemple. Sans cela, elle échapperait au Ctrl+Z partagé.
+     */
+    public void historyRecord(EditOperation inverse) {
+        history.record(inverse);
     }
 
     public void setOnMutation(@Nullable Runnable onMutation) {
@@ -247,6 +257,7 @@ public final class ScreenCanvasController {
         selection.click(hit, additive);
         if (hit == null) {
             gesture = Gesture.RUBBER;
+            rubberAdditive = additive;
             rubberStartX = x;
             rubberStartY = y;
             rubberEndX = x;
@@ -291,7 +302,7 @@ public final class ScreenCanvasController {
                         caught.add(element.name());
                     }
                 }
-                selection.selectAll(caught, false);
+                selection.selectAll(caught, rubberAdditive);
             }
         } else if (gesture != Gesture.NONE) {
             history.endGesture();
@@ -472,13 +483,29 @@ public final class ScreenCanvasController {
     private void place(Screen screen, ScreenElement element, ScreenLayout.Rect target) {
         ScreenLayout.Rect parent = ScreenLayout.parentRect(screen, element,
                 Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+        ScreenLayout.Rect bounded = element.parent() == null ? target : confine(parent, target);
+        ScreenElement placed = ScreenLayout.placedIn(parent, element, bounded);
+        applyTracked(new ScreenOps.SetElement(screenName, placed));
+    }
+
+    /**
+     * Confine un enfant dans son parent : sortir du cadre le rendrait invisible en jeu,
+     * et l'auteur ne comprendrait pas où son bouton est passé.
+     *
+     * <p>À la <b>racine</b>, en revanche, rien n'est confiné. Le modèle considère qu'un
+     * élément débordant des 320×180 garantis reste valide — c'est un simple
+     * avertissement (ELEMENT_OUTSIDE_SAFE_AREA), pas une erreur. Le concepteur l'a
+     * d'abord bloqué, et cela rendait impossible ce que le validateur autorise : un menu
+     * qui vise volontairement les grandes fenêtres, ce que les bornes des {@code Extent}
+     * existent précisément pour permettre.
+     */
+    private static ScreenLayout.Rect confine(ScreenLayout.Rect parent, ScreenLayout.Rect target) {
         double width = Math.min(target.width(), parent.width());
         double height = Math.min(target.height(), parent.height());
-        double x = Math.clamp(target.x(), parent.x(), parent.right() - width);
-        double y = Math.clamp(target.y(), parent.y(), parent.bottom() - height);
-        ScreenElement placed = ScreenLayout.placedIn(parent, element,
-                new ScreenLayout.Rect(x, y, width, height));
-        applyTracked(new ScreenOps.SetElement(screenName, placed));
+        return new ScreenLayout.Rect(
+                Math.clamp(target.x(), parent.x(), parent.right() - width),
+                Math.clamp(target.y(), parent.y(), parent.bottom() - height),
+                width, height);
     }
 
     private double snap(double value) {

@@ -19,6 +19,14 @@ public final class BlueprintEditorScreen extends Screen {
 
     private final EditorSession session;
     private final CanvasWidget canvas;
+    private final fr.blueprint.client.editor.screen.ScreenDesignerWidget designer;
+    /**
+     * Le mode courant (story 10.2, AC1). Un seul écran, deux modes : on passe du graphe
+     * aux écrans et retour sans fermer ni réenregistrer, et les deux partagent la même
+     * session, la même pile d'annulation et le même {@code Ctrl+S}.
+     */
+    private fr.blueprint.client.editor.screen.ModeTabs.Mode mode =
+            fr.blueprint.client.editor.screen.ModeTabs.Mode.GRAPH;
     private boolean framed;
 
     public BlueprintEditorScreen(EditorSession session,
@@ -40,6 +48,14 @@ public final class BlueprintEditorScreen extends Screen {
                 session.blueprint().id().toString()));
         this.session = session;
         this.canvas = new CanvasWidget(session, lookup, descriptors, registries, this::onClose);
+        // La MÊME pile d'annulation que le canevas de nœuds (AC6) : un Ctrl+Z défait le
+        // dernier geste, qu'il ait eu lieu dans les nœuds ou dans un écran.
+        this.designer = new fr.blueprint.client.editor.screen.ScreenDesignerWidget(
+                session, lookup, canvas.controller().history());
+    }
+
+    private int tabsTop() {
+        return ToolbarWidget.HEIGHT;
     }
 
     @Override
@@ -82,7 +98,16 @@ public final class BlueprintEditorScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // La barre d'outils (5.6b) porte le titre et l'indicateur ● non-enregistré.
-        canvas.render(graphics, font, mouseX, mouseY);
+        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.GRAPH) {
+            canvas.render(graphics, font, mouseX, mouseY);
+        } else {
+            designer.setBounds(tabsTop() + fr.blueprint.client.editor.screen.ModeTabs.HEIGHT,
+                    width, height);
+            designer.render(graphics, font, mouseX, mouseY);
+            ToolbarWidget.render(graphics, font, session.blueprint().id().toString(),
+                    session.dirty(), session.savable(), false, width);
+        }
+        fr.blueprint.client.editor.screen.ModeTabs.render(graphics, font, mode, tabsTop());
     }
 
     @Override
@@ -92,16 +117,33 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
+        // Les onglets d'abord : ils flottent au-dessus des deux modes, et un clic dessus
+        // ne doit jamais poser un élément ni désélectionner un nœud au passage.
+        var clicked = fr.blueprint.client.editor.screen.ModeTabs.modeAt(
+                font, event.x(), event.y(), tabsTop());
+        if (clicked != null) {
+            mode = clicked;
+            return true;
+        }
+        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+            return designer.mouseClicked(event, doubled) || super.mouseClicked(event, doubled);
+        }
         return canvas.mouseClicked(event, doubled) || super.mouseClicked(event, doubled);
     }
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
+        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+            return designer.mouseReleased(event) || super.mouseReleased(event);
+        }
         return canvas.mouseReleased(event) || super.mouseReleased(event);
     }
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+            return designer.mouseDragged(event, dx, dy) || super.mouseDragged(event, dx, dy);
+        }
         return canvas.mouseDragged(event, dx, dy) || super.mouseDragged(event, dx, dy);
     }
 
@@ -116,6 +158,16 @@ public final class BlueprintEditorScreen extends Screen {
         if (event.key() == GLFW.GLFW_KEY_S && event.hasControlDown()) {
             save();
             return true;
+        }
+        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+            // Ctrl+Z / Ctrl+Y restent au canevas de nœuds : il détient la pile, et le
+            // concepteur y a déposé ses inverses. Les dupliquer ici donnerait deux
+            // chemins d'annulation pour une seule pile.
+            if (event.hasControlDown()
+                    && (event.key() == GLFW.GLFW_KEY_Z || event.key() == GLFW.GLFW_KEY_Y)) {
+                return canvas.keyPressed(event) || super.keyPressed(event);
+            }
+            return designer.keyPressed(event) || super.keyPressed(event);
         }
         return canvas.keyPressed(event) || super.keyPressed(event);
     }
@@ -147,6 +199,9 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
+        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+            return designer.charTyped(event) || super.charTyped(event);
+        }
         return canvas.charTyped(event) || super.charTyped(event);
     }
 

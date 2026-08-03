@@ -249,6 +249,30 @@ class LocalizationTest {
         assertTrue(missing.isEmpty(), "catégories standard non traduites : " + missing);
     }
 
+    /**
+     * Chaque type d'élément d'écran a son libellé dans les deux langues (story 10.2).
+     * La clé se forme à l'exécution — {@code "blueprint.designer.kind." + type} — donc
+     * l'extraction de sources ne peut pas la voir : sans ce test, ajouter un sixième
+     * type afficherait sa clé brute dans la palette.
+     */
+    @Test
+    void everyElementKindIsTranslated() {
+        JsonObject english = lang("en_us");
+        JsonObject french = lang("fr_fr");
+        List<String> missing = new ArrayList<>();
+        for (var kind : fr.blueprint.core.graph.screen.ElementKind.values()) {
+            String key = "blueprint.designer.kind."
+                    + kind.name().toLowerCase(java.util.Locale.ROOT);
+            if (!english.has(key)) {
+                missing.add(key + " (en_us)");
+            }
+            if (!french.has(key)) {
+                missing.add(key + " (fr_fr)");
+            }
+        }
+        assertTrue(missing.isEmpty(), "types d'élément non traduits : " + missing);
+    }
+
     /** Aucune clé morte : ce qui est traduit doit servir (ou être une clé dérivée connue). */
     @Test
     void noDeadKeysBeyondTheDerivedFamilies() {
@@ -264,7 +288,11 @@ class LocalizationTest {
                     || key.startsWith("blueprint.event.") || key.startsWith("blueprint.category.")
                     || key.startsWith("blueprint.diag.") || key.startsWith("key.")
                     || key.startsWith("blueprint.fault.")
-                    || key.startsWith("blueprint.permission.")) {
+                    || key.startsWith("blueprint.permission.")
+                    // Types d'élément et champs du concepteur (10.2) : construits à
+                    // l'exécution, et vérifiés par les deux tests ci-dessous.
+                    || key.startsWith("blueprint.designer.kind.")
+                    || key.startsWith("blueprint.designer.field.")) {
                 continue;
             }
             dead.add(key);

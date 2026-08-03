@@ -123,6 +123,46 @@ class ScreenCanvasControllerTest {
         assertTrue(rect.bottom() <= 70 + 1e-9, "bord bas dans le cadre : " + rect);
     }
 
+    /**
+     * Le rectangle élastique avec Shift AJOUTE à la sélection. Il la remplaçait, donc
+     * un Shift+glisser perdait tout ce qui était sélectionné avant — l'inverse de ce
+     * que Shift signifie partout ailleurs dans l'éditeur.
+     */
+    @Test
+    void unRectangleElastiqueAdditifAjouteALaSelection() {
+        put(ScreenElement.of("a", ElementKind.LABEL, 10, 10, 40, 20));
+        put(ScreenElement.of("b", ElementKind.LABEL, 10, 100, 40, 20));
+
+        controller.selection().selectAll(List.of("a"), false);
+        controller.press(200, 90, true);        // dans le vide, Shift enfoncé
+        controller.drag(0, 130);
+        controller.release();
+
+        assertTrue(controller.selection().isSelected("a"), "l'ancienne sélection tient");
+        assertTrue(controller.selection().isSelected("b"), "et la nouvelle s'y ajoute");
+
+        controller.press(200, 90, false);       // sans Shift : elle remplace
+        controller.drag(0, 130);
+        controller.release();
+        assertFalse(controller.selection().isSelected("a"));
+    }
+
+    /**
+     * Un élément À LA RACINE peut déborder des 320×180 garantis : le modèle en fait un
+     * simple avertissement, pas une erreur. Le concepteur le bloquait, ce qui rendait
+     * impossible un menu visant volontairement les grandes fenêtres — précisément ce
+     * que les bornes des tailles relatives existent pour permettre.
+     */
+    @Test
+    void unElementRacinePeutDeborderDeLaZoneGarantie() {
+        put(ScreenElement.of("a", ElementKind.LABEL, 10, 10, 60, 20));
+        dragFrom(20, 20, 310, 20);
+
+        ScreenLayout.Rect rect = controller.rectOf("a");
+        assertTrue(rect.right() > Screen.SAFE_WIDTH,
+                "il dépasse, et c'est l'avertissement du validateur qui le dira : " + rect);
+    }
+
     /** Les guides accrochent aux bords des voisins ; l'écart résiduel disparaît. */
     @Test
     void lesGuidesAccrochentAuxVoisins() {

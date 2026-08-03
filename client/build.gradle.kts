@@ -61,6 +61,12 @@ tasks.jacocoTestCoverageVerification {
                 exclude("fr/blueprint/client/editor/RegistryCatalog*")
                 exclude("fr/blueprint/client/editor/ScriptView")
                 exclude("fr/blueprint/client/editor/ScriptView$*")
+                // Concepteur d'écrans (10.2) : même partage qu'ailleurs — l'état pur
+                // (ScreenCanvasController, AlignmentGuides, DesignSurface,
+                // ElementPropertiesState) est testé headless, seul le dessin sort.
+                exclude("fr/blueprint/client/editor/screen/ScreenDesignerWidget*")
+                exclude("fr/blueprint/client/editor/screen/ModeTabs*")
+                exclude("fr/blueprint/client/screen/**")
             })
             limit {
                 // Mesuré à 0,83 : un point de marge, assez pour ne pas casser sur une
