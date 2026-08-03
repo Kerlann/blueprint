@@ -40,6 +40,27 @@ public final class ToolbarWidget {
         };
     }
 
+    /**
+     * Ce que fait le bouton et par quel raccourci. Les boutons sont des mots de sept
+     * lettres sans icône : sans cette explication, « Script » ou « Tester » ne se
+     * devinent pas, et les raccourcis ne se découvraient nulle part.
+     */
+    public static String hint(Action action) {
+        return I18n.get(switch (action) {
+            case COMPILE -> "blueprint.editor.tip.compile";
+            case TEST -> "blueprint.editor.tip.test";
+            case SCRIPT -> "blueprint.editor.tip.script";
+            case SAVE -> "blueprint.editor.tip.save";
+            case DEBUG -> "blueprint.editor.tip.debug";
+            case CLOSE -> "blueprint.editor.tip.close";
+        });
+    }
+
+    /** Le libellé affiché, pour le titre d'une infobulle. */
+    public static String title(Action action) {
+        return label(action);
+    }
+
     public static void render(GuiGraphics g, Font font, String title, boolean dirty,
                               boolean canSave, boolean canTest, int width) {
         g.fill(0, 0, width, HEIGHT, BACKGROUND);

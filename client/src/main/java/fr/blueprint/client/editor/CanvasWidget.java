@@ -87,6 +87,7 @@ public final class CanvasWidget {
 
     // Défilement des trois panneaux (5.12) : au-delà d'une trentaine de lignes, le
     // contenu était purement inatteignable.
+    private final HoverTracker hover = new HoverTracker();
     private final PanelScroll varScroll = new PanelScroll();
     private final PanelScroll detailsScroll = new PanelScroll();
     private final PanelScroll diagScroll = new PanelScroll();
@@ -197,6 +198,88 @@ public final class CanvasWidget {
         renderEnumOptions(g, font);
         PalettePopup.render(g, font, palette, width, height);
         RegistryPickerPopup.render(g, font, picker, this::iconOf, width, height, mouseX, mouseY);
+        // En dernier : une infobulle passe par-dessus tout, sinon elle disparaît sous
+        // le nœud voisin dès qu'on survole le bord d'un nœud. Et seulement souris
+        // posée : pendant un geste ou un déplacement, elle ne ferait que gêner.
+        boolean settled = hover.settled(mouseX, mouseY, System.currentTimeMillis());
+        if (settled && controller.gesture() == CanvasController.Gesture.NONE && !panning) {
+            Tooltip.render(g, font, tooltipAt(font, mouseX, mouseY),
+                    mouseX, mouseY, width, height);
+        }
+    }
+
+    /**
+     * Ce que dit le survol, du plus précis au plus général : un pin, puis un champ
+     * éditable, puis le nœud lui-même. Rien au-dessus d'un panneau ou d'une fenêtre —
+     * une bulle par-dessus la palette gênerait plus qu'elle n'aiderait.
+     */
+    private List<String> tooltipAt(Font font, double mx, double my) {
+        if (palette.isOpen() || picker.isOpen() || gotoState.isOpen()) {
+            return List.of();
+        }
+        if (my < ToolbarWidget.HEIGHT) {
+            ToolbarWidget.Action action =
+                    ToolbarWidget.actionAt(font, mx, my, width);
+            return action == null ? List.of()
+                    : List.of(ToolbarWidget.title(action), ToolbarWidget.hint(action));
+        }
+        if (my >= height - DiagnosticsPanel.BAR_HEIGHT
+                || (panelVisible && (mx < VariablePanel.WIDTH || mx >= width - DetailsPanel.WIDTH))) {
+            return List.of();
+        }
+        double wx = camera.toWorldX(mx);
+        double wy = camera.toWorldY(my);
+
+        CanvasController.PinRef pin = controller.pinAt(wx, wy);
+        if (pin != null) {
+            List<String> lines = new ArrayList<>();
+            lines.add(pin.pin());
+            lines.add(I18n.get(pin.type().translationKey()));
+            if (!pin.output() && pin.kind() == fr.blueprint.api.pin.PinKind.DATA
+                    && !isWired(pin.node(), pin.pin())) {
+                lines.add(I18n.get("blueprint.editor.tip.unwired"));
+            }
+            return lines;
+        }
+
+        CanvasController.LiteralRef literal = controller.literalAt(wx, wy);
+        if (literal != null) {
+            return List.of(literal.pin(), I18n.get("blueprint.editor.tip.click_to_edit"));
+        }
+
+        NodeGeometry.Box box = controller.hitTest(wx, wy);
+        if (box == null) {
+            Link wire = controller.linkAt(wx, wy);
+            return wire == null ? List.of()
+                    : List.of(wire.fromPin() + " → " + wire.toPin(),
+                            I18n.get("blueprint.editor.tip.link"));
+        }
+        UUID uuid = box.node().uuid();
+        NodeDescriptor desc = descriptors.descriptor(box.node().typeId());
+        List<String> lines = new ArrayList<>();
+        if (desc == null) {
+            // Fantôme : dire QUEL mod manque, c'est toute l'information utile (FR41).
+            lines.add(box.node().typeId().toString());
+            lines.add(I18n.get("blueprint.editor.tip.ghost", box.node().typeId().getNamespace()));
+            return lines;
+        }
+        lines.add(I18n.get(desc.titleKey()));
+        String description = I18n.get(desc.descKey());
+        if (!description.equals(desc.descKey()) && !description.isBlank()) {
+            lines.add(description);
+        }
+        // L'erreur du nœud prime sur sa description : c'est ce qu'on cherche quand on
+        // survole un nœud entouré de rouge.
+        for (var diagnostic : diagnostics.report()) {
+            if (uuid.equals(DiagnosticsState.nodeOf(diagnostic))) {
+                lines.add(I18n.get(diagnostic.translationKey(), diagnostic.args().toArray()));
+                break;
+            }
+        }
+        if (debug.debugging() && !debug.valuesOf(uuid).isEmpty()) {
+            lines.addAll(debug.valuesOf(uuid));
+        }
+        return lines;
     }
 
     private int canvasWidth() {
@@ -424,6 +507,9 @@ public final class CanvasWidget {
      * n'est que la mise en œuvre de chaque zone.
      */
     public boolean mouseClicked(MouseButtonEvent e, boolean doubled) {
+        // Un clic change ce qu'il y a sous le curseur : réafficher l'ancienne infobulle
+        // par-dessus le résultat serait un mensonge de plus.
+        hover.reset();
         if (picker.isOpen()) {
             return clickInPicker(e);
         }

@@ -73,6 +73,8 @@ public final class CanvasController {
     private @Nullable PinRef wireFrom;
     private double wireX;
     private double wireY;
+    /** Lien sélectionné (Suppr le retire) : cliquer un fil était le geste sans effet. */
+    private @Nullable Link selectedLink;
     /** Commentaire sélectionné (Suppr le retire) et geste en cours sur lui. */
     private @Nullable UUID selectedComment;
     private @Nullable UUID activeComment;
@@ -266,6 +268,8 @@ public final class CanvasController {
     public void press(double wx, double wy, boolean additive, boolean alt) {
         // Tout ce qui se passe entre presse et relâche = un geste = une annulation.
         history.beginGesture();
+        // Toute presse défait la sélection de fil ; seule la branche « fil » la repose.
+        selectedLink = null;
         PinRef pin = pinAt(wx, wy);
         if (pin != null) {
             if (alt) {
@@ -315,6 +319,20 @@ public final class CanvasController {
                 return;
             }
             selectedComment = null;
+            // Après les nœuds et les poignées de commentaire, avant l'élastique : un
+            // clic sur un fil sélectionnait le vide et ne faisait rien.
+            Link wire = linkAt(wx, wy);
+            if (wire != null) {
+                selectedLink = wire;
+                selection.clear();
+                gesture = Gesture.NONE;
+                // Geste NONE : le widget ne rappellera pas release(). Refermer ici,
+                // sinon toutes les modifications suivantes fusionneraient en une
+                // seule annulation (même piège qu'Alt+clic, QA 5.3).
+                history.endGesture();
+                return;
+            }
+            selectedLink = null;
             if (!additive) {
                 selection.clear();
             }
@@ -498,6 +516,42 @@ public final class CanvasController {
         }
     }
 
+    // ------------------------------------------------------------- liens (5.12)
+
+    /** Tolérance de clic sur un fil, en pixels écran : plus fin ne s'attrape pas. */
+    private static final double LINK_HIT_PX = 5;
+
+    /**
+     * Le lien sous le point donné, ou null. Le test se fait en <b>espace écran</b> :
+     * la courbe elle-même y est définie (ses tangentes sont bornées en pixels), et la
+     * tolérance reste constante quel que soit le zoom.
+     */
+    public @Nullable Link linkAt(double wx, double wy) {
+        double px = camera.toScreenX(wx);
+        double py = camera.toScreenY(wy);
+        Link best = null;
+        double bestDist = LINK_HIT_PX;
+        for (Link link : blueprint.links()) {
+            Vec2d from = WireLayer.endpoint(this, link.fromNode(), link.fromPin(), true);
+            Vec2d to = WireLayer.endpoint(this, link.toNode(), link.toPin(), false);
+            if (from == null || to == null) {
+                continue;
+            }
+            double dist = WireLayer.distanceToCurve(
+                    camera.toScreenX(from.x()), camera.toScreenY(from.y()), 1,
+                    camera.toScreenX(to.x()), camera.toScreenY(to.y()), -1, px, py);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = link;
+            }
+        }
+        return best;
+    }
+
+    public @Nullable Link selectedLink() {
+        return selectedLink;
+    }
+
     /** Rectangle élastique courant (normalisé), ou null hors geste. */
     public @Nullable Camera.Rect rubberRect() {
         if (gesture != Gesture.RUBBER) {
@@ -514,6 +568,10 @@ public final class CanvasController {
         try {
             for (UUID id : List.copyOf(selection.ids())) {
                 apply(new EditOperation.RemoveNode(id));
+            }
+            if (selection.isEmpty() && selectedLink != null) {
+                apply(new EditOperation.RemoveLink(selectedLink));
+                selectedLink = null;
             }
             if (selection.isEmpty() && selectedComment != null) {
                 apply(new EditOperation.RemoveComment(selectedComment));

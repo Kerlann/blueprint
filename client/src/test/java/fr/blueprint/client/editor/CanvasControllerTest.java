@@ -399,4 +399,80 @@ class CanvasControllerTest {
         assertEquals(inserted, link.toNode());
         assertEquals("exec_in", link.toPin());
     }
+
+    // ------------------------------------------------------------- liens (5.12)
+
+    /** Câble n1.exec_out → n2.exec_in et rend un point situé sur la courbe. */
+    private Vec2d wireUpAndPickMiddle() {
+        Vec2d from = out1();
+        controller.press(from.x(), from.y(), false);
+        Vec2d to = in2(0);
+        controller.drag(to.x(), to.y());
+        controller.release(false);
+        assertEquals(1, bp.links().size());
+        // Deux pins à la même hauteur : le milieu de la Bézier est sur la corde.
+        return new Vec2d((from.x() + to.x()) / 2, (from.y() + to.y()) / 2);
+    }
+
+    @Test
+    void cliquerUnFilLeSelectionne() {
+        Vec2d middle = wireUpAndPickMiddle();
+        assertNull(controller.selectedLink(), "rien de sélectionné au départ");
+
+        controller.press(middle.x(), middle.y(), false);
+        assertNotNull(controller.selectedLink(), "le fil sous le curseur");
+        assertEquals(CanvasController.Gesture.NONE, controller.gesture(),
+                "et surtout pas d'élastique : le clic a bien été consommé");
+    }
+
+    @Test
+    void supprRetireLeFilSelectionne() {
+        Vec2d middle = wireUpAndPickMiddle();
+        controller.press(middle.x(), middle.y(), false);
+
+        controller.deleteSelection();
+        assertEquals(0, bp.links().size());
+        assertNull(controller.selectedLink());
+
+        assertTrue(controller.undo(), "et Ctrl+Z le remet");
+        assertEquals(1, bp.links().size());
+    }
+
+    /**
+     * Le geste NONE ne déclenche pas de {@code release()} côté widget : si la branche
+     * « fil » laissait son geste d'annulation ouvert, TOUTES les modifications
+     * suivantes fusionneraient en une seule entrée d'annulation.
+     */
+    @Test
+    void selectionnerUnFilNeFusionnePasLesAnnulationsSuivantes() {
+        Vec2d middle = wireUpAndPickMiddle();
+        controller.press(middle.x(), middle.y(), false);
+
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+        assertTrue(controller.applyOp(new EditOperation.AddNode(a, TYPE, new Vec2d(500, 0))));
+        assertTrue(controller.applyOp(new EditOperation.AddNode(b, TYPE, new Vec2d(600, 0))));
+
+        assertTrue(controller.undo());
+        assertNull(bp.node(b));
+        assertNotNull(bp.node(a), "le premier ajout survit : ce sont deux annulations");
+    }
+
+    @Test
+    void loinDeToutFilOnRetombeSurLElastique() {
+        wireUpAndPickMiddle();
+        controller.press(0, 900, false);
+        assertNull(controller.selectedLink());
+        assertEquals(CanvasController.Gesture.RUBBER, controller.gesture());
+    }
+
+    @Test
+    void cliquerUnNoeudDefaitLaSelectionDeFil() {
+        Vec2d middle = wireUpAndPickMiddle();
+        controller.press(middle.x(), middle.y(), false);
+        assertNotNull(controller.selectedLink());
+
+        controller.press(10, 10, false);
+        assertNull(controller.selectedLink(), "sinon Suppr effacerait le nœud ET le fil");
+    }
 }

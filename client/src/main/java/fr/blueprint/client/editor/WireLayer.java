@@ -20,6 +20,7 @@ public final class WireLayer {
     private static int execColor() {
         return fr.blueprint.client.theme.Theme.current().execWire();
     }
+    private static final int SELECTED_HALO = 0xFFFFFFFF;
     private static final int DATA_WIDTH = 2;
     private static final int EXEC_WIDTH = 3;
     /** Marge monde ajoutée au champ visible pour le culling des liens. */
@@ -48,8 +49,15 @@ public final class WireLayer {
             NodeShape.PinDef def = controller.pinDef(link.fromNode(), link.fromPin());
             boolean exec = def != null && def.kind() == PinKind.EXEC;
             int color = exec ? execColor() : def != null ? def.type().color() : execColor();
+            int worldWidth = exec ? EXEC_WIDTH : DATA_WIDTH;
+            if (link.equals(controller.selectedLink())) {
+                // Un halo dessous : un fil sélectionné doit se voir sans changer de
+                // couleur, sinon on perd l'information de type qu'elle porte.
+                drawCurve(g, camera, from.x(), from.y(), 1, to.x(), to.y(), -1,
+                        SELECTED_HALO, worldWidth + 3);
+            }
             drawCurve(g, camera, from.x(), from.y(), 1, to.x(), to.y(), -1,
-                    color, exec ? EXEC_WIDTH : DATA_WIDTH);
+                    color, worldWidth);
         }
     }
 
@@ -70,9 +78,57 @@ public final class WireLayer {
                 exec ? execColor() : from.type().color(), exec ? EXEC_WIDTH : DATA_WIDTH);
     }
 
+    /**
+     * Décalage horizontal des points de contrôle, en pixels écran. Extrait pour que le
+     * clic vise <b>exactement</b> la courbe dessinée : deux formules qui divergent, et
+     * l'on clique à côté d'un fil sans jamais comprendre pourquoi.
+     */
+    static double controlOffset(double x0, double x3) {
+        return Math.clamp(Math.abs(x3 - x0) * TENSION, 16, 160);
+    }
+
+    /**
+     * Distance en pixels écran d'un point à la courbe, par la même polyligne que le
+     * rendu. Pur, donc testable : c'est la géométrie qui se trompe, pas le dessin.
+     */
+    public static double distanceToCurve(double x0, double y0, int dir0,
+                                         double x3, double y3, int dir3,
+                                         double px, double py) {
+        double d = controlOffset(x0, x3);
+        double x1 = x0 + dir0 * d;
+        double x2 = x3 + dir3 * d;
+        int n = (int) Math.clamp(Math.hypot(x3 - x0, y3 - y0) / 8, 8, 32);
+
+        double best = Double.MAX_VALUE;
+        double ax = x0;
+        double ay = y0;
+        for (int i = 1; i <= n; i++) {
+            double t = (double) i / n;
+            double u = 1 - t;
+            double bx = u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3;
+            double by = u * u * u * y0 + 3 * u * u * t * y0 + 3 * u * t * t * y3 + t * t * t * y3;
+            best = Math.min(best, distanceToSegment(ax, ay, bx, by, px, py));
+            ax = bx;
+            ay = by;
+        }
+        return best;
+    }
+
+    private static double distanceToSegment(double x1, double y1, double x2, double y2,
+                                            double px, double py) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double len2 = dx * dx + dy * dy;
+        if (len2 < 1e-9) {
+            return Math.hypot(px - x1, py - y1);
+        }
+        double t = Math.clamp(((px - x1) * dx + (py - y1) * dy) / len2, 0, 1);
+        return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+
     /** Centre du pin, ou secours au bord de la boîte (fantôme sans forme connue). */
-    private static @Nullable Vec2d endpoint(CanvasController controller, java.util.UUID node,
-                                            String pin, boolean output) {
+    static @Nullable Vec2d endpoint(CanvasController controller, java.util.UUID node,
+                                    String pin, boolean output) {
         Vec2d center = controller.pinCenter(node, pin);
         if (center != null) {
             return center;
