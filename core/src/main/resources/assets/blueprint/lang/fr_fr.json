@@ -391,6 +391,8 @@
   "blueprint.permission.admin": "opÃ©rateur",
   "blueprint.editor.toolbar.compile": "Compiler",
   "blueprint.editor.toolbar.test": "Tester",
+  "blueprint.screen.title": "%s",
+  "blueprint.screen.unreadable": "L'écran « %s » est illisible — prévenez l'administrateur du serveur",
   "blueprint.editor.tab.graph": "Graphe",
   "blueprint.editor.tab.screens": "Écrans",
   "blueprint.designer.screens": "Écrans",

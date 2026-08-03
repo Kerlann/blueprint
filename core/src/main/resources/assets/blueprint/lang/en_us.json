@@ -391,6 +391,8 @@
   "blueprint.permission.admin": "operator",
   "blueprint.editor.toolbar.compile": "Compile",
   "blueprint.editor.toolbar.test": "Test",
+  "blueprint.screen.title": "%s",
+  "blueprint.screen.unreadable": "Screen \"%s\" could not be read — ask the server admin",
   "blueprint.editor.tab.graph": "Graph",
   "blueprint.editor.tab.screens": "Screens",
   "blueprint.designer.screens": "Screens",

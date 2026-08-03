@@ -166,12 +166,68 @@ public final class ServerBlueprintNet {
                             .setEnabled(payload.blueprint(), payload.enabled());
                 });
 
-        // Un joueur parti ne garde pas de quota : la table suit les connectés.
+        s2c.register(BlueprintPayloads.ScreenOpen.TYPE, BlueprintPayloads.ScreenOpen.CODEC);
+        s2c.register(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
+        c2s.register(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
+
+        // Le joueur a fermé son écran (Échap). Sans ce message, le serveur croirait
+        // l'écran encore ouvert et accepterait des clics dessus longtemps après.
+        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenClose.TYPE,
+                (payload, context) -> SCREENS.closed(context.player().getUUID()));
+
+        // Un joueur parti ne garde ni quota ni écran fantôme (10.3, AC5).
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
                     SAVES.forget(handler.player.getUUID());
                     REQUESTS.forget(handler.player.getUUID());
+                    SCREENS.forget(handler.player.getUUID());
                 });
+    }
+
+    /** Les écrans ouverts, par joueur (story 10.3) — un seul chacun. */
+    private static final ScreenSessions SCREENS = new ScreenSessions();
+
+    public static ScreenSessions screens() {
+        return SCREENS;
+    }
+
+    /**
+     * Ouvre un écran chez un joueur. Rend faux si le blueprint ou l'écran n'existe pas :
+     * l'appelant (un nœud du graphe, 10.4) doit pouvoir le signaler comme une faute
+     * plutôt que d'échouer en silence.
+     */
+    public static boolean openScreen(net.minecraft.server.level.ServerPlayer player,
+                                     fr.blueprint.core.graph.Blueprint bp, String screenName) {
+        var screen = bp.screen(screenName);
+        if (screen == null) {
+            return false;
+        }
+        SCREENS.opened(player.getUUID(), bp.id(), screenName);
+        ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenOpen(
+                bp.id(), screenName, ScreenSync.toBytes(screen)));
+        return true;
+    }
+
+    /** Referme l'écran d'un joueur et le lui dit. */
+    public static void closeScreen(net.minecraft.server.level.ServerPlayer player) {
+        if (SCREENS.closed(player.getUUID())) {
+            ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenClose());
+        }
+    }
+
+    /**
+     * Referme chez tous les joueurs les écrans d'un blueprint qui vient d'être désactivé
+     * ou rechargé. Un menu qui reste affiché en pointant un blueprint disparu refuserait
+     * chaque clic sans que le joueur comprenne pourquoi.
+     */
+    public static void closeScreensOf(net.minecraft.server.MinecraftServer server,
+                                      Identifier blueprint) {
+        for (java.util.UUID uuid : SCREENS.closeAllOf(blueprint)) {
+            var player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenClose());
+            }
+        }
     }
 
     /** Bornes réseau, issues de la configuration serveur (9.3). */

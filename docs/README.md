@@ -64,7 +64,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 8 | **Intégration des mods tiers** | 8.1 → 8.5 | **Complet** — 5 gates PASS (3 medium + 1 low corrigés en review dont une violation d'AC : un JSON au mauvais type emportait tout le rechargement) ; annotation `@BlueprintNode`, nœuds composites de datapack rechargeables, fantômes prouvés de bout en bout, couche de compatibilité et surface d'API verrouillée par un test |
 | 9 | **Débogage, performance, finition** | 9.1a, 9.1b, 9.2, 9.3, 9.4, 9.5 | **Complet** — 6 gates PASS (1 medium NFR11 + 3 medium débogueur corrigés en review) ; débogueur pas-à-pas visible dans l'éditeur, profileur par nœud, quotas configurables + audit ADMIN, i18n vérifiée par les sources, palette daltonienne à cinq formes, guide joueur et référence générée |
 | 4 | 4.2b (sucre BScript) | — | **Reste v1.1** — seul morceau du PRD non livré, consigné dans la story 4.1-4.3 |
-| 10 | **Interfaces graphiques** | 10.1 → 10.9 | **En cours** — 10.1 (modèle) et 10.2 (concepteur visuel) closes, gates PASS ; **10.3 (rendu en jeu) est la prochaine à prendre** |
+| 10 | **Interfaces graphiques** | 10.1 → 10.9 | **En cours** — 10.1 (modèle), 10.2 (concepteur) et 10.3 (rendu en jeu) closes, gates PASS ; **10.4 (câbler les boutons au graphe) est la prochaine à prendre** |
 
 **Feuille de route éditeur (ordre recommandé)** :
 1. **5.2b** littéraux inline (éditer les valeurs sur le nœud) → 2. **5.6a** annuler/rétablir (avant les grosses features, tout naît annulable) → 3. **5.9** éditer/enregistrer/tester un VRAI blueprint en solo (`Ctrl+S`, la story qui rend l'éditeur utile) → 4. **5.6b** barre d'outils + compilation à la volée + diagnostics cliquables → 5. **5.5** panneau des variables + nœuds var/get-set (⚠ touche `core`) → 6. **5.8** copier/coller/dupliquer via BScript (⚠ touche `core/script`) → 7. **5.10** panneau de détails → 8. **5.4b** palette récents/favoris/catégories/Espace → 9. **5.2c** sélecteurs riches (item, bloc, position) → 10. **5.11** vue script → 11. **5.7** confort (commentaires, alignement, minimap, thème JSON).
@@ -116,6 +116,7 @@ l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | V24 | Les cinq derniers (7.10) | `has_item` sur une clé, un score visible dans l'affichage latéral, un message cliquable, `entity/looking_at` sur un bloc visé, une barre de boss qui ne s'empile pas |
 
 | V25 | Concepteur d'écrans (10.2) | onglet **Écrans**, créer un menu, poser un panneau puis deux boutons dedans, les traîner (guides jaunes à l'accroche), redimensionner par les poignées, renommer dans le panneau — un doublon vire au rouge **pendant** la frappe ; `Ctrl+Z` défait le dernier geste même après être repassé par l'onglet Graphe |
+| V26 | Écran en jeu (10.3) | ouvrir un menu conçu : il s'affiche, s'adapte au redimensionnement de la fenêtre ET au GUI scale (essayer 1 puis 4) ; nommer une texture absente → damier magenta avec son nom, le reste de l'écran intact ; Échap ferme ; désactiver le blueprint pendant que le menu est ouvert → il se referme tout seul |
 
 **Déjà clos** : VERIFY-001/002/003 (session du 2026-08-02, épic 1) et VERIFY-004
 (démo ping/pong). **Rien à voir en jeu** pour VERIFY-8.5 : la garde de surface d'API

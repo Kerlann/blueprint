@@ -21,16 +21,46 @@ public record DesignSurface(int left, int top, int scale) {
     public static final int MAX_SCALE = 6;
 
     /**
-     * Centre la surface 320×180 dans le rectangle donné, au plus grand facteur entier
-     * qui tient.
+     * Marge visible autour de la zone garantie, en unités.
+     *
+     * <p>Elle n'est pas décorative. Un élément à la racine <b>a le droit</b> de déborder
+     * des 320×180 — le modèle n'en fait qu'un avertissement, pour permettre les menus
+     * qui visent les grandes fenêtres. Sans marge, un tel élément serait posé puis
+     * <i>invisible</i> dans le concepteur : l'auteur ne pourrait plus ni le voir ni le
+     * rattraper. La marge le montre, et le cadre dit où passe la limite (AC3b).
+     */
+    public static final int MARGIN = 24;
+
+    /**
+     * Centre la surface dans le rectangle donné, au plus grand facteur entier qui tient
+     * — <b>marge comprise</b>.
      */
     public static DesignSurface fit(int areaLeft, int areaTop, int areaWidth, int areaHeight) {
-        int scale = Math.min(areaWidth / Screen.SAFE_WIDTH, areaHeight / Screen.SAFE_HEIGHT);
-        scale = Math.clamp(scale, 1, MAX_SCALE);
-        int width = Screen.SAFE_WIDTH * scale;
-        int height = Screen.SAFE_HEIGHT * scale;
-        return new DesignSurface(areaLeft + (areaWidth - width) / 2,
-                areaTop + (areaHeight - height) / 2, scale);
+        int outerUnitsW = Screen.SAFE_WIDTH + MARGIN * 2;
+        int outerUnitsH = Screen.SAFE_HEIGHT + MARGIN * 2;
+        int scale = Math.clamp(Math.min(areaWidth / outerUnitsW, areaHeight / outerUnitsH),
+                1, MAX_SCALE);
+        return new DesignSurface(
+                areaLeft + (areaWidth - outerUnitsW * scale) / 2 + MARGIN * scale,
+                areaTop + (areaHeight - outerUnitsH * scale) / 2 + MARGIN * scale,
+                scale);
+    }
+
+    /** Le bord de la zone dessinée, marge comprise — ce que le widget découpe. */
+    public int outerLeft() {
+        return left - MARGIN * scale;
+    }
+
+    public int outerTop() {
+        return top - MARGIN * scale;
+    }
+
+    public int outerRight() {
+        return right() + MARGIN * scale;
+    }
+
+    public int outerBottom() {
+        return bottom() + MARGIN * scale;
     }
 
     public int width() {
@@ -65,8 +95,18 @@ public record DesignSurface(int left, int top, int scale) {
         return top + (int) Math.round(designY * scale);
     }
 
-    /** Le point est-il sur la surface ? Hors d'elle, un clic ne conçoit rien. */
+    /**
+     * Le point est-il sur la zone de travail ? La <b>marge en fait partie</b> : un
+     * élément qui déborde s'y trouve, et il doit rester saisissable — sinon le
+     * concepteur laisserait poser ce qu'il ne laisse plus rattraper.
+     */
     public boolean contains(double screenX, double screenY) {
+        return screenX >= outerLeft() && screenX < outerRight()
+                && screenY >= outerTop() && screenY < outerBottom();
+    }
+
+    /** Le point est-il dans la zone GARANTIE (320×180) ? Ce que verront tous les joueurs. */
+    public boolean insideSafeArea(double screenX, double screenY) {
         return screenX >= left && screenX < right() && screenY >= top && screenY < bottom();
     }
 }

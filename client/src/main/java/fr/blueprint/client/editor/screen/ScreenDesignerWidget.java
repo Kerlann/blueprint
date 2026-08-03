@@ -45,6 +45,7 @@ public final class ScreenDesignerWidget {
     private static final int SURFACE_BACKGROUND = 0xFF101114;
     private static final int SAFE_BORDER = 0xFF4A4F58;
     private static final int GUIDE = 0xFFE0AF68;
+    private static final int OVERFLOW = 0xFFE0AF68;
     private static final int HANDLE = 0xFFE6E6E6;
     private static final int RUBBER_FILL = 0x337AA2F7;
 
@@ -96,6 +97,10 @@ public final class ScreenDesignerWidget {
     }
 
     private void renderSurface(GuiGraphics g, Font font, @Nullable Screen screen) {
+        // La marge est plus sombre que la zone garantie : on voit d'un coup d'œil ce qui
+        // déborde, sans avoir à lire le cadre.
+        g.fill(surface.outerLeft(), surface.outerTop(), surface.outerRight(),
+                surface.outerBottom(), 0xFF16171A);
         g.fill(surface.left(), surface.top(), surface.right(), surface.bottom(), 0xFF202227);
         // La bordure marque les 320×180 garantis : ce qui déborde ne sera pas vu par
         // tout le monde, et l'auteur doit le savoir en le dessinant, pas en jeu.
@@ -112,7 +117,8 @@ public final class ScreenDesignerWidget {
             return;
         }
 
-        g.enableScissor(surface.left(), surface.top(), surface.right(), surface.bottom());
+        g.enableScissor(surface.outerLeft(), surface.outerTop(),
+                surface.outerRight(), surface.outerBottom());
         // forceVisible : en conception, un élément masqué doit rester manipulable —
         // sinon le rendre invisible reviendrait à le perdre.
         ScreenPainter.paint(g, font, screen, surface.left(), surface.top(), surface.scale(),
@@ -122,6 +128,7 @@ public final class ScreenDesignerWidget {
                         return true;
                     }
                 });
+        renderOverflow(g, screen);
         renderSelection(g, screen);
         renderGuides(g);
         if (controller.gesture() == ScreenCanvasController.Gesture.RUBBER) {
@@ -131,6 +138,32 @@ public final class ScreenDesignerWidget {
                     RUBBER_FILL);
         }
         g.disableScissor();
+    }
+
+    /**
+     * Cerne d'orange ce qui sort des 320×180 garantis (AC3b).
+     *
+     * <p>Le validateur produit bien l'avertissement, mais il ne s'affiche que dans le
+     * panneau de diagnostics de l'onglet Graphe : l'auteur qui dessine un menu ne le
+     * verrait jamais. Or c'est ici, au moment du geste, que l'information sert — après
+     * coup, elle arrive sous forme de rapport de bug d'un joueur en <i>GUI scale</i> 4.
+     */
+    private void renderOverflow(GuiGraphics g, Screen screen) {
+        for (ScreenElement element : screen.elements().values()) {
+            if (!fr.blueprint.core.graph.ScreenRules.outsideSafeArea(screen, element)) {
+                continue;
+            }
+            ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
+                    Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+            int left = surface.toScreenX(rect.x());
+            int topPx = surface.toScreenY(rect.y());
+            int right = surface.toScreenX(rect.right());
+            int bottom = surface.toScreenY(rect.bottom());
+            g.fill(left, topPx, right, topPx + 1, OVERFLOW);
+            g.fill(left, bottom - 1, right, bottom, OVERFLOW);
+            g.fill(left, topPx, left + 1, bottom, OVERFLOW);
+            g.fill(right - 1, topPx, right, bottom, OVERFLOW);
+        }
     }
 
     private void renderSelection(GuiGraphics g, Screen screen) {

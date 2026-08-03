@@ -40,7 +40,21 @@ public final class ScreenPainter {
         default boolean forceVisible(String element) {
             return false;
         }
+
+        /**
+         * La texture est-elle absente des ressources chargées ? C'est le mode de panne
+         * le plus probable de tout l'épic : un auteur nomme une texture d'un pack que le
+         * joueur n'a pas.
+         */
+        default boolean textureMissing(net.minecraft.resources.Identifier texture) {
+            return false;
+        }
     }
+
+    /** Damier magenta : deux couleurs, comme la texture manquante de Minecraft. */
+    private static final int MISSING_A = 0xFFF800F8;
+    private static final int MISSING_B = 0xFF000000;
+    private static final int MISSING_CELL = 8;
 
     private ScreenPainter() {
     }
@@ -99,15 +113,20 @@ public final class ScreenPainter {
 
         switch (element.kind()) {
             case IMAGE -> {
-                if (element.texture() != null) {
+                if (element.texture() == null) {
+                    fillBox(g, left, top, right, bottom, background, style, scale);
+                } else if (visuals.textureMissing(element.texture())) {
+                    // Ni écran vide, ni exception : le joueur doit voir CE qui manque.
+                    // Vider l'écran ou lever lui donnerait un menu blanc sans indice,
+                    // et l'auteur ne saurait pas quel fichier livrer avec son pack.
+                    paintMissing(g, font, element.texture(), left, top, right, bottom);
+                } else {
                     // u = v = 0 et une région de la taille de la destination : les UV
                     // valent alors 0→1, donc la texture ENTIÈRE est étirée dans le
                     // rectangle — sans avoir à connaître sa taille en pixels, qu'un
                     // pack tiers ne nous dit pas.
                     g.blit(RenderPipelines.GUI_TEXTURED, element.texture(), left, top,
                             0f, 0f, right - left, bottom - top, right - left, bottom - top);
-                } else {
-                    fillBox(g, left, top, right, bottom, background, style, scale);
                 }
             }
             case PROGRESS -> {
@@ -133,6 +152,29 @@ public final class ScreenPainter {
      */
     private static double progressOf() {
         return 0;
+    }
+
+    /**
+     * Le damier magenta et le nom de la texture absente (AC4). C'est ce que Minecraft
+     * fait lui-même, et pour la même raison : le nom est la seule chose qui permette à
+     * quelqu'un de réparer, et il ne se trouve nulle part ailleurs à ce moment-là.
+     */
+    private static void paintMissing(GuiGraphics g, Font font,
+                                     net.minecraft.resources.Identifier texture,
+                                     int left, int top, int right, int bottom) {
+        for (int y = top; y < bottom; y += MISSING_CELL) {
+            for (int x = left; x < right; x += MISSING_CELL) {
+                boolean even = ((x - left) / MISSING_CELL + (y - top) / MISSING_CELL) % 2 == 0;
+                g.fill(x, y, Math.min(x + MISSING_CELL, right),
+                        Math.min(y + MISSING_CELL, bottom), even ? MISSING_A : MISSING_B);
+            }
+        }
+        // Tronqué à la largeur disponible : un nom trop long déborderait sur les
+        // éléments voisins, et l'écran deviendrait illisible là où il devait aider.
+        String name = font.plainSubstrByWidth(texture.toString(), Math.max(0, right - left - 2));
+        if (!name.isEmpty() && bottom - top >= font.lineHeight) {
+            g.drawString(font, name, left + 1, top + 1, 0xFFFFFFFF, true);
+        }
     }
 
     private static void fillBox(GuiGraphics g, int left, int top, int right, int bottom,

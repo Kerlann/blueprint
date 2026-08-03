@@ -363,12 +363,16 @@ public class BlueprintMod implements ModInitializer {
                                 payload -> payload.set("player", newPlayer)
                                         .set("end_portal", alive)));
         net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD
-                .register((player, origin, destination) ->
+                .register((player, origin, destination) -> {
+                        // Le monde se recharge sous ses pieds : un menu qui resterait
+                        // affiché montrerait un état d'avant le changement (10.3, AC5).
+                        fr.blueprint.core.net.ServerBlueprintNet.closeScreen(player);
                         fr.blueprint.api.event.BlueprintEvents.fire(
                                 fr.blueprint.core.event.StandardEvents.PLAYER_CHANGE_WORLD,
                                 payload -> payload.set("player", player)
                                         .set("from", origin.dimension().identifier())
-                                        .set("to", destination.dimension().identifier())));
+                                        .set("to", destination.dimension().identifier()));
+                });
         net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.START_SLEEPING.register(
                 (entity, pos) -> {
                     // Fabric émet pour toute entité vivante ; seul un joueur dort

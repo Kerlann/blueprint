@@ -1,0 +1,40 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.3"
+story_title: "Ouverture et rendu en jeu"
+gate: "PASS"
+status_reason: "Le serveur envoie une description, le client la compose avec le même peintre que le concepteur, et l'écran s'adapte réellement à la fenêtre. Trois défauts trouvés en revue ont été corrigés, dont un qui laissait le serveur croire un écran ouvert après la mort du joueur."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T18:20:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "RENDER-001"
+    severity: high
+    finding: "La fermeture prévenait le serveur depuis onClose, appelé sur le seul chemin « Échap ». Après une mort du joueur, un retour au menu principal, ou un autre écran qui prend la place, le serveur croyait l'écran encore ouvert — et aurait accepté un clic dessus venu d'un client modifié (FR52)"
+    suggested_action: "Corrigé — la notification part de removed(), appelé sur TOUS les chemins de fermeture"
+  - id: "RENDER-002"
+    severity: medium
+    finding: "AC3b demandait que le débordement de la zone garantie soit signalé. Le validateur produisait bien l'avertissement, mais il ne s'affiche que dans le panneau de diagnostics de l'onglet Graphe : l'auteur qui dessine un menu ne le voyait jamais"
+    suggested_action: "Corrigé — les éléments débordants sont cernés d'orange dans le concepteur, au moment du geste"
+  - id: "RENDER-003"
+    severity: medium
+    finding: "La correction DESIGN-006 de la 10.2 autorisait à poser un élément au-delà des 320×180, mais le concepteur découpait exactement à cette limite : l'élément devenait invisible et irrattrapable"
+    suggested_action: "Corrigé — DesignSurface.MARGIN ajoute 24 unités visibles autour de la zone garantie ; test laMargeRendSaisissableCeQuiDeborde"
+  - id: "RENDER-004"
+    severity: low
+    finding: "ScreenClose (C2S) n'est pas soumis au quota, contrairement aux autres paquets entrants"
+    suggested_action: "Délibéré. Un quota épuisé ferait perdre une fermeture légitime, et le serveur croirait l'écran encore ouvert — exactement le défaut que RENDER-001 vient de corriger. Le coût d'un ScreenClose est un retrait de table ; le débit est déjà borné par la connexion"
+  - id: "RENDER-005"
+    severity: low
+    finding: "TextureCache ne s'invalide pas sur /reload : un damier reste affiché après qu'un pack a été ajouté, tant que l'écran n'est pas rouvert"
+    suggested_action: "Assumé et documenté — le cache vit exactement le temps de l'écran. Un écouteur de rechargement pour un cas qui se répare en fermant la fenêtre coûterait plus qu'il ne rapporte"
+  - id: "RENDER-006"
+    severity: low
+    finding: "BlueprintManager gagne une référence au serveur, nullable pour les tests headless"
+    suggested_action: "Assumé — tout le cycle de vie fonctionne sans elle ; elle ne sert qu'à prévenir les joueurs. C'est ce qui garde la classe testable sans démarrer un serveur"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 2, low: 3 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "RENDER-005 : à revoir si la story 10.5 (packs de ressources) rend le rechargement fréquent"

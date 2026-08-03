@@ -244,6 +244,53 @@ public final class BlueprintPayloads {
     public static final int MAX_GRAPH_BYTES = fr.blueprint.core.net.GraphSync.MAX_BYTES;
     public static final int MAX_LIST = 4_096;
 
+    /**
+     * S2C : ouvre un écran chez le joueur (story 10.3). Porte la <b>description</b> de
+     * l'écran, pas des ordres de dessin — le client la compose lui-même et réagit seul
+     * au redimensionnement de la fenêtre.
+     *
+     * <p>{@code blueprint} et {@code screen} identifient l'écran : c'est cette identité
+     * que le client renverra sur un clic (10.4), et c'est elle que le serveur vérifiera
+     * plutôt que de croire ce que le client annonce (FR52).
+     */
+    public record ScreenOpen(Identifier blueprint, String screen, byte[] data)
+            implements CustomPacketPayload {
+        public static final Type<ScreenOpen> TYPE = new Type<>(id("screen_open"));
+        public static final StreamCodec<ByteBuf, ScreenOpen> CODEC = StreamCodec.composite(
+                Identifier.STREAM_CODEC, ScreenOpen::blueprint,
+                ByteBufCodecs.stringUtf8(MAX_NAME), ScreenOpen::screen,
+                ByteBufCodecs.byteArray(fr.blueprint.core.net.ScreenSync.MAX_BYTES),
+                ScreenOpen::data,
+                ScreenOpen::new);
+
+        @Override
+        public Type<ScreenOpen> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * Ferme l'écran ouvert, <b>dans les deux sens</b> : le serveur peut le refermer
+     * (blueprint désactivé, joueur qui change de dimension), et le client prévient
+     * quand le joueur appuie sur Échap.
+     *
+     * <p>Sans le sens client→serveur, le serveur croirait un écran encore ouvert et
+     * continuerait d'accepter des clics dessus longtemps après sa fermeture.
+     */
+    public record ScreenClose() implements CustomPacketPayload {
+        public static final Type<ScreenClose> TYPE = new Type<>(id("screen_close"));
+        public static final StreamCodec<ByteBuf, ScreenClose> CODEC =
+                StreamCodec.unit(new ScreenClose());
+
+        @Override
+        public Type<ScreenClose> type() {
+            return TYPE;
+        }
+    }
+
+    /** Un nom d'écran ou d'élément reste court : le fil n'a pas à porter un roman. */
+    public static final int MAX_NAME = 256;
+
     /** S2C : un fragment du flux de descripteurs compressé. */
     public record DescriptorChunk(int index, int total, byte[] data)
             implements CustomPacketPayload {

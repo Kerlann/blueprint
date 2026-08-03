@@ -14,19 +14,38 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class DesignSurfaceTest {
 
+    /** L'échelle tient compte de la marge : c'est le tout qui doit rentrer. */
     @Test
-    void laSurfaceEstCentreeDansSaZone() {
-        DesignSurface surface = DesignSurface.fit(0, 0, 700, 400);
-        assertEquals(2, surface.scale(), "320×2 = 640 tient dans 700 ; ×3 non");
-        assertEquals(30, surface.left(), "(700 − 640) / 2");
-        assertEquals(20, surface.top(), "(400 − 360) / 2");
+    void laSurfaceEstCentreeDansSaZoneMargeComprise() {
+        DesignSurface surface = DesignSurface.fit(0, 0, 800, 500);
+        assertEquals(2, surface.scale(), "368×2 = 736 tient dans 800 ; ×3 non");
+        assertEquals(32 + DesignSurface.MARGIN * 2, surface.left(), "(800 − 736) / 2 + marge");
+        assertEquals(22 + DesignSurface.MARGIN * 2, surface.top(), "(500 − 456) / 2 + marge");
+        assertEquals(surface.left() - DesignSurface.MARGIN * 2, surface.outerLeft());
     }
 
     @Test
     void laZoneEstDecaleeParSonOrigine() {
-        DesignSurface surface = DesignSurface.fit(100, 50, 700, 400);
-        assertEquals(130, surface.left());
-        assertEquals(70, surface.top());
+        DesignSurface a = DesignSurface.fit(0, 0, 800, 500);
+        DesignSurface b = DesignSurface.fit(100, 50, 800, 500);
+        assertEquals(a.left() + 100, b.left());
+        assertEquals(a.top() + 50, b.top());
+    }
+
+    /**
+     * <b>Le test qui compte pour AC3b.</b> Un élément posé au-delà des 320×180 reste
+     * dans la zone de travail : sans la marge, le concepteur laisserait poser ce qu'il
+     * ne laisserait plus ni voir ni rattraper.
+     */
+    @Test
+    void laMargeRendSaisissableCeQuiDeborde() {
+        DesignSurface surface = DesignSurface.fit(0, 0, 800, 500);
+        int justOutside = surface.toScreenX(Screen.SAFE_WIDTH + 4);
+
+        assertFalse(surface.insideSafeArea(justOutside, surface.top() + 10),
+                "hors de la zone garantie");
+        assertTrue(surface.contains(justOutside, surface.top() + 10),
+                "mais toujours dans la zone de travail");
     }
 
     /** Une échelle fractionnaire donnerait des bords baveux et un texte flou. */
@@ -55,7 +74,7 @@ class DesignSurfaceTest {
      */
     @Test
     void uneUniteEntiereFaitUnAllerRetourExact() {
-        DesignSurface surface = DesignSurface.fit(0, 0, 1000, 600);
+        DesignSurface surface = DesignSurface.fit(0, 0, 1200, 800);
         for (double unit : new double[]{0, 1, 40, 160, 319}) {
             assertEquals(unit, surface.toDesignX(surface.toScreenX(unit)), 1e-9);
             assertEquals(unit, surface.toDesignY(surface.toScreenY(unit)), 1e-9);
@@ -69,7 +88,7 @@ class DesignSurfaceTest {
      */
     @Test
     void uneUniteFractionnaireNeDeriveQueDUnDemiPixel() {
-        DesignSurface surface = DesignSurface.fit(0, 0, 1000, 600);
+        DesignSurface surface = DesignSurface.fit(0, 0, 1200, 800);
         double tolerance = 0.5 / surface.scale() + 1e-9;
         for (double unit : new double[]{0.5, 40.5, 160.25, 318.75}) {
             assertEquals(unit, surface.toDesignX(surface.toScreenX(unit)), tolerance);
@@ -79,7 +98,7 @@ class DesignSurfaceTest {
 
     @Test
     void lOrigineDeLaSurfaceEstLOrigineDesUnites() {
-        DesignSurface surface = DesignSurface.fit(0, 0, 700, 400);
+        DesignSurface surface = DesignSurface.fit(0, 0, 800, 500);
         assertEquals(0, surface.toDesignX(surface.left()), 1e-9);
         assertEquals(0, surface.toDesignY(surface.top()), 1e-9);
         assertEquals(Screen.SAFE_WIDTH, surface.toDesignX(surface.right()), 1e-9);
@@ -87,11 +106,12 @@ class DesignSurfaceTest {
     }
 
     @Test
-    void horsDeLaSurfaceUnClicNeConcoitRien() {
-        DesignSurface surface = DesignSurface.fit(0, 0, 700, 400);
-        assertTrue(surface.contains(surface.left(), surface.top()));
-        assertTrue(surface.contains(surface.right() - 1, surface.bottom() - 1));
-        assertFalse(surface.contains(surface.right(), surface.top()), "le bord droit est dehors");
-        assertFalse(surface.contains(surface.left() - 1, surface.top()));
+    void horsDeLaZoneDeTravailUnClicNeConcoitRien() {
+        DesignSurface surface = DesignSurface.fit(0, 0, 800, 500);
+        assertTrue(surface.contains(surface.outerLeft(), surface.outerTop()));
+        assertTrue(surface.contains(surface.outerRight() - 1, surface.outerBottom() - 1));
+        assertFalse(surface.contains(surface.outerRight(), surface.outerTop()),
+                "le bord droit est dehors");
+        assertFalse(surface.contains(surface.outerLeft() - 1, surface.outerTop()));
     }
 }

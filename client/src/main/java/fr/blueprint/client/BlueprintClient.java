@@ -90,6 +90,7 @@ public class BlueprintClient implements ClientModInitializer {
         fr.blueprint.client.net.RegistrySync.register();
         fr.blueprint.client.net.BlueprintNet.register();
         fr.blueprint.client.net.DebugClient.register();
+        fr.blueprint.client.net.ScreenClient.register();
 
         BlueprintMod.LOGGER.info("Blueprint client initialisé");
     }

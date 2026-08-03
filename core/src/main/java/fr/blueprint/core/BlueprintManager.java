@@ -25,10 +25,25 @@ public final class BlueprintManager {
             Collections.synchronizedMap(new WeakHashMap<>());
 
     public static BlueprintManager of(MinecraftServer server) {
-        return BY_SERVER.computeIfAbsent(server, s -> new BlueprintManager());
+        return BY_SERVER.computeIfAbsent(server, BlueprintManager::new);
     }
 
+    /**
+     * Le serveur, ou {@code null} pour un gestionnaire de test. Il ne sert qu'à
+     * prévenir les joueurs ; tout le cycle de vie fonctionne sans lui, ce qui garde la
+     * classe testable headless.
+     */
+    private final @org.jetbrains.annotations.Nullable MinecraftServer server;
     private final Map<Identifier, Blueprint> blueprints = new LinkedHashMap<>();
+
+    /** Gestionnaire isolé, sans serveur : tests et outillage. */
+    public BlueprintManager() {
+        this(null);
+    }
+
+    private BlueprintManager(@org.jetbrains.annotations.Nullable MinecraftServer server) {
+        this.server = server;
+    }
 
     /** Vide si l'identifiant est déjà pris. */
     public Optional<Blueprint> create(Identifier id) {
@@ -42,7 +57,25 @@ public final class BlueprintManager {
 
     /** Vrai si un blueprint a été supprimé. */
     public boolean delete(Identifier id) {
-        return blueprints.remove(id) != null;
+        boolean removed = blueprints.remove(id) != null;
+        if (removed) {
+            closeItsScreens(id);
+        }
+        return removed;
+    }
+
+    /**
+     * Referme chez tous les joueurs les écrans d'un blueprint qui vient de disparaître
+     * ou d'être désactivé (story 10.3).
+     *
+     * <p>Le laisser affiché donnerait un menu dont chaque clic serait refusé sans que
+     * le joueur comprenne pourquoi — et il ne pourrait pas deviner que c'est un
+     * administrateur qui vient de couper le graphe derrière lui.
+     */
+    private void closeItsScreens(Identifier id) {
+        if (server != null) {
+            fr.blueprint.core.net.ServerBlueprintNet.closeScreensOf(server, id);
+        }
     }
 
     /** Adopte un blueprint existant (import, démo) ; faux si l'identifiant est pris. */
@@ -97,6 +130,9 @@ public final class BlueprintManager {
             return false;
         }
         bp.setEnabled(enabled);
+        if (!enabled) {
+            closeItsScreens(id);
+        }
         return true;
     }
 

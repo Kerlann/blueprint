@@ -48,6 +48,20 @@ public final class ScreenNbt {
         return screens;
     }
 
+    /**
+     * Un écran seul, pour le fil (story 10.3). Le <b>même</b> encodage que la
+     * sauvegarde : un second format divergerait, et un écran s'ouvrirait en jeu
+     * autrement qu'il ne se relit du monde.
+     */
+    public static CompoundTag encodeOne(Screen screen) {
+        return encodeScreen(screen);
+    }
+
+    /** L'inverse d'{@link #encodeOne} ; {@code null} si le tag est illisible. */
+    public static @Nullable Screen decodeOne(CompoundTag tag) {
+        return decodeScreen(tag);
+    }
+
     private static CompoundTag encodeScreen(Screen screen) {
         CompoundTag tag = new CompoundTag();
         tag.putString("name", screen.name());
