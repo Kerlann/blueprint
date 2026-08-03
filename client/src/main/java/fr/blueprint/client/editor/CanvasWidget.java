@@ -545,11 +545,22 @@ public final class CanvasWidget {
         return ref != null && beginLiteralEdit(ref.node(), ref.pin(), ref.type(), ref.row());
     }
 
-    /** Point d'entrée partagé canevas/panneau de détails (5.10). */
+    /** Point d'entrée partagé canevas/panneau de détails (5.10) ; {@code row < 0} = à retrouver. */
     private boolean beginLiteralEdit(UUID nodeId, String pin,
                                      fr.blueprint.api.pin.PinType type, int row) {
         Node node = controller.blueprint().node(nodeId);
         NodeDescriptor desc = node == null ? null : descriptors.descriptor(node.typeId());
+        if (row < 0 && desc != null) {
+            // Appel du panneau de détails : retrouver la rangée réelle du pin, sinon
+            // la liste déroulante direction se dessinerait sur la rangée 0 (QA 5.2c).
+            for (int i = 0; i < desc.inputs().size(); i++) {
+                if (desc.inputs().get(i).name().equals(pin)) {
+                    row = i;
+                    break;
+                }
+            }
+        }
+        row = Math.max(0, row);
         LiteralValue current = node == null || desc == null ? null
                 : literalToShow(node, desc, pin);
         if (type == PinTypes.BOOL) {
@@ -634,7 +645,7 @@ public final class CanvasWidget {
             case META_AUTHOR -> details.openMetaEdit(DetailsPanelState.MetaField.AUTHOR);
             case META_DESCRIPTION -> details.openMetaEdit(DetailsPanelState.MetaField.DESCRIPTION);
             case META_CAP -> details.cyclePermissionCap();
-            case LITERAL -> beginLiteralEdit(row.node(), row.pin(), row.type(), 0);
+            case LITERAL -> beginLiteralEdit(row.node(), row.pin(), row.type(), -1);
             case WIRED -> controller.focusNode(row.node(), width, height);
             default -> {
             }

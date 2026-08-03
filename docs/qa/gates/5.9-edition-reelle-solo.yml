@@ -1,0 +1,27 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.9"
+story_title: "Éditer, enregistrer et tester un vrai blueprint (solo)"
+gate: "PASS"
+status_reason: "Frontière de threads propre (instantané ET adopt sur le thread serveur via submit/join), dirty par révisions, instantané indépendant testé (éditer après Ctrl+S ne mute pas l'objet adopté). La review a durci deux points de robustesse (SAVE-001/002)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:50:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "SAVE-001"
+    severity: high
+    finding: "RÉSOLU EN REVIEW — un adopt qui jette côté serveur remontait en CompletionException à travers submit().join() DANS le thread de rendu client : crash du jeu sur Ctrl+S. Même exposition sur l'instantané d'ouverture"
+    suggested_action: "Corrigé : les deux join() sont enveloppés — échec journalisé, save() rend false, le ● reste (jamais de perte silencieuse)"
+  - id: "SAVE-002"
+    severity: medium
+    finding: "RÉSOLU EN REVIEW — « Enregistrer et quitter » fermait l'éditeur même quand save() échouait : perte de travail silencieuse, violation directe de U2"
+    suggested_action: "Corrigé : échec → retour à l'éditeur, modifications intactes"
+  - id: "SAVE-003"
+    severity: low
+    finding: "Deux éditions du même blueprint : dernier Ctrl+S gagne (pas de verrou par révision)"
+    suggested_action: "Assumé en solo dès la story ; le verrouillage optimiste arrive avec la synchro réseau (épic 6)"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 1, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor: ["VERIFY-5.9 (Ctrl+S pris en compte en jeu)"]

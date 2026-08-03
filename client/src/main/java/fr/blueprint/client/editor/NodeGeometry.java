@@ -91,8 +91,12 @@ public final class NodeGeometry {
 
     /** Bord gauche de la zone littérale, en fraction de la largeur du nœud. */
     public static final double LITERAL_LEFT = 0.38;
-    /** Bord droit de la zone littérale (laisse la place au pin/label de sortie). */
-    public static final double LITERAL_RIGHT = 0.72;
+    /**
+     * Bord droit de la zone littérale. 0,60 et pas plus : un label de sortie
+     * right-aligned peut commencer dès 0,62·largeur (QA 5.2b — chevauchement réel
+     * sur math/add rangée 0 : entrée « a » + sortie « result »).
+     */
+    public static final double LITERAL_RIGHT = 0.60;
 
     /**
      * Zone cliquable/rendue de la valeur littérale d'un pin d'entrée (5.2b) —

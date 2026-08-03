@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.2c"
+story_title: "Sélecteurs riches — item, bloc, position"
+gate: "PASS"
+status_reason: "PickerState pur (filtre, pagination, cible), vraies icônes au popup, registres chargés paresseusement une fois. La review a corrigé le placement de la liste déroulante direction ouverte depuis le panneau de détails (PICK-001)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:50:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "PICK-001"
+    severity: medium
+    finding: "RÉSOLU EN REVIEW — beginLiteralEdit recevait row=0 depuis le panneau de détails : la liste déroulante direction se dessinait sur la rangée 0 du nœud même quand le pin vivait à une autre rangée"
+    suggested_action: "Corrigé : row<0 = retrouvé depuis le descripteur ; le panneau passe -1"
+  - id: "PICK-002"
+    severity: low
+    finding: "Le cache d'icônes est partagé item/bloc par identifiant — inoffensif (blockitems identiques) mais fragile si un id divergeait"
+    suggested_action: "Préfixer la clé du cache par le mode si le cas apparaît"
+  - id: "PICK-003"
+    severity: low
+    finding: "L'icône réelle SUR le nœud (zone littérale) reste du texte ; Ctrl+P remplace le « bouton position du joueur »"
+    suggested_action: "Consigné dès la story ; VERIFY-5.2c couvre le rendu du popup"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 2 }
+  recommendations:
+    must_fix: []

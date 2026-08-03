@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.2b"
+story_title: "Littéraux inline"
+gate: "PASS"
+status_reason: "Validation par type pure (champ rouge, jamais de valeur corrompue — SetLiteral revalide de toute façon), clavier du canevas suspendu pendant l'édition, un pin câblé masque son littéral (testé avec un vrai lien). La review a corrigé un chevauchement visuel réel (LIT-001)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:50:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "LIT-001"
+    severity: medium
+    finding: "RÉSOLU EN REVIEW — la zone littérale s'étendait à 0,72·largeur alors qu'un label de sortie right-aligned peut commencer dès 0,62·largeur : texte superposé sur toute rangée mixte (cas concret : math/add rangée 0, entrée « a » + sortie « result » — les nœuds de la démo)"
+    suggested_action: "Corrigé : bord droit ramené à 0,60 (rendu ET zone de clic, NodeGeometry.LITERAL_RIGHT partagé)"
+  - id: "LIT-002"
+    severity: low
+    finding: "La molette sur un champ int peut pousser le tampon au-delà d'Integer.MAX_VALUE (arithmétique long) : champ rouge jusqu'à correction manuelle"
+    suggested_action: "Acceptable — le refus est visible ; borner au type si un usage réel le réclame"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 1 }
+  recommendations:
+    must_fix: []

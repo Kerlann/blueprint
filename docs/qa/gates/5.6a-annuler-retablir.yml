@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.6a"
+story_title: "Annuler / Rétablir"
+gate: "PASS"
+status_reason: "Pile pure : une entrée par geste (40 MoveNode = 1 undo), rejeu en ordre inverse via EditOperation.apply exclusivement, redo = miroir exact, plafond 50 testé (les anciennes tombent). Le canal unique applyTracked garantit que toute mutation future naît annulable."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:50:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "UNDO-002"
+    severity: low
+    finding: "Suppr pendant un glisser en cours fusionne déplacement + suppression en une entrée (beginGesture idempotent)"
+    suggested_action: "Comportement défendable (le geste utilisateur est continu) ; documenter si un retour utilisateur s'en étonne"
+  - id: "UNDO-003"
+    severity: low
+    finding: "Un inverse qui échoue au rejeu (contexte modifié entre-temps) est sauté silencieusement : entrée redo partielle possible"
+    suggested_action: "Inatteignable par l'UI actuelle (mutations sérialisées) ; à revisiter avec la synchro réseau (6.x)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []

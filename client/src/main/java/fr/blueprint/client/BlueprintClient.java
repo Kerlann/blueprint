@@ -123,14 +123,28 @@ public class BlueprintClient implements ClientModInitializer {
         if (server == null) {
             return false;
         }
-        Blueprint copy = server.submit(() ->
-                BlueprintManager.of(server).get(id).map(Blueprint::copy).orElse(null)).join();
+        Blueprint copy;
+        try {
+            copy = server.submit(() ->
+                    BlueprintManager.of(server).get(id).map(Blueprint::copy).orElse(null)).join();
+        } catch (RuntimeException e) {
+            BlueprintMod.LOGGER.error("Instantané de « {} » impossible", id, e);
+            return false;
+        }
         if (copy == null) {
             return false;
         }
         lastEdited = id;
-        EditorSession session = EditorSession.of(copy, snapshot ->
-                server.submit(() -> BlueprintManager.of(server).adopt(snapshot)).join());
+        // Un adopt qui jette côté serveur ne doit JAMAIS crasher le thread client :
+        // l'échec remonte en « non enregistré » (● conservé) — QA 5.9.
+        EditorSession session = EditorSession.of(copy, snapshot -> {
+            try {
+                return server.submit(() -> BlueprintManager.of(server).adopt(snapshot)).join();
+            } catch (RuntimeException e) {
+                BlueprintMod.LOGGER.error("Enregistrement de « {} » impossible", id, e);
+                return false;
+            }
+        });
         // Bouton Tester (5.6b) : après l'enregistrement, activer côté serveur.
         session.setTestHandler(() ->
                 server.execute(() -> BlueprintManager.of(server).setEnabled(id, true)));
