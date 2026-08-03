@@ -51,6 +51,7 @@ public final class CanvasWidget {
 
     private final LiteralEditState literalEdit = new LiteralEditState();
     private final VariablePanelState varPanel;
+    private final DetailsPanelState details;
 
     private int width;
     private int height;
@@ -85,6 +86,8 @@ public final class CanvasWidget {
         entries.sort(Comparator.comparing(NodeSearch.Entry::title));
         this.palette = new PaletteState(new NodeSearch(entries), descriptors::descriptor);
         this.varPanel = new VariablePanelState(session.blueprint(), lookup, controller::applyOp);
+        this.details = new DetailsPanelState(session.blueprint(), descriptors::descriptor,
+                controller::applyOp, I18n::get);
     }
 
     public Camera camera() {
@@ -125,6 +128,8 @@ public final class CanvasWidget {
         DiagnosticsPanel.render(g, font, diagnostics, width, height);
         if (panelVisible) {
             VariablePanel.render(g, font, varPanel, height);
+            DetailsPanel.render(g, font, details.rows(controller.selection().ids()),
+                    width, height);
         }
         PalettePopup.render(g, font, palette, width, height);
     }
@@ -236,6 +241,9 @@ public final class CanvasWidget {
         if (varPanel.isRenaming()) {
             varPanel.commitRename();
         }
+        if (details.isEditingMeta()) {
+            details.commitMetaEdit();
+        }
         if (palette.isOpen()) {
             if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 int row = PalettePopup.rowAt(palette, e.x(), e.y(), width, height);
@@ -281,6 +289,11 @@ public final class CanvasWidget {
             handleVariablePanelClick(e, doubled);
             return true;
         }
+        if (panelVisible && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && DetailsPanel.contains(e.x(), e.y(), width, height)) {
+            handleDetailsPanelClick(e);
+            return true;
+        }
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
             palette.open(e.x(), e.y(), camera.toWorldX(e.x()), camera.toWorldY(e.y()), null);
             return true;
@@ -300,29 +313,50 @@ public final class CanvasWidget {
     /** Clic sur une zone littérale : bascule le bool, ouvre le champ ou l'énum. */
     private boolean openLiteralEdit(double wx, double wy) {
         CanvasController.LiteralRef ref = controller.literalAt(wx, wy);
-        if (ref == null) {
-            return false;
-        }
-        Node node = controller.blueprint().node(ref.node());
+        return ref != null && beginLiteralEdit(ref.node(), ref.pin(), ref.type(), ref.row());
+    }
+
+    /** Point d'entrée partagé canevas/panneau de détails (5.10). */
+    private boolean beginLiteralEdit(UUID nodeId, String pin,
+                                     fr.blueprint.api.pin.PinType type, int row) {
+        Node node = controller.blueprint().node(nodeId);
         NodeDescriptor desc = node == null ? null : descriptors.descriptor(node.typeId());
         LiteralValue current = node == null || desc == null ? null
-                : literalToShow(node, desc, ref.pin());
-        if (ref.type() == PinTypes.BOOL) {
+                : literalToShow(node, desc, pin);
+        if (type == PinTypes.BOOL) {
             boolean on = current != null && current.value() instanceof Boolean b && b;
-            controller.setLiteral(ref.node(), ref.pin(), LiteralValue.of(PinTypes.BOOL, !on));
+            controller.setLiteral(nodeId, pin, LiteralValue.of(PinTypes.BOOL, !on));
             return true;
         }
-        if (ref.type() == PinTypes.DIRECTION) {
-            literalEdit.openEnum(ref.node(), ref.pin(), ref.row(),
+        if (type == PinTypes.DIRECTION) {
+            literalEdit.openEnum(nodeId, pin, row,
                     current != null && current.value() instanceof Direction d ? d : null);
             return true;
         }
-        if (LiteralEditState.editableAsText(ref.type())) {
-            literalEdit.openText(ref.node(), ref.pin(), ref.row(), ref.type(),
-                    LiteralEditState.display(ref.type(), current));
+        if (LiteralEditState.editableAsText(type)) {
+            literalEdit.openText(nodeId, pin, row, type,
+                    LiteralEditState.display(type, current));
             return true;
         }
         return false; // type 5.2c : le clic retombe sur la sélection du nœud
+    }
+
+    private void handleDetailsPanelClick(MouseButtonEvent e) {
+        var rows = details.rows(controller.selection().ids());
+        int index = DetailsPanel.rowAt(rows, e.y());
+        if (index < 0) {
+            return;
+        }
+        DetailsPanelState.Row row = rows.get(index);
+        switch (row.kind()) {
+            case META_AUTHOR -> details.openMetaEdit(DetailsPanelState.MetaField.AUTHOR);
+            case META_DESCRIPTION -> details.openMetaEdit(DetailsPanelState.MetaField.DESCRIPTION);
+            case META_CAP -> details.cyclePermissionCap();
+            case LITERAL -> beginLiteralEdit(row.node(), row.pin(), row.type(), 0);
+            case WIRED -> controller.focusNode(row.node(), width, height);
+            default -> {
+            }
+        }
     }
 
     public void mouseMoved(double mx, double my) {
@@ -525,6 +559,16 @@ public final class CanvasWidget {
             }
             return true;
         }
+        if (details.isEditingMeta()) {
+            switch (e.key()) {
+                case GLFW.GLFW_KEY_ESCAPE -> details.cancelMetaEdit();
+                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> details.commitMetaEdit();
+                case GLFW.GLFW_KEY_BACKSPACE -> details.backspace();
+                default -> {
+                }
+            }
+            return true;
+        }
         if (literalEdit.isOpen()) {
             switch (e.key()) {
                 case GLFW.GLFW_KEY_ESCAPE -> literalEdit.close();
@@ -644,6 +688,10 @@ public final class CanvasWidget {
     public boolean charTyped(CharacterEvent e) {
         if (varPanel.isRenaming() && e.isAllowedChatCharacter()) {
             varPanel.type(e.codepointAsString());
+            return true;
+        }
+        if (details.isEditingMeta() && e.isAllowedChatCharacter()) {
+            details.type(e.codepointAsString());
             return true;
         }
         if (literalEdit.isOpen() && e.isAllowedChatCharacter()) {

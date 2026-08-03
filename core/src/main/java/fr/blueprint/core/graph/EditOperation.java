@@ -284,6 +284,19 @@ public sealed interface EditOperation {
         }
     }
 
+    // ------------------------------------------------------------ métadonnées
+
+    /** Remplace les métadonnées (auteur, description, version, plafond) — story 5.10. */
+    record SetMeta(BlueprintMeta meta) implements EditOperation {
+        @Override
+        public Result apply(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
+            BlueprintMeta before = bp.meta();
+            bp.setMeta(meta);
+            bp.bumpRevision();
+            return Result.ok(new SetMeta(before));
+        }
+    }
+
     // ------------------------------------------------------------ commentaires
 
     record AddComment(CommentBox comment) implements EditOperation {
