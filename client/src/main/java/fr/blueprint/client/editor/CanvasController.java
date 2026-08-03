@@ -240,7 +240,8 @@ public final class CanvasController {
             if (def.kind() != PinKind.DATA) {
                 continue;
             }
-            Camera.Rect zone = NodeGeometry.literalZone(b, row);
+            // Champ large quand la rangée n'a pas de sortie en face (voir literalZone).
+            Camera.Rect zone = NodeGeometry.literalZone(b, row, row < shape.outputs().size());
             if (wx >= zone.left() && wx < zone.right() && wy >= zone.top() && wy < zone.bottom()
                     && blueprint.linksInto(b.node().uuid(), def.name()).isEmpty()) {
                 return new LiteralRef(b.node().uuid(), def.name(), def.type(), row);

@@ -58,7 +58,10 @@ public final class NodeWidget {
         @Nullable LiteralValue literalOf(String pin);
     }
 
-    private static final int LITERAL_COLOR = 0xFF9AA0A8;
+    private static final int LITERAL_COLOR = 0xFFD5D8DC;
+    /** Champ creusé : le littéral doit se VOIR comme un champ, même vide (retour terrain). */
+    private static final int LITERAL_FIELD_BG = 0xFF14171C;
+    private static final int LITERAL_FIELD_BORDER = 0xFF3A3D42;
     private static final int LITERAL_EDIT_BG = 0xFF141922;
     private static final int LITERAL_EDIT_BORDER = 0xFF7AA2F7;
     private static final int LITERAL_INVALID_BORDER = 0xFFF7768E;
@@ -127,7 +130,8 @@ public final class NodeWidget {
             g.drawString(font, label, (int) NodeGeometry.PIN_INSET + 7, cy - 4,
                     dim(PIN_LABEL_COLOR, dim), false);
             if (pin.kind() == PinKind.DATA && literals != null) {
-                renderLiteral(g, font, box, w, i, pin, literals, edit);
+                renderLiteral(g, font, box, w, i, pin, literals, edit,
+                        i < desc.outputs().size());
             }
         }
         for (int i = 0; i < desc.outputs().size(); i++) {
@@ -153,9 +157,11 @@ public final class NodeWidget {
      */
     private static void renderLiteral(GuiGraphics g, Font font, NodeGeometry.Box box,
                                       int w, int row, NodeDescriptor.PinDescriptor pin,
-                                      LiteralProvider literals, @Nullable LiteralEditState edit) {
+                                      LiteralProvider literals, @Nullable LiteralEditState edit,
+                                      boolean rowHasOutput) {
         int x1 = (int) (w * NodeGeometry.LITERAL_LEFT);
-        int x2 = (int) (w * NodeGeometry.LITERAL_RIGHT);
+        int x2 = (int) (w * (rowHasOutput ? NodeGeometry.LITERAL_RIGHT
+                : NodeGeometry.LITERAL_WIDE_RIGHT));
         int top = (int) (NodeGeometry.TITLE_HEIGHT + row * NodeGeometry.ROW_HEIGHT);
         int cy = top + (int) NodeGeometry.ROW_HEIGHT / 2;
 
@@ -188,12 +194,22 @@ public final class NodeWidget {
             g.fill(x2 - 7, cy - 3, x2 - 1, cy + 3, on ? BOOL_ON : nodeBackground());
             return;
         }
+        // Champ CREUSÉ, visible même vide : un littéral qu'on peut modifier doit se
+        // voir comme un champ, pas comme du texte gris posé là. C'était le premier
+        // reproche fait à l'éditeur en jeu.
+        g.fill(x1 - 1, top + 2, x2 + 1, top + (int) NodeGeometry.ROW_HEIGHT - 2, LITERAL_FIELD_BG);
+        g.fill(x1 - 1, top + 2, x2 + 1, top + 3, LITERAL_FIELD_BORDER);
+        g.fill(x1 - 1, top + (int) NodeGeometry.ROW_HEIGHT - 3, x2 + 1,
+                top + (int) NodeGeometry.ROW_HEIGHT - 2, LITERAL_FIELD_BORDER);
+        g.fill(x1 - 1, top + 2, x1, top + (int) NodeGeometry.ROW_HEIGHT - 2, LITERAL_FIELD_BORDER);
+        g.fill(x2, top + 2, x2 + 1, top + (int) NodeGeometry.ROW_HEIGHT - 2, LITERAL_FIELD_BORDER);
+
         String text = LiteralEditState.display(pin.type(), value);
         if (text.isEmpty()) {
             return;
         }
-        text = font.plainSubstrByWidth(text, x2 - x1 - 2);
-        g.drawString(font, text, x2 - font.width(text), cy - 4, LITERAL_COLOR, false);
+        text = font.plainSubstrByWidth(text, x2 - x1 - 4);
+        g.drawString(font, text, x2 - 2 - font.width(text), cy - 4, LITERAL_COLOR, false);
     }
 
     private static void renderGhostContent(GuiGraphics g, Font font, Identifier typeId,

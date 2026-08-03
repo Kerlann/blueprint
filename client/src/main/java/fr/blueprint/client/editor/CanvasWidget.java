@@ -174,7 +174,7 @@ public final class CanvasWidget {
             VariablePanel.render(g, font, varPanel, height);
             if (!scriptView.visible()) {
                 DetailsPanel.render(g, font, details.rows(controller.selection().ids()),
-                        width, height);
+                        width, height, literalEdit);
             }
         }
         ScriptView.render(g, font, scriptView, width, height);
