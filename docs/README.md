@@ -50,7 +50,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | Épic | Titre | Stories rédigées | Statut |
 |---|---|---|---|
 | 1 | Fondations et modèle de graphe | 1.1 → 1.5 | **Complet** — 5 Done, gates PASS (session en jeu du 2026-08-02 : VERIFY-001/002/003 clos) |
-| 1 | (spike) | 1.6 | Draft (gametest — automatisera ce que la session manuelle vérifie) |
+| 1 | (spike) gametests | 1.6 | **Complet** — gate PASS ; `./gradlew runGametest` : 5 tests dans un serveur réel, quatre VERIFY automatisés |
 | 2 | Registre de nœuds et API d'extension | 2.1 → 2.5 | **Complet** — 5 gates PASS |
 | 3 | Compilateur et VM | 3.1+3.2+3.3, 3.4+3.5 | **Complet** — 2 gates PASS (3 corrections en review dont un high sémantique) |
 | 7 | Événements et bibliothèque | 7.1a+7.2+7.6 (groupées) | **Complet** — gate PASS, démo ping/pong vérifiée en jeu (VERIFY-004) |
@@ -61,14 +61,36 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 6 | **Réseau multijoueur** | 6.2, 6.3(lite), 6.4 | **Complet** — 3 gates PASS (1 high + 4 medium corrigés en review dont une perte de travail et une escalade de permission) ; synchro du registre au join, ouverture/enregistrement par paquets avec verrou optimiste, garde de graphe + quotas ; reste v1.1 : patchs par opération et multi-éditeur |
 | 5 | **Éditeur visuel — COMPLET** | 5.1 → 5.11 (15 stories) | **15 gates PASS** — 1 high (crash Ctrl+S) + 6 medium corrigés en review, 117 tests client ; l'éditeur fait tout le backlog UE (littéraux+sélecteurs, undo, Ctrl+S réel, diagnostics cliquables, variables, copier/coller BScript, détails, palette complète, vue script, commentaires/minimap/thème) |
 | 8 | **Intégration des mods tiers** | 8.1, 8.2, 8.3 | **Complet** — 3 gates PASS (3 medium + 1 low corrigés en review dont une violation d'AC : un JSON au mauvais type emportait tout le rechargement) ; annotation `@BlueprintNode`, nœuds composites de datapack rechargeables, fantômes prouvés de bout en bout |
-| 4 (4.2b), 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
+| 9 | **Débogage, performance, finition** | 9.1a, 9.1b, 9.2, 9.3, 9.4, 9.5 | **Complet** — 6 gates PASS (1 medium NFR11 + 3 medium débogueur corrigés en review) ; débogueur pas-à-pas visible dans l'éditeur, profileur par nœud, quotas configurables + audit ADMIN, i18n vérifiée par les sources, palette daltonienne à cinq formes, guide joueur et référence générée |
+| 4 | 4.2b (sucre BScript) | — | **Reste v1.1** — seul morceau du PRD non livré, consigné dans la story 4.1-4.3 |
 
 **Feuille de route éditeur (ordre recommandé)** :
 1. **5.2b** littéraux inline (éditer les valeurs sur le nœud) → 2. **5.6a** annuler/rétablir (avant les grosses features, tout naît annulable) → 3. **5.9** éditer/enregistrer/tester un VRAI blueprint en solo (`Ctrl+S`, la story qui rend l'éditeur utile) → 4. **5.6b** barre d'outils + compilation à la volée + diagnostics cliquables → 5. **5.5** panneau des variables + nœuds var/get-set (⚠ touche `core`) → 6. **5.8** copier/coller/dupliquer via BScript (⚠ touche `core/script`) → 7. **5.10** panneau de détails → 8. **5.4b** palette récents/favoris/catégories/Espace → 9. **5.2c** sélecteurs riches (item, bloc, position) → 10. **5.11** vue script → 11. **5.7** confort (commentaires, alignement, minimap, thème JSON).
 
-**Prochaine action :** épic 9 (débogueur en jeu, profileur, quotas configurables, i18n,
-documentation joueur, gametests — spike 1.6), puis 4.2b (sucre BScript) si le temps le
-permet. La session en jeu finale videra tous les VERIFY accumulés (épics 1, 5 à 8).
+**Les neuf épics du PRD sont livrés.** Ce qui reste tient dans la liste ci-dessous et
+dans le v1.1 consigné story par story (sucre BScript 4.2b, patchs par opération et
+multi-éditeur 6.3, processeur d'annotations 8.1, corps BScript de datapack 8.2).
+
+## Prochaine action : la session en jeu
+
+Tout ce qui se vérifie sans yeux l'est déjà : suites headless (build vert) et
+`./gradlew runGametest` (5 tests dans un vrai serveur). **Il ne reste que le visuel et
+l'ergonomie.** À regarder, dans l'ordre, en une seule session :
+
+| # | À vérifier | Comment |
+|---|---|---|
+| V1 | L'éditeur s'ouvre et se lit | `F6`, puis `/blueprint-edit demo` — grille, nœuds, liens, minimap, 60 fps |
+| V2 | Éditer un vrai blueprint | `/blueprint-edit create essai` → poser deux nœuds, câbler, littéral, `Ctrl+S` : « enregistré », ● part **et ne revient pas** |
+| V3 | Le confort | palette `Espace`, `Ctrl+Z/Y`, `Ctrl+C/V`, `Q`, `C`, `Ctrl+F`, vue script, panneau détails |
+| V4 | Clavier seul (U5) | flèches entre nœuds, `Entrée` sur un littéral |
+| V5 | Daltonisme (NFR11) | les cinq formes de pins se distinguent d'un coup d'œil |
+| V6 | Débogueur (9.1a/9.1b) | bouton *Déboguer*, `B` sur un nœud, déclencher : surlignage + valeurs, `F10`, `F5` |
+| V7 | Profileur (9.2) | `/blueprint profile <id> on`, déclencher, `show` puis `export` |
+| V8 | Persistance (VERIFY-005) | `/blueprint demo`, **redémarrer le monde**, « Persistance : … » au log et ping sans réimport |
+| V9 | Fantômes (8.3) | retirer le testmod du dossier `mods` : `/blueprint info` nomme le mod, l'éditeur montre le fantôme ; le remettre restaure tout |
+| V10 | Datapack (8.2) | `shout_twice` dans la palette ; modifier son JSON puis `/reload` |
+| V11 | Guide (9.5) | suivre `getting-started.md` §3 à la lettre, sans rien savoir d'autre |
+| V12 | Multijoueur (6.2/6.3) | serveur dédié : édition à deux, verrou optimiste, joueur sans permission → lecture seule |
 
 ## Ordre de lecture recommandé
 

@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "1.6"
+story_title: "Spike — infrastructure gametest"
+gate: "PASS"
+status_reason: "Spike concluant : l'infrastructure marche, 5 tests passent dans un serveur réel, et quatre vérifications manuelles deviennent automatiques. Les deux pièges rencontrés sont documentés dans tech-stack.md plutôt que laissés au prochain."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T08:55:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "GT-001"
+    severity: medium
+    finding: "CORRIGÉ — les tests s'empoisonnaient entre eux : un blueprint laissé par un test en échec était restauré par la persistance au démarrage suivant et faisait échouer les runs d'après"
+    suggested_action: "Fait : runGametest efface le monde avant chaque lancement ; la cause et le remède sont dans tech-stack.md"
+  - id: "GT-002"
+    severity: low
+    finding: "runGametest n'est pas dans `build` : un développeur peut committer sans l'avoir lancé"
+    suggested_action: "Volontaire (démarrage d'un serveur, ~15 s) ; c'est à la CI de l'appeler explicitement"
+  - id: "GT-003"
+    severity: low
+    finding: "Aucun test client : tout ce qui est visuel reste hors de portée de ce harnais"
+    suggested_action: "Limite assumée et annoncée dans la story ; c'est ce qui reste à la session en jeu finale"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 2 }
+  recommendations:
+    must_fix: []

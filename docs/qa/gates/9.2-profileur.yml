@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "9.2"
+story_title: "Profileur"
+gate: "PASS"
+status_reason: "Coût par blueprint et par nœud, top déterministe, export ; même discipline de coût nul que le débogueur, et rien de vivant retenu. Aucun défaut trouvé en revue au-delà de limites assumées."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T08:55:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "PROF-001"
+    severity: low
+    finding: "Un profileur oublié coûte un System.nanoTime() par nœud exécuté, indéfiniment — rien ne l'éteint tout seul"
+    suggested_action: "Assumé : c'est une action d'administrateur explicite ; /blueprint profile <id> off, et le coût reste dans le bruit"
+  - id: "PROF-002"
+    severity: low
+    finding: "Le temps mesuré est celui de l'action du nœud, pas de l'évaluation de ses entrées (les nœuds purs comptent pour eux-mêmes)"
+    suggested_action: "C'est la lecture voulue — chaque nœud porte son propre coût ; le documenter dans le guide si la question revient"
+  - id: "PROF-003"
+    severity: low
+    finding: "L'export écrit dans config/blueprint/profiles/ sans purge : les fichiers s'accumulent"
+    suggested_action: "Un fichier par export explicite, quelques kilooctets ; laisser l'administrateur maître de son dossier"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 3 }
+  recommendations:
+    must_fix: []

@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "9.5"
+story_title: "Documentation utilisateur"
+gate: "PASS"
+status_reason: "La référence des nœuds est générée ET vérifiée par un test : elle ne peut plus mentir. Le guide joueur couvre le chemin complet du premier blueprint, dépannage compris."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T08:55:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "DOC-010"
+    severity: low
+    finding: "La référence ne couvre que la bibliothèque standard (78 nœuds) : ni les nœuds des mods tiers, ni ceux des datapacks, par construction"
+    suggested_action: "C'est la doc du mod, pas d'une installation ; une commande d'export du registre COURANT serait la réponse pour un modpack — v1.1"
+  - id: "DOC-011"
+    severity: low
+    finding: "Le guide joueur décrit des raccourcis qui n'ont pas encore été vus en jeu par un humain"
+    suggested_action: "C'est précisément le programme de la session finale (VERIFY-9.5)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []

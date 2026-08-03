@@ -56,6 +56,18 @@ public final class BlueprintEditorScreen extends Screen {
         return canvas.debug();
     }
 
+    /**
+     * QA DBG-002 : fermer l'éditeur DOIT arrêter le débogage. Sinon le serveur continue
+     * de pousser des instantanés à un joueur qui n'a plus d'éditeur, et surtout une
+     * exécution en pause reste figée parce que plus personne ne peut la relancer.
+     */
+    public void stopDebugging() {
+        if (canvas.debug().debugging()) {
+            fr.blueprint.client.net.DebugClient.stop(session.blueprint().id());
+            canvas.debug().clear();
+        }
+    }
+
     @Override
     protected void init() {
         canvas.setSize(width, height);
@@ -123,6 +135,7 @@ public final class BlueprintEditorScreen extends Screen {
             // Plus de session à recaler : les verdicts tardifs du serveur (6.3)
             // ne doivent pas s'appliquer à un éditeur fermé.
             fr.blueprint.client.net.BlueprintNet.closed(session);
+            stopDebugging();
             super.onClose();
         }
     }

@@ -41,6 +41,10 @@ public final class DebugNet {
     private static final Map<Identifier, Set<UUID>> SUBSCRIBERS = new ConcurrentHashMap<>();
     private static int tickCounter;
 
+    /** Quota des actions de débogage : large pour un humain, borné pour un script. */
+    private static final RateLimiter COMMANDS =
+            new RateLimiter(60, 10_000L, System::currentTimeMillis);
+
     public static void register(BlueprintConfig config) {
         PayloadTypeRegistry.playS2C().register(BlueprintPayloads.DebugSnapshot.TYPE,
                 BlueprintPayloads.DebugSnapshot.CODEC);
@@ -48,7 +52,15 @@ public final class DebugNet {
                 BlueprintPayloads.DebugCommand.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.DebugCommand.TYPE,
-                (payload, context) -> handle(config, payload, context));
+                (payload, context) -> {
+                    // QA SEC-005 : les actions de débogage sont des paquets comme les
+                    // autres — chacune déclenche un instantané en réponse, donc chacune
+                    // se limite (6.4 ne couvrait que l'ouverture et l'enregistrement).
+                    if (!COMMANDS.allow(context.player().getUUID())) {
+                        return;
+                    }
+                    handle(config, payload, context);
+                });
 
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> unsubscribeEverywhere(handler.player.getUUID()));
@@ -58,7 +70,18 @@ public final class DebugNet {
                     if (SUBSCRIBERS.isEmpty() || ++tickCounter % PUSH_EVERY_TICKS != 0) {
                         return;
                     }
-                    SUBSCRIBERS.forEach((blueprint, players) -> push(server, blueprint, players));
+                    SUBSCRIBERS.forEach((blueprint, players) -> {
+                        // QA DBG-001 : la session a pu être fermée par la commande
+                        // /blueprint debug off, qui ne connaît pas les abonnés. Sans ce
+                        // ménage, on pousserait « débogage inactif » à ces joueurs
+                        // jusqu'à la fin des temps.
+                        if (DebugSessions.of(blueprint) == null) {
+                            push(server, blueprint, players);
+                            SUBSCRIBERS.remove(blueprint);
+                            return;
+                        }
+                        push(server, blueprint, players);
+                    });
                 });
     }
 
@@ -186,6 +209,7 @@ public final class DebugNet {
     }
 
     private static void unsubscribeEverywhere(UUID player) {
+        COMMANDS.forget(player);
         SUBSCRIBERS.forEach((blueprint, players) -> {
             if (players.remove(player) && players.isEmpty()) {
                 SUBSCRIBERS.remove(blueprint);

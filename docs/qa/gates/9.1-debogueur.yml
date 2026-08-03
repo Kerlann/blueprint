@@ -1,0 +1,34 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "9.1"
+story_title: "Débogueur — cœur serveur (9.1a) et rendu dans l'éditeur (9.1b)"
+gate: "PASS"
+status_reason: "Points d'arrêt, pas-à-pas et valeurs marchent sans que la VM ne paie quoi que ce soit quand personne ne débogue. Trois défauts réels trouvés en revue — dont deux qui laissaient un blueprint figé ou un serveur bavard — corrigés."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T08:55:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "DBG-002"
+    severity: medium
+    finding: "CORRIGÉ — fermer l'éditeur n'arrêtait pas le débogage : le serveur continuait de pousser des instantanés à un joueur sans éditeur, et surtout une exécution en pause restait FIGÉE, plus personne ne pouvant la relancer"
+    suggested_action: "Fait : les trois chemins de fermeture (Échap, « enregistrer et quitter », « quitter sans enregistrer ») envoient OFF"
+  - id: "DBG-001"
+    severity: medium
+    finding: "CORRIGÉ — /blueprint debug off ferme la session mais ignore les abonnés réseau : on poussait « débogage inactif » à ces joueurs indéfiniment"
+    suggested_action: "Fait : la boucle de poussée purge les abonnés d'une session disparue, après un dernier instantané qui les informe"
+  - id: "SEC-005"
+    severity: low
+    finding: "CORRIGÉ — les actions de débogage échappaient aux quotas de la 6.4, alors que chacune déclenche un instantané en réponse"
+    suggested_action: "Fait : seau à jetons dédié (60 par 10 s), purgé à la déconnexion"
+  - id: "DBG-003"
+    severity: low
+    finding: "Un blueprint supprimé pendant qu'on le débogue laisse la session ouverte, avec un nœud en pause qui n'existe plus"
+    suggested_action: "Sans danger (l'exécution est morte avec le blueprint) ; à balayer si la suppression devient courante"
+  - id: "DBG-004"
+    severity: low
+    finding: "Les valeurs ne s'affichent plus en dessous de 50 % de zoom — choix assumé, mais un joueur dézoomé peut croire que le débogueur ne marche pas"
+    suggested_action: "Le nœud en pause reste surligné à tout zoom ; ajouter un indicateur si la confusion remonte"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 2, low: 3 }
+  recommendations:
+    must_fix: []

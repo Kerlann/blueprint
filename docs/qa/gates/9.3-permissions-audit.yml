@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "9.3"
+story_title: "Permissions, quotas configurables et audit"
+gate: "PASS"
+status_reason: "Quotas configurables et ramenés dans les clous, audit ADMIN écrit avant l'exécution avec acteur et horodatage, escalades refusées testées. Une limite de portée est consignée plutôt que maquillée."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T08:55:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "CFG-001"
+    severity: low
+    finding: "Le « maxNodes » de la configuration mord au moment de l'enregistrement (garde réseau), pas pendant l'édition : le client valide encore avec la borne par défaut"
+    suggested_action: "Le serveur reste l'autorité et refuse proprement ; envoyer les bornes au client avec le registre (6.2) le rendrait visible plus tôt — v1.1"
+  - id: "AUDIT-001"
+    severity: low
+    finding: "Le tampon d'audit est global au processus : en développement, client et serveur intégré le partagent"
+    suggested_action: "Sans conséquence (un seul serveur par processus en jeu réel) ; le log, lui, est horodaté et daté par serveur"
+  - id: "AUDIT-002"
+    severity: low
+    finding: "L'acteur est le « player » de la charge utile, sinon l'événement — une chaîne, pas un UUID : deux joueurs homonymes ne se distinguent pas"
+    suggested_action: "Le nom vient du profil du serveur (unique en pratique) ; passer à l'UUID si un audit judiciaire l'exige"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 3 }
+  recommendations:
+    must_fix: []
