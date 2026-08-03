@@ -444,6 +444,29 @@ public final class CanvasController {
         return history;
     }
 
+    /** Le canal de mutation unique pour les panneaux (variables, détails…). */
+    public boolean applyOp(EditOperation op) {
+        return applyTracked(op);
+    }
+
+    /** Dépose un nœud Get (ou Set) lié à la variable, accroché — un seul geste. */
+    public @Nullable UUID insertVariableNode(boolean set, String name, double wx, double wy) {
+        history.beginGesture();
+        try {
+            UUID id = UUID.randomUUID();
+            Identifier type = set ? fr.blueprint.core.graph.VarNodes.SET
+                    : fr.blueprint.core.graph.VarNodes.GET;
+            if (!applyTracked(new EditOperation.AddNode(id, type, camera.snap(new Vec2d(wx, wy))))) {
+                return null;
+            }
+            applyTracked(new EditOperation.SetLiteral(id, fr.blueprint.core.graph.VarNodes.VAR_PIN,
+                    fr.blueprint.api.pin.LiteralValue.of(fr.blueprint.api.pin.PinTypes.STRING, name)));
+            return id;
+        } finally {
+            history.endGesture();
+        }
+    }
+
     public void setOnMutation(@Nullable Runnable onMutation) {
         this.onMutation = onMutation;
     }

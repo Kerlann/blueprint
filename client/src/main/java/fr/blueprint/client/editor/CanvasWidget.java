@@ -50,12 +50,16 @@ public final class CanvasWidget {
     private final List<NodeGeometry.Box> visible = new ArrayList<>();
 
     private final LiteralEditState literalEdit = new LiteralEditState();
+    private final VariablePanelState varPanel;
 
     private int width;
     private int height;
     private boolean spaceDown;
     private boolean shiftDown;
     private boolean panning;
+    private boolean panelVisible = true;
+    /** Variable en cours de glisser depuis le panneau (déposée en Get/Set). */
+    private @Nullable String dragVar;
 
     public CanvasWidget(EditorSession session, NodeTypeLookup lookup,
                         ClientNodeRegistry descriptors, Runnable closeRequest) {
@@ -73,6 +77,7 @@ public final class CanvasWidget {
         }
         entries.sort(Comparator.comparing(NodeSearch.Entry::title));
         this.palette = new PaletteState(new NodeSearch(entries), descriptors::descriptor);
+        this.varPanel = new VariablePanelState(session.blueprint(), lookup, controller::applyOp);
     }
 
     public Camera camera() {
@@ -111,6 +116,9 @@ public final class CanvasWidget {
                 session.dirty(), session.savable(),
                 session.savable() && !diagnostics.blocking(), width);
         DiagnosticsPanel.render(g, font, diagnostics, width, height);
+        if (panelVisible) {
+            VariablePanel.render(g, font, varPanel, height);
+        }
         PalettePopup.render(g, font, palette, width, height);
     }
 
@@ -213,10 +221,13 @@ public final class CanvasWidget {
 
     // -------------------------------------------------------------------- entrées
 
-    public boolean mouseClicked(MouseButtonEvent e) {
+    public boolean mouseClicked(MouseButtonEvent e, boolean doubled) {
         if (literalEdit.isOpen()) {
             // Clic ailleurs = valider (AC2) ; saisie invalide = abandonner (AC3).
             commitLiteral(false);
+        }
+        if (varPanel.isRenaming()) {
+            varPanel.commitRename();
         }
         if (palette.isOpen()) {
             if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
@@ -256,6 +267,11 @@ public final class CanvasWidget {
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
                 || (spaceDown && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
             panning = true;
+            return true;
+        }
+        if (panelVisible && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && VariablePanel.contains(e.x(), e.y(), height)) {
+            handleVariablePanelClick(e, doubled);
             return true;
         }
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
@@ -359,7 +375,46 @@ public final class CanvasWidget {
         }
     }
 
+    private void handleVariablePanelClick(MouseButtonEvent e, boolean doubled) {
+        if (VariablePanel.plusAt(e.x(), e.y())) {
+            varPanel.create();
+            return;
+        }
+        int row = VariablePanel.rowAt(varPanel, e.x(), e.y());
+        if (row < 0) {
+            varPanel.select(null);
+            return;
+        }
+        String name = varPanel.rows().get(row).name();
+        if (doubled) {
+            varPanel.openRename(name);
+            return;
+        }
+        if (name.equals(varPanel.selected())) {
+            VariablePanel.RowAction action = VariablePanel.actionAt(e.x());
+            if (action != null) {
+                switch (action) {
+                    case TYPE -> varPanel.cycleType(name);
+                    case SCOPE -> varPanel.cycleScope(name);
+                    case DELETE -> varPanel.delete(name);
+                }
+                return;
+            }
+        }
+        varPanel.select(name);
+        dragVar = name; // armer le glisser vers le canevas (Get ; Ctrl = Set)
+    }
+
     public boolean mouseReleased(MouseButtonEvent e) {
+        if (dragVar != null) {
+            String name = dragVar;
+            dragVar = null;
+            if (e.x() >= VariablePanel.WIDTH) {
+                controller.insertVariableNode(e.hasControlDown(), name,
+                        camera.toWorldX(e.x()), camera.toWorldY(e.y()));
+            }
+            return true;
+        }
         if (panning) {
             panning = false;
             return true;
@@ -377,6 +432,9 @@ public final class CanvasWidget {
     }
 
     public boolean mouseDragged(MouseButtonEvent e, double dx, double dy) {
+        if (dragVar != null) {
+            return true; // le dépôt se joue au relâchement
+        }
         if (panning) {
             camera.panByScreen(dx, dy);
             return true;
@@ -409,6 +467,16 @@ public final class CanvasWidget {
         if (e.key() == GLFW.GLFW_KEY_LEFT_SHIFT || e.key() == GLFW.GLFW_KEY_RIGHT_SHIFT) {
             shiftDown = true;
         }
+        if (varPanel.isRenaming()) {
+            switch (e.key()) {
+                case GLFW.GLFW_KEY_ESCAPE -> varPanel.cancelRename();
+                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> varPanel.commitRename();
+                case GLFW.GLFW_KEY_BACKSPACE -> varPanel.backspace();
+                default -> {
+                }
+            }
+            return true;
+        }
         if (literalEdit.isOpen()) {
             switch (e.key()) {
                 case GLFW.GLFW_KEY_ESCAPE -> literalEdit.close();
@@ -440,6 +508,10 @@ public final class CanvasWidget {
             }
             case GLFW.GLFW_KEY_F -> {
                 frameAll();
+                return true;
+            }
+            case GLFW.GLFW_KEY_TAB -> {
+                panelVisible = !panelVisible;
                 return true;
             }
             case GLFW.GLFW_KEY_DELETE -> {
@@ -498,6 +570,10 @@ public final class CanvasWidget {
     }
 
     public boolean charTyped(CharacterEvent e) {
+        if (varPanel.isRenaming() && e.isAllowedChatCharacter()) {
+            varPanel.type(e.codepointAsString());
+            return true;
+        }
         if (literalEdit.isOpen() && e.isAllowedChatCharacter()) {
             literalEdit.type(e.codepointAsString());
             return true;

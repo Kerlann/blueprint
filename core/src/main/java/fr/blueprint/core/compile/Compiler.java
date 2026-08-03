@@ -11,6 +11,8 @@ import fr.blueprint.core.graph.DiagnosticCode;
 import fr.blueprint.core.graph.GraphValidator;
 import fr.blueprint.core.graph.Link;
 import fr.blueprint.core.graph.Node;
+import fr.blueprint.core.graph.VarNodes;
+import fr.blueprint.core.graph.Variable;
 import fr.blueprint.core.registry.NodeRegistryImpl;
 import org.jetbrains.annotations.Nullable;
 
@@ -111,6 +113,12 @@ public final class Compiler {
         Node node = bp.node(id);
         NodeType type = registry.get(node.typeId()).orElseThrow();   // garanti par la validation
 
+        // var/set s'abaisse en StoreVar (story 5.5) — pas de Call, pas d'action.
+        if (VarNodes.SET.equals(node.typeId())) {
+            emitVarSet(node, type);
+            return startIndex;
+        }
+
         List<Instruction.PinBinding> inputs = prepareInputs(node, type);
 
         List<Instruction.PinBinding> outputs = new ArrayList<>();
@@ -160,40 +168,54 @@ public final class Compiler {
             if (spec.kind() != PinKind.DATA) {
                 continue;
             }
-            List<Link> incoming = into(node.uuid(), spec.name());
-            if (!incoming.isEmpty()) {
-                Link link = incoming.get(0);
-                Node producer = bp.node(link.fromNode());
-                NodeType producerType = registry.get(producer.typeId()).orElseThrow();
-                if (producerType.pure() && !pureScopes.element().contains(producer.uuid())) {
-                    emitPure(producer, producerType);
-                }
-                inputs.add(new Instruction.PinBinding(spec.name(),
-                        slotFor(link.fromNode(), link.fromPin())));
-            } else {
-                LiteralValue literal = node.literal(spec.name());
-                if (literal == null) {
-                    literal = spec.defaultValue();
-                }
-                if (literal == null) {
-                    // Défaut du type appliqué à l'exécution par le contexte (int → 0…) ;
-                    // sans défaut du tout, la validation a déjà refusé (REQUIRED_PIN_UNLINKED).
-                    continue;
-                }
-                String key = node.uuid() + "/" + spec.name();
-                int slot = slotFor(node.uuid(), "literal:" + spec.name());
-                if (constEmitted.add(key)) {
-                    out.add(new Instruction.Const(slot, literal, node.uuid()));
-                }
-                inputs.add(new Instruction.PinBinding(spec.name(), slot));
+            Instruction.PinBinding binding = prepareInput(node, spec);
+            if (binding != null) {
+                inputs.add(binding);
             }
         }
         return inputs;
     }
 
+    /** Prépare une entrée DATA (pur amont ou littéral), ou null si rien à lier. */
+    private Instruction.@Nullable PinBinding prepareInput(Node node, NodeType.PinSpec spec) {
+        List<Link> incoming = into(node.uuid(), spec.name());
+        if (!incoming.isEmpty()) {
+            Link link = incoming.get(0);
+            Node producer = bp.node(link.fromNode());
+            NodeType producerType = registry.get(producer.typeId()).orElseThrow();
+            if (producerType.pure() && !pureScopes.element().contains(producer.uuid())) {
+                emitPure(producer, producerType);
+            }
+            return new Instruction.PinBinding(spec.name(),
+                    slotFor(link.fromNode(), link.fromPin()));
+        }
+        LiteralValue literal = node.literal(spec.name());
+        if (literal == null) {
+            literal = spec.defaultValue();
+        }
+        if (literal == null) {
+            // Défaut du type appliqué à l'exécution par le contexte (int → 0…) ;
+            // sans défaut du tout, la validation a déjà refusé (REQUIRED_PIN_UNLINKED).
+            return null;
+        }
+        String key = node.uuid() + "/" + spec.name();
+        int slot = slotFor(node.uuid(), "literal:" + spec.name());
+        if (constEmitted.add(key)) {
+            out.add(new Instruction.Const(slot, literal, node.uuid()));
+        }
+        return new Instruction.PinBinding(spec.name(), slot);
+    }
+
     /** Un pur s'émet comme un Call sans cibles : il enchaîne linéairement (pure = true). */
     private void emitPure(Node node, NodeType type) {
         pureScopes.element().add(node.uuid());
+        // var/get s'abaisse en LoadVar (story 5.5) — pas de Call, pas d'action.
+        if (VarNodes.GET.equals(node.typeId())) {
+            Variable variable = VarNodes.boundVariable(bp, node);   // garanti par la validation
+            out.add(new Instruction.LoadVar(variable.scope(), variable.name(),
+                    slotFor(node.uuid(), "value"), node.uuid()));
+            return;
+        }
         List<Instruction.PinBinding> inputs = prepareInputs(node, type);
         List<Instruction.PinBinding> outputs = new ArrayList<>();
         for (NodeType.PinSpec spec : type.outputs()) {
@@ -201,6 +223,35 @@ public final class Compiler {
         }
         out.add(new Instruction.Call(node.typeId(), inputs, outputs, new LinkedHashMap<>(),
                 type.fuelCost(), true, node.uuid()));
+    }
+
+    /**
+     * var/set : prépare la valeur, émet {@code StoreVar}, puis enchaîne sur le
+     * successeur exec — retour si le fil s'arrête, {@code Jmp} si c'est une arête
+     * arrière (successeur déjà émis).
+     */
+    private void emitVarSet(Node node, NodeType type) {
+        NodeType.PinSpec valueSpec = null;
+        for (NodeType.PinSpec spec : type.inputs()) {
+            if (spec.name().equals("value")) {
+                valueSpec = spec;
+            }
+        }
+        Instruction.PinBinding value = prepareInput(node, valueSpec);
+        Variable variable = VarNodes.boundVariable(bp, node);   // garanti par la validation
+        int slot = value != null ? value.slot() : slotFor(node.uuid(), "literal:value");
+        out.add(new Instruction.StoreVar(variable.scope(), variable.name(), slot, node.uuid()));
+
+        List<Link> next = from(node.uuid(), "exec_out");
+        if (next.isEmpty()) {
+            out.add(new Instruction.Return(node.uuid()));
+            return;
+        }
+        int before = out.size();
+        int target = emitNode(next.get(0).toNode());
+        if (target != before) {
+            out.add(new Instruction.Jmp(target, node.uuid()));
+        }
     }
 
     private int slotFor(UUID node, String pin) {

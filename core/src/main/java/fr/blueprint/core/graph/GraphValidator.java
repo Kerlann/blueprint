@@ -86,6 +86,20 @@ public final class GraphValidator {
             out.add(Diagnostic.warning(DiagnosticCode.NO_ENTRY_POINT, Diagnostic.graph()));
         }
 
+        // Nœuds de variables (5.5) : le pin « var » doit être un littéral (pas câblé —
+        // le compilateur résout le nom À LA COMPILATION) nommant une variable existante.
+        for (Node node : bp.nodes().values()) {
+            if (!VarNodes.isVarNode(node.typeId())) {
+                continue;
+            }
+            String name = VarNodes.boundName(node);
+            if (!bp.linksInto(node.uuid(), VarNodes.VAR_PIN).isEmpty()
+                    || name == null || !bp.variables().containsKey(name)) {
+                out.add(Diagnostic.error(DiagnosticCode.VARIABLE_NOT_FOUND,
+                        Diagnostic.node(node.uuid()), name == null ? "?" : name));
+            }
+        }
+
         // Liens : validation individuelle (défense en profondeur, les ops valident déjà).
         for (Link link : bp.links()) {
             Diagnostic d = checkLink(bp, shapes, link, false);

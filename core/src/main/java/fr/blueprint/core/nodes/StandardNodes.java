@@ -232,6 +232,29 @@ public final class StandardNodes {
                 .action(ctx -> ctx.logger().info("[{}] {}", ctx.blueprint().id(),
                         String.valueOf((Object) ctx.in("value"))))
                 .build());
+
+        // ---------------------------------------------------------- variables (5.5)
+        // Pas d'action réelle : le compilateur les abaisse en LoadVar/StoreVar
+        // (VarNodes) ; atteindre l'action serait un bogue de compilation.
+        r.register(NodeType.builder(id("var/get"))
+                .category(NodeCategories.MISC)
+                .pure()
+                .in("var", PinTypes.STRING, "")
+                .out("value", PinTypes.ANY)
+                .action(ctx -> {
+                    throw new IllegalStateException("var/get est abaissé en LoadVar par le compilateur");
+                })
+                .build());
+
+        r.register(NodeType.builder(id("var/set"))
+                .category(NodeCategories.MISC)
+                .exec()
+                .in("var", PinTypes.STRING, "")
+                .in("value", PinTypes.ANY)
+                .action(ctx -> {
+                    throw new IllegalStateException("var/set est abaissé en StoreVar par le compilateur");
+                })
+                .build());
     }
 
     private static void binaryMath(NodeRegistry r, String path, DoubleBinaryOperator op) {

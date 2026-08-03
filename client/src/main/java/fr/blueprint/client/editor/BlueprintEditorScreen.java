@@ -58,7 +58,7 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
-        return canvas.mouseClicked(event) || super.mouseClicked(event, doubled);
+        return canvas.mouseClicked(event, doubled) || super.mouseClicked(event, doubled);
     }
 
     @Override
