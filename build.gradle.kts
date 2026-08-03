@@ -43,6 +43,10 @@ allprojects {
     // sous Windows et les accents sortent en mojibake dans le jeu.
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
+        // Noms de paramètres conservés : @BlueprintNode déduit le nom des pins de la
+        // signature (story 8.1). Sans ça, un pin s'appellerait « arg0 » — et un nom de
+        // pin ne se corrige plus une fois dans les graphes des joueurs.
+        options.compilerArgs.add("-parameters")
     }
 }
 

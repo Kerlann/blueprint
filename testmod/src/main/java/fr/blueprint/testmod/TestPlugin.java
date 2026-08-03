@@ -46,5 +46,9 @@ public final class TestPlugin implements BlueprintPlugin {
                 .in("value", PinTypes.INT, 0)
                 .action(ctx -> ctx.exec(ctx.<Integer>in("value") % 2 == 0 ? "even" : "odd"))
                 .build());
+
+        // 4. Nœuds déduits d'une signature de méthode (story 8.1) : même registre,
+        // mêmes règles — seule la façon de les déclarer change.
+        fr.blueprint.api.annotation.AnnotatedNodes.register(registry, ShoutNodes.class);
     }
 }

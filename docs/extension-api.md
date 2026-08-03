@@ -232,44 +232,67 @@ Un événement sans abonné coûte un test de booléen.
 ```java
 public final class MyNodes {
 
-    @BlueprintNode(id = "mymod:heal_player", category = "entity",
-                   permission = Permission.GAMEPLAY)
-    public static boolean healPlayer(@In ServerPlayer player,
-                                     @In(def = "1.0") double amount) {
+    @BlueprintNode(value = "mymod:heal_player", category = "entity",
+                   permission = Permission.GAMEPLAY, fuelCost = 3)
+    public static void healPlayer(ServerPlayer player, @In(def = "1.0") double amount) {
         player.heal((float) amount);
-        return true;                      // → pin de sortie "result"
     }
 
-    @BlueprintNode(id = "mymod:mana_of", pure = true)
-    public static double manaOf(@In ServerPlayer player) {
+    @BlueprintNode(value = "mymod:mana_of", pure = true)
+    @Out("mana")                                   // sans @Out, le pin s'appelle "result"
+    public static double manaOf(ServerPlayer player) {
         return ManaApi.get(player);
     }
 
-    // Plusieurs sorties : paramètres @Out
-    @BlueprintNode(id = "mymod:split_pos")
-    public static void splitPos(@In BlockPos pos,
-                                @Out("x") IntRef x,
-                                @Out("y") IntRef y,
-                                @Out("z") IntRef z) {
-        x.set(pos.getX()); y.set(pos.getY()); z.set(pos.getZ());
+    // Le contexte s'obtient en le déclarant : il n'apparaît pas comme pin.
+    @BlueprintNode("mymod:announce")
+    public static void announce(NodeContext ctx, @In("texte") String text) {
+        ctx.server().getPlayerList().broadcastSystemMessage(Component.literal(text), false);
     }
 }
 ```
 
-Les pins sont déduits de la signature : nom du paramètre → nom du pin, type Java → `PinType`
-(via le registre des types), valeur de retour → pin `result`.
+Les pins sont déduits de la signature : **nom du paramètre → nom du pin** (le mod doit
+compiler avec `-parameters`, sinon nommez-les par `@In("nom")` — le refus est explicite),
+**type Java → `PinType`**, **valeur de retour → pin de sortie**. Une méthode `void`
+devient un nœud d'exécution (`exec_in`/`exec_out`) ; `pure = true` exige une valeur de
+retour.
 
-Deux modes :
+Un type de pin maison se déclare dans la table passée à l'enregistrement :
 
-- **Avec le processeur d'annotations** (`annotationProcessor "fr.blueprint:blueprint-processor:1.0.0"`) :
-  une classe de plugin est générée à la compilation, les erreurs de déclaration sont
-  détectées par `javac`, et il n'y a **aucun scan à l'exécution**. Recommandé.
-- **Sans le processeur** : déclarez les classes porteuses dans `fabric.mod.json`, un scan
-  ciblé les lit au démarrage.
-
-```json
-"custom": { "blueprint:node_holders": ["com.example.MyNodes"] }
+```java
+AnnotatedNodes.register(registry, Map.of(ManaPool.class, MANA), MyNodes.class);
 ```
+
+Deux façons de faire lire ces classes :
+
+- **Depuis votre `BlueprintPlugin`** — une ligne, et vous gardez la main sur l'ordre :
+
+  ```java
+  @Override public void registerNodes(NodeRegistry registry) {
+      AnnotatedNodes.register(registry, MyNodes.class);
+  }
+  ```
+
+- **Sans aucune classe de plugin** — déclarez les porteuses dans `fabric.mod.json`,
+  Blueprint les scanne au démarrage :
+
+  ```json
+  "custom": { "blueprint:node_holders": ["com.example.MyNodes"] }
+  ```
+
+Une déclaration fautive (identifiant invalide, méthode non statique, type sans pin,
+valeur par défaut illisible…) est **refusée avec un message qui nomme la méthode**, et
+elle n'isole que **votre** mod : les autres chargent normalement.
+
+> **État v1.0** : le processeur d'annotations qui vérifierait tout cela à la compilation
+> n'est pas livré — le PRD le décrivait comme optionnel, et le scan à l'exécution couvre
+> le même besoin sans imposer d'étape de build aux mods tiers. Les erreurs apparaissent
+> donc au démarrage du jeu, pas dans `javac`.
+>
+> **Sorties multiples** : une méthode annotée n'a qu'un pin de sortie (sa valeur de
+> retour). Pour plusieurs sorties, déclarez le nœud au builder (voie A) et appelez
+> `ctx.out(...)` autant de fois qu'il faut.
 
 ---
 

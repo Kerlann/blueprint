@@ -30,6 +30,15 @@ public final class PluginLoader {
     private PluginLoader() {
     }
 
+    /**
+     * Classes porteuses de méthodes {@code @BlueprintNode} déclarées par un mod dans son
+     * {@code fabric.mod.json} (story 8.1) : la voie sans plugin ni processeur.
+     *
+     * <pre>{@code "custom": { "blueprint:node_holders": ["com.example.MyNodes"] } }</pre>
+     */
+    public record NodeHolders(String modId, List<String> classNames) {
+    }
+
     /** Adaptateur Fabric : ne contient aucune logique, tout est dans {@link #load}. */
     public static LoadedRegistries loadFromFabric() {
         List<PluginEntry> entries = new ArrayList<>();
@@ -38,8 +47,32 @@ public final class PluginLoader {
                 .forEach(container -> entries.add(new PluginEntry(
                         container.getProvider().getMetadata().getId(),
                         container.getEntrypoint())));
-        return load(entries, true);
+        return load(entries, true, holdersFromFabric());
     }
+
+    /** Lit la clé {@code blueprint:node_holders} de chaque mod présent. */
+    private static List<NodeHolders> holdersFromFabric() {
+        List<NodeHolders> out = new ArrayList<>();
+        for (var mod : FabricLoader.getInstance().getAllMods()) {
+            var value = mod.getMetadata().getCustomValue(HOLDERS_KEY);
+            if (value == null
+                    || value.getType() != net.fabricmc.loader.api.metadata.CustomValue.CvType.ARRAY) {
+                continue;
+            }
+            List<String> classNames = new ArrayList<>();
+            for (var entry : value.getAsArray()) {
+                if (entry.getType() == net.fabricmc.loader.api.metadata.CustomValue.CvType.STRING) {
+                    classNames.add(entry.getAsString());
+                }
+            }
+            if (!classNames.isEmpty()) {
+                out.add(new NodeHolders(mod.getMetadata().getId(), classNames));
+            }
+        }
+        return out;
+    }
+
+    public static final String HOLDERS_KEY = "blueprint:node_holders";
 
     /** Chargement nu (tests) : sans la bibliothèque standard. */
     public static LoadedRegistries load(List<PluginEntry> plugins) {
@@ -47,6 +80,11 @@ public final class PluginLoader {
     }
 
     public static LoadedRegistries load(List<PluginEntry> plugins, boolean includeStandard) {
+        return load(plugins, includeStandard, List.of());
+    }
+
+    public static LoadedRegistries load(List<PluginEntry> plugins, boolean includeStandard,
+                                        List<NodeHolders> holders) {
         PinTypeRegistryImpl pinTypes = new PinTypeRegistryImpl();
         NodeRegistryImpl nodes = new NodeRegistryImpl();
         EventRegistryImpl events = new EventRegistryImpl();
@@ -92,6 +130,28 @@ public final class PluginLoader {
                 entry.plugin().registerEvents(events);
             } catch (Exception e) {
                 isolate(entry.modId(), "registerEvents", e, failed, pinTypes, nodes, events);
+            }
+        }
+
+        // Phase 2 bis : les classes annotées déclarées dans fabric.mod.json (8.1). Un
+        // mod peut n'avoir QUE ça — aucun plugin, aucun processeur d'annotations.
+        for (NodeHolders holder : holders) {
+            if (failed.contains(holder.modId())) {
+                continue;
+            }
+            nodes.currentProvider(holder.modId());
+            for (String className : holder.classNames()) {
+                try {
+                    Class<?> type = Class.forName(className, true,
+                            PluginLoader.class.getClassLoader());
+                    fr.blueprint.api.annotation.AnnotatedNodes.register(nodes, type);
+                } catch (ClassNotFoundException | LinkageError e) {
+                    isolate(holder.modId(), "node_holders (" + className + " introuvable)",
+                            new IllegalStateException(e), failed, pinTypes, nodes, events);
+                } catch (Exception e) {
+                    isolate(holder.modId(), "node_holders (" + className + ")",
+                            e, failed, pinTypes, nodes, events);
+                }
             }
         }
 

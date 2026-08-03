@@ -33,13 +33,13 @@ class PluginLoaderTest {
     }
 
     @Test
-    void realTestmodRegistersItsThreeNodes() {
+    void realTestmodRegistersItsFourNodes() {
         // AC5 : le vrai TestPlugin, chargé comme le ferait Fabric.
         var loaded = PluginLoader.load(List.of(
                 new PluginLoader.PluginEntry("blueprint_testmod", new TestPlugin())));
 
         assertTrue(loaded.failedMods().isEmpty());
-        assertEquals(3, loaded.nodes().all().size());
+        assertEquals(4, loaded.nodes().all().size(), "trois nœuds au builder + un par annotation");
 
         NodeType ping = loaded.nodes().get(id("blueprint_testmod", "ping")).orElseThrow();
         assertEquals("ping", ping.inputs().get(1).defaultValue().value());
@@ -48,6 +48,16 @@ class PluginLoaderTest {
         assertEquals(List.of("even", "odd"), branch.outputs().stream().map(NodeType.PinSpec::name).toList());
         assertEquals("blueprint_testmod",
                 loaded.nodes().providerOf(id("blueprint_testmod", "ping")).orElseThrow());
+
+        // Story 8.1 : le nœud annoté arrive par le MÊME chemin, avec le même fournisseur.
+        NodeType shout = loaded.nodes().get(id("blueprint_testmod", "shout")).orElseThrow();
+        assertTrue(shout.pure());
+        assertEquals(List.of("message", "times"),
+                shout.inputs().stream().map(NodeType.PinSpec::name).toList());
+        assertEquals("salut", shout.inputs().get(0).defaultValue().value());
+        assertEquals("shouted", shout.outputs().get(0).name());
+        assertEquals("blueprint_testmod",
+                loaded.nodes().providerOf(id("blueprint_testmod", "shout")).orElseThrow());
     }
 
     @Test
@@ -80,7 +90,7 @@ class PluginLoaderTest {
         assertEquals(List.of("badmod"), loaded.failedMods());
         assertTrue(loaded.nodes().get(id("badmod", "before_crash")).isEmpty(),
                 "les enregistrements partiels du plugin en échec sont retirés");
-        assertEquals(3, loaded.nodes().all().size(), "les autres plugins chargent normalement");
+        assertEquals(4, loaded.nodes().all().size(), "les autres plugins chargent normalement");
     }
 
     @Test
