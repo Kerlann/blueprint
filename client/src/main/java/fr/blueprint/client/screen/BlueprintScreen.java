@@ -72,6 +72,9 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             return;
         }
         for (var update : updates) {
+            if (!update.screen().isEmpty() && !update.screen().equals(model.name())) {
+                continue;   // elle vise un HUD, ou un écran qui n'est plus le nôtre
+            }
             var element = model.element(update.element());
             if (element == null) {
                 continue; // l'écran a changé sous nos pieds : on ignore, on ne lève pas

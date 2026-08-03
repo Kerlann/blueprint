@@ -46,6 +46,14 @@ public final class ScreenSessions {
     /** Ce qui partira en fin de tick, une entrée par clé (AC3b). */
     private final Map<UUID, Map<String, ScreenUpdate>> pending = new HashMap<>();
 
+    /**
+     * Les HUD affichés, par joueur. PLUSIEURS coexistent, contrairement au modal :
+     * un HUD ne capte rien, donc deux HUD sont juste deux dessins au même endroit —
+     * exactement comme la barre de vie et la barre d'expérience du jeu. En interdire
+     * plusieurs obligerait à réunir dans un même document la mana et la quête.
+     */
+    private final Map<UUID, LinkedHashMap<String, Identifier>> huds = new HashMap<>();
+
     private int nextInstance = 1;
 
     /**
@@ -84,6 +92,49 @@ public final class ScreenSessions {
         return open.remove(player) != null;
     }
 
+    // --------------------------------------------------------------- HUD (10.9)
+
+    /** Affiche un HUD ; vrai s'il n'y était pas déjà. */
+    public boolean showHud(UUID player, Identifier blueprint, String screen) {
+        // Le blueprint PROPRIÉTAIRE voyage avec : sans lui, désactiver un graphe
+        // laisserait son HUD à l'écran pour toujours, sans que personne puisse le
+        // retirer — un modal, lui, se ferme au moins par Échap.
+        return huds.computeIfAbsent(player, p -> new LinkedHashMap<>())
+                .put(screen, blueprint) == null;
+    }
+
+    public boolean hideHud(UUID player, String screen) {
+        var shownHuds = huds.get(player);
+        return shownHuds != null && shownHuds.remove(screen) != null;
+    }
+
+    /**
+     * Masque tout — la garde de sécurité. Un HUD n'a pas d'{@code Échap} : sans un
+     * moyen de tout retirer, un graphe fautif affichant un panneau opaque laisserait
+     * le joueur sans aucun recours.
+     */
+    public boolean hideAllHuds(UUID player) {
+        var shownHuds = huds.remove(player);
+        return shownHuds != null && !shownHuds.isEmpty();
+    }
+
+    /** Les HUD affichés chez ce joueur, dans l'ordre où ils ont été demandés. */
+    public java.util.Set<String> hudsOf(UUID player) {
+        var shownHuds = huds.get(player);
+        return shownHuds == null ? java.util.Set.of()
+                : java.util.Collections.unmodifiableSet(shownHuds.keySet());
+    }
+
+    /** Ce joueur voit-il cet écran — modal ou HUD ? La question que pose une mise à jour. */
+    public boolean shows(UUID player, String screen) {
+        Open current = open.get(player);
+        if (current != null && current.screen().equals(screen)) {
+            return true;
+        }
+        var shownHuds = huds.get(player);
+        return shownHuds != null && shownHuds.containsKey(screen);
+    }
+
     // ------------------------------------------------------- modifications (10.4)
 
     /**
@@ -103,7 +154,7 @@ public final class ScreenSessions {
      * @return vrai si quelque chose partira réellement
      */
     public boolean queue(UUID player, ScreenUpdate update) {
-        if (!open.containsKey(player)) {
+        if (!shows(player, update.screen())) {
             return false;
         }
         String key = update.key();
@@ -159,6 +210,13 @@ public final class ScreenSessions {
                 out.add(player);
             }
         });
+        // Les HUD comptent aussi : un « set_text_all » sur un tableau de scores
+        // permanent viserait sinon les seuls joueurs ayant un menu ouvert.
+        huds.forEach((player, screens) -> {
+            if (screens.containsKey(screen) && !out.contains(player)) {
+                out.add(player);
+            }
+        });
         return out;
     }
 
@@ -187,9 +245,32 @@ public final class ScreenSessions {
         return affected;
     }
 
+    /**
+     * Les HUD de ce blueprint, par joueur — ce qu'il faut retirer quand il est
+     * désactivé ou supprimé. Un HUD n'a pas d'{@code Échap} : le laisser affiché en
+     * pointant un graphe disparu ne se réparerait plus que par la touche de masquage.
+     */
+    public Map<UUID, List<String>> takeHudsOf(Identifier blueprint) {
+        Map<UUID, List<String>> affected = new LinkedHashMap<>();
+        huds.forEach((player, screens) -> {
+            List<String> mine = new ArrayList<>();
+            screens.forEach((screen, owner) -> {
+                if (owner.equals(blueprint)) {
+                    mine.add(screen);
+                }
+            });
+            if (!mine.isEmpty()) {
+                affected.put(player, mine);
+            }
+        });
+        affected.forEach((player, screens) -> screens.forEach(huds.get(player)::remove));
+        return affected;
+    }
+
     /** Un joueur parti ne laisse pas d'écran fantôme. */
     public void forget(UUID player) {
         closed(player);
+        huds.remove(player);
     }
 
     public int size() {

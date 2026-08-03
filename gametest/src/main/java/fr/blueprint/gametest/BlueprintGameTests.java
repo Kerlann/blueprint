@@ -324,6 +324,64 @@ public final class BlueprintGameTests {
     }
 
     /**
+     * VERIFY-10.9 automatisé : un HUD s'AFFICHE sans ouvrir d'écran, et une
+     * modification le trouve. Il s'ouvrait auparavant comme un menu modal, ce qui
+     * figeait le joueur sur place dès qu'un graphe voulait lui montrer son or.
+     */
+    @GameTest(maxTicks = 200)
+    public void aHudShowsWithoutOpeningAScreen(GameTestHelper helper) {
+        Identifier blueprintId = id("hud_shows");
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        Blueprint bp = new Blueprint(blueprintId);
+        fr.blueprint.core.graph.GraphLoader.addScreen(bp,
+                new fr.blueprint.core.graph.screen.Screen("mana", true, java.util.List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of("valeur",
+                                fr.blueprint.core.graph.screen.ElementKind.LABEL,
+                                4, 4, 80, 10))));
+        // Un écran MODAL du même blueprint : il ne doit pas pouvoir s'afficher en HUD.
+        fr.blueprint.core.graph.GraphLoader.addScreen(bp,
+                new fr.blueprint.core.graph.screen.Screen("menu", false, java.util.List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of("ok",
+                                fr.blueprint.core.graph.screen.ElementKind.BUTTON,
+                                4, 4, 60, 20))));
+        manager.adopt(bp);
+        manager.setEnabled(blueprintId, true);
+
+        var player = helper.makeMockServerPlayerInLevel();
+        var net = fr.blueprint.core.net.ServerBlueprintNet.screens();
+
+        helper.assertTrue(fr.blueprint.core.net.ServerBlueprintNet
+                        .showHud(player, blueprintId, "mana"),
+                Component.literal("le HUD « mana » n'a pas pu s'afficher"));
+        helper.assertTrue(net.of(player.getUUID()) == null,
+                Component.literal("un HUD ne doit PAS compter comme écran modal ouvert"));
+        helper.assertTrue(net.hudsOf(player.getUUID()).contains("mana"),
+                Component.literal("le serveur n'a pas noté le HUD"));
+
+        helper.assertTrue(!fr.blueprint.core.net.ServerBlueprintNet
+                        .showHud(player, blueprintId, "menu"),
+                Component.literal("un écran modal ne doit pas s'afficher en HUD"));
+
+        // Une modification visant le HUD est acceptée, sans aucun menu ouvert.
+        fr.blueprint.core.net.ServerBlueprintNet.queueUpdate(player,
+                fr.blueprint.core.graph.screen.ScreenUpdate.text("mana", "valeur",
+                        fr.blueprint.core.graph.screen.ScreenText.literal("40")));
+        helper.assertTrue(net.pendingPlayers().contains(player.getUUID()),
+                Component.literal("la modification n'a pas trouvé le HUD"));
+
+        // Désactiver le blueprint retire son HUD : sans Échap, il serait indélogeable.
+        manager.setEnabled(blueprintId, false);
+        helper.assertTrue(net.hudsOf(player.getUUID()).isEmpty(),
+                Component.literal("le HUD d'un blueprint désactivé est resté affiché"));
+
+        cleanup(helper, blueprintId);
+        helper.succeed();
+    }
+
+    /**
      * NFR15 en conditions réelles : un nœud {@code ADMIN} exécuté par un graphe laisse
      * une trace nommant le blueprint et l'acteur.
      */

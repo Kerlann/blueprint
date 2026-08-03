@@ -30,6 +30,12 @@ public class BlueprintClient implements ClientModInitializer {
                 Identifier.fromNamespaceAndPath(BlueprintMod.MOD_ID, "main"));
         KeyMapping openEditor = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.blueprint.open_editor", GLFW.GLFW_KEY_F6, category));
+        // La bascule des HUD est une GARDE DE SÉCURITÉ, pas un confort (10.9, AC5).
+        // Un écran modal a toujours Échap ; un HUD n'a rien. Un graphe fautif affichant
+        // un panneau opaque plein écran laisserait le joueur sans aucun recours : il
+        // verrait son monde caché sans que rien de ce qu'il tape ne le retire.
+        KeyMapping toggleHud = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "key.blueprint.toggle_hud", GLFW.GLFW_KEY_F7, category));
 
         // F6 ouvre le NAVIGATEUR, pas une démo. Reprendre le dernier blueprint édité
         // paraissait pratique et ne l'était pas : on ne pouvait plus en atteindre un
@@ -41,6 +47,13 @@ public class BlueprintClient implements ClientModInitializer {
                 } else {
                     openDemoEditor(mc);
                 }
+            }
+            while (toggleHud.consumeClick()) {
+                var view = fr.blueprint.client.screen.BlueprintHud.view();
+                view.toggleHidden();
+                mc.gui.setOverlayMessage(view.hidden()
+                        ? Component.translatable("blueprint.hud.hidden")
+                        : Component.translatable("blueprint.hud.shown"), false);
             }
         });
 
@@ -85,6 +98,7 @@ public class BlueprintClient implements ClientModInitializer {
         fr.blueprint.client.net.BlueprintNet.register();
         fr.blueprint.client.net.DebugClient.register();
         fr.blueprint.client.net.ScreenClient.register();
+        fr.blueprint.client.screen.BlueprintHud.register();
 
         BlueprintMod.LOGGER.info("Blueprint client initialisé");
     }

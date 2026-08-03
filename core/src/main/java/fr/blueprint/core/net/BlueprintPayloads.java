@@ -338,16 +338,24 @@ public final class BlueprintPayloads {
      * <p>Sans le sens client→serveur, le serveur croirait un écran encore ouvert et
      * continuerait d'accepter des clics dessus longtemps après sa fermeture.
      */
-    public record ScreenClose() implements CustomPacketPayload {
+    public record ScreenClose(String screen) implements CustomPacketPayload {
         public static final Type<ScreenClose> TYPE = new Type<>(id("screen_close"));
         public static final StreamCodec<ByteBuf, ScreenClose> CODEC =
-                StreamCodec.unit(new ScreenClose());
+                ByteBufCodecs.stringUtf8(MAX_NAME).map(ScreenClose::new, ScreenClose::screen);
+
+        /** Ferme le modal — le cas d'origine, et celui d'Échap. */
+        public static ScreenClose modal() {
+            return new ScreenClose("");
+        }
 
         @Override
         public Type<ScreenClose> type() {
             return TYPE;
         }
     }
+
+    /** Ferme TOUS les HUD : la garde de sécurité, quand le joueur n'a plus de recours. */
+    public static final String ALL_HUDS = "*";
 
     /** Un nom d'écran ou d'élément reste court : le fil n'a pas à porter un roman. */
     public static final int MAX_NAME = 256;
@@ -392,6 +400,8 @@ public final class BlueprintPayloads {
         /** Une modification sur le fil. L'ordinal voyage, jamais un nom de classe. */
         public static final StreamCodec<ByteBuf, fr.blueprint.core.graph.screen.ScreenUpdate>
                 UPDATE_CODEC = StreamCodec.composite(
+                ByteBufCodecs.stringUtf8(MAX_NAME),
+                fr.blueprint.core.graph.screen.ScreenUpdate::screen,
                 ByteBufCodecs.stringUtf8(MAX_NAME),
                 fr.blueprint.core.graph.screen.ScreenUpdate::element,
                 ByteBufCodecs.idMapper(

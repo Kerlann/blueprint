@@ -35,14 +35,14 @@ class ScreenUpdateQueueTest {
     }
 
     private static ScreenUpdate or(String value) {
-        return ScreenUpdate.text("or", ScreenText.literal(value));
+        return ScreenUpdate.text("achat", "or", ScreenText.literal(value));
     }
 
     @Test
     void lesModificationsDUnTickPartentEnsemble() {
         sessions.queue(alice, or("100"));
-        sessions.queue(alice, ScreenUpdate.text("niveau", ScreenText.literal("3")));
-        sessions.queue(alice, ScreenUpdate.progress("xp", 0.5));
+        sessions.queue(alice, ScreenUpdate.text("achat", "niveau", ScreenText.literal("3")));
+        sessions.queue(alice, ScreenUpdate.progress("achat", "xp", 0.5));
 
         assertEquals(3, sessions.drain(alice).size(), "un envoi, pas trois");
         assertTrue(sessions.drain(alice).isEmpty(), "et la file est vidée");
@@ -156,17 +156,17 @@ class ScreenUpdateQueueTest {
     /** Une barre hors de [0, 1] se dessinerait au-delà de son cadre : elle est bornée. */
     @Test
     void uneBarreEstBorneeALaSource() {
-        assertEquals(1.0, ScreenUpdate.progress("xp", 5).number(), 1e-9);
-        assertEquals(0.0, ScreenUpdate.progress("xp", -2).number(), 1e-9);
-        assertEquals(0.0, ScreenUpdate.progress("xp", Double.NaN).number(), 1e-9);
-        assertEquals(0.5, ScreenUpdate.progress("xp", 0.5).number(), 1e-9);
+        assertEquals(1.0, ScreenUpdate.progress("achat", "xp", 5).number(), 1e-9);
+        assertEquals(0.0, ScreenUpdate.progress("achat", "xp", -2).number(), 1e-9);
+        assertEquals(0.0, ScreenUpdate.progress("achat", "xp", Double.NaN).number(), 1e-9);
+        assertEquals(0.5, ScreenUpdate.progress("achat", "xp", 0.5).number(), 1e-9);
     }
 
     /** Deux natures sur le même élément ne se marchent pas dessus. */
     @Test
     void deuxNaturesSurLeMemeElementCoexistent() {
         sessions.queue(alice, or("100"));
-        sessions.queue(alice, ScreenUpdate.visible("or", false));
+        sessions.queue(alice, ScreenUpdate.visible("achat", "or", false));
 
         assertEquals(2, sessions.drain(alice).size());
     }

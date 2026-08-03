@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-204 nœuds dans 36 catégories.
+207 nœuds dans 36 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -711,6 +711,47 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 
+### `blueprint:hud/hide` — Hide HUD
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:hud/hide_all` — Hide all HUDs
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:hud/show` — Show HUD
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
 
 ## gui/update
 
@@ -722,6 +763,7 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_in` | exec | — |
 | `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
 | `element` | `blueprint:string` | `` |
 | `enabled` | `blueprint:bool` | `true` |
 
@@ -752,6 +794,7 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_in` | exec | — |
 | `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
 | `element` | `blueprint:string` | `` |
 | `value` | `blueprint:double` | `0.0` |
 
@@ -782,6 +825,7 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_in` | exec | — |
 | `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
 | `element` | `blueprint:string` | `` |
 | `text` | `blueprint:string` | `` |
 
@@ -812,6 +856,7 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_in` | exec | — |
 | `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
 | `element` | `blueprint:string` | `` |
 | `key` | `blueprint:string` | `` |
 
@@ -842,6 +887,7 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_in` | exec | — |
 | `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
 | `element` | `blueprint:string` | `` |
 | `texture` | `blueprint:string` | `` |
 
@@ -872,6 +918,7 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_in` | exec | — |
 | `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
 | `element` | `blueprint:string` | `` |
 | `visible` | `blueprint:bool` | `true` |
 

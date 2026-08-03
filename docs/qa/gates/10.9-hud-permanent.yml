@@ -1,0 +1,44 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.9"
+story_title: "HUD — afficher sans interrompre"
+gate: "PASS"
+status_reason: "Un HUD s'affiche par-dessus le jeu sans rien capter, plusieurs coexistent, et une touche les retire tous. Le défaut signalé en jeu — le HUD volait la partie — est fermé. Trois défauts trouvés en revue ont été corrigés avant le gate, dont un qui rendait toutes les mises à jour de HUD silencieuses."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T20:28:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "HUD-001"
+    severity: high
+    finding: "Signalé en jeu : un écran déclaré HUD s'ouvrait comme un menu modal. Le joueur se retrouvait figé sur place dès qu'un graphe voulait lui montrer son or. Ce n'était pas un défaut de rendu mais une confusion de nature — un Screen de Minecraft capte la souris par construction"
+    suggested_action: "Corrigé — HudView + HudElementRegistry ; un HUD ne passe plus jamais par setScreen. Gametest aHudShowsWithoutOpeningAScreen"
+  - id: "HUD-002"
+    severity: high
+    finding: "flushScreenUpdates exigeait un écran modal ouvert pour envoyer quoi que ce soit : un joueur n'ayant qu'un HUD voyait sa file se vider sans qu'aucun paquet ne parte. Toutes les mises à jour de HUD auraient été silencieuses"
+    suggested_action: "Corrigé — le numéro d'instance ne concerne que le modal ; un HUD reçoit ses mises à jour sans en avoir un"
+  - id: "HUD-003"
+    severity: medium
+    finding: "Un HUD ne savait pas de quel blueprint il venait : désactiver un graphe laissait le sien affiché pour toujours, et un HUD n'a pas d'Échap pour s'en défaire"
+    suggested_action: "Corrigé — le blueprint propriétaire est mémorisé ; takeHudsOf le retire à la désactivation. Vérifié dans le gametest"
+  - id: "HUD-004"
+    severity: medium
+    finding: "Le HUD était supprimé dès qu'un écran QUELCONQUE était ouvert (chat, inventaire), alors que l'AC2 demande qu'il se dessine SOUS les écrans modaux"
+    suggested_action: "Corrigé — seul un menu Blueprint le masque, parce que les deux se disputeraient la même place. Le reste du jeu le laisse visible, comme la barre de vie derrière l'inventaire"
+  - id: "HUD-005"
+    severity: low
+    finding: "Les modificateurs gagnent un pin « screen » : une modification doit dire quelle surface elle vise, maintenant que plusieurs coexistent"
+    suggested_action: "Assumé — vide = l'écran modal, résolu côté serveur. Les graphes existants continuent donc de fonctionner sans changement"
+  - id: "HUD-006"
+    severity: low
+    finding: "Le HUD survit à la mort et au changement de dimension ; aucun paquet n'est envoyé dans ces cas"
+    suggested_action: "Choix explicite de l'AC7 (« ou disparaît explicitement, mais jamais parfois ») : une barre de mana n'a pas de raison de disparaître parce qu'on est passé par un portail. Seule la déconnexion nettoie"
+  - id: "HUD-007"
+    severity: low
+    finding: "La couche de rendu (BlueprintHud) n'est vérifiée par aucun test — le dessin ne se teste pas headless"
+    suggested_action: "Borné : HudView est testé (11 tests), la géométrie l'est depuis la 10.1, et le banc mesure la passe CPU de deux HUD de 32 éléments. Reste à voir de ses yeux : VERIFY-10.9"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 2, low: 3 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "HUD-007 : la lisibilité d'un HUD par-dessus le jeu est un point de la session finale"

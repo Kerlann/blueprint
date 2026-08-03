@@ -497,5 +497,12 @@
   "blueprint.browser.bad_id": "« %s » n'est pas un identifiant utilisable",
   "blueprint.browser.hint": "Entrée ouvre · Tab cache les fichiers · F5 rafraîchit · Ctrl+F cherche",
   "blueprint.browser.writable": "modifiable",
-  "blueprint.browser.readonly": "lecture seule"
+  "blueprint.browser.readonly": "lecture seule",
+  "key.blueprint.toggle_hud": "Afficher/masquer le HUD Blueprint",
+  "blueprint.hud.hidden": "HUD Blueprint masqué",
+  "blueprint.hud.shown": "HUD Blueprint affiché",
+  "blueprint.fault.gui_not_hud": "L'écran « %s » n'est pas déclaré comme HUD",
+  "blueprint.node.blueprint.hud/show.name": "Afficher un HUD",
+  "blueprint.node.blueprint.hud/hide.name": "Masquer un HUD",
+  "blueprint.node.blueprint.hud/hide_all.name": "Masquer tous les HUD"
 }

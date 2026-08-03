@@ -66,7 +66,11 @@ tasks.jacocoTestCoverageVerification {
                 // ElementPropertiesState) est testé headless, seul le dessin sort.
                 exclude("fr/blueprint/client/editor/screen/ScreenDesignerWidget*")
                 exclude("fr/blueprint/client/editor/screen/ModeTabs*")
-                exclude("fr/blueprint/client/screen/**")
+                // Le HUD (10.9) : HudView est testé, le peintre et la couche de rendu non.
+                exclude("fr/blueprint/client/screen/ScreenPainter*")
+                exclude("fr/blueprint/client/screen/BlueprintScreen*")
+                exclude("fr/blueprint/client/screen/BlueprintHud*")
+                exclude("fr/blueprint/client/screen/TextureCache*")
                 // Navigateur (F6) : BrowserState est testé, l'écran ne se teste pas.
                 exclude("fr/blueprint/client/browser/BlueprintBrowserScreen*")
             })

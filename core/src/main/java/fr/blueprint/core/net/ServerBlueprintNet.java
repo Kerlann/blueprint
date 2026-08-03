@@ -254,7 +254,7 @@ public final class ServerBlueprintNet {
                 (handler, server) -> {
                     SAVES.forget(handler.player.getUUID());
                     REQUESTS.forget(handler.player.getUUID());
-                    SCREENS.forget(handler.player.getUUID());
+                    SCREENS.forget(handler.player.getUUID());   // HUD compris (10.9)
                 });
     }
 
@@ -389,7 +389,59 @@ public final class ServerBlueprintNet {
      */
     public static void queueUpdate(net.minecraft.server.level.ServerPlayer player,
                                    fr.blueprint.core.graph.screen.ScreenUpdate update) {
-        SCREENS.queue(player.getUUID(), update);
+        SCREENS.queue(player.getUUID(), resolveScreen(player, update));
+    }
+
+    /**
+     * Un écran vide désigne le <b>modal ouvert</b>. Le résoudre ici plutôt que côté
+     * client : le serveur sait ce qu'il a envoyé, le client ne fait qu'appliquer.
+     */
+    private static fr.blueprint.core.graph.screen.ScreenUpdate resolveScreen(
+            net.minecraft.server.level.ServerPlayer player,
+            fr.blueprint.core.graph.screen.ScreenUpdate update) {
+        if (!update.screen().isEmpty()) {
+            return update;
+        }
+        var open = SCREENS.of(player.getUUID());
+        return open == null ? update : new fr.blueprint.core.graph.screen.ScreenUpdate(
+                open.screen(), update.element(), update.kind(),
+                update.text(), update.flag(), update.number());
+    }
+
+    /**
+     * Affiche un HUD chez un joueur (story 10.9). Faux si l'écran n'existe pas ou
+     * <b>n'est pas déclaré HUD</b> : afficher un écran modal en permanence par-dessus
+     * le jeu est exactement le piège que cette story existe pour fermer.
+     */
+    public static boolean showHud(net.minecraft.server.level.ServerPlayer player,
+                                  Identifier blueprintId, String screenName) {
+        net.minecraft.server.MinecraftServer server = player.level().getServer();
+        if (server == null) {
+            return false;
+        }
+        var bp = BlueprintManager.of(server).get(blueprintId).orElse(null);
+        fr.blueprint.core.graph.screen.Screen screen =
+                bp == null ? null : bp.screen(screenName);
+        if (screen == null || !screen.hud()) {
+            return false;
+        }
+        SCREENS.showHud(player.getUUID(), blueprintId, screenName);
+        ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenOpen(
+                blueprintId, screenName, 0, ScreenSync.toBytes(screen)));
+        return true;
+    }
+
+    public static void hideHud(net.minecraft.server.level.ServerPlayer player, String screenName) {
+        if (SCREENS.hideHud(player.getUUID(), screenName)) {
+            ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenClose(screenName));
+        }
+    }
+
+    public static void hideAllHuds(net.minecraft.server.level.ServerPlayer player) {
+        if (SCREENS.hideAllHuds(player.getUUID())) {
+            ServerPlayNetworking.send(player,
+                    new BlueprintPayloads.ScreenClose(BlueprintPayloads.ALL_HUDS));
+        }
     }
 
     /** La même chose pour tous ceux qui regardent cet écran (AC3d). */
@@ -411,14 +463,18 @@ public final class ServerBlueprintNet {
             // AFFICHÉES. Le faire avant de savoir qu'on peut envoyer laisserait la
             // comparaison croire à jour un client qui n'a jamais rien reçu.
             var player = server.getPlayerList().getPlayer(uuid);
-            var open = SCREENS.of(uuid);
-            if (player == null || open == null) {
+            if (player == null) {
                 continue;
             }
+            // Le numéro d'instance ne concerne que le MODAL — c'est lui qui peut être
+            // refermé puis rouvert entre l'envoi et l'arrivée. Un joueur qui n'a qu'un
+            // HUD n'en a pas, et exiger un modal ici rendait toutes les mises à jour
+            // de HUD silencieuses : la file se vidait sans que rien ne parte.
+            var open = SCREENS.of(uuid);
             var updates = SCREENS.drain(uuid);
             if (!updates.isEmpty()) {
-                ServerPlayNetworking.send(player,
-                        new BlueprintPayloads.ScreenUpdates(open.instance(), updates));
+                ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenUpdates(
+                        open == null ? 0 : open.instance(), updates));
             }
         }
     }
@@ -451,7 +507,7 @@ public final class ServerBlueprintNet {
     public static void closeScreen(net.minecraft.server.level.ServerPlayer player) {
         var open = SCREENS.of(player.getUUID());
         if (SCREENS.closed(player.getUUID())) {
-            ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenClose());
+            ServerPlayNetworking.send(player, BlueprintPayloads.ScreenClose.modal());
             fireClosed(player, open);
         }
     }
@@ -509,9 +565,18 @@ public final class ServerBlueprintNet {
         for (java.util.UUID uuid : SCREENS.closeAllOf(blueprint)) {
             var player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
-                ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenClose());
+                ServerPlayNetworking.send(player, BlueprintPayloads.ScreenClose.modal());
             }
         }
+        // Les HUD aussi : un HUD n'a pas d'Échap, donc en laisser un qui pointe un
+        // graphe désactivé le rendrait indélogeable autrement qu'à la touche F7.
+        SCREENS.takeHudsOf(blueprint).forEach((uuid, screens) -> {
+            var player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                screens.forEach(screen -> ServerPlayNetworking.send(player,
+                        new BlueprintPayloads.ScreenClose(screen)));
+            }
+        });
     }
 
     /** Bornes réseau, issues de la configuration serveur (9.3). */

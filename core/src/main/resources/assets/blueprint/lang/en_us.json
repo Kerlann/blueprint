@@ -497,5 +497,12 @@
   "blueprint.browser.bad_id": "\"%s\" is not a usable id",
   "blueprint.browser.hint": "Enter opens · Tab hides files · F5 refreshes · Ctrl+F searches",
   "blueprint.browser.writable": "editable",
-  "blueprint.browser.readonly": "read-only"
+  "blueprint.browser.readonly": "read-only",
+  "key.blueprint.toggle_hud": "Toggle Blueprint HUD",
+  "blueprint.hud.hidden": "Blueprint HUD hidden",
+  "blueprint.hud.shown": "Blueprint HUD shown",
+  "blueprint.fault.gui_not_hud": "Screen \"%s\" is not declared as a HUD",
+  "blueprint.node.blueprint.hud/show.name": "Show HUD",
+  "blueprint.node.blueprint.hud/hide.name": "Hide HUD",
+  "blueprint.node.blueprint.hud/hide_all.name": "Hide all HUDs"
 }

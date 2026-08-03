@@ -30,10 +30,17 @@ public final class ScreenClient {
                                 "blueprint.screen.unreadable", payload.screen()), false);
                         return;
                     }
-                    // Un seul écran à la fois : setScreen remplace celui d'avant, ce qui
-                    // déclenche son onClose — donc un ScreenClose vers un serveur qui a
-                    // déjà noté le nouveau. D'où la fermeture SILENCIEUSE ici : prévenir
-                    // le serveur effacerait l'écran qu'il vient tout juste d'ouvrir.
+                    // Un HUD n'est PAS un écran : il ne capte rien et ne fige rien.
+                    // Le router ici plutôt qu'au rendu est ce qui empêche un menu
+                    // permanent de voler le jeu au joueur (10.9).
+                    if (model.hud()) {
+                        fr.blueprint.client.screen.BlueprintHud.view().show(model);
+                        return;
+                    }
+                    // Un seul écran modal à la fois : setScreen remplace celui d'avant,
+                    // ce qui déclenche son removed() — donc un ScreenClose vers un
+                    // serveur qui a déjà noté le nouveau. D'où la fermeture SILENCIEUSE
+                    // ici : prévenir le serveur effacerait ce qu'il vient d'ouvrir.
                     closeQuietly(context.client());
                     var screen = new BlueprintScreen(payload.blueprint(), model,
                             payload.instance(), ScreenClient::notifyClosed, element ->
@@ -43,16 +50,31 @@ public final class ScreenClient {
                 });
 
         ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenClose.TYPE,
-                (payload, context) -> closeQuietly(context.client()));
+                (payload, context) -> {
+                    if (payload.screen().isEmpty()) {
+                        closeQuietly(context.client());
+                    } else if (BlueprintPayloads.ALL_HUDS.equals(payload.screen())) {
+                        fr.blueprint.client.screen.BlueprintHud.view().hideAll();
+                    } else {
+                        fr.blueprint.client.screen.BlueprintHud.view().hide(payload.screen());
+                    }
+                });
 
-        // Les modifications d'un tick arrivent ensemble ; l'écran les applique s'il est
-        // bien celui qu'elles visent, et les jette sinon.
+        // Les modifications d'un tick arrivent ensemble. Chacune nomme son écran :
+        // elles vont donc au modal ou à l'un des HUD, et sont jetées si leur
+        // destinataire n'est plus affiché.
         ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenUpdates.TYPE,
                 (payload, context) -> {
+                    fr.blueprint.client.screen.BlueprintHud.view().apply(payload.updates());
                     if (context.client().screen instanceof BlueprintScreen open) {
                         open.apply(payload.instance(), payload.updates());
                     }
                 });
+
+        // Une déconnexion ne laisse pas les HUD du serveur précédent à l'écran.
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT
+                .register((handler, client) ->
+                        fr.blueprint.client.screen.BlueprintHud.view().clear());
     }
 
     private static void sendClick(net.minecraft.resources.Identifier blueprint,
@@ -90,7 +112,7 @@ public final class ScreenClient {
             return;
         }
         if (ClientPlayNetworking.canSend(BlueprintPayloads.ScreenClose.TYPE)) {
-            ClientPlayNetworking.send(new BlueprintPayloads.ScreenClose());
+            ClientPlayNetworking.send(BlueprintPayloads.ScreenClose.modal());
         }
     }
 }

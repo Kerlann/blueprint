@@ -108,6 +108,70 @@ class ScreenSessionsTest {
         assertEquals(1, sessions.size());
     }
 
+    // ------------------------------------------------------------- HUD (10.9)
+
+    /**
+     * PLUSIEURS HUD coexistent, contrairement au modal. Les interdire obligerait à
+     * réunir la mana et le suivi de quête dans un même document.
+     */
+    @Test
+    void plusieursHudCoexistentAvecUnModal() {
+        sessions.opened(alice, BOUTIQUE, "achat");
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana"));
+        assertTrue(sessions.showHud(alice, BANQUE, "quete"));
+
+        assertEquals(2, sessions.hudsOf(alice).size());
+        assertTrue(sessions.shows(alice, "achat"), "le modal est toujours là");
+        assertTrue(sessions.shows(alice, "mana"));
+        assertFalse(sessions.shows(alice, "inconnu"));
+    }
+
+    /**
+     * <b>Le test qui compte.</b> Un HUD n'a pas d'Échap : en laisser un qui pointe un
+     * blueprint désactivé le rendrait indélogeable autrement qu'à la touche de
+     * masquage — et le joueur n'aurait aucune raison de deviner laquelle.
+     */
+    @Test
+    void desactiverUnBlueprintRetireSesHudEtEuxSeuls() {
+        sessions.showHud(alice, BOUTIQUE, "mana");
+        sessions.showHud(alice, BANQUE, "quete");
+        sessions.showHud(bob, BOUTIQUE, "mana");
+
+        var retires = sessions.takeHudsOf(BOUTIQUE);
+        assertEquals(2, retires.size(), "les deux joueurs sont concernés");
+        assertEquals(List.of("mana"), retires.get(alice));
+        assertEquals(List.of("quete"), List.copyOf(sessions.hudsOf(alice)),
+                "le HUD de l'autre blueprint reste");
+        assertTrue(sessions.hudsOf(bob).isEmpty());
+    }
+
+    @Test
+    void masquerToutEstLaGardeDeSecurite() {
+        sessions.showHud(alice, BOUTIQUE, "mana");
+        sessions.showHud(alice, BOUTIQUE, "quete");
+
+        assertTrue(sessions.hideAllHuds(alice));
+        assertTrue(sessions.hudsOf(alice).isEmpty());
+        assertFalse(sessions.hideAllHuds(alice), "et pas deux fois");
+    }
+
+    @Test
+    void uneModificationVisantUnHudEstAcceptee() {
+        sessions.showHud(alice, BOUTIQUE, "mana");
+        assertTrue(sessions.queue(alice, fr.blueprint.core.graph.screen.ScreenUpdate.text(
+                "mana", "valeur", fr.blueprint.core.graph.screen.ScreenText.literal("40"))),
+                "sans modal ouvert, un HUD reçoit quand même ses mises à jour");
+    }
+
+    @Test
+    void lesSpectateursIncluentLesHud() {
+        sessions.showHud(alice, BOUTIQUE, "tableau");
+        sessions.opened(bob, BOUTIQUE, "tableau");
+
+        var viewers = sessions.viewersOf(BOUTIQUE, "tableau");
+        assertEquals(2, viewers.size(), "un HUD compte comme un spectateur");
+    }
+
     /** Un joueur parti ne laisse pas d'écran fantôme (AC5). */
     @Test
     void unJoueurPartiNeLaissePasDeTrace() {
