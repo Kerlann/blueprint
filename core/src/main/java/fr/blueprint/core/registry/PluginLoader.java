@@ -166,7 +166,7 @@ public final class PluginLoader {
             }
             nodes.currentProvider(events.providerOf(event.id()).orElse("blueprint"));
             var builder = fr.blueprint.api.node.NodeType.builder(event.id())
-                    .category(fr.blueprint.api.node.NodeCategories.EVENT)
+                    .category(eventCategory(event))
                     .entryPoint()
                     .titleKey(event.titleKey())
                     .execOut("exec_out")
@@ -188,6 +188,29 @@ public final class PluginLoader {
         nodes.freeze();
         events.freeze();
         return new LoadedRegistries(pinTypes, nodes, events, List.copyOf(failed));
+    }
+
+    /**
+     * La sous-catégorie d'un nœud d'événement, déduite de ce qu'il PRODUIT plutôt que
+     * de son nom : un événement qui donne un joueur est un événement de joueur, un
+     * événement qui donne une entité vient du monde, le reste vient du serveur.
+     *
+     * <p>Déduire du nom aurait marché pour les événements du projet et raté ceux des
+     * mods tiers, qui n'ont aucune raison de suivre notre convention de nommage.
+     */
+    private static fr.blueprint.api.node.NodeCategory eventCategory(
+            fr.blueprint.api.event.EventType event) {
+        boolean player = false;
+        boolean entity = false;
+        for (fr.blueprint.api.event.EventType.OutDef out : event.outputs()) {
+            player |= out.type().equals(fr.blueprint.api.pin.PinTypes.PLAYER);
+            entity |= out.type().equals(fr.blueprint.api.pin.PinTypes.ENTITY);
+        }
+        if (player) {
+            return fr.blueprint.api.node.NodeCategories.EVENT_PLAYER;
+        }
+        return entity ? fr.blueprint.api.node.NodeCategories.EVENT_WORLD
+                : fr.blueprint.api.node.NodeCategories.EVENT_SERVER;
     }
 
     private static void isolate(String modId, String phase, Exception e, Set<String> failed,

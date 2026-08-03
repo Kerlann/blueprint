@@ -41,7 +41,7 @@ public final class ListNodes {
     public static void register(NodeRegistry r) {
         // Construction : le point d'entrée de toute liste écrite à la main.
         r.register(NodeType.builder(id("list/of"))
-                .category(NodeCategories.LIST)
+                .category(NodeCategories.LIST_BUILD)
                 .pure().generic("T")
                 .in("a", PinTypes.generic("T"))
                 .in("b", PinTypes.generic("T"))
@@ -62,14 +62,14 @@ public final class ListNodes {
                 .build());
 
         r.register(NodeType.builder(id("list/empty"))
-                .category(NodeCategories.LIST)
+                .category(NodeCategories.LIST_BUILD)
                 .pure().generic("T")
                 .out("list", PinTypes.listOf(PinTypes.generic("T")))
                 .action(ctx -> ctx.out("list", List.of()))
                 .build());
 
         r.register(NodeType.builder(id("list/size"))
-                .category(NodeCategories.LIST)
+                .category(NodeCategories.LIST_QUERY)
                 .pure().generic("T")
                 .in("list", PinTypes.listOf(PinTypes.generic("T")))
                 .out("size", PinTypes.INT)
@@ -77,7 +77,7 @@ public final class ListNodes {
                 .build());
 
         r.register(NodeType.builder(id("list/is_empty"))
-                .category(NodeCategories.LIST)
+                .category(NodeCategories.LIST_QUERY)
                 .pure().generic("T")
                 .in("list", PinTypes.listOf(PinTypes.generic("T")))
                 .out("empty", PinTypes.BOOL)
@@ -85,7 +85,7 @@ public final class ListNodes {
                 .build());
 
         r.register(NodeType.builder(id("list/get"))
-                .category(NodeCategories.LIST)
+                .category(NodeCategories.LIST_QUERY)
                 .pure().generic("T")
                 .in("list", PinTypes.listOf(PinTypes.generic("T")))
                 .in("index", PinTypes.INT, 0)
@@ -105,7 +105,7 @@ public final class ListNodes {
                 .build());
 
         r.register(NodeType.builder(id("list/contains"))
-                .category(NodeCategories.LIST)
+                .category(NodeCategories.LIST_QUERY)
                 .pure().generic("T")
                 .in("list", PinTypes.listOf(PinTypes.generic("T")))
                 .in("value", PinTypes.generic("T"))
@@ -118,7 +118,7 @@ public final class ListNodes {
                 .build());
 
         r.register(NodeType.builder(id("list/index_of"))
-                .category(NodeCategories.LIST)
+                .category(NodeCategories.LIST_QUERY)
                 .pure().generic("T")
                 .in("list", PinTypes.listOf(PinTypes.generic("T")))
                 .in("value", PinTypes.generic("T"))
@@ -138,7 +138,7 @@ public final class ListNodes {
                 .build());
 
         r.register(NodeType.builder(id("list/add"))
-                .category(NodeCategories.LIST)
+                .category(NodeCategories.LIST_BUILD)
                 .pure().generic("T")
                 .in("list", PinTypes.listOf(PinTypes.generic("T")))
                 .in("value", PinTypes.generic("T"))
@@ -151,7 +151,7 @@ public final class ListNodes {
                 .build());
 
         r.register(NodeType.builder(id("list/remove"))
-                .category(NodeCategories.LIST)
+                .category(NodeCategories.LIST_BUILD)
                 .pure().generic("T")
                 .in("list", PinTypes.listOf(PinTypes.generic("T")))
                 .in("value", PinTypes.generic("T"))

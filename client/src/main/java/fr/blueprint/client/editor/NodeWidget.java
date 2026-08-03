@@ -341,7 +341,8 @@ public final class NodeWidget {
      * <p>Dessiné dans un carré de 7×7 centré sur ({@code cx}, {@code cy}).
      */
     private static void categoryGlyph(GuiGraphics g, String category, int cx, int cy, int color) {
-        switch (category) {
+        // Même règle que la couleur : le pictogramme est celui de la catégorie parente.
+        switch (fr.blueprint.api.node.NodeCategory.parentOf(category)) {
             case "flow" -> { // ▶ un chevron
                 for (int dx = 0; dx <= 3; dx++) {
                     int hh = 3 - dx;
@@ -462,7 +463,11 @@ public final class NodeWidget {
 
     /** Teintes d'en-tête par catégorie (UX §12, complétées pour les catégories standard). */
     static int categoryColor(String category) {
-        return switch (category) {
+        // Une sous-catégorie porte la couleur de sa parente : c'est le parent qui
+        // identifie d'un coup d'œil, la sous-catégorie qui range dans le menu. Deux
+        // teintes pour « math/arithmetic » et « math/function » ne feraient que
+        // brouiller la lecture d'un graphe.
+        return switch (fr.blueprint.api.node.NodeCategory.parentOf(category)) {
             case "flow" -> 0xFF8A8F98;
             case "math" -> 0xFF7DCFFF;
             case "logic" -> 0xFF56B6C2;

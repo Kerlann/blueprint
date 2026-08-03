@@ -154,7 +154,7 @@ class PaletteTest {
         PaletteState p = palette();
         p.open(0, 0, 0, 0, null);
         // Sans favoris ni récents : catégories triées, dépliées par défaut.
-        assertTrue(p.items().get(0) instanceof PaletteState.Item.Category(String n, int c, boolean x)
+        assertTrue(p.items().get(0) instanceof PaletteState.Item.Category(String n, int c, boolean x, int d)
                 && n.equals("flow"));
         assertEquals(2, p.results().size());
 
@@ -325,9 +325,104 @@ class PaletteTest {
         assertNull(p.results().get(0).variable());
     }
 
+    // ---------------------------------------------- sous-catégories (5.14, UE5)
+
+    /** Palette à deux catégories dont une subdivisée : math, math/arithmetic, flow. */
+    private static PaletteState arborescente() {
+        NodeSearch search = new NodeSearch(List.of(
+                new NodeSearch.Entry(EXEC_NODE.id(), "Exec node", "d", "flow"),
+                new NodeSearch.Entry(PURE_NODE.id(), "Pure node", "d", "math/arithmetic"),
+                new NodeSearch.Entry(Identifier.fromNamespaceAndPath("blueprint", "z"),
+                        "Direct", "d", "math")));
+        Map<Identifier, NodeDescriptor> descs = new HashMap<>();
+        descs.put(EXEC_NODE.id(), EXEC_NODE);
+        descs.put(PURE_NODE.id(), PURE_NODE);
+        return new PaletteState(search, descs::get,
+                new fr.blueprint.client.config.PalettePrefs(), () -> Permission.ADMIN);
+    }
+
+    @Test
+    void uneSousCategorieSAfficheSousSaParenteEtIndentee() {
+        PaletteState p = arborescente();
+        p.open(0, 0, 0, 0, null);
+
+        int math = indexOfCategory(p, "math");
+        int arithmetic = indexOfCategory(p, "math/arithmetic");
+        assertTrue(math >= 0 && arithmetic > math, "la sous-catégorie suit sa parente");
+        assertEquals(0, depthOf(p, math));
+        assertEquals(1, depthOf(p, arithmetic), "indentée d'un cran");
+    }
+
+    /**
+     * Le compte d'une parente inclut sa descendance : c'est le nombre de nœuds qu'on
+     * s'attend à voir en la dépliant, pas celui de ses enfants directs.
+     */
+    @Test
+    void leCompteDuneParenteInclutSaDescendance() {
+        PaletteState p = arborescente();
+        p.open(0, 0, 0, 0, null);
+        assertEquals(2, countOf(p, "math"), "un nœud direct + un dans la sous-catégorie");
+        assertEquals(1, countOf(p, "math/arithmetic"));
+    }
+
+    /**
+     * Replier une parente replie tout ce qu'elle contient. Sinon « Opérations »
+     * resterait orpheline à l'écran, sous une « Mathématiques » fermée.
+     */
+    @Test
+    void replierUneParenteReplieSesSousCategories() {
+        PaletteState p = arborescente();
+        p.open(0, 0, 0, 0, null);
+        assertEquals(3, p.results().size());
+
+        p.toggleCategory("math");
+        assertEquals(-1, indexOfCategory(p, "math/arithmetic"),
+                "la sous-catégorie disparaît avec sa parente");
+        assertEquals(1, p.results().size(), "et ses nœuds avec elle : reste flow");
+
+        p.toggleCategory("math");
+        assertEquals(3, p.results().size());
+    }
+
+    /** Une sous-catégorie se replie seule, sans emporter sa parente. */
+    @Test
+    void replierUneSousCategorieNeToucheQuElle() {
+        PaletteState p = arborescente();
+        p.open(0, 0, 0, 0, null);
+
+        p.toggleCategory("math/arithmetic");
+        assertTrue(indexOfCategory(p, "math") >= 0, "la parente reste");
+        assertTrue(indexOfCategory(p, "math/arithmetic") >= 0, "la sous-catégorie aussi");
+        assertEquals(2, p.results().size(), "seuls ses nœuds disparaissent");
+    }
+
+    /** Le découpage du chemin, là où tout le reste s'appuie. */
+    @Test
+    void leCheminDeCategorieSeDecoupe() {
+        assertEquals("math", fr.blueprint.api.node.NodeCategory.parentOf("math/arithmetic"));
+        assertEquals("arithmetic", fr.blueprint.api.node.NodeCategory.leafOf("math/arithmetic"));
+        assertTrue(fr.blueprint.api.node.NodeCategory.isSub("math/arithmetic"));
+
+        assertEquals("flow", fr.blueprint.api.node.NodeCategory.parentOf("flow"));
+        assertEquals("flow", fr.blueprint.api.node.NodeCategory.leafOf("flow"));
+        assertFalse(fr.blueprint.api.node.NodeCategory.isSub("flow"));
+    }
+
+    private static int depthOf(PaletteState p, int index) {
+        return p.items().get(index) instanceof PaletteState.Item.Category(var n, var c, var e, int d)
+                ? d : -1;
+    }
+
+    private static int countOf(PaletteState p, String name) {
+        int index = indexOfCategory(p, name);
+        return index < 0 ? -1
+                : p.items().get(index) instanceof PaletteState.Item.Category(var n, int c, var e, var d)
+                        ? c : -1;
+    }
+
     private static int indexOfCategory(PaletteState p, String name) {
         for (int i = 0; i < p.items().size(); i++) {
-            if (p.items().get(i) instanceof PaletteState.Item.Category(String n, var c, var e)
+            if (p.items().get(i) instanceof PaletteState.Item.Category(String n, var c, var e, var d)
                     && n.equals(name)) {
                 return i;
             }

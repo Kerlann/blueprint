@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-89 nœuds dans 13 catégories.
+89 nœuds dans 21 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -113,31 +113,7 @@ permission `WORLD` · fuel 1
 | `exec_out` | exec | — |
 
 
-## event
-
-### `blueprint:event/command` — On command (/bpc)
-
-permission `SAFE` · fuel 1 · E
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `name` | `blueprint:string` | `` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
-| `player` | `blueprint:player` | — |
-| `name` | `blueprint:string` | — |
-| `arg` | `blueprint:string` | — |
-
-### `blueprint:event/entity_death` — Entity dies
-
-permission `SAFE` · fuel 1 · E
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
-| `entity` | `blueprint:entity` | — |
+## event/player
 
 ### `blueprint:event/player_break_block` — Player breaks block
 
@@ -197,6 +173,24 @@ permission `SAFE` · fuel 1 · E
 | `exec_out` | exec | — |
 | `player` | `blueprint:player` | — |
 
+
+## event/server
+
+### `blueprint:event/command` — On command (/bpc)
+
+permission `SAFE` · fuel 1 · E
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `name` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `name` | `blueprint:string` | — |
+| `arg` | `blueprint:string` | — |
+
 ### `blueprint:event/server_tick` — Server tick
 
 permission `SAFE` · fuel 1 · E
@@ -215,7 +209,19 @@ permission `SAFE` · fuel 1 · E
 | `name` | `blueprint:string` | — |
 
 
-## flow
+## event/world
+
+### `blueprint:event/entity_death` — Entity dies
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `entity` | `blueprint:entity` | — |
+
+
+## flow/branch
 
 ### `blueprint:flow/branch` — Branch
 
@@ -242,38 +248,6 @@ permission `SAFE` · fuel 1
 | Sorties | Type | Défaut |
 |---|---|---|
 | `exec_out` | exec | — |
-
-### `blueprint:flow/for` — For loop
-
-permission `SAFE` · fuel 1
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `exec_in` | exec | — |
-| `first` | `blueprint:int` | `1` |
-| `last` | `blueprint:int` | `10` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `body` | exec | — |
-| `completed` | exec | — |
-| `index` | `blueprint:double` | — |
-
-### `blueprint:flow/for_each` — For each
-
-permission `SAFE` · fuel 1
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `exec_in` | exec | — |
-| `list` | `list<T>` | — |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `body` | exec | — |
-| `completed` | exec | — |
-| `element` | `T` | — |
-| `index` | `blueprint:int` | — |
 
 ### `blueprint:flow/gate` — Gate
 
@@ -342,6 +316,41 @@ permission `SAFE` · fuel 1
 | `case_2` | exec | — |
 | `case_3` | exec | — |
 | `default` | exec | — |
+
+
+## flow/loop
+
+### `blueprint:flow/for` — For loop
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `first` | `blueprint:int` | `1` |
+| `last` | `blueprint:int` | `10` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `body` | exec | — |
+| `completed` | exec | — |
+| `index` | `blueprint:double` | — |
+
+### `blueprint:flow/for_each` — For each
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `list` | `list<T>` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `body` | exec | — |
+| `completed` | exec | — |
+| `element` | `T` | — |
+| `index` | `blueprint:int` | — |
 
 ### `blueprint:flow/wait` — Wait
 
@@ -438,7 +447,7 @@ permission `SAFE` · fuel 1 · P
 | `stack` | `blueprint:itemstack` | — |
 
 
-## list
+## list/build
 
 ### `blueprint:list/add` — Add to list
 
@@ -453,6 +462,44 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `result` | `list<T>` | — |
 
+### `blueprint:list/empty` — Empty list
+
+permission `SAFE` · fuel 1 · P
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+
+### `blueprint:list/of` — Make list
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `T` | — |
+| `b` | `T` | — |
+| `c` | `T` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+
+### `blueprint:list/remove` — Remove from list
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `list` | `list<T>` | — |
+| `value` | `T` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `list<T>` | — |
+
+
+## list/query
+
 ### `blueprint:list/contains` — List contains
 
 permission `SAFE` · fuel 1 · P
@@ -465,14 +512,6 @@ permission `SAFE` · fuel 1 · P
 | Sorties | Type | Défaut |
 |---|---|---|
 | `found` | `blueprint:bool` | — |
-
-### `blueprint:list/empty` — Empty list
-
-permission `SAFE` · fuel 1 · P
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `list` | `list<T>` | — |
 
 ### `blueprint:list/get` — Get element
 
@@ -512,33 +551,6 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `empty` | `blueprint:bool` | — |
 
-### `blueprint:list/of` — Make list
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `a` | `T` | — |
-| `b` | `T` | — |
-| `c` | `T` | — |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `list` | `list<T>` | — |
-
-### `blueprint:list/remove` — Remove from list
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `list` | `list<T>` | — |
-| `value` | `T` | — |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `list<T>` | — |
-
 ### `blueprint:list/size` — List size
 
 permission `SAFE` · fuel 1 · P
@@ -552,7 +564,7 @@ permission `SAFE` · fuel 1 · P
 | `size` | `blueprint:int` | — |
 
 
-## logic
+## logic/boolean
 
 ### `blueprint:logic/and` — And
 
@@ -566,6 +578,47 @@ permission `SAFE` · fuel 1 · P
 | Sorties | Type | Défaut |
 |---|---|---|
 | `result` | `blueprint:bool` | — |
+
+### `blueprint:logic/not` — Not
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:bool` | `false` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:bool` | — |
+
+### `blueprint:logic/or` — Or
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:bool` | `false` |
+| `b` | `blueprint:bool` | `false` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:bool` | — |
+
+### `blueprint:logic/xor` — Exclusive or
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:bool` | `false` |
+| `b` | `blueprint:bool` | `false` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:bool` | — |
+
+
+## logic/compare
 
 ### `blueprint:logic/equals` — Equals
 
@@ -632,18 +685,6 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `result` | `blueprint:bool` | — |
 
-### `blueprint:logic/not` — Not
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `value` | `blueprint:bool` | `false` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `blueprint:bool` | — |
-
 ### `blueprint:logic/not_equals` — Not equals
 
 permission `SAFE` · fuel 1 · P
@@ -657,58 +698,8 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `result` | `blueprint:bool` | — |
 
-### `blueprint:logic/or` — Or
 
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `a` | `blueprint:bool` | `false` |
-| `b` | `blueprint:bool` | `false` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `blueprint:bool` | — |
-
-### `blueprint:logic/xor` — Exclusive or
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `a` | `blueprint:bool` | `false` |
-| `b` | `blueprint:bool` | `false` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `blueprint:bool` | — |
-
-
-## math
-
-### `blueprint:convert/to_int` — To integer
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `value` | `blueprint:double` | `0.0` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `blueprint:int` | — |
-
-### `blueprint:math/abs` — Absolute value
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `value` | `blueprint:double` | `0.0` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `blueprint:double` | — |
+## math/arithmetic
 
 ### `blueprint:math/add` — Add
 
@@ -736,32 +727,6 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `result` | `blueprint:double` | — |
 
-### `blueprint:math/max` — Maximum
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `a` | `blueprint:double` | `0.0` |
-| `b` | `blueprint:double` | `0.0` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `blueprint:double` | — |
-
-### `blueprint:math/min` — Minimum
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `a` | `blueprint:double` | `0.0` |
-| `b` | `blueprint:double` | `0.0` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `blueprint:double` | — |
-
 ### `blueprint:math/mod` — Modulo
 
 permission `SAFE` · fuel 1 · P
@@ -776,6 +741,72 @@ permission `SAFE` · fuel 1 · P
 | `result` | `blueprint:double` | — |
 
 ### `blueprint:math/mul` — Multiply
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:double` | `0.0` |
+| `b` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/sub` — Subtract
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:double` | `0.0` |
+| `b` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+
+## math/function
+
+### `blueprint:convert/to_int` — To integer
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:int` | — |
+
+### `blueprint:math/abs` — Absolute value
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/max` — Maximum
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `a` | `blueprint:double` | `0.0` |
+| `b` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/min` — Minimum
 
 permission `SAFE` · fuel 1 · P
 
@@ -812,19 +843,6 @@ permission `SAFE` · fuel 1 · P
 | Sorties | Type | Défaut |
 |---|---|---|
 | `result` | `blueprint:int` | — |
-
-### `blueprint:math/sub` — Subtract
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `a` | `blueprint:double` | `0.0` |
-| `b` | `blueprint:double` | `0.0` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `blueprint:double` | — |
 
 
 ## misc
@@ -1047,35 +1065,7 @@ permission `SAFE` · fuel 1 · P
 | `text` | `blueprint:text` | — |
 
 
-## world
-
-### `blueprint:world/drop_item` — Drop item
-
-permission `GAMEPLAY` · fuel 1
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `exec_in` | exec | — |
-| `pos` | `blueprint:vec3` | — |
-| `item` | `blueprint:itemstack` | — |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
-
-### `blueprint:world/explosion` — Explosion
-
-permission `ADMIN` · fuel 1
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `exec_in` | exec | — |
-| `pos` | `blueprint:vec3` | — |
-| `power` | `blueprint:double` | `2.0` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
+## world/block
 
 ### `blueprint:world/get_block` — Get block
 
@@ -1105,6 +1095,37 @@ permission `SAFE` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 | `matches` | `blueprint:bool` | — |
+
+### `blueprint:world/set_block` — Set block
+
+permission `WORLD` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `pos` | `blueprint:blockpos` | — |
+| `state` | `blueprint:blockstate` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+
+## world/effect
+
+### `blueprint:world/explosion` — Explosion
+
+permission `ADMIN` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `pos` | `blueprint:vec3` | — |
+| `power` | `blueprint:double` | `2.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
 
 ### `blueprint:world/particles` — Particles
 
@@ -1137,15 +1158,18 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 
-### `blueprint:world/set_block` — Set block
 
-permission `WORLD` · fuel 1
+## world/state
+
+### `blueprint:world/drop_item` — Drop item
+
+permission `GAMEPLAY` · fuel 1
 
 | Entrées | Type | Défaut |
 |---|---|---|
 | `exec_in` | exec | — |
-| `pos` | `blueprint:blockpos` | — |
-| `state` | `blueprint:blockstate` | — |
+| `pos` | `blueprint:vec3` | — |
+| `item` | `blueprint:itemstack` | — |
 
 | Sorties | Type | Défaut |
 |---|---|---|

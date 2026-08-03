@@ -1,5 +1,6 @@
 package fr.blueprint.client.editor;
 
+import fr.blueprint.api.node.NodeCategory;
 import fr.blueprint.api.node.Permission;
 import fr.blueprint.api.pin.PinKind;
 import fr.blueprint.client.config.PalettePrefs;
@@ -39,7 +40,15 @@ public final class PaletteState {
         record Section(String labelKey) implements Item {
         }
 
-        record Category(String name, int count, boolean expanded) implements Item {
+        /**
+         * @param depth 0 pour une catégorie, 1 pour une sous-catégorie — le rendu
+         *              l'indente, et c'est la seule chose qui les distingue à l'œil.
+         */
+        record Category(String name, int count, boolean expanded, int depth) implements Item {
+
+            public Category(String name, int count, boolean expanded) {
+                this(name, count, expanded, 0);
+            }
         }
 
         record EntryItem(NodeSearch.Entry entry, boolean favorite, boolean blocked) implements Item {
@@ -250,17 +259,7 @@ public final class PaletteState {
             if (!vars.isEmpty()) {
                 byCategory.put(VARIABLES, vars);
             }
-            byCategory.keySet().stream().sorted(CATEGORY_ORDER).forEach(category -> {
-                List<NodeSearch.Entry> members = byCategory.get(category);
-                boolean expanded = !collapsed.contains(category);
-                out.add(new Item.Category(category, members.size(), expanded));
-                if (expanded) {
-                    for (NodeSearch.Entry entry : members) {
-                        out.add(wrap(entry));
-                        flat.add(entry);
-                    }
-                }
-            });
+            buildCategoryTree(out, flat, byCategory);
         }
         items = List.copyOf(out);
         entries = List.copyOf(flat);
@@ -284,6 +283,53 @@ public final class PaletteState {
                 entryToItem[entry] = i;
                 entry++;
             }
+        }
+    }
+
+    /**
+     * Arbre à deux niveaux : les catégories parentes, chacune avec ses nœuds directs
+     * puis ses sous-catégories. Replier un parent replie tout ce qu'il contient —
+     * sinon replier « Mathématiques » laisserait « Opérations » orpheline à l'écran.
+     *
+     * <p>Le compte d'un parent inclut sa descendance : c'est le nombre de nœuds qu'on
+     * s'attend à voir en le dépliant, pas le nombre de ses enfants directs.
+     */
+    private void buildCategoryTree(List<Item> out, List<NodeSearch.Entry> flat,
+                                   Map<String, List<NodeSearch.Entry>> byCategory) {
+        // Regrouper par parent, en gardant l'ordre interne des sous-catégories.
+        Map<String, List<String>> children = new LinkedHashMap<>();
+        for (String category : byCategory.keySet().stream().sorted(CATEGORY_ORDER).toList()) {
+            children.computeIfAbsent(NodeCategory.parentOf(category), k -> new ArrayList<>())
+                    .add(category);
+        }
+        for (String parent : children.keySet().stream().sorted(CATEGORY_ORDER).toList()) {
+            List<String> paths = children.get(parent);
+            int total = paths.stream().mapToInt(p -> byCategory.get(p).size()).sum();
+            boolean parentExpanded = !collapsed.contains(parent);
+            out.add(new Item.Category(parent, total, parentExpanded, 0));
+            if (!parentExpanded) {
+                continue;
+            }
+            for (String path : paths) {
+                List<NodeSearch.Entry> members = byCategory.get(path);
+                if (!NodeCategory.isSub(path)) {
+                    // Les nœuds directement dans le parent : pas de ligne de plus.
+                    emit(out, flat, members);
+                    continue;
+                }
+                boolean expanded = !collapsed.contains(path);
+                out.add(new Item.Category(path, members.size(), expanded, 1));
+                if (expanded) {
+                    emit(out, flat, members);
+                }
+            }
+        }
+    }
+
+    private void emit(List<Item> out, List<NodeSearch.Entry> flat, List<NodeSearch.Entry> members) {
+        for (NodeSearch.Entry entry : members) {
+            out.add(wrap(entry));
+            flat.add(entry);
         }
     }
 

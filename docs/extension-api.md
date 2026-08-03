@@ -87,7 +87,7 @@ ne perdent rien.
 
 ```java
 NodeType.builder(id)
-    .category(NodeCategory)         // regroupement dans la palette
+    .category(NodeCategory)         // regroupement dans la palette (voir §2.2b)
     .titleKey("mymod.node.x.name")  // par défaut : blueprint.node.<ns>.<path>.name
     .descKey("mymod.node.x.desc")
 
@@ -115,6 +115,32 @@ NodeType.builder(id)
 Une déclaration incohérente (`pure()` + `exec()`, deux pins de même nom, type inconnu)
 lève une exception **au démarrage**, avec un message nommant votre mod et votre nœud —
 jamais une erreur silencieuse en jeu.
+
+### 2.2b Catégories et sous-catégories
+
+Une catégorie est une chaîne. Elle peut porter **un** niveau de sous-catégorie,
+séparé par `/` :
+
+```java
+.category(NodeCategories.WORLD)              // « Monde »
+.category(NodeCategories.WORLD_BLOCK)        // « Monde › Blocs »
+.category(new NodeCategory("mymod/rituels"))  // ta propre arborescence
+```
+
+La palette les affiche en arbre repliable. Trois règles à connaître :
+
+- **Un nœud de sous-catégorie hérite de la couleur et du pictogramme de son
+  parent.** C'est le parent qui identifie d'un coup d'œil, la sous-catégorie qui
+  range. Deux teintes pour `math/arithmetic` et `math/function` ne feraient que
+  brouiller la lecture d'un graphe.
+- **Deux niveaux au maximum.** `new NodeCategory("a/b/c")` lève à la construction —
+  au-delà, une palette devient un explorateur de fichiers.
+- **Un nom de catégorie s'affiche traduit** via `blueprint.category.<chemin>`, avec
+  repli sur la chaîne brute. Déclare `blueprint.category.mymod/rituels` dans ton
+  fichier de langue ; sans lui, le joueur verra `mymod/rituels`, ce qui reste
+  lisible.
+
+Subdivise à partir d'une dizaine de nœuds : en dessous, tu n'ajoutes qu'un clic.
 
 ### 2.3 `NodeContext`
 

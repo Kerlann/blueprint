@@ -32,6 +32,9 @@ public final class PalettePopup {
     private static final int STAR_ON = 0xFFE5C07B;
     private static final int STAR_OFF = 0xFF4A4F58;
     private static final int SECTION_COLOR = 0xFF7DCFFF;
+    /** Sous-catégorie : même rôle, un cran plus discret et décalé. */
+    private static final int SUBTITLE_COLOR = 0xFF6E737C;
+    private static final int SUB_INDENT = 8;
 
     private PalettePopup() {
     }
@@ -102,10 +105,14 @@ public final class PalettePopup {
             switch (items.get(index)) {
                 case PaletteState.Item.Section(String labelKey) ->
                         g.drawString(font, I18n.get(labelKey), x + 4, rowY + 3, SECTION_COLOR, false);
-                case PaletteState.Item.Category(String name, int count, boolean expanded) ->
-                        g.drawString(font, (expanded ? "▾ " : "▸ ")
-                                        + categoryLabel(name) + " (" + count + ")",
-                                x + 4, rowY + 3, TITLE_COLOR, false);
+                case PaletteState.Item.Category(String n, int count, boolean open, int depth) ->
+                        // L'indentation est la SEULE chose qui distingue une
+                        // sous-catégorie de sa parente : sans elle, l'arbre se lit
+                        // comme une liste plate deux fois trop longue.
+                        g.drawString(font, (open ? "▾ " : "▸ ")
+                                        + categoryLabel(n) + " (" + count + ")",
+                                x + 4 + depth * SUB_INDENT, rowY + 3,
+                                depth == 0 ? TITLE_COLOR : SUBTITLE_COLOR, false);
                 case PaletteState.Item.EntryItem(var entry, boolean favorite, boolean blocked) -> {
                     if (state.entryIndexOf(index) == state.selectedIndex()) {
                         g.fill(x + 1, rowY, x + WIDTH - 1, rowY + ROW_HEIGHT, ROW_SELECTED);

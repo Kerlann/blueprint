@@ -1,6 +1,7 @@
 package fr.blueprint.core.nodes;
 
 import fr.blueprint.api.node.NodeCategories;
+import fr.blueprint.api.node.NodeCategory;
 import fr.blueprint.api.node.NodeType;
 import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.api.registry.NodeRegistry;
@@ -29,14 +30,14 @@ public final class StandardNodes {
     public static void register(NodeRegistry r) {
         // ------------------------------------------------------------- flux (7.1a)
         r.register(NodeType.builder(id("flow/branch"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_BRANCH)
                 .execIn("exec_in").execOut("true").execOut("false")
                 .in("condition", PinTypes.BOOL, false)
                 .action(ctx -> ctx.exec(ctx.<Boolean>in("condition") ? "true" : "false"))
                 .build());
 
         r.register(NodeType.builder(id("flow/select"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_BRANCH)
                 .pure().generic("T")
                 .in("condition", PinTypes.BOOL, false)
                 .in("if_true", PinTypes.generic("T"))
@@ -47,28 +48,28 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(id("flow/wait"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_LOOP)
                 .exec()
                 .in("ticks", PinTypes.INT, 20)
                 .action(ctx -> ctx.suspend(Math.max(1, ctx.<Integer>in("ticks"))))
                 .build());
 
         r.register(NodeType.builder(id("flow/return"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_BRANCH)
                 .execIn("exec_in")
                 .action(ctx -> {
                 })
                 .build());
 
         // ------------------------------------------------------------- maths (7.2)
-        binaryMath(r, "math/add", Double::sum);
-        binaryMath(r, "math/sub", (a, b) -> a - b);
-        binaryMath(r, "math/mul", (a, b) -> a * b);
-        binaryMath(r, "math/min", Math::min);
-        binaryMath(r, "math/max", Math::max);
+        binaryMath(r, "math/add", NodeCategories.MATH_ARITHMETIC, Double::sum);
+        binaryMath(r, "math/sub", NodeCategories.MATH_ARITHMETIC, (a, b) -> a - b);
+        binaryMath(r, "math/mul", NodeCategories.MATH_ARITHMETIC, (a, b) -> a * b);
+        binaryMath(r, "math/min", NodeCategories.MATH_FUNCTION, Math::min);
+        binaryMath(r, "math/max", NodeCategories.MATH_FUNCTION, Math::max);
 
         r.register(NodeType.builder(id("math/div"))
-                .category(NodeCategories.MATH).pure()
+                .category(NodeCategories.MATH_ARITHMETIC).pure()
                 .in("a", PinTypes.DOUBLE, 0.0).in("b", PinTypes.DOUBLE, 1.0)
                 .out("result", PinTypes.DOUBLE)
                 .action(ctx -> {
@@ -82,7 +83,7 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(id("math/mod"))
-                .category(NodeCategories.MATH).pure()
+                .category(NodeCategories.MATH_ARITHMETIC).pure()
                 .in("a", PinTypes.DOUBLE, 0.0).in("b", PinTypes.DOUBLE, 1.0)
                 .out("result", PinTypes.DOUBLE)
                 .action(ctx -> {
@@ -96,13 +97,13 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(id("math/abs"))
-                .category(NodeCategories.MATH).pure()
+                .category(NodeCategories.MATH_FUNCTION).pure()
                 .in("value", PinTypes.DOUBLE, 0.0).out("result", PinTypes.DOUBLE)
                 .action(ctx -> ctx.out("result", Math.abs(ctx.<Double>in("value"))))
                 .build());
 
         r.register(NodeType.builder(id("math/round"))
-                .category(NodeCategories.MATH).pure()
+                .category(NodeCategories.MATH_FUNCTION).pure()
                 .in("value", PinTypes.DOUBLE, 0.0).out("result", PinTypes.INT)
                 .action(ctx -> ctx.out("result", (int) Math.round(ctx.<Double>in("value"))))
                 .build());
@@ -111,7 +112,7 @@ public final class StandardNodes {
         // Mélange doré (correction QA RAND-001) : seed*31+index rendait (1,0) et (0,31)
         // identiques — inacceptable pour un nœud vendu « déterministe à graine ».
         r.register(NodeType.builder(id("math/random"))
-                .category(NodeCategories.MATH).pure().deterministic(false)
+                .category(NodeCategories.MATH_FUNCTION).pure().deterministic(false)
                 .in("seed", PinTypes.LONG, 0L).in("index", PinTypes.INT, 0)
                 .out("value", PinTypes.DOUBLE)
                 .action(ctx -> ctx.out("value", new Random(
@@ -126,14 +127,14 @@ public final class StandardNodes {
         comparison(r, "logic/greater_eq", (a, b) -> a >= b);
 
         r.register(NodeType.builder(id("logic/equals"))
-                .category(NodeCategories.LOGIC).pure()
+                .category(NodeCategories.LOGIC_COMPARE).pure()
                 .in("a", PinTypes.ANY).in("b", PinTypes.ANY)
                 .out("result", PinTypes.BOOL)
                 .action(ctx -> ctx.out("result", Objects.equals(ctx.in("a"), ctx.in("b"))))
                 .build());
 
         r.register(NodeType.builder(id("logic/not_equals"))
-                .category(NodeCategories.LOGIC).pure()
+                .category(NodeCategories.LOGIC_COMPARE).pure()
                 .in("a", PinTypes.ANY).in("b", PinTypes.ANY)
                 .out("result", PinTypes.BOOL)
                 .action(ctx -> ctx.out("result", !Objects.equals(ctx.in("a"), ctx.in("b"))))
@@ -141,28 +142,28 @@ public final class StandardNodes {
 
         // ---------------------------------------------------------- booléens (7.2)
         r.register(NodeType.builder(id("logic/and"))
-                .category(NodeCategories.LOGIC).pure()
+                .category(NodeCategories.LOGIC_BOOLEAN).pure()
                 .in("a", PinTypes.BOOL, false).in("b", PinTypes.BOOL, false)
                 .out("result", PinTypes.BOOL)
                 .action(ctx -> ctx.out("result", ctx.<Boolean>in("a") && ctx.<Boolean>in("b")))
                 .build());
 
         r.register(NodeType.builder(id("logic/or"))
-                .category(NodeCategories.LOGIC).pure()
+                .category(NodeCategories.LOGIC_BOOLEAN).pure()
                 .in("a", PinTypes.BOOL, false).in("b", PinTypes.BOOL, false)
                 .out("result", PinTypes.BOOL)
                 .action(ctx -> ctx.out("result", ctx.<Boolean>in("a") || ctx.<Boolean>in("b")))
                 .build());
 
         r.register(NodeType.builder(id("logic/xor"))
-                .category(NodeCategories.LOGIC).pure()
+                .category(NodeCategories.LOGIC_BOOLEAN).pure()
                 .in("a", PinTypes.BOOL, false).in("b", PinTypes.BOOL, false)
                 .out("result", PinTypes.BOOL)
                 .action(ctx -> ctx.out("result", ctx.<Boolean>in("a") ^ ctx.<Boolean>in("b")))
                 .build());
 
         r.register(NodeType.builder(id("logic/not"))
-                .category(NodeCategories.LOGIC).pure()
+                .category(NodeCategories.LOGIC_BOOLEAN).pure()
                 .in("value", PinTypes.BOOL, false).out("result", PinTypes.BOOL)
                 .action(ctx -> ctx.out("result", !ctx.<Boolean>in("value")))
                 .build());
@@ -208,7 +209,7 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(id("convert/to_int"))
-                .category(NodeCategories.MATH).pure()
+                .category(NodeCategories.MATH_FUNCTION).pure()
                 .in("value", PinTypes.DOUBLE, 0.0).out("result", PinTypes.INT)
                 .action(ctx -> ctx.out("result", (int) Math.floor(ctx.<Double>in("value"))))
                 .build());
@@ -260,7 +261,7 @@ public final class StandardNodes {
         // Abaissés par le compilateur (CallSub/JmpIf/Yield + Calls synthétisés) :
         // leurs actions ne doivent jamais être atteintes.
         r.register(NodeType.builder(id("flow/sequence"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_BRANCH)
                 .execIn("exec_in")
                 .execOut("then_1").execOut("then_2").execOut("then_3").execOut("then_4")
                 .action(ctx -> {
@@ -269,7 +270,7 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(id("flow/while"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_LOOP)
                 .execIn("exec_in").execOut("body").execOut("completed")
                 .in("condition", PinTypes.BOOL, false)
                 .action(ctx -> {
@@ -278,7 +279,7 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(id("flow/for"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_LOOP)
                 .execIn("exec_in").execOut("body").execOut("completed")
                 .in("first", PinTypes.INT, 1)
                 .in("last", PinTypes.INT, 10)
@@ -289,7 +290,7 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(id("flow/wait_until"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_LOOP)
                 .exec()
                 .in("condition", PinTypes.BOOL, false)
                 .action(ctx -> {
@@ -300,7 +301,7 @@ public final class StandardNodes {
         // for_each (7.8) : parcourt une liste. Abaissé comme « for », avec la taille et
         // l'accès fournis par les nœuds de liste synthétisés par le compilateur.
         r.register(NodeType.builder(id("flow/for_each"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_LOOP)
                 .generic("T")
                 .execIn("exec_in").execOut("body").execOut("completed")
                 .in("list", PinTypes.listOf(PinTypes.generic("T")))
@@ -315,7 +316,7 @@ public final class StandardNodes {
         // qui le distingue d'un simple branchement, et ce qui a demandé au compilateur
         // de savoir par quel pin on entre dans un nœud.
         r.register(NodeType.builder(id("flow/gate"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_BRANCH)
                 .execIn("enter").execIn("open").execIn("close")
                 .execOut("exit")
                 .action(ctx -> {
@@ -324,7 +325,7 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(id("flow/do_once"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_BRANCH)
                 .exec()
                 .action(ctx -> {
                     throw new IllegalStateException("flow/do_once est abaissé par le compilateur");
@@ -332,7 +333,7 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(id("flow/switch"))
-                .category(NodeCategories.FLOW)
+                .category(NodeCategories.FLOW_BRANCH)
                 .execIn("exec_in")
                 .execOut("case_0").execOut("case_1").execOut("case_2").execOut("case_3")
                 .execOut("default")
@@ -348,7 +349,7 @@ public final class StandardNodes {
         // nœud d'événement avec une ENTRÉE — le littéral « name » déclare la commande.
         r.register(NodeType.builder(
                         fr.blueprint.core.event.StandardEvents.COMMAND.id())
-                .category(NodeCategories.EVENT)
+                .category(NodeCategories.EVENT_SERVER)
                 .entryPoint()
                 .titleKey(fr.blueprint.core.event.StandardEvents.COMMAND.titleKey())
                 .execOut("exec_out")
@@ -373,9 +374,15 @@ public final class StandardNodes {
         ItemNodes.register(r);
     }
 
-    private static void binaryMath(NodeRegistry r, String path, DoubleBinaryOperator op) {
+    /**
+     * Nœud binaire sur deux nombres. La catégorie est un paramètre : le même gabarit
+     * sert aux opérations ({@code add}, {@code sub}, {@code mul}) et aux fonctions
+     * ({@code min}, {@code max}), qui ne se rangent pas au même endroit.
+     */
+    private static void binaryMath(NodeRegistry r, String path, NodeCategory category,
+                                   DoubleBinaryOperator op) {
         r.register(NodeType.builder(id(path))
-                .category(NodeCategories.MATH).pure()
+                .category(category).pure()
                 .in("a", PinTypes.DOUBLE, 0.0).in("b", PinTypes.DOUBLE, 0.0)
                 .out("result", PinTypes.DOUBLE)
                 .action(ctx -> ctx.out("result",
@@ -385,7 +392,7 @@ public final class StandardNodes {
 
     private static void comparison(NodeRegistry r, String path, DoubleComparison op) {
         r.register(NodeType.builder(id(path))
-                .category(NodeCategories.LOGIC).pure()
+                .category(NodeCategories.LOGIC_COMPARE).pure()
                 .in("a", PinTypes.DOUBLE, 0.0).in("b", PinTypes.DOUBLE, 0.0)
                 .out("result", PinTypes.BOOL)
                 .action(ctx -> ctx.out("result", op.test(ctx.<Double>in("a"), ctx.<Double>in("b"))))

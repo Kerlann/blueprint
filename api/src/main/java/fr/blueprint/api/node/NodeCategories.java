@@ -19,6 +19,45 @@ public final class NodeCategories {
     /** Catégorie par défaut d'un builder qui n'en précise pas. */
     public static final NodeCategory MISC = new NodeCategory("misc");
 
+    // ------------------------------------------------------------ sous-catégories
+    // Les catégories qui dépassaient la dizaine de nœuds : au-delà, la liste dépliée
+    // ne se parcourt plus du regard. Les autres restent plates — sous-diviser une
+    // catégorie de quatre nœuds ne ferait qu'ajouter un clic.
+
+    /** Branchement, aiguillage, séquence : ce qui choisit un chemin. */
+    public static final NodeCategory FLOW_BRANCH = new NodeCategory("flow/branch");
+    /** Boucles et attentes : ce qui répète ou suspend. */
+    public static final NodeCategory FLOW_LOOP = new NodeCategory("flow/loop");
+
+    /** Les quatre opérations et le modulo. */
+    public static final NodeCategory MATH_ARITHMETIC = new NodeCategory("math/arithmetic");
+    /** Minimum, maximum, valeur absolue, arrondi, aléatoire, conversions. */
+    public static final NodeCategory MATH_FUNCTION = new NodeCategory("math/function");
+
+    /** Comparaisons : inférieur, supérieur, égal. */
+    public static final NodeCategory LOGIC_COMPARE = new NodeCategory("logic/compare");
+    /** Opérateurs booléens : et, ou, non, ou exclusif. */
+    public static final NodeCategory LOGIC_BOOLEAN = new NodeCategory("logic/boolean");
+
+    /** Créer une liste, y ajouter, en retirer. */
+    public static final NodeCategory LIST_BUILD = new NodeCategory("list/build");
+    /** L'interroger sans la modifier : taille, élément, recherche. */
+    public static final NodeCategory LIST_QUERY = new NodeCategory("list/query");
+
+    /** Poser, lire et casser des blocs. */
+    public static final NodeCategory WORLD_BLOCK = new NodeCategory("world/block");
+    /** Sons, particules, explosions — ce qui se voit et s'entend. */
+    public static final NodeCategory WORLD_EFFECT = new NodeCategory("world/effect");
+    /** Heure, météo, entités déposées dans le monde. */
+    public static final NodeCategory WORLD_STATE = new NodeCategory("world/state");
+
+    /** Événements déclenchés par un joueur. */
+    public static final NodeCategory EVENT_PLAYER = new NodeCategory("event/player");
+    /** Événements du monde et des entités. */
+    public static final NodeCategory EVENT_WORLD = new NodeCategory("event/world");
+    /** Tick, commande, signal : ce qui ne vient ni d'un joueur ni du monde. */
+    public static final NodeCategory EVENT_SERVER = new NodeCategory("event/server");
+
     private NodeCategories() {
     }
 }

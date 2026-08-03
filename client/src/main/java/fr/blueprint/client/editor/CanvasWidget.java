@@ -662,7 +662,7 @@ public final class CanvasWidget {
         int itemIndex = PalettePopup.rowAt(palette, e.x(), e.y(), width, height);
         if (itemIndex >= 0) {
             switch (palette.items().get(itemIndex)) {
-                case PaletteState.Item.Category(String name, int c, boolean ex) ->
+                case PaletteState.Item.Category(String name, int c, boolean ex, int depth) ->
                         palette.toggleCategory(name);
                 case PaletteState.Item.EntryItem(var entry, boolean fav, boolean blocked) -> {
                     if (PalettePopup.starAt(palette, e.x(), width)) {

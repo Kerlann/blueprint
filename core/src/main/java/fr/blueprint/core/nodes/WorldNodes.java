@@ -41,7 +41,7 @@ final class WorldNodes {
 
     static void register(NodeRegistry r) {
         r.register(NodeType.builder(id("world/get_block"))
-                .category(NodeCategories.WORLD).exec()
+                .category(NodeCategories.WORLD_BLOCK).exec()
                 .in("pos", PinTypes.BLOCKPOS)
                 .out("state", PinTypes.BLOCKSTATE)
                 .action(ctx -> ctx.out("state",
@@ -49,7 +49,7 @@ final class WorldNodes {
                 .build());
 
         r.register(NodeType.builder(id("world/set_block"))
-                .category(NodeCategories.WORLD).exec().permission(Permission.WORLD)
+                .category(NodeCategories.WORLD_BLOCK).exec().permission(Permission.WORLD)
                 .in("pos", PinTypes.BLOCKPOS)
                 .in("state", PinTypes.BLOCKSTATE)
                 .action(ctx -> ctx.level().setBlockAndUpdate(
@@ -57,7 +57,7 @@ final class WorldNodes {
                 .build());
 
         r.register(NodeType.builder(id("world/is_block"))
-                .category(NodeCategories.WORLD).exec()
+                .category(NodeCategories.WORLD_BLOCK).exec()
                 .in("pos", PinTypes.BLOCKPOS)
                 .in("block", PinTypes.RESOURCE_LOCATION)
                 .out("matches", PinTypes.BOOL)
@@ -75,7 +75,7 @@ final class WorldNodes {
                 .build());
 
         r.register(NodeType.builder(id("world/spawn_entity"))
-                .category(NodeCategories.WORLD).exec().permission(Permission.WORLD)
+                .category(NodeCategories.WORLD_STATE).exec().permission(Permission.WORLD)
                 .in("type", PinTypes.RESOURCE_LOCATION)
                 .in("pos", PinTypes.VEC3)
                 .out("entity", PinTypes.ENTITY)
@@ -101,7 +101,7 @@ final class WorldNodes {
                 .build());
 
         r.register(NodeType.builder(id("world/play_sound"))
-                .category(NodeCategories.WORLD).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.WORLD_EFFECT).exec().permission(Permission.GAMEPLAY)
                 .in("sound", PinTypes.RESOURCE_LOCATION)
                 .in("pos", PinTypes.VEC3)
                 .in("volume", PinTypes.DOUBLE, 1.0)
@@ -122,7 +122,7 @@ final class WorldNodes {
                 .build());
 
         r.register(NodeType.builder(id("world/particles"))
-                .category(NodeCategories.WORLD).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.WORLD_EFFECT).exec().permission(Permission.GAMEPLAY)
                 .in("particle", PinTypes.RESOURCE_LOCATION)
                 .in("pos", PinTypes.VEC3)
                 .in("count", PinTypes.INT, 10)
@@ -147,7 +147,7 @@ final class WorldNodes {
                 .build());
 
         r.register(NodeType.builder(id("world/set_weather"))
-                .category(NodeCategories.WORLD).exec().permission(Permission.WORLD)
+                .category(NodeCategories.WORLD_STATE).exec().permission(Permission.WORLD)
                 .in("rain", PinTypes.BOOL, false)
                 .in("thunder", PinTypes.BOOL, false)
                 .in("duration", PinTypes.INT, 6000)
@@ -164,13 +164,13 @@ final class WorldNodes {
                 .build());
 
         r.register(NodeType.builder(id("world/set_time"))
-                .category(NodeCategories.WORLD).exec().permission(Permission.WORLD)
+                .category(NodeCategories.WORLD_STATE).exec().permission(Permission.WORLD)
                 .in("time", PinTypes.LONG, 1000L)
                 .action(ctx -> ctx.level().setDayTime(ctx.in("time")))
                 .build());
 
         r.register(NodeType.builder(id("world/explosion"))
-                .category(NodeCategories.WORLD).exec().permission(Permission.ADMIN)
+                .category(NodeCategories.WORLD_EFFECT).exec().permission(Permission.ADMIN)
                 .in("pos", PinTypes.VEC3)
                 .in("power", PinTypes.DOUBLE, 2.0)
                 .action(ctx -> {
@@ -183,7 +183,7 @@ final class WorldNodes {
                 .build());
 
         r.register(NodeType.builder(id("world/drop_item"))
-                .category(NodeCategories.WORLD).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.WORLD_STATE).exec().permission(Permission.GAMEPLAY)
                 .in("pos", PinTypes.VEC3)
                 .in("item", PinTypes.ITEMSTACK)
                 .action(ctx -> {

@@ -103,24 +103,45 @@ class fr.blueprint.api.node.NodeCategories
   field public static final fr.blueprint.api.node.NodeCategory DEBUG
   field public static final fr.blueprint.api.node.NodeCategory ENTITY
   field public static final fr.blueprint.api.node.NodeCategory EVENT
+  field public static final fr.blueprint.api.node.NodeCategory EVENT_PLAYER
+  field public static final fr.blueprint.api.node.NodeCategory EVENT_SERVER
+  field public static final fr.blueprint.api.node.NodeCategory EVENT_WORLD
   field public static final fr.blueprint.api.node.NodeCategory FLOW
+  field public static final fr.blueprint.api.node.NodeCategory FLOW_BRANCH
+  field public static final fr.blueprint.api.node.NodeCategory FLOW_LOOP
   field public static final fr.blueprint.api.node.NodeCategory ITEM
   field public static final fr.blueprint.api.node.NodeCategory LIST
+  field public static final fr.blueprint.api.node.NodeCategory LIST_BUILD
+  field public static final fr.blueprint.api.node.NodeCategory LIST_QUERY
   field public static final fr.blueprint.api.node.NodeCategory LOGIC
+  field public static final fr.blueprint.api.node.NodeCategory LOGIC_BOOLEAN
+  field public static final fr.blueprint.api.node.NodeCategory LOGIC_COMPARE
   field public static final fr.blueprint.api.node.NodeCategory MATH
+  field public static final fr.blueprint.api.node.NodeCategory MATH_ARITHMETIC
+  field public static final fr.blueprint.api.node.NodeCategory MATH_FUNCTION
   field public static final fr.blueprint.api.node.NodeCategory MISC
   field public static final fr.blueprint.api.node.NodeCategory PLAYER
   field public static final fr.blueprint.api.node.NodeCategory STRING
   field public static final fr.blueprint.api.node.NodeCategory STRUCT
   field public static final fr.blueprint.api.node.NodeCategory TEXT
   field public static final fr.blueprint.api.node.NodeCategory WORLD
+  field public static final fr.blueprint.api.node.NodeCategory WORLD_BLOCK
+  field public static final fr.blueprint.api.node.NodeCategory WORLD_EFFECT
+  field public static final fr.blueprint.api.node.NodeCategory WORLD_STATE
 
 record fr.blueprint.api.node.NodeCategory
   ctor public (java.lang.String)
+  field public static final char SEPARATOR
+  method public boolean isSub()
   method public final boolean equals(java.lang.Object)
   method public final int hashCode()
   method public final java.lang.String toString()
   method public java.lang.String id()
+  method public java.lang.String leaf()
+  method public java.lang.String parent()
+  method public static boolean isSub(java.lang.String)
+  method public static java.lang.String leafOf(java.lang.String)
+  method public static java.lang.String parentOf(java.lang.String)
 
 interface fr.blueprint.api.node.NodeContext
   method public abstract fr.blueprint.api.event.TriggerContext trigger()
