@@ -6,7 +6,7 @@ reste**, et **qu'est-ce que je ne peux pas garantir**.
 
 ## 1. État
 
-**Les neuf épics du PRD sont livrés.** 54 stories en statut *Done*, 53 gates QA
+**Les neuf épics du PRD sont livrés.** 55 stories en statut *Done*, 54 gates QA
 (certaines couvrent des stories groupées) toutes en verdict *PASS* — aucune en
 *CONCERNS* ni en *FAIL*. La dernière *CONCERNS* restante, celle de la story 1.2,
 a été réémise en *PASS* ce jour : ses deux points bloquants étaient du process
@@ -20,7 +20,7 @@ a été réémise en *PASS* ce jour : ses deux points bloquants étaient du proc
 | 4 | BScript et démo | 4.1 → 4.4a | 2 PASS |
 | 5 | Éditeur visuel | 5.1 → 5.14 | 18 PASS |
 | 6 | Persistance et multijoueur | 6.1 → 6.4 | 4 PASS |
-| 7 | Événements et bibliothèque | 7.1a → 7.9 | 6 PASS |
+| 7 | Événements et bibliothèque | 7.1a → 7.10 | 7 PASS |
 | 8 | Intégration des mods tiers | 8.1 → 8.5 | 5 PASS |
 | 9 | Débogage, performance, finition | 9.1a → 9.5 | 6 PASS |
 
@@ -67,7 +67,7 @@ c'est ce que le lanceur affiche aux joueurs, il est corrigé.
 
 ### 3.2 La session en jeu
 
-**23 points à regarder**, listés dans [`README.md` §Prochaine action](README.md).
+**24 points à regarder**, listés dans [`README.md` §Prochaine action](README.md).
 Tout ce qui se vérifie sans yeux l'est déjà ; ce qui reste est le visuel, l'ergonomie
 et les comportements qui exigent un monde vivant (redémarrage, serveur dédié, retrait
 d'un mod du dossier `mods`).
@@ -90,7 +90,7 @@ Par honnêteté, les limites du harnais :
 
 1. **Le rendu n'est vérifié par aucun test.** L'état de l'éditeur est couvert
    headless ; le dessin ne l'est pas, et ne peut pas l'être ici. C'est la raison
-   d'être des 23 points de la session en jeu.
+   d'être des 24 points de la session en jeu.
 2. **Les 60 fps ne sont mesurés qu'en passe CPU** (banc `CanvasBenchTest`). Le coût
    GPU réel n'est pas borné en CI.
 3. **Le multijoueur n'est éprouvé qu'à un seul client.** Le verrou optimiste est

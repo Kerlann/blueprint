@@ -1,0 +1,40 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "7.10"
+story_title: "Les cinq derniers manques — inventaire, scoreboard, texte riche, raycast, barre de boss"
+gate: "PASS"
+status_reason: "Deux risques identifiés AVANT d'écrire la ligne, ce qui est le bon moment : une élévation de privilège par clic de chat, et le premier nœud du produit qui laisse un état vivant derrière lui. Les deux sont cadrés dans le code, pas seulement dans un commentaire. Quatre observations basses, dont deux refus délibérés de fonctionnalité."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T15:30:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "CLICK-001"
+    severity: high
+    finding: "CADRÉ — un événement de clic « exécuter la commande » s'exécute avec les droits de CELUI QUI CLIQUE, pas de l'auteur du graphe. Un blueprint plafonné GAMEPLAY aurait pu fabriquer un message qu'un opérateur clique, exécutant une commande qu'il n'a pas écrite et qu'il ne lit pas forcément."
+    suggested_action: "Fait : text/click_command exige ADMIN — un auteur qui l'a déjà peut de toute façon lancer des commandes. Suggérer et copier, qui n'exécutent rien, restent GAMEPLAY. Test leClicQuiExecuteExigeLaPermissionAdmin."
+  - id: "BOSSBAR-001"
+    severity: high
+    finding: "CADRÉ — la barre de boss est le PREMIER nœud du produit à laisser un état vivant. Sans garde : un nœud posé dans une boucle en créerait soixante par seconde, rien ne bornerait leur nombre, et elles survivraient à l'arrêt du serveur sans propriétaire."
+    suggested_action: "Fait, trois gardes : réutilisation par nom, plafond de 32 avec faute nommée, nettoyage sur SERVER_STOPPED. Et une barre que plus personne ne voit libère sa place — sinon 32 mini-jeux terminés interdiraient le 33ᵉ. La logique d'état est visible du paquet pour être testée headless (8 tests)."
+  - id: "TEAM-001"
+    severity: low
+    finding: "Les équipes sont en LECTURE seule : un graphe ne peut ni en créer, ni y placer une entité"
+    suggested_action: "Refus délibéré : créer ou peupler une équipe touche à l'affichage des noms, aux collisions et au feu allié de TOUT le serveur. C'est un pouvoir d'administration, et /team reste le bon endroit pour l'exercer."
+  - id: "CLICK-002"
+    severity: low
+    finding: "L'ouverture d'URL au clic (ClickEvent.OpenUrl) n'est pas exposée, alors que Minecraft la propose"
+    suggested_action: "Refus délibéré : un serveur qui pousse une URL cliquable à ses joueurs est un vecteur d'hameçonnage, et le graphe qui la fabrique n'a pas à porter cette responsabilité. La suggestion de commande couvre le besoin légitime."
+  - id: "INVENTORY-001"
+    severity: low
+    finding: "count_item et remove_item ne voient que l'inventaire PRINCIPAL — ni l'armure, ni la main secondaire, ni les conteneurs ouverts"
+    suggested_action: "Assumé : c'est ce qu'un joueur appelle « ce que j'ai ». main_hand et off_hand couvrent le reste explicitement. Documenté dans le code."
+  - id: "PARTICLE-002"
+    severity: low
+    finding: "Report de 7.9 non traité : les particules paramétrées (dust, block, item) restent hors de portée d'un pin « identifiant »"
+    suggested_action: "Toujours reporté : il faut un type de pin « particule » paramétrable, ce qui élargit la surface d'API. La faute reste nommée plutôt que silencieuse."
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 0, low: 4 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "VERIFY-7.10 : inventaire, score affiché en latéral, message cliquable, regard, barre de boss — les cinq à l'œil en jeu"

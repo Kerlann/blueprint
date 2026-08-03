@@ -25,7 +25,7 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 - **Sous-catégories** de nœuds (`math/arithmetic`, `event/player`…) : la palette les
   affiche en arbre repliable, les six catégories qui dépassaient la dizaine de nœuds
   sont rangées, et un mod tiers peut déclarer les siennes.
-- **La bibliothèque passe de 89 à 161 nœuds et de 10 à 18 événements** (audit de
+- **La bibliothèque passe de 89 à 184 nœuds et de 10 à 18 événements** (audit de
   couverture) :
   - **Vecteurs et positions** (17) — `vec3` était consommé par sept pins et produit
     par un seul : « des particules deux blocs au-dessus du joueur » était inexprimable.
@@ -40,6 +40,14 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
     racine, puissance, borner, interpoler, trigonométrie.
   - **Huit événements** que Fabric exposait : dégâts subis, qui a tué qui,
     réapparition, changement de dimension, frapper, interagir, dormir, se lever.
+  - **Inventaire** (5) — lire ce que porte un joueur et le lui retirer : `give_item`
+    existait seul, « s'il a la clé, ouvre la porte » était inexprimable.
+  - **Scoreboard et équipes** (6) — la mémoire PARTAGÉE de Minecraft, celle que les
+    commandes et l'affichage latéral savent lire.
+  - **Texte riche avancé** (6) — gras, infobulle, clic, traduction.
+  - **Raycast** (3) — « ce que le joueur regarde », impossible jusque-là.
+  - **Barre de boss** (3) — le seul affichage persistant du jeu, avec réutilisation
+    par nom, plafond et nettoyage à l'arrêt.
 
 ### Corrigé
 
