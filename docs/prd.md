@@ -114,10 +114,11 @@ mappings Mojang). Tout le produit décrit ici est à construire par-dessus.
 
 - **FR45** — Un blueprint peut posséder un ou plusieurs **écrans**, composés d'éléments (panneau, étiquette, bouton, image, barre de progression) positionnés librement.
 - **FR46** — Les écrans se conçoivent **à la souris** : poser, déplacer, redimensionner, sélectionner, aligner — sans écrire une ligne.
+- **FR46b** — Un écran s'**adapte** : ancres, tailles en pourcentage et bornes lui permettent de rester utilisable de 320×180 à 960×540 unités d'interface, c'est-à-dire à toutes les résolutions et tous les réglages de *GUI scale* courants.
 - **FR47** — Chaque élément porte un **nom** unique dans son écran ; c'est par ce nom que le graphe le désigne.
 - **FR48** — Un nœud ouvre un écran pour un joueur donné, un autre le ferme ; un événement se déclenche quand un élément est **cliqué**, quand l'écran s'ouvre et quand il se ferme.
 - **FR49** — Le graphe peut **modifier** un écran ouvert : texte d'une étiquette, image, visibilité, activation d'un bouton, valeur d'une barre.
-- **FR50** — L'apparence est **personnalisable** : couleurs, bordures, et images désignées par identifiant de texture. Une texture absente affiche un remplaçant visible et ne fait **jamais** planter le client.
+- **FR50** — L'apparence est **personnalisable** : couleurs, bordures, neuf-tranches, et images fournies par des **packs** — des dossiers de `config/blueprint/scripts/` qu'un joueur dépose chez lui et peut donner à un autre. Une texture absente affiche un remplaçant qui **nomme le pack manquant** et ne fait jamais planter le client.
 - **FR51** — Les écrans traversent la sauvegarde, la synchronisation réseau et BScript comme le reste du blueprint : même enregistrement, même permission, même verrou.
 - **FR52** — Le serveur ne fait **jamais** confiance à ce qu'un client déclare avoir cliqué : l'écran ouvert, l'existence de l'élément et la cadence sont vérifiés côté serveur.
 
@@ -477,15 +478,15 @@ demande de choisir plutôt que de subir — est hors de portée.*
 - AC2 : nœuds `gui/open`, `gui/close`, et les modificateurs (texte, image, visibilité, activation, valeur).
 - AC3 : le serveur vérifie que l'écran est bien ouvert pour ce joueur et que l'élément existe ; la cadence des clics est limitée (FR52).
 
-**Story 10.5 — Apparence et images**
-- AC1 : couleurs, bordures, marges, alignement du texte, neuf-tranches pour les fonds.
-- AC2 : images par identifiant de texture ; les textures du jeu et les icônes d'objets marchent sans rien installer.
-- AC3 : ajouter ses propres images passe par un **pack de ressources** — documenté, avec un exemple complet.
+**Story 10.5 — Packs : un dossier échangeable**
+- AC1 : un pack est un DOSSIER de `config/blueprint/scripts/` : `pack.json`, `textures/*.png`, et le `.bp` qui les utilise. On le donne, l'autre le dépose, `/blueprint-packs reload`.
+- AC2 : un pack invalide est nommé et ignoré, jamais bloquant ; une texture absente affiche un remplaçant qui NOMME le pack manquant, comme un nœud fantôme nomme son mod.
+- AC3 : bornes (2048×2048, PNG seul, nombre de textures) ; le style — couleurs, bordures, neuf-tranches — marche sans aucun pack installé.
 
 **Story 10.6 — Quotas, accessibilité et documentation**
 - AC1 : plafond d'éléments par écran et d'écrans par blueprint, configurables comme les quotas de graphe.
 - AC2 : navigation clavier dans un écran ouvert, contraste vérifié comme NFR11.
-- AC3 : un exemple d'écran complet rejoint `docs/examples/`, validé par le même test.
+- AC3 : un **pack d'exemple complet** rejoint `docs/examples/` — dossier, `pack.json`, textures et le `.bp` qui les utilise, validé par le même test que les six autres.
 
 ---
 
