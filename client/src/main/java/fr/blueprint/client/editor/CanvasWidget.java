@@ -201,9 +201,10 @@ public final class CanvasWidget {
         // En dernier : une infobulle passe par-dessus tout, sinon elle disparaît sous
         // le nœud voisin dès qu'on survole le bord d'un nœud. Et seulement souris
         // posée : pendant un geste ou un déplacement, elle ne ferait que gêner.
-        boolean settled = hover.settled(mouseX, mouseY, System.currentTimeMillis());
-        if (settled && controller.gesture() == CanvasController.Gesture.NONE && !panning) {
-            Tooltip.render(g, font, tooltipAt(font, mouseX, mouseY),
+        long now = System.currentTimeMillis();
+        if (hover.settled(mouseX, mouseY, now)
+                && controller.gesture() == CanvasController.Gesture.NONE && !panning) {
+            Tooltip.render(g, font, tooltipCached(font, mouseX, mouseY, now),
                     mouseX, mouseY, width, height);
         }
     }
@@ -213,6 +214,41 @@ public final class CanvasWidget {
      * éditable, puis le nœud lui-même. Rien au-dessus d'un panneau ou d'une fenêtre —
      * une bulle par-dessus la palette gênerait plus qu'elle n'aiderait.
      */
+    /**
+     * Cache du survol. {@link #tooltipAt} teste les pins, les nœuds ET les fils — et
+     * un fil coûte trente-deux distances. Recalculé à chaque frame, cela ferait des
+     * centaines de milliers de racines carrées par seconde pour un texte qui, par
+     * construction, ne change pas tant que la souris ne bouge pas.
+     */
+    private List<String> tooltipCache = List.of();
+    private double tooltipCacheWorldX = Double.NaN;
+    private double tooltipCacheWorldY = Double.NaN;
+    private int tooltipCacheZoom = -1;
+    private int tooltipCacheRevision = -1;
+    private long tooltipCacheAt;
+
+    /** Au-delà, on recalcule même sans mouvement : la validation débouncée arrive après. */
+    private static final long TOOLTIP_CACHE_MS = 200;
+
+    private List<String> tooltipCached(Font font, double mx, double my, long nowMs) {
+        // Clé en coordonnées MONDE : un déplacement de caméra change ce qu'il y a sous
+        // un curseur immobile. Le zoom compte aussi (la tolérance de clic est en pixels).
+        double wx = camera.toWorldX(mx);
+        double wy = camera.toWorldY(my);
+        int revision = controller.blueprint().revision();
+        if (wx != tooltipCacheWorldX || wy != tooltipCacheWorldY
+                || camera.zoomIndex() != tooltipCacheZoom || revision != tooltipCacheRevision
+                || nowMs - tooltipCacheAt > TOOLTIP_CACHE_MS) {
+            tooltipCacheWorldX = wx;
+            tooltipCacheWorldY = wy;
+            tooltipCacheZoom = camera.zoomIndex();
+            tooltipCacheRevision = revision;
+            tooltipCacheAt = nowMs;
+            tooltipCache = tooltipAt(font, mx, my);
+        }
+        return tooltipCache;
+    }
+
     private List<String> tooltipAt(Font font, double mx, double my) {
         if (palette.isOpen() || picker.isOpen() || gotoState.isOpen()) {
             return List.of();
@@ -223,7 +259,11 @@ public final class CanvasWidget {
             return action == null ? List.of()
                     : List.of(ToolbarWidget.title(action), ToolbarWidget.hint(action));
         }
-        if (my >= height - DiagnosticsPanel.BAR_HEIGHT
+        // Le bandeau de diagnostics DÉPLIÉ mange bien plus que sa barre, et la
+        // minimap flotte au-dessus du canevas : dans les deux cas le monde sous le
+        // curseur n'est pas ce que le joueur regarde.
+        if (my >= height - DiagnosticsPanel.BAR_HEIGHT - DiagnosticsPanel.expandedHeight(diagnostics)
+                || Minimap.contains(mx, my, minimapLeft, minimapTop)
                 || (panelVisible && (mx < VariablePanel.WIDTH || mx >= width - DetailsPanel.WIDTH))) {
             return List.of();
         }

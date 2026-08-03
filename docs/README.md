@@ -59,7 +59,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 4 | BScript v1 | 4.1+4.2+4.3 (groupées) | **Complet** — gate PASS (4 corrections en review dont un high de fidélité) ; round-trip exact, `.bp` = texte |
 | 6 | Persistance monde | 6.1 | **Complet** — gate PASS (VERIFY-005 : redémarrage à confirmer en jeu) |
 | 6 | **Réseau multijoueur** | 6.2, 6.3(lite), 6.4 | **Complet** — 3 gates PASS (1 high + 4 medium corrigés en review dont une perte de travail et une escalade de permission) ; synchro du registre au join, ouverture/enregistrement par paquets avec verrou optimiste, garde de graphe + quotas ; reste v1.1 : patchs par opération et multi-éditeur |
-| 5 | **Éditeur visuel — COMPLET** | 5.1 → 5.11 (15 stories) | **15 gates PASS** — 1 high (crash Ctrl+S) + 6 medium corrigés en review, 117 tests client ; l'éditeur fait tout le backlog UE (littéraux+sélecteurs, undo, Ctrl+S réel, diagnostics cliquables, variables, copier/coller BScript, détails, palette complète, vue script, commentaires/minimap/thème) |
+| 5 | **Éditeur visuel — COMPLET** | 5.1 → 5.12 (16 stories) | **16 gates PASS** — 1 high (crash Ctrl+S) + 6 medium corrigés en review, 117 tests client ; l'éditeur fait tout le backlog UE (littéraux+sélecteurs, undo, Ctrl+S réel, diagnostics cliquables, variables, copier/coller BScript, détails, palette complète, vue script, commentaires/minimap/thème) ; **5.12** née de l'usage réel : panneaux qui défilent, infobulles au survol, clic sur les liens, pastille de permission et losange de conversion (1 high corrigé : un geste d'annulation laissé ouvert) |
 | 8 | **Intégration des mods tiers** | 8.1 → 8.5 | **Complet** — 5 gates PASS (3 medium + 1 low corrigés en review dont une violation d'AC : un JSON au mauvais type emportait tout le rechargement) ; annotation `@BlueprintNode`, nœuds composites de datapack rechargeables, fantômes prouvés de bout en bout, couche de compatibilité et surface d'API verrouillée par un test |
 | 9 | **Débogage, performance, finition** | 9.1a, 9.1b, 9.2, 9.3, 9.4, 9.5 | **Complet** — 6 gates PASS (1 medium NFR11 + 3 medium débogueur corrigés en review) ; débogueur pas-à-pas visible dans l'éditeur, profileur par nœud, quotas configurables + audit ADMIN, i18n vérifiée par les sources, palette daltonienne à cinq formes, guide joueur et référence générée |
 | 4 | 4.2b (sucre BScript) | — | **Reste v1.1** — seul morceau du PRD non livré, consigné dans la story 4.1-4.3 |
@@ -91,6 +91,8 @@ l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | V10 | Datapack (8.2) | `shout_twice` dans la palette ; modifier son JSON puis `/reload` |
 | V11 | Guide (9.5) | suivre `getting-started.md` §3 à la lettre, sans rien savoir d'autre |
 | V12 | Multijoueur (6.2/6.3) | serveur dédié : édition à deux, verrou optimiste, joueur sans permission → lecture seule |
+| V13 | Survol et liens (5.12) | poser la souris sur un pin, un nœud fauté, un fantôme, un bouton : l'infobulle explique ; cliquer un fil → halo, `Suppr` le retire, `Ctrl+Z` le remet ; pastille de permission et losange de conversion visibles |
+| V14 | Défilement des panneaux (5.12) | un nœud à douze pins et un blueprint à vingt variables : molette dans chaque panneau, curseur visible, rien d'inatteignable |
 
 ## Ordre de lecture recommandé
 

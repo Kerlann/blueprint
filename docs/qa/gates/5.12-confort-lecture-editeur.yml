@@ -1,0 +1,44 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.12"
+story_title: "Confort de lecture de l'éditeur — défilement, survol, clic sur les liens"
+gate: "PASS"
+status_reason: "Story née de l'usage réel, pas du PRD : chaque point corrige un geste sans effet ou une information que le modèle possédait sans jamais la montrer. La revue a trouvé trois vrais défauts — un geste d'annulation laissé ouvert (trouvé en écrivant les tests, avant exécution), et deux surfaces où l'infobulle décrivait un monde caché sous un panneau. Les trois sont corrigés."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T12:10:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "UNDO-001"
+    severity: high
+    finding: "CORRIGÉ — la branche « clic sur un fil » appelait history.beginGesture() sans jamais le refermer : le widget n'appelle release() que si le geste n'est pas NONE. Toutes les modifications suivant un simple clic sur un lien auraient fusionné en une seule entrée d'annulation, sans rien pour l'expliquer au joueur."
+    suggested_action: "Fait : endGesture() explicite dans la branche, comme Alt+clic depuis la QA 5.3. Test selectionnerUnFilNeFusionnePasLesAnnulationsSuivantes posé dessus."
+  - id: "HOVER-001"
+    severity: medium
+    finding: "CORRIGÉ — l'infobulle s'affichait par-dessus le bandeau de diagnostics DÉPLIÉ et par-dessus la minimap : elle décrivait alors le monde caché DERRIÈRE le panneau survolé. Seule la barre repliée (12 px) était exclue."
+    suggested_action: "Fait : exclusion par DiagnosticsPanel.expandedHeight() et Minimap.contains()."
+  - id: "PERF-001"
+    severity: medium
+    finding: "CORRIGÉ — tooltipAt teste les pins, les nœuds ET les fils ; un fil coûte trente-deux distances euclidiennes. Recalculé à chaque frame de survol, cela faisait des centaines de milliers de racines carrées par seconde sur un gros graphe, pour un texte qui ne change pas tant que la souris ne bouge pas."
+    suggested_action: "Fait : cache clé en coordonnées MONDE (un déplacement de caméra change ce qu'il y a sous un curseur immobile) + zoom + révision, avec péremption à 200 ms pour rattraper la validation débouncée."
+  - id: "WIRE-001"
+    severity: low
+    finding: "Le clic sur un fil et son rendu partagent controlOffset mais pas l'échantillonnage : le rendu adapte n à la distance, le hit-test recalcule la même formule. Deux copies qui pourraient diverger."
+    suggested_action: "Assumé : la formule tient en une ligne et WireHitTest verrouille les deux extrémités et le milieu. À fusionner si un troisième appelant apparaît."
+  - id: "WIRE-002"
+    severity: low
+    finding: "Le double-clic sur un lien pour insérer un point de reroutage (UX) n'est pas fait : un lien devrait porter des points intermédiaires persistés, sérialisés et synchronisés — c'est le modèle du cœur, pas l'éditeur."
+    suggested_action: "Reporté v1.1 explicitement plutôt que bâclé ; consigné dans la story."
+  - id: "HOVER-002"
+    severity: low
+    finding: "Les exclusions de surface (bandeau déplié, minimap, panneaux) vivent dans CanvasWidget, qui exige Minecraft : elles ne sont pas couvertes par un test headless, seulement par lecture."
+    suggested_action: "VERIFY-5.12 en session finale ; le calcul pur (placement, temporisation, distance à la courbe) est lui entièrement testé."
+  - id: "COERCE-001"
+    severity: low
+    finding: "Le losange de conversion disparaît sous 0,55× de zoom, là où il ne serait qu'un pixel — la conversion redevient invisible sur une vue d'ensemble."
+    suggested_action: "Assumé : le même seuil que le reste du LOD ; c'est en lisant un nœud qu'on a besoin de l'information, pas en survolant le graphe entier."
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 2, low: 4 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "VERIFY-5.12 : survol, losange de conversion et pastille de permission à l'œil, en jeu"
