@@ -114,6 +114,22 @@ public final class BlueprintPayloads {
         }
     }
 
+    /**
+     * S2C : ouvre le navigateur (F6) chez le joueur. C'est ce que rend
+     * {@code /blueprint edit} sans argument — une seule commande décide, côté serveur,
+     * et le client obéit.
+     */
+    public record OpenBrowser() implements CustomPacketPayload {
+        public static final Type<OpenBrowser> TYPE = new Type<>(id("bp_open_browser"));
+        public static final StreamCodec<ByteBuf, OpenBrowser> CODEC =
+                StreamCodec.unit(new OpenBrowser());
+
+        @Override
+        public Type<OpenBrowser> type() {
+            return TYPE;
+        }
+    }
+
     /** C2S : demande d'ouverture d'un blueprint pour édition. */
     public record OpenRequest(Identifier blueprint) implements CustomPacketPayload {
         public static final Type<OpenRequest> TYPE = new Type<>(id("bp_open_request"));

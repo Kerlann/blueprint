@@ -79,6 +79,18 @@ public final class BlueprintCommand {
                         .then(idArgument()
                                 .suggests(EXISTING_IDS)
                                 .executes(BlueprintCommand::info)))
+                // « edit » vit dans le MÊME arbre que le reste (AC : relier les deux
+                // commandes). Il partage donc les suggestions de `EXISTING_IDS`, qui
+                // lisent le gestionnaire du serveur — là où /blueprint-edit affichait
+                // une liste reçue au join, périmée dès la première création.
+                //
+                // Pas de `requires(admin)` : lire est ouvert, comme `info`. Le serveur
+                // décide seul si l'ouverture est modifiable ou en lecture seule.
+                .then(literal("edit")
+                        .executes(BlueprintCommand::openBrowser)
+                        .then(idArgument()
+                                .suggests(EXISTING_IDS)
+                                .executes(BlueprintCommand::edit)))
                 .then(literal("create")
                         .requires(admin)
                         .then(idArgument()
@@ -619,6 +631,39 @@ public final class BlueprintCommand {
                 enabled ? "blueprint.cmd.enabled_all" : "blueprint.cmd.disabled_all",
                 changed.size()), true);
         return changed.size();
+    }
+
+    /**
+     * {@code /blueprint edit} — ouvre le navigateur chez le joueur.
+     *
+     * <p>Une commande de <b>joueur</b> : sans lui, il n'y a pas d'écran où ouvrir quoi
+     * que ce soit. Une console ou un bloc de commande reçoit donc un refus explicite
+     * plutôt qu'un silence.
+     */
+    private static int openBrowser(CommandContext<CommandSourceStack> ctx) {
+        var player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.player_only"));
+            return 0;
+        }
+        fr.blueprint.core.net.ServerBlueprintNet.openBrowser(player);
+        return 1;
+    }
+
+    /** {@code /blueprint edit <id>} — envoie le graphe, le client ouvre l'éditeur. */
+    private static int edit(CommandContext<CommandSourceStack> ctx) {
+        var player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.player_only"));
+            return 0;
+        }
+        Identifier id = IdentifierArgument.getId(ctx, "id");
+        if (!fr.blueprint.core.net.ServerBlueprintNet.sendForEditing(player, id)) {
+            ctx.getSource().sendFailure(
+                    Component.translatable("blueprint.cmd.not_found", id.toString()));
+            return 0;
+        }
+        return 1;
     }
 
     private static Component state(Blueprint bp) {

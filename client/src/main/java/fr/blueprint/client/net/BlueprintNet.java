@@ -73,6 +73,10 @@ public final class BlueprintNet {
                     }
                 });
 
+        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.OpenBrowser.TYPE,
+                (payload, context) -> context.client().setScreen(
+                        new fr.blueprint.client.browser.BlueprintBrowserScreen()));
+
         ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.FileList.TYPE,
                 (payload, context) -> files = List.copyOf(payload.files()));
 

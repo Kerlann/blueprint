@@ -44,15 +44,19 @@ public class BlueprintClient implements ClientModInitializer {
             }
         });
 
-        // /blueprint-edit : liste | <id> | demo | create <id>. Tout passe par le
-        // serveur depuis la 6.3 (paquets, verrou optimiste) ; l'ouverture est différée
-        // d'une tâche : la fermeture du chat écraserait un setScreen immédiat.
+        // /blueprint-edit n'est plus qu'un ALIAS de /blueprint edit. Il ne décide plus
+        // rien : il réécrit la commande et la renvoie au serveur, qui la traite comme
+        // celle qu'on aurait tapée à la main.
+        //
+        // Les deux commandes avaient beau viser les mêmes blueprints, elles n'avaient
+        // en commun ni leurs suggestions — l'une lisait le gestionnaire du serveur,
+        // l'autre une liste reçue au join — ni leurs vérifications. Une seule
+        // implémentation ferme la question plutôt que de la corriger sans cesse.
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
                 dispatcher.register(ClientCommandManager.literal("blueprint-edit")
-                        .executes(context -> {
-                            list(context.getSource());
-                            return Command.SINGLE_SUCCESS;
-                        })
+                        .executes(context -> forward(context.getSource(), "blueprint edit"))
+                        // « demo » reste local : c'est le seul chemin qui fonctionne
+                        // hors serveur, quand il n'y a rien à demander à personne.
                         .then(ClientCommandManager.literal("demo").executes(context -> {
                             Minecraft mc = Minecraft.getInstance();
                             mc.schedule(() -> openDemoEditor(mc));
@@ -60,11 +64,9 @@ public class BlueprintClient implements ClientModInitializer {
                         }))
                         .then(ClientCommandManager.literal("create")
                                 .then(ClientCommandManager.argument("id", StringArgumentType.greedyString())
-                                        .executes(context -> {
-                                            createAndEdit(context.getSource(),
-                                                    StringArgumentType.getString(context, "id"));
-                                            return Command.SINGLE_SUCCESS;
-                                        })))
+                                        .executes(context -> forward(context.getSource(),
+                                                "blueprint create "
+                                                        + StringArgumentType.getString(context, "id")))))
                         .then(ClientCommandManager.argument("id", StringArgumentType.greedyString())
                                 .suggests((context, builder) -> {
                                     for (Identifier id
@@ -74,20 +76,9 @@ public class BlueprintClient implements ClientModInitializer {
                                     builder.suggest("demo");
                                     return builder.buildFuture();
                                 })
-                                .executes(context -> {
-                                    String raw = StringArgumentType.getString(context, "id");
-                                    Identifier id = parseId(raw);
-                                    if (id == null) {
-                                        context.getSource().sendFeedback(Component.translatable(
-                                                "blueprint.editor.cmd.unknown", raw, raw));
-                                    } else {
-                                        // Le verdict (ouverture ou « inconnu ») revient du
-                                        // serveur : lui seul sait ce qui existe (6.3).
-                                        lastEdited = id;
-                                        fr.blueprint.client.net.BlueprintNet.requestOpen(id);
-                                    }
-                                    return Command.SINGLE_SUCCESS;
-                                }))));
+                                .executes(context -> forward(context.getSource(),
+                                        "blueprint edit "
+                                                + StringArgumentType.getString(context, "id"))))));
 
         // Synchro du registre serveur (6.2) puis ouverture/enregistrement réseau (6.3).
         fr.blueprint.client.net.RegistrySync.register();
@@ -96,6 +87,22 @@ public class BlueprintClient implements ClientModInitializer {
         fr.blueprint.client.net.ScreenClient.register();
 
         BlueprintMod.LOGGER.info("Blueprint client initialisé");
+    }
+
+    /**
+     * Renvoie la commande au serveur. C'est ce qui fait de {@code /blueprint-edit} un
+     * alias et non un second chemin : le serveur applique ses propres vérifications,
+     * ses permissions et ses quotas, exactement comme si le joueur avait tapé
+     * {@code /blueprint …}.
+     */
+    private static int forward(FabricClientCommandSource source, String command) {
+        var connection = Minecraft.getInstance().getConnection();
+        if (connection == null) {
+            source.sendFeedback(Component.translatable("blueprint.editor.cmd.multiplayer"));
+            return 0;
+        }
+        connection.sendCommand(command);
+        return Command.SINGLE_SUCCESS;
     }
 
     /** Sans namespace, un identifiant nu vit sous {@code blueprint:} (comme /blueprint). */

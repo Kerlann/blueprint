@@ -27,10 +27,10 @@ commande est tapée…) et s'exécute **côté serveur**.
 
 | Ce que vous voulez | Ce que vous tapez |
 |---|---|
-| Voir un exemple qui marche | `/blueprint demo` puis `/blueprint-edit blueprint:demo` |
-| Créer le vôtre | `/blueprint-edit create mon_premier` |
-| Rouvrir le dernier édité | Touche **F6** |
-| Voir ce qui existe | `/blueprint-edit` (liste) ou `/blueprint list` |
+| Voir un exemple qui marche | `/blueprint demo` puis `/blueprint edit blueprint:demo` |
+| Créer le vôtre | `/blueprint create mon_premier` |
+| Ouvrir le navigateur | Touche **F6** — double-clic pour ouvrir, Ctrl+N pour créer |
+| Voir ce qui existe | **F6**, ou `/blueprint edit` — dossiers, création, import |
 
 > **En solo**, tout fonctionne, y compris sans « autoriser les tricheurs ».
 > **Sur un serveur**, l'édition demande la permission configurée par l'administrateur ;
@@ -40,7 +40,7 @@ commande est tapée…) et s'exécute **côté serveur**.
 
 ## 3. Votre premier blueprint en cinq gestes
 
-1. `/blueprint-edit create bonjour`
+1. `/blueprint create bonjour`
 2. **Espace** ouvre la palette. Tapez `join`, choisissez **`blueprint:player_join`** :
    c'est l'événement de départ.
 3. **Espace** encore, tapez `message`, choisissez **« Envoyer un message »**.

@@ -53,6 +53,7 @@
   "blueprint.cmd.exists": "Un blueprint nommé %s existe déjà",
   "blueprint.cmd.deleted": "Blueprint %s supprimé",
   "blueprint.cmd.not_found": "Aucun blueprint nommé %s",
+  "blueprint.cmd.player_only": "Cette commande a besoin d'un joueur — lancez-la en jeu",
   "blueprint.cmd.enabled_all": "%s blueprint(s) activé(s)",
   "blueprint.cmd.disabled_all": "%s blueprint(s) désactivé(s)",
   "blueprint.cmd.enabled": "Blueprint %s activé",

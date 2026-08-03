@@ -17,6 +17,43 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Structure de l'arbre Brigadier, vérifiée headless (story 1.5, AC1, AC5). */
 class BlueprintCommandTreeTest {
 
+    /**
+     * {@code edit} vit dans le MÊME arbre que le reste. C'est ce qui relie les deux
+     * commandes : {@code /blueprint-edit} n'est plus qu'un alias qui renvoie ici, donc
+     * il hérite des mêmes suggestions — lues du gestionnaire du serveur — au lieu d'une
+     * liste reçue à la connexion, périmée dès la première création.
+     */
+    @Test
+    void editVitDansLeMemeArbreQueLeReste() {
+        var dispatcher = new CommandDispatcher<CommandSourceStack>();
+        dispatcher.register(BlueprintCommand.build(BlueprintConfig.DEFAULT));
+        CommandNode<CommandSourceStack> root = dispatcher.getRoot().getChild("blueprint");
+
+        CommandNode<CommandSourceStack> edit = root.getChild("edit");
+        assertNotNull(edit, "/blueprint edit absent");
+        assertNotNull(edit.getCommand(), "sans argument, il ouvre le navigateur");
+        assertInstanceOf(ArgumentCommandNode.class, edit.getChild("id"),
+                "avec un argument, il ouvre ce blueprint");
+    }
+
+    /**
+     * {@code enable}/{@code disable} acceptent « all » : une commande par blueprint
+     * devient pénible dès qu'on charge les exemples. Le littéral doit précéder
+     * l'argument, sinon Brigadier lit « all » comme un identifiant.
+     */
+    @Test
+    void enableEtDisableAcceptentAll() {
+        var dispatcher = new CommandDispatcher<CommandSourceStack>();
+        dispatcher.register(BlueprintCommand.build(BlueprintConfig.DEFAULT));
+        CommandNode<CommandSourceStack> root = dispatcher.getRoot().getChild("blueprint");
+
+        for (String sub : List.of("enable", "disable")) {
+            CommandNode<CommandSourceStack> all = root.getChild(sub).getChild("all");
+            assertNotNull(all, "« all » absent sur : " + sub);
+            assertNotNull(all.getCommand(), sub + " all doit s'exécuter");
+        }
+    }
+
     @Test
     void treeExposesAllSubcommandsWithIdArguments() {
         var dispatcher = new CommandDispatcher<CommandSourceStack>();

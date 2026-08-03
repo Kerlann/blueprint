@@ -53,6 +53,7 @@
   "blueprint.cmd.exists": "A blueprint named %s already exists",
   "blueprint.cmd.deleted": "Blueprint %s deleted",
   "blueprint.cmd.not_found": "No blueprint named %s",
+  "blueprint.cmd.player_only": "This command needs a player — run it in game",
   "blueprint.cmd.enabled_all": "%s blueprint(s) enabled",
   "blueprint.cmd.disabled_all": "%s blueprint(s) disabled",
   "blueprint.cmd.enabled": "Blueprint %s enabled",

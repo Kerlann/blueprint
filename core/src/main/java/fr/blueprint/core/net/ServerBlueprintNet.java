@@ -65,6 +65,7 @@ public final class ServerBlueprintNet {
         c2s.register(BlueprintPayloads.FileListRequest.TYPE,
                 BlueprintPayloads.FileListRequest.CODEC);
         s2c.register(BlueprintPayloads.FileList.TYPE, BlueprintPayloads.FileList.CODEC);
+        s2c.register(BlueprintPayloads.OpenBrowser.TYPE, BlueprintPayloads.OpenBrowser.CODEC);
         c2s.register(BlueprintPayloads.ImportRequest.TYPE, BlueprintPayloads.ImportRequest.CODEC);
 
         // Les fichiers importables. Réservé à qui peut éditer : la liste des fichiers
@@ -420,6 +421,30 @@ public final class ServerBlueprintNet {
                         new BlueprintPayloads.ScreenUpdates(open.instance(), updates));
             }
         }
+    }
+
+    /**
+     * Envoie un graphe à un joueur pour qu'il l'édite — le chemin de
+     * {@code /blueprint edit <id>}. Rend faux si le blueprint n'existe pas.
+     */
+    public static boolean sendForEditing(ServerPlayer player, Identifier blueprintId) {
+        var server = player.level().getServer();
+        if (server == null) {
+            return false;
+        }
+        Blueprint bp = BlueprintManager.of(server).get(blueprintId).orElse(null);
+        if (bp == null) {
+            return false;
+        }
+        ServerPlayNetworking.send(player, new BlueprintPayloads.GraphData(
+                bp.id(), bp.revision(), mayEdit(CONFIG, player), GraphSync.toBytes(bp)));
+        return true;
+    }
+
+    /** Ouvre le navigateur chez un joueur, avec de quoi le remplir. */
+    public static void openBrowser(ServerPlayer player) {
+        announceList(player.level().getServer());
+        ServerPlayNetworking.send(player, new BlueprintPayloads.OpenBrowser());
     }
 
     /** Referme l'écran d'un joueur et le lui dit. */
