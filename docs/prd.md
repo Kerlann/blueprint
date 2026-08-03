@@ -112,7 +112,7 @@ mappings Mojang). Tout le produit décrit ici est à construire par-dessus.
 
 #### Interfaces graphiques (épic 10)
 
-- **FR45** — Un blueprint peut posséder un ou plusieurs **écrans**, composés d'éléments (panneau, étiquette, bouton, image, barre, liste défilante, champ de saisie, emplacement d'objet) positionnés librement.
+- **FR45** — Un blueprint peut posséder un ou plusieurs **écrans**, **modaux ou permanents (HUD)**, composés d'éléments imbricables (panneau, étiquette, bouton, image, barre, liste défilante, champ de saisie, emplacement d'objet, case, curseur, aperçu d'entité) positionnés librement.
 - **FR46** — Les écrans se conçoivent **à la souris** : poser, déplacer, redimensionner, sélectionner, aligner — sans écrire une ligne.
 - **FR46b** — Un écran s'**adapte** : ancres, tailles en pourcentage et bornes lui permettent de rester utilisable de 320×180 à 960×540 unités d'interface, c'est-à-dire à toutes les résolutions et tous les réglages de *GUI scale* courants.
 - **FR47** — Chaque élément porte un **nom** unique dans son écran ; c'est par ce nom que le graphe le désigne.
@@ -457,6 +457,19 @@ En tant que développeuse de mod, je veux déclarer mes propres événements dé
 d'action. Un menu de boutique, un choix de camp, un tableau de scores — tout ce qui
 demande de choisir plutôt que de subir — est hors de portée.*
 
+#### Épreuve de l'épic : quatre cas réels
+
+*Une spécification ne vaut que si on la fait passer par ce que les gens vont
+réellement construire. Les quatre suivants ont servi à trouver ce qui manquait ;
+ils restent la liste de contrôle avant de déclarer l'épic terminé.*
+
+| Cas | Ce qu'il exige | Où |
+|---|---|---|
+| **Distributeur** | ouvrir sur un bloc, solde par joueur, saisie d'un montant, retrait d'objets, message d'erreur | 10.1–10.4, 10.7, 10.8 |
+| **Boutique** | liste défilante d'articles, icônes d'objets, prix, achat à la ligne, solde | 10.8 (liste, emplacement), 10.7 |
+| **Création de personnage** | pages successives, choix exclusifs, saisie du nom, **aperçu du personnage** | 10.8 (case, curseur, aperçu), 10.1 (imbrication : masquer le parent masque la page) |
+| **HUD** | visible en jouant, **sans figer ni capter la souris**, plusieurs à la fois, dessiné à chaque frame | **10.9** — rien dans 10.1–10.8 ne le permettait |
+
 **Story 10.1 — Modèle d'écran** *(cœur)*
 - AC1 : un `Screen` porte des éléments typés (panneau, étiquette, bouton, image, barre) ; chacun a un nom unique, une position, une taille, une ancre et un style.
 - AC2 : les écrans appartiennent au blueprint — même sérialisation NBT, même préservation intégrale, même révision.
@@ -494,6 +507,11 @@ demande de choisir plutôt que de subir — est hors de portée.*
 - AC1 : `LIST` (gabarit de ligne répété, défilement, découpe), `INPUT` (filtre, longueur, revérifiés côté serveur), `SLOT` (affiche un itemstack et son infobulle).
 - AC2 : la liste est alimentée par une `list<T>` du graphe ; un clic rend l'INDICE et la valeur, pas seulement le nom de l'élément.
 - AC3 : pas de glisser-déposer d'objets — un slot qui accepte un dépôt est un CONTENEUR, avec ses transactions et ses duplications ; on passe par des boutons et les nœuds d'inventaire.
+
+**Story 10.9 — HUD : afficher sans interrompre**
+- AC1 : un écran peut être PERMANENT plutôt que modal — aucune capture d'entrée, le joueur continue de jouer ; plusieurs HUD coexistent, contrairement aux écrans modaux.
+- AC2 : les éléments interactifs y sont refusés à l'ÉDITION (le curseur appartient au jeu), et une touche client masque TOUS les HUD Blueprint — le pendant de « Échap ferme toujours ».
+- AC3 : dessiné à chaque frame, donc mise en page mise en cache et banc de rendu contre le budget NFR1.
 
 **Story 10.6 — Quotas, accessibilité et documentation**
 - AC1 : plafond d'éléments par écran et d'écrans par blueprint, configurables comme les quotas de graphe.
