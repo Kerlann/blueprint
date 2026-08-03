@@ -170,40 +170,40 @@ public final class StandardNodes {
 
         // ----------------------------------------------------------- chaînes (7.2)
         r.register(NodeType.builder(id("string/concat"))
-                .category(NodeCategories.STRING).pure()
+                .category(NodeCategories.STRING_EDIT).pure()
                 .in("a", PinTypes.STRING, "").in("b", PinTypes.STRING, "")
                 .out("result", PinTypes.STRING)
                 .action(ctx -> ctx.out("result", ctx.<String>in("a") + ctx.<String>in("b")))
                 .build());
 
         r.register(NodeType.builder(id("string/length"))
-                .category(NodeCategories.STRING).pure()
+                .category(NodeCategories.STRING_QUERY).pure()
                 .in("value", PinTypes.STRING, "").out("result", PinTypes.INT)
                 .action(ctx -> ctx.out("result", ctx.<String>in("value").length()))
                 .build());
 
         r.register(NodeType.builder(id("string/contains"))
-                .category(NodeCategories.STRING).pure()
+                .category(NodeCategories.STRING_QUERY).pure()
                 .in("value", PinTypes.STRING, "").in("search", PinTypes.STRING, "")
                 .out("result", PinTypes.BOOL)
                 .action(ctx -> ctx.out("result", ctx.<String>in("value").contains(ctx.in("search"))))
                 .build());
 
         r.register(NodeType.builder(id("string/upper"))
-                .category(NodeCategories.STRING).pure()
+                .category(NodeCategories.STRING_EDIT).pure()
                 .in("value", PinTypes.STRING, "").out("result", PinTypes.STRING)
                 .action(ctx -> ctx.out("result", ctx.<String>in("value").toUpperCase(java.util.Locale.ROOT)))
                 .build());
 
         r.register(NodeType.builder(id("string/lower"))
-                .category(NodeCategories.STRING).pure()
+                .category(NodeCategories.STRING_EDIT).pure()
                 .in("value", PinTypes.STRING, "").out("result", PinTypes.STRING)
                 .action(ctx -> ctx.out("result", ctx.<String>in("value").toLowerCase(java.util.Locale.ROOT)))
                 .build());
 
         // ------------------------------------------------------- conversions (7.2)
         r.register(NodeType.builder(id("convert/to_string"))
-                .category(NodeCategories.STRING).pure()
+                .category(NodeCategories.STRING_EDIT).pure()
                 .in("value", PinTypes.ANY).out("result", PinTypes.STRING)
                 .action(ctx -> ctx.out("result", String.valueOf((Object) ctx.in("value"))))
                 .build());
@@ -413,6 +413,8 @@ public final class StandardNodes {
         VectorNodes.register(r);
         QueryNodes.register(r);
         ClientNodes.register(r);
+        MapNodes.register(r);
+        TextMathNodes.register(r);
         WorldNodes.register(r);
         EntityNodes.register(r);
         ItemNodes.register(r);

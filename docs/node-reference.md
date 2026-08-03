@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-134 nœuds dans 27 catégories.
+161 nœuds dans 32 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -919,6 +919,123 @@ permission `SAFE` · fuel 1 · P
 | `result` | `blueprint:bool` | — |
 
 
+## map/build
+
+### `blueprint:map/empty` — Empty map
+
+permission `SAFE` · fuel 1 · P
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+
+### `blueprint:map/put` — Put in map
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+| `key` | `K` | — |
+| `value` | `V` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+
+### `blueprint:map/remove` — Remove from map
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+| `key` | `K` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+
+
+## map/query
+
+### `blueprint:map/get` — Get from map
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+| `key` | `K` | — |
+| `fallback` | `V` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `value` | `V` | — |
+| `found` | `blueprint:bool` | — |
+
+### `blueprint:map/has` — Map contains key
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+| `key` | `K` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `has` | `blueprint:bool` | — |
+
+### `blueprint:map/is_empty` — Is map empty
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `empty` | `blueprint:bool` | — |
+
+### `blueprint:map/keys` — Map keys
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `keys` | `list<K>` | — |
+
+### `blueprint:map/size` — Map size
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `size` | `blueprint:int` | — |
+
+### `blueprint:map/values` — Map values
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `map` | `map<K, V>` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `values` | `list<V>` | — |
+
+
 ## math/arithmetic
 
 ### `blueprint:math/add` — Add
@@ -1065,6 +1182,98 @@ permission `SAFE` · fuel 1 · P
 | `result` | `blueprint:int` | — |
 
 
+## math/numeric
+
+### `blueprint:math/ceil` — Ceiling
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/clamp` — Clamp
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | `0.0` |
+| `min` | `blueprint:double` | `0.0` |
+| `max` | `blueprint:double` | `1.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/floor` — Floor
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/lerp` — Lerp
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `from` | `blueprint:double` | `0.0` |
+| `to` | `blueprint:double` | `1.0` |
+| `t` | `blueprint:double` | `0.5` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/pow` — Power
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `base` | `blueprint:double` | `1.0` |
+| `exponent` | `blueprint:double` | `2.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/sign` — Sign
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/sqrt` — Square root
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+
 ## math/position
 
 ### `blueprint:pos/distance` — Distance between positions
@@ -1161,6 +1370,46 @@ permission `SAFE` · fuel 1 · P
 | Sorties | Type | Défaut |
 |---|---|---|
 | `pos` | `blueprint:blockpos` | — |
+
+
+## math/trig
+
+### `blueprint:math/atan2` — Angle (atan2)
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `y` | `blueprint:double` | `0.0` |
+| `x` | `blueprint:double` | `1.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `angle` | `blueprint:double` | — |
+
+### `blueprint:math/cos` — Cosine
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
+
+### `blueprint:math/sin` — Sine
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:double` | — |
 
 
 ## math/vector
@@ -1483,7 +1732,20 @@ permission `GAMEPLAY` · fuel 1
 | `exec_out` | exec | — |
 
 
-## string
+## string/edit
+
+### `blueprint:convert/to_number` — Text to number
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:double` | — |
+| `valid` | `blueprint:bool` | — |
 
 ### `blueprint:convert/to_string` — To text
 
@@ -1510,6 +1772,99 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `result` | `blueprint:string` | — |
 
+### `blueprint:string/join` — Join
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `parts` | `list<blueprint:string>` | — |
+| `separator` | `blueprint:string` | ` ` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | — |
+
+### `blueprint:string/lower` — Lowercase
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:string` | — |
+
+### `blueprint:string/replace` — Replace
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | `` |
+| `search` | `blueprint:string` | `` |
+| `replacement` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | — |
+
+### `blueprint:string/split` — Split
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | `` |
+| `separator` | `blueprint:string` | ` ` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `parts` | `list<blueprint:string>` | — |
+
+### `blueprint:string/substring` — Substring
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | `` |
+| `from` | `blueprint:int` | `0` |
+| `length` | `blueprint:int` | `1` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | — |
+
+### `blueprint:string/trim` — Trim
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | — |
+
+### `blueprint:string/upper` — Uppercase
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `value` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:string` | — |
+
+
+## string/query
+
 ### `blueprint:string/contains` — Contains
 
 permission `SAFE` · fuel 1 · P
@@ -1518,6 +1873,19 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `value` | `blueprint:string` | `` |
 | `search` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `result` | `blueprint:bool` | — |
+
+### `blueprint:string/ends_with` — Ends with
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:string` | `` |
+| `suffix` | `blueprint:string` | `` |
 
 | Sorties | Type | Défaut |
 |---|---|---|
@@ -1535,29 +1903,18 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `result` | `blueprint:int` | — |
 
-### `blueprint:string/lower` — Lowercase
+### `blueprint:string/starts_with` — Starts with
 
 permission `SAFE` · fuel 1 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|
-| `value` | `blueprint:string` | `` |
+| `text` | `blueprint:string` | `` |
+| `prefix` | `blueprint:string` | `` |
 
 | Sorties | Type | Défaut |
 |---|---|---|
-| `result` | `blueprint:string` | — |
-
-### `blueprint:string/upper` — Uppercase
-
-permission `SAFE` · fuel 1 · P
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `value` | `blueprint:string` | `` |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `result` | `blueprint:string` | — |
+| `result` | `blueprint:bool` | — |
 
 
 ## text

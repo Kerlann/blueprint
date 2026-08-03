@@ -33,6 +33,11 @@ public final class NodeCategories {
     public static final NodeCategory MATH_ARITHMETIC = new NodeCategory("math/arithmetic");
     /** Minimum, maximum, valeur absolue, arrondi, aléatoire, conversions. */
     public static final NodeCategory MATH_FUNCTION = new NodeCategory("math/function");
+    /** Racine, puissance, plancher, plafond, borner, interpoler. */
+    public static final NodeCategory MATH_NUMERIC = new NodeCategory("math/numeric");
+    /** Sinus, cosinus, angle : la trigonométrie. */
+    public static final NodeCategory MATH_TRIG = new NodeCategory("math/trig");
+
     /** Vecteurs : construction, décomposition, arithmétique. */
     public static final NodeCategory MATH_VECTOR = new NodeCategory("math/vector");
     /** Positions de bloc, et passage vec3 ↔ blockpos. */
@@ -42,6 +47,16 @@ public final class NodeCategories {
     public static final NodeCategory LOGIC_COMPARE = new NodeCategory("logic/compare");
     /** Opérateurs booléens : et, ou, non, ou exclusif. */
     public static final NodeCategory LOGIC_BOOLEAN = new NodeCategory("logic/boolean");
+
+    /** Transformer une chaîne : casse, découpe, extraction, remplacement. */
+    public static final NodeCategory STRING_EDIT = new NodeCategory("string/edit");
+    /** L'interroger sans la changer : longueur, contient, commence par. */
+    public static final NodeCategory STRING_QUERY = new NodeCategory("string/query");
+
+    /** Créer un dictionnaire, y placer, en retirer. */
+    public static final NodeCategory MAP_BUILD = new NodeCategory("map/build");
+    /** L'interroger : clé présente, valeur, taille, clés, valeurs. */
+    public static final NodeCategory MAP_QUERY = new NodeCategory("map/query");
 
     /** Créer une liste, y ajouter, en retirer. */
     public static final NodeCategory LIST_BUILD = new NodeCategory("list/build");
