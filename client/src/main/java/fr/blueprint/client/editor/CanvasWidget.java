@@ -126,7 +126,8 @@ public final class CanvasWidget {
                 fr.blueprint.client.theme.ThemeLoader.load(configDir));
         this.palette = new PaletteState(new NodeSearch(entries), descriptors::descriptor,
                 fr.blueprint.client.config.PalettePrefs.load(configDir),
-                () -> session.blueprint().meta().permissionCap());
+                () -> session.blueprint().meta().permissionCap(),
+                this::variablePaletteEntries);
         this.varPanel = new VariablePanelState(session.blueprint(), lookup, controller::applyOp,
                 controller::beginGesture, controller::endGesture);
         this.details = new DetailsPanelState(session.blueprint(), descriptors::descriptor,
@@ -1681,11 +1682,39 @@ public final class CanvasWidget {
         return false;
     }
 
+    /**
+     * « Obtenir X » et « Définir X » pour chaque variable du blueprint. Deux entrées
+     * par variable, comme dans Unreal : lire et écrire sont deux nœuds différents.
+     * Construites ici parce que les libellés sont traduits — {@link PaletteState}
+     * reste pure et reçoit ses chaînes toutes faites, comme pour les nœuds.
+     */
+    private List<NodeSearch.Entry> variablePaletteEntries() {
+        List<NodeSearch.Entry> out = new ArrayList<>();
+        for (var variable : controller.blueprint().variables().values()) {
+            String type = I18n.get(variable.type().translationKey());
+            out.add(new NodeSearch.Entry(fr.blueprint.core.graph.VarNodes.GET,
+                    I18n.get("blueprint.editor.palette.var_get", variable.name()),
+                    type, PaletteState.VARIABLES, variable.name()));
+            out.add(new NodeSearch.Entry(fr.blueprint.core.graph.VarNodes.SET,
+                    I18n.get("blueprint.editor.palette.var_set", variable.name()),
+                    type, PaletteState.VARIABLES, variable.name()));
+        }
+        return out;
+    }
+
     private void insertFromPalette(boolean connect) {
         NodeSearch.Entry entry = palette.selectedEntry();
         if (entry != null) {
-            controller.insertNode(entry.id(), palette.worldX(), palette.worldY(),
-                    connect ? palette.wireFrom() : null);
+            if (entry.isVariable()) {
+                // L'identifiant seul ne suffit pas : toutes les lectures partagent
+                // blueprint:var/get, seul le nom distingue laquelle.
+                controller.insertVariableNode(
+                        fr.blueprint.core.graph.VarNodes.SET.equals(entry.id()),
+                        entry.variable(), palette.worldX(), palette.worldY());
+            } else {
+                controller.insertNode(entry.id(), palette.worldX(), palette.worldY(),
+                        connect ? palette.wireFrom() : null);
+            }
             palette.noteInserted(entry.id());
             palette.prefs().save(configDir);
         }

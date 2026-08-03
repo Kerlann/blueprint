@@ -67,12 +67,26 @@ public final class PaletteState {
     private double worldY;
     private @Nullable CanvasController.PinRef wireFrom;
 
+    /**
+     * Les variables du blueprint courant, pour la catégorie Variables. Fourni par le
+     * widget : la palette ne connaît pas le graphe, et les variables changent sous
+     * elle (on peut en créer une puis rouvrir le menu dans la seconde).
+     */
+    private final Supplier<List<NodeSearch.Entry>> variables;
+
     public PaletteState(NodeSearch search, Function<Identifier, NodeDescriptor> descriptors,
                         PalettePrefs prefs, Supplier<Permission> permissionCap) {
+        this(search, descriptors, prefs, permissionCap, List::of);
+    }
+
+    public PaletteState(NodeSearch search, Function<Identifier, NodeDescriptor> descriptors,
+                        PalettePrefs prefs, Supplier<Permission> permissionCap,
+                        Supplier<List<NodeSearch.Entry>> variables) {
         this.search = search;
         this.descriptors = descriptors;
         this.prefs = prefs;
         this.permissionCap = permissionCap;
+        this.variables = variables;
     }
 
     public PalettePrefs prefs() {
@@ -229,7 +243,14 @@ public final class PaletteState {
 
             Map<String, List<NodeSearch.Entry>> byCategory = new LinkedHashMap<>();
             all.forEach(e -> byCategory.computeIfAbsent(e.category(), k -> new ArrayList<>()).add(e));
-            byCategory.keySet().stream().sorted(Comparator.naturalOrder()).forEach(category -> {
+            // Les variables du blueprint sont une catégorie à part entière : sans
+            // elles, le menu d'ajout ignorait qu'elles existaient et il fallait les
+            // faire glisser depuis le panneau — un geste que rien n'annonce.
+            List<NodeSearch.Entry> vars = variables.get();
+            if (!vars.isEmpty()) {
+                byCategory.put(VARIABLES, vars);
+            }
+            byCategory.keySet().stream().sorted(CATEGORY_ORDER).forEach(category -> {
                 List<NodeSearch.Entry> members = byCategory.get(category);
                 boolean expanded = !collapsed.contains(category);
                 out.add(new Item.Category(category, members.size(), expanded));
@@ -276,6 +297,28 @@ public final class PaletteState {
             out.add(wrap(entry));
             flat.add(entry);
         }
+    }
+
+    /** Catégorie synthétique : elle ne vient d'aucun nœud, mais du graphe ouvert. */
+    public static final String VARIABLES = "variables";
+
+    /**
+     * Ordre des catégories, à la manière d'Unreal : on commence un graphe par un
+     * <b>événement</b>, on le nourrit de <b>variables</b>, le reste vient après. Le
+     * tri alphabétique mettait « debug » en tête et « event » au milieu — l'ordre
+     * d'une table des matières, pas celui dans lequel on travaille.
+     */
+    static final Comparator<String> CATEGORY_ORDER =
+            Comparator.<String>comparingInt(PaletteState::categoryRank)
+                    .thenComparing(Comparator.naturalOrder());
+
+    private static int categoryRank(String category) {
+        return switch (category) {
+            case "event" -> 0;
+            case VARIABLES -> 1;
+            case "flow" -> 2;
+            default -> 3;
+        };
     }
 
     private Item.EntryItem wrap(NodeSearch.Entry entry) {

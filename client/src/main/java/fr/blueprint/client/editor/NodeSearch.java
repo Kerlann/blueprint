@@ -1,6 +1,7 @@
 package fr.blueprint.client.editor;
 
 import net.minecraft.resources.Identifier;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -17,10 +18,29 @@ import java.util.function.Predicate;
 public final class NodeSearch {
 
     /** Un type de nœud vu par la palette ; le fournisseur est le namespace. */
-    public record Entry(Identifier id, String title, String description, String category) {
+    /**
+     * Une entrée de la palette.
+     *
+     * @param variable nom de la variable du blueprint, pour les entrées « Obtenir » et
+     *                 « Définir » de la catégorie Variables ; null pour un vrai nœud du
+     *                 registre. L'identifiant seul ne suffirait pas : toutes les
+     *                 lectures partagent {@code blueprint:var/get}, et c'est le nom qui
+     *                 les distingue.
+     */
+    public record Entry(Identifier id, String title, String description, String category,
+                        @Nullable String variable) {
+
+        public Entry(Identifier id, String title, String description, String category) {
+            this(id, title, description, category, null);
+        }
 
         public String provider() {
             return id.getNamespace();
+        }
+
+        /** Vrai si l'insertion doit passer par {@code insertVariableNode}. */
+        public boolean isVariable() {
+            return variable != null;
         }
     }
 

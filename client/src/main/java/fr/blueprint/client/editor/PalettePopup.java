@@ -36,6 +36,19 @@ public final class PalettePopup {
     private PalettePopup() {
     }
 
+    /**
+     * Nom lisible d'une catégorie. Les catégories s'affichaient BRUTES — « flow »,
+     * « event » — alors que ce sont les seuls repères du menu d'ajout.
+     *
+     * <p>Repli sur l'identifiant si la clé n'existe pas : un mod tiers déclare la
+     * catégorie qu'il veut, et le projet n'a évidemment pas sa traduction. Mieux vaut
+     * « mymod_magie » qu'une clé brute à rallonge.
+     */
+    public static String categoryLabel(String category) {
+        String key = "blueprint.category." + category;
+        return I18n.exists(key) ? I18n.get(key) : category;
+    }
+
     private static int visibleRows(PaletteState state) {
         return Math.min(state.items().size(), PaletteState.VISIBLE_ROWS);
     }
@@ -90,7 +103,8 @@ public final class PalettePopup {
                 case PaletteState.Item.Section(String labelKey) ->
                         g.drawString(font, I18n.get(labelKey), x + 4, rowY + 3, SECTION_COLOR, false);
                 case PaletteState.Item.Category(String name, int count, boolean expanded) ->
-                        g.drawString(font, (expanded ? "▾ " : "▸ ") + name + " (" + count + ")",
+                        g.drawString(font, (expanded ? "▾ " : "▸ ")
+                                        + categoryLabel(name) + " (" + count + ")",
                                 x + 4, rowY + 3, TITLE_COLOR, false);
                 case PaletteState.Item.EntryItem(var entry, boolean favorite, boolean blocked) -> {
                     if (state.entryIndexOf(index) == state.selectedIndex()) {

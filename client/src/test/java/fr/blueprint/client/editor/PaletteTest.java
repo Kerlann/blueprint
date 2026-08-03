@@ -16,6 +16,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Recherche ({@link NodeSearch}) et état de palette ({@link PaletteState}) — purs. */
@@ -101,14 +102,18 @@ class PaletteTest {
         return new NodeDescriptor.PinDescriptor(name, PinKind.DATA, PinTypes.DOUBLE, null);
     }
 
-    private static PaletteState palette() {
+    private static java.util.function.Function<Identifier, NodeDescriptor> descriptorsForTest() {
         Map<Identifier, NodeDescriptor> descs = new HashMap<>();
         descs.put(EXEC_NODE.id(), EXEC_NODE);
         descs.put(PURE_NODE.id(), PURE_NODE);
+        return descs::get;
+    }
+
+    private static PaletteState palette() {
         NodeSearch search = new NodeSearch(List.of(
                 new NodeSearch.Entry(EXEC_NODE.id(), "Exec node", "d", "flow"),
                 new NodeSearch.Entry(PURE_NODE.id(), "Pure node", "d", "math")));
-        return new PaletteState(search, descs::get,
+        return new PaletteState(search, descriptorsForTest(),
                 new fr.blueprint.client.config.PalettePrefs(), () -> Permission.GAMEPLAY);
     }
 
@@ -249,6 +254,85 @@ class PaletteTest {
         assertEquals(seconde, p.selectedIndex());
         assertEquals(rows.get(1).intValue(), p.itemRowOf(seconde));
         assertEquals(rows.get(0).intValue(), p.itemRowOf(premiere));
+    }
+
+    // ------------------------------------------- tri du menu d'ajout (5.13, UE5)
+
+    /**
+     * On commence un graphe par un <b>événement</b>, on le nourrit de
+     * <b>variables</b>, le reste vient après. Le tri alphabétique mettait « debug »
+     * en tête et « event » au milieu : l'ordre d'une table des matières, pas celui
+     * dans lequel on travaille.
+     */
+    @Test
+    void lesCategoriesSontTrieesParUsagePasParAlphabet() {
+        List<String> ordre = new ArrayList<>(List.of(
+                "world", "debug", "flow", PaletteState.VARIABLES, "event", "math"));
+        ordre.sort(PaletteState.CATEGORY_ORDER);
+
+        assertEquals(List.of("event", PaletteState.VARIABLES, "flow",
+                "debug", "math", "world"), ordre);
+    }
+
+    /**
+     * Les variables du blueprint apparaissent dans le menu d'ajout, en « Obtenir » et
+     * « Définir ». Avant, le menu ignorait qu'elles existaient : il fallait les faire
+     * glisser depuis le panneau, un geste que rien n'annonce.
+     */
+    @Test
+    void lesVariablesDuBlueprintApparaissentDansLeMenu() {
+        NodeSearch.Entry get = new NodeSearch.Entry(
+                fr.blueprint.core.graph.VarNodes.GET, "Obtenir score", "Entier",
+                PaletteState.VARIABLES, "score");
+        NodeSearch.Entry set = new NodeSearch.Entry(
+                fr.blueprint.core.graph.VarNodes.SET, "Définir score", "Entier",
+                PaletteState.VARIABLES, "score");
+
+        PaletteState p = new PaletteState(
+                new NodeSearch(List.of(
+                        new NodeSearch.Entry(EXEC_NODE.id(), "Exec node", "d", "flow"))),
+                descriptorsForTest(), new fr.blueprint.client.config.PalettePrefs(),
+                () -> Permission.ADMIN,
+                () -> List.of(get, set));
+        p.open(0, 0, 0, 0, null);
+
+        assertTrue(p.results().contains(get));
+        assertTrue(p.results().contains(set));
+        assertTrue(get.isVariable(), "et l'insertion saura QUELLE variable poser");
+        assertEquals("score", get.variable());
+
+        // La catégorie Variables est placée avant les catégories de nœuds.
+        int variables = indexOfCategory(p, PaletteState.VARIABLES);
+        int flow = indexOfCategory(p, "flow");
+        assertTrue(variables >= 0 && flow >= 0);
+        assertTrue(variables < flow, "Variables avant Contrôle du flux");
+    }
+
+    /** Sans variable déclarée, aucune catégorie Variables vide ne s'affiche. */
+    @Test
+    void aucuneCategorieVariablesQuandLeBlueprintNenAPas() {
+        PaletteState p = palette();
+        p.open(0, 0, 0, 0, null);
+        assertEquals(-1, indexOfCategory(p, PaletteState.VARIABLES));
+    }
+
+    /** Un vrai nœud du registre n'est pas une variable : l'insertion ne doit pas dévier. */
+    @Test
+    void unNoeudOrdinaireNestPasUneVariable() {
+        PaletteState p = palette();
+        p.open(0, 0, 0, 0, null);
+        assertFalse(p.results().get(0).isVariable());
+        assertNull(p.results().get(0).variable());
+    }
+
+    private static int indexOfCategory(PaletteState p, String name) {
+        for (int i = 0; i < p.items().size(); i++) {
+            if (p.items().get(i) instanceof PaletteState.Item.Category(String n, var c, var e)
+                    && n.equals(name)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /** Les sections et les catégories ne sont pas des entrées : −1, jamais un indice. */

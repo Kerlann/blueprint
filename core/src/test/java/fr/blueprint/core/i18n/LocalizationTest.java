@@ -2,6 +2,8 @@ package fr.blueprint.core.i18n;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import fr.blueprint.api.node.NodeCategories;
+import fr.blueprint.api.node.NodeCategory;
 import fr.blueprint.api.node.Permission;
 import fr.blueprint.core.graph.DiagnosticCode;
 import org.junit.jupiter.api.Test;
@@ -209,6 +211,42 @@ class LocalizationTest {
             }
         }
         assertTrue(missing.isEmpty(), "niveaux de permission non traduits : " + missing);
+    }
+
+    /**
+     * Les catégories nomment les groupes du menu d'ajout de nœud : ce sont les seuls
+     * repères du joueur qui cherche. Une catégorie standard sans traduction
+     * s'afficherait telle quelle — « flow », « struct » — ce qui était le cas avant
+     * la 5.13.
+     */
+    @Test
+    void everyStandardCategoryIsTranslated() {
+        JsonObject english = lang("en_us");
+        JsonObject french = lang("fr_fr");
+        List<String> missing = new ArrayList<>();
+        int checked = 0;
+        for (java.lang.reflect.Field field : NodeCategories.class.getDeclaredFields()) {
+            if (!field.getType().equals(NodeCategory.class)) {
+                continue;
+            }
+            String id;
+            try {
+                id = ((NodeCategory) field.get(null)).id();
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException(field.getName(), e);
+            }
+            checked++;
+            String key = "blueprint.category." + id;
+            if (!english.has(key)) {
+                missing.add(key + " (en_us)");
+            }
+            if (!french.has(key)) {
+                missing.add(key + " (fr_fr)");
+            }
+        }
+        // Sans ce garde-fou, un renommage de NodeCategories ferait passer le test à vide.
+        assertTrue(checked >= 10, "la réflexion n'a trouvé que " + checked + " catégories");
+        assertTrue(missing.isEmpty(), "catégories standard non traduites : " + missing);
     }
 
     /** Aucune clé morte : ce qui est traduit doit servir (ou être une clé dérivée connue). */
