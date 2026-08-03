@@ -95,6 +95,10 @@ public final class IrNbt {
                 tag.putString("name", s.name());
                 tag.putInt("slot", s.slot());
             }
+            case Instruction.CallSub c -> {
+                tag.putString("op", "call_sub");
+                tag.putInt("target", c.target());
+            }
             case Instruction.Yield y -> {
                 tag.putString("op", "yield");
                 tag.putInt("ticks", y.ticks());
@@ -194,6 +198,7 @@ public final class IrNbt {
                     tag.getIntOr("slot", 0), source);
             case "store_var" -> new Instruction.StoreVar(scope(tag), tag.getStringOr("name", ""),
                     tag.getIntOr("slot", 0), source);
+            case "call_sub" -> new Instruction.CallSub(tag.getIntOr("target", -1), source);
             case "yield" -> new Instruction.Yield(tag.getIntOr("ticks", 1), source);
             case "return" -> new Instruction.Return(source);
             default -> null;

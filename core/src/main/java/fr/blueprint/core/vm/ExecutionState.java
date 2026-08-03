@@ -2,6 +2,8 @@ package fr.blueprint.core.vm;
 
 import fr.blueprint.core.compile.ir.Ir;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,6 +17,8 @@ public final class ExecutionState {
     private int pc;
     private final Object[] slots;
     private final Map<String, Object> locals = new HashMap<>();
+    /** Adresses de retour des sous-chaînes (flux structuré 7.1b) ; persistée. */
+    private final Deque<Integer> frames = new ArrayDeque<>();
 
     private ExecutionState(int slotCount) {
         this.slots = new Object[slotCount];
@@ -47,5 +51,9 @@ public final class ExecutionState {
 
     Map<String, Object> locals() {
         return locals;
+    }
+
+    Deque<Integer> frames() {
+        return frames;
     }
 }

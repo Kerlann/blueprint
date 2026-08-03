@@ -34,7 +34,13 @@ public final class BlueprintVm {
         while (true) {
             int pc = state.pc();
             if (pc < 0 || pc >= ir.instructions().size()) {
-                return new RunOutcome(ExecResult.DONE, spent);
+                // Fin de sous-chaîne (7.1b) : dépiler l'adresse de retour s'il y en a une.
+                Integer resume = state.frames().pollFirst();
+                if (resume == null) {
+                    return new RunOutcome(ExecResult.DONE, spent);
+                }
+                state.setPc(resume);
+                continue;
             }
             if (spent >= fuelBudget) {
                 return new RunOutcome(ExecResult.OUT_OF_FUEL, spent);
@@ -77,6 +83,11 @@ public final class BlueprintVm {
                         env.vars().set(s.scope(), s.name(), value);
                     }
                     state.setPc(pc + 1);
+                    spent++;
+                }
+                case Instruction.CallSub c -> {
+                    state.frames().addFirst(pc + 1);
+                    state.setPc(c.target());
                     spent++;
                 }
                 case Instruction.Yield y -> {

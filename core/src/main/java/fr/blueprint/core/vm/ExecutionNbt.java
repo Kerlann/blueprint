@@ -67,6 +67,9 @@ public final class ExecutionNbt {
             }
             root.put("slots", slots);
             root.put("locals", encodeNamed(state.locals()));
+            // Pile de sous-chaînes (7.1b) : une suspension au milieu d'une boucle
+            // structurée doit reprendre au bon niveau après redémarrage.
+            root.putIntArray("frames", state.frames().stream().mapToInt(Integer::intValue).toArray());
             root.put("trigger", encodeNamed(suspended.triggerValues()));
             return root;
         } catch (Unsupported e) {
@@ -103,6 +106,9 @@ public final class ExecutionNbt {
                 }
             }
             state.locals().putAll(decodeNamed(root.get("locals"), resolver));
+            for (int frame : root.getIntArray("frames").orElse(new int[0])) {
+                state.frames().addLast(frame);
+            }
             Map<String, Object> trigger = decodeNamed(root.get("trigger"), resolver);
             UUID entryNode = null;
             String entry = root.getStringOr("entry", "");

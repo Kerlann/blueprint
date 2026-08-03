@@ -14,6 +14,7 @@ import fr.blueprint.core.graph.Node;
 import fr.blueprint.core.graph.VarNodes;
 import fr.blueprint.core.graph.Variable;
 import fr.blueprint.core.registry.NodeRegistryImpl;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -117,6 +118,38 @@ public final class Compiler {
         if (VarNodes.SET.equals(node.typeId())) {
             emitVarSet(node, type);
             return startIndex;
+        }
+        // Flux structuré (7.1b) : abaissé en CallSub/JmpIf/Yield + Calls synthétisés.
+        String path = node.typeId().getNamespace().equals("blueprint")
+                ? node.typeId().getPath() : "";
+        switch (path) {
+            case "flow/return" -> {
+                // Terminal pour TOUTE l'exécution (les frames ne le rattrapent pas).
+                out.add(new Instruction.Return(id));
+                return startIndex;
+            }
+            case "flow/sequence" -> {
+                emitSequence(node, type);
+                return startIndex;
+            }
+            case "flow/do_once" -> {
+                emitDoOnce(node);
+                return startIndex;
+            }
+            case "flow/while" -> {
+                emitWhile(node, type, startIndex);
+                return startIndex;
+            }
+            case "flow/for" -> {
+                emitFor(node, type);
+                return startIndex;
+            }
+            case "flow/wait_until" -> {
+                emitWaitUntil(node, type, startIndex);
+                return startIndex;
+            }
+            default -> {
+            }
         }
 
         List<Instruction.PinBinding> inputs = prepareInputs(node, type);
@@ -242,9 +275,37 @@ public final class Compiler {
         int slot = value != null ? value.slot() : slotFor(node.uuid(), "literal:value");
         out.add(new Instruction.StoreVar(variable.scope(), variable.name(), slot, node.uuid()));
 
-        List<Link> next = from(node.uuid(), "exec_out");
+        // Fin de fil : Jmp(-1) et pas Return — dans une sous-chaîne (7.1b), la fin
+        // pendante doit dépiler la frame, pas terminer toute l'exécution.
+        emitNext(node, "exec_out");
+    }
+
+    private int slotFor(UUID node, String pin) {
+        return slotOf.computeIfAbsent(node + "/" + pin, k -> nextSlot++);
+    }
+
+    // ------------------------------------------------------ flux structuré (7.1b)
+
+    private static final Identifier MATH_ADD =
+            Identifier.fromNamespaceAndPath("blueprint", "math/add");
+    private static final Identifier LOGIC_LESS_EQ =
+            Identifier.fromNamespaceAndPath("blueprint", "logic/less_eq");
+
+    /** Un Call pur synthétisé (add, less_eq…) : le compilateur fabrique ses instructions arithmétiques avec la bibliothèque standard. */
+    private static Instruction.Call synth(Identifier type, UUID source,
+                                          Map<String, Integer> in, String outPin, int outSlot) {
+        List<Instruction.PinBinding> inputs = new ArrayList<>();
+        in.forEach((pin, slot) -> inputs.add(new Instruction.PinBinding(pin, slot)));
+        return new Instruction.Call(type, inputs,
+                List.of(new Instruction.PinBinding(outPin, outSlot)),
+                new LinkedHashMap<>(), 1, true, source);
+    }
+
+    /** Successeur exec : fall-through s'il est neuf, Jmp s'il existe, fin sinon. */
+    private void emitNext(Node node, String pin) {
+        List<Link> next = from(node.uuid(), pin);
         if (next.isEmpty()) {
-            out.add(new Instruction.Return(node.uuid()));
+            out.add(new Instruction.Jmp(-1, node.uuid())); // pendante → frame-pop ou fin
             return;
         }
         int before = out.size();
@@ -254,7 +315,123 @@ public final class Compiler {
         }
     }
 
-    private int slotFor(UUID node, String pin) {
-        return slotOf.computeIfAbsent(node + "/" + pin, k -> nextSlot++);
+    /** sequence : chaque branche câblée part en sous-chaîne (CallSub) puis revient. */
+    private void emitSequence(Node node, NodeType type) {
+        UUID id = node.uuid();
+        List<Link> branches = new ArrayList<>();
+        for (NodeType.PinSpec spec : type.outputs()) {
+            if (spec.kind() == PinKind.EXEC && !from(id, spec.name()).isEmpty()) {
+                branches.add(from(id, spec.name()).get(0));
+            }
+        }
+        int firstPlaceholder = out.size();
+        for (int i = 0; i < branches.size(); i++) {
+            out.add(new Instruction.CallSub(-1, id));
+        }
+        out.add(new Instruction.Jmp(-1, id));
+        for (int i = 0; i < branches.size(); i++) {
+            int target = emitNode(branches.get(i).toNode());
+            out.set(firstPlaceholder + i, new Instruction.CallSub(target, id));
+        }
+    }
+
+    /** do_once : drapeau caché en variable GRAPH — persiste comme le reste du VarStore. */
+    private void emitDoOnce(Node node) {
+        UUID id = node.uuid();
+        int flag = slotFor(id, "__once");
+        out.add(new Instruction.LoadVar(fr.blueprint.core.graph.VarScope.GRAPH,
+                "__once:" + id, flag, id));
+        int jmpIf = out.size();
+        out.add(new Instruction.JmpIf(flag, -1, id)); // vrai → déjà fait (pc+1)
+        out.add(new Instruction.Jmp(-1, id));
+        int doPath = out.size();
+        out.set(jmpIf, new Instruction.JmpIf(flag, doPath, id));
+        int truth = slotFor(id, "__true");
+        out.add(new Instruction.Const(truth,
+                LiteralValue.of(fr.blueprint.api.pin.PinTypes.BOOL, true), id));
+        out.add(new Instruction.StoreVar(fr.blueprint.core.graph.VarScope.GRAPH,
+                "__once:" + id, truth, id));
+        emitNext(node, "exec_out");
+    }
+
+    /** while : [start: prep cond][JmpIf→completed][CallSub corps][Jmp start]. */
+    private void emitWhile(Node node, NodeType type, int startIndex) {
+        UUID id = node.uuid();
+        Instruction.PinBinding cond = prepareInput(node, specOf(type, "condition"));
+        int condSlot = cond != null ? cond.slot() : slotFor(id, "literal:condition");
+        int jmpIf = out.size();
+        out.add(new Instruction.JmpIf(condSlot, -1, id));
+        int callSub = -1;
+        if (!from(id, "body").isEmpty()) {
+            callSub = out.size();
+            out.add(new Instruction.CallSub(-1, id));
+        }
+        out.add(new Instruction.Jmp(startIndex, id)); // re-préparer et retester
+        int completed = out.size();
+        out.set(jmpIf, new Instruction.JmpIf(condSlot, completed, id));
+        emitNext(node, "completed");
+        if (callSub >= 0) {
+            out.set(callSub, new Instruction.CallSub(
+                    emitNode(from(id, "body").get(0).toNode()), id));
+        }
+    }
+
+    /** for : compteur en slot, init/comparaison/incrément = Calls synthétisés purs. */
+    private void emitFor(Node node, NodeType type) {
+        UUID id = node.uuid();
+        Instruction.PinBinding first = prepareInput(node, specOf(type, "first"));
+        Instruction.PinBinding last = prepareInput(node, specOf(type, "last"));
+        int firstSlot = first != null ? first.slot() : slotFor(id, "literal:first");
+        int lastSlot = last != null ? last.slot() : slotFor(id, "literal:last");
+        int index = slotFor(id, "index");
+        int zero = slotFor(id, "__zero");
+        out.add(new Instruction.Const(zero,
+                LiteralValue.of(fr.blueprint.api.pin.PinTypes.DOUBLE, 0.0), id));
+        out.add(synth(MATH_ADD, id, Map.of("a", firstSlot, "b", zero), "result", index));
+        int loop = out.size();
+        int cmp = slotFor(id, "__cmp");
+        out.add(synth(LOGIC_LESS_EQ, id, Map.of("a", index, "b", lastSlot), "result", cmp));
+        int jmpIf = out.size();
+        out.add(new Instruction.JmpIf(cmp, -1, id));
+        int callSub = -1;
+        if (!from(id, "body").isEmpty()) {
+            callSub = out.size();
+            out.add(new Instruction.CallSub(-1, id));
+        }
+        int one = slotFor(id, "__one");
+        out.add(new Instruction.Const(one,
+                LiteralValue.of(fr.blueprint.api.pin.PinTypes.DOUBLE, 1.0), id));
+        out.add(synth(MATH_ADD, id, Map.of("a", index, "b", one), "result", index));
+        out.add(new Instruction.Jmp(loop, id));
+        int completed = out.size();
+        out.set(jmpIf, new Instruction.JmpIf(cmp, completed, id));
+        emitNext(node, "completed");
+        if (callSub >= 0) {
+            out.set(callSub, new Instruction.CallSub(
+                    emitNode(from(id, "body").get(0).toNode()), id));
+        }
+    }
+
+    /** wait_until : re-teste la condition chaque tick (Yield 1 + boucle). */
+    private void emitWaitUntil(Node node, NodeType type, int startIndex) {
+        UUID id = node.uuid();
+        Instruction.PinBinding cond = prepareInput(node, specOf(type, "condition"));
+        int condSlot = cond != null ? cond.slot() : slotFor(id, "literal:condition");
+        int jmpIf = out.size();
+        out.add(new Instruction.JmpIf(condSlot, -1, id)); // vrai → successeur (pc+1)
+        emitNext(node, "exec_out");
+        int waitPath = out.size();
+        out.set(jmpIf, new Instruction.JmpIf(condSlot, waitPath, id));
+        out.add(new Instruction.Yield(1, id));
+        out.add(new Instruction.Jmp(startIndex, id));
+    }
+
+    private static NodeType.PinSpec specOf(NodeType type, String pin) {
+        for (NodeType.PinSpec spec : type.inputs()) {
+            if (spec.name().equals(pin)) {
+                return spec;
+            }
+        }
+        throw new IllegalStateException("pin manquant : " + pin);
     }
 }

@@ -58,6 +58,14 @@ public sealed interface Instruction {
     record StoreVar(VarScope scope, String name, int slot, @Nullable UUID source) implements Instruction {
     }
 
+    /**
+     * Appel de sous-chaîne (flux structuré 7.1b) : empile l'adresse de retour
+     * (instruction suivante) et saute. Une cible pendante (−1) dans la sous-chaîne
+     * dépile et reprend — {@code Return} reste terminal pour toute l'exécution.
+     */
+    record CallSub(int target, @Nullable UUID source) implements Instruction {
+    }
+
     /** Suspend l'exécution pour un nombre de ticks fixe ; reprise à l'instruction suivante. */
     record Yield(int ticks, @Nullable UUID source) implements Instruction {
     }

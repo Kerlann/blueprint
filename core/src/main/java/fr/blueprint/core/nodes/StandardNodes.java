@@ -256,6 +256,67 @@ public final class StandardNodes {
                 })
                 .build());
 
+        // ------------------------------------------------- flux structuré (7.1b)
+        // Abaissés par le compilateur (CallSub/JmpIf/Yield + Calls synthétisés) :
+        // leurs actions ne doivent jamais être atteintes.
+        r.register(NodeType.builder(id("flow/sequence"))
+                .category(NodeCategories.FLOW)
+                .execIn("exec_in")
+                .execOut("then_1").execOut("then_2").execOut("then_3").execOut("then_4")
+                .action(ctx -> {
+                    throw new IllegalStateException("flow/sequence est abaissé par le compilateur");
+                })
+                .build());
+
+        r.register(NodeType.builder(id("flow/while"))
+                .category(NodeCategories.FLOW)
+                .execIn("exec_in").execOut("body").execOut("completed")
+                .in("condition", PinTypes.BOOL, false)
+                .action(ctx -> {
+                    throw new IllegalStateException("flow/while est abaissé par le compilateur");
+                })
+                .build());
+
+        r.register(NodeType.builder(id("flow/for"))
+                .category(NodeCategories.FLOW)
+                .execIn("exec_in").execOut("body").execOut("completed")
+                .in("first", PinTypes.INT, 1)
+                .in("last", PinTypes.INT, 10)
+                .out("index", PinTypes.DOUBLE)
+                .action(ctx -> {
+                    throw new IllegalStateException("flow/for est abaissé par le compilateur");
+                })
+                .build());
+
+        r.register(NodeType.builder(id("flow/wait_until"))
+                .category(NodeCategories.FLOW)
+                .exec()
+                .in("condition", PinTypes.BOOL, false)
+                .action(ctx -> {
+                    throw new IllegalStateException("flow/wait_until est abaissé par le compilateur");
+                })
+                .build());
+
+        r.register(NodeType.builder(id("flow/do_once"))
+                .category(NodeCategories.FLOW)
+                .exec()
+                .action(ctx -> {
+                    throw new IllegalStateException("flow/do_once est abaissé par le compilateur");
+                })
+                .build());
+
+        r.register(NodeType.builder(id("flow/switch"))
+                .category(NodeCategories.FLOW)
+                .execIn("exec_in")
+                .execOut("case_0").execOut("case_1").execOut("case_2").execOut("case_3")
+                .execOut("default")
+                .in("value", PinTypes.INT, 0)
+                .action(ctx -> {
+                    int value = ctx.in("value");
+                    ctx.exec(value >= 0 && value <= 3 ? "case_" + value : "default");
+                })
+                .build());
+
         // ----------------------------------------- monde, entités, items (7.3-7.5)
         WorldNodes.register(r);
         EntityNodes.register(r);
