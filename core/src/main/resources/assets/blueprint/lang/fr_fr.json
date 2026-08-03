@@ -504,5 +504,7 @@
   "blueprint.fault.gui_not_hud": "L'écran « %s » n'est pas déclaré comme HUD",
   "blueprint.node.blueprint.hud/show.name": "Afficher un HUD",
   "blueprint.node.blueprint.hud/hide.name": "Masquer un HUD",
-  "blueprint.node.blueprint.hud/hide_all.name": "Masquer tous les HUD"
+  "blueprint.node.blueprint.hud/hide_all.name": "Masquer tous les HUD",
+  "blueprint.designer.viewport": "Fenêtre :",
+  "blueprint.designer.viewport_mine": "la mienne"
 }

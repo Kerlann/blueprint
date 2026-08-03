@@ -33,7 +33,7 @@ class DesignSurfaceTest {
     }
 
     /**
-     * <b>Le test qui compte pour AC3b.</b> Un élément posé au-delà des 320×180 reste
+     * <b>Le test qui compte pour AC3b.</b> Un élément posé au-delà du canevas reste
      * dans la zone de travail : sans la marge, le concepteur laisserait poser ce qu'il
      * ne laisserait plus ni voir ni rattraper.
      */
@@ -42,7 +42,7 @@ class DesignSurfaceTest {
         DesignSurface surface = DesignSurface.fit(0, 0, 800, 500);
         int justOutside = surface.toScreenX(Screen.SAFE_WIDTH + 4);
 
-        assertFalse(surface.insideSafeArea(justOutside, surface.top() + 10),
+        assertFalse(surface.insideCanvas(justOutside, surface.top() + 10),
                 "hors de la zone garantie");
         assertTrue(surface.contains(justOutside, surface.top() + 10),
                 "mais toujours dans la zone de travail");
@@ -103,6 +103,29 @@ class DesignSurfaceTest {
         assertEquals(0, surface.toDesignY(surface.top()), 1e-9);
         assertEquals(Screen.SAFE_WIDTH, surface.toDesignX(surface.right()), 1e-9);
         assertEquals(Screen.SAFE_HEIGHT, surface.toDesignY(surface.bottom()), 1e-9);
+    }
+
+    /**
+     * <b>Le canevas est CHOISI.</b> Il valait 320×180 en dur, donc on concevait
+     * toujours dans le pire cas sans jamais voir ce que les ancres donnent ailleurs.
+     */
+    @Test
+    void leCanevasPrendLaTailleDemandee() {
+        DesignSurface grand = DesignSurface.fit(0, 0, 1400, 900, 640, 360);
+
+        assertEquals(640, grand.unitsWidth());
+        assertEquals(360, grand.unitsHeight());
+        assertEquals(640, grand.toDesignX(grand.right()), 1e-9,
+                "le bord droit vaut 640 unités, plus 320");
+        assertEquals(2, grand.scale(), "688×408 tient deux fois dans 1400×900");
+    }
+
+    /** Un canevas plus grand que la fenêtre retombe sur 1 plutôt que sur 0. */
+    @Test
+    void unCanevasTropGrandNeDisparaitPas() {
+        DesignSurface serre = DesignSurface.fit(0, 0, 400, 300, 960, 540);
+        assertEquals(1, serre.scale());
+        assertEquals(960, serre.width());
     }
 
     @Test

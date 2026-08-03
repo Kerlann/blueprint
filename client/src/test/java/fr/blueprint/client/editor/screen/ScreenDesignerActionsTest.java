@@ -334,6 +334,71 @@ class ScreenDesignerActionsTest {
         assertFalse(bp.screen("menu").hud(), "et se défait");
     }
 
+    // ------------------------------------------------- taille de fenêtre simulée
+
+    /**
+     * <b>Le test qui compte.</b> Une ancre ne veut rien dire tant qu'on ne la voit pas
+     * bouger. Concevoir toujours à 320×180 revenait à écrire une mise en page adaptative
+     * sans jamais redimensionner la fenêtre : on découvrait le résultat en jeu.
+     */
+    @Test
+    void changerDeFenetreDeplaceCeQuiEstAncreADroite() {
+        put(new ScreenElement("coin", ElementKind.LABEL, null,
+                fr.blueprint.core.graph.screen.Anchor.TOP_RIGHT, -4, 4,
+                fr.blueprint.core.graph.screen.Extent.of(60),
+                fr.blueprint.core.graph.screen.Extent.of(10),
+                fr.blueprint.core.graph.screen.ScreenText.EMPTY, null,
+                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, true, true));
+
+        assertEquals(316, controller.rectOf("coin").right(), 1e-9, "320 − 4");
+
+        controller.setViewport(ScreenCanvasController.Viewport.LARGE);
+        assertEquals(636, controller.rectOf("coin").right(), 1e-9,
+                "640 − 4 : il suit le bord, ce qui est TOUT l'intérêt de l'ancre");
+        assertEquals(-4, element("coin").x(), 1e-9,
+                "et le décalage ÉCRIT n'a pas bougé : c'est une simulation");
+    }
+
+    /** Une taille en pourcentage suit la fenêtre, une taille fixe non. */
+    @Test
+    void unPourcentageSuitLaFenetreEtPasUneTailleFixe() {
+        put(ScreenElement.of("fixe", ElementKind.LABEL, 0, 0, 100, 10));
+        put(ScreenElement.of("relatif", ElementKind.LABEL, 0, 20, 10, 10)
+                .resized(fr.blueprint.core.graph.screen.Extent.percent(0.5, 0, 0),
+                        fr.blueprint.core.graph.screen.Extent.of(10)));
+
+        assertEquals(160, controller.rectOf("relatif").width(), 1e-9);
+        controller.setViewport(ScreenCanvasController.Viewport.HUGE);
+        assertEquals(480, controller.rectOf("relatif").width(), 1e-9, "la moitié de 960");
+        assertEquals(100, controller.rectOf("fixe").width(), 1e-9, "le fixe ne bouge pas");
+    }
+
+    /** Le canevas ne descend jamais sous la zone garantie : elle est le plancher. */
+    @Test
+    void leCanevasNeDescendPasSousLaZoneGarantie() {
+        controller.setViewport(100, 50);
+        assertEquals(Screen.SAFE_WIDTH, controller.viewportWidth(), 1e-9);
+        assertEquals(Screen.SAFE_HEIGHT, controller.viewportHeight(), 1e-9);
+    }
+
+    /**
+     * Le hit-test suit le canevas. Sans cela, on cliquerait à côté de ce qu'on voit dès
+     * qu'on change de taille — le défaut le plus déroutant possible.
+     */
+    @Test
+    void leClicSuitLaTailleSimulee() {
+        put(new ScreenElement("coin", ElementKind.BUTTON, null,
+                fr.blueprint.core.graph.screen.Anchor.TOP_RIGHT, -4, 4,
+                fr.blueprint.core.graph.screen.Extent.of(60),
+                fr.blueprint.core.graph.screen.Extent.of(20),
+                fr.blueprint.core.graph.screen.ScreenText.EMPTY, null,
+                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, true, true));
+        controller.setViewport(ScreenCanvasController.Viewport.LARGE);
+
+        assertEquals("coin", controller.hitTest(600, 10));
+        assertNull(controller.hitTest(300, 10), "plus là où il était en 320 de large");
+    }
+
     // ------------------------------------------------------- annulation partagée
 
     /** Chaque action est UNE entrée d'annulation, pas une par élément touché. */

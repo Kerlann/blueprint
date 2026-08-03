@@ -57,7 +57,7 @@ public final class ScreenDesignerWidget {
     private int top;
     private int width;
     private int height;
-    private DesignSurface surface = new DesignSurface(0, 0, 1);
+    private DesignSurface surface = new DesignSurface(0, 0, 1, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
     private @Nullable String message;
 
     public ScreenDesignerWidget(EditorSession session, NodeTypeLookup lookup, UndoStack history) {
@@ -77,12 +77,15 @@ public final class ScreenDesignerWidget {
         this.height = height;
         this.surface = DesignSurface.fit(PALETTE_WIDTH, top + ROW,
                 Math.max(1, width - PALETTE_WIDTH - PROPERTIES_WIDTH),
-                Math.max(1, height - top - ROW * 2));
+                Math.max(1, height - top - ROW * 3),
+                (int) controller.viewportWidth(), (int) controller.viewportHeight());
     }
 
     // ------------------------------------------------------------------- rendu
 
     public void render(GuiGraphics g, Font font, int mouseX, int mouseY) {
+        playerViewportWidth = g.guiWidth();
+        playerViewportHeight = g.guiHeight();
         Screen screen = controller.screen();
         properties.select(screen == null || controller.selection().size() != 1 ? null
                 : screen.element(controller.selection().ids().iterator().next()));
@@ -91,6 +94,7 @@ public final class ScreenDesignerWidget {
         renderSurface(g, font, screen);
         renderPalette(g, font);
         renderProperties(g, font);
+        renderViewportBar(g, font);
         if (message != null) {
             g.drawString(font, message, PALETTE_WIDTH + 4, height - ROW, INVALID, false);
         }
@@ -102,8 +106,9 @@ public final class ScreenDesignerWidget {
         g.fill(surface.outerLeft(), surface.outerTop(), surface.outerRight(),
                 surface.outerBottom(), 0xFF16171A);
         g.fill(surface.left(), surface.top(), surface.right(), surface.bottom(), 0xFF202227);
-        // La bordure marque les 320×180 garantis : ce qui déborde ne sera pas vu par
-        // tout le monde, et l'auteur doit le savoir en le dessinant, pas en jeu.
+        // La bordure marque le CANEVAS — la fenêtre qu'on simule. Ce qui ne tiendrait
+        // pas dans les 320×180 garantis est signalé autrement, élément par élément :
+        // la garantie dépend de l'ancre, pas d'un rectangle qu'on pourrait dessiner.
         g.fill(surface.left() - 1, surface.top() - 1, surface.right() + 1, surface.top(),
                 SAFE_BORDER);
         g.fill(surface.left() - 1, surface.bottom(), surface.right() + 1,
@@ -208,6 +213,57 @@ public final class ScreenDesignerWidget {
             }
         }
     }
+
+    /**
+     * Le sélecteur de taille de fenêtre — le cœur de ce qui manquait.
+     *
+     * <p>Une ancre et un pourcentage ne veulent rien dire tant qu'on ne les voit pas
+     * bouger. Concevoir toujours à 320×180 revenait à écrire une mise en page adaptative
+     * sans jamais redimensionner la fenêtre : on découvrait le résultat en jeu, chez
+     * quelqu'un d'autre.
+     */
+    private void renderViewportBar(GuiGraphics g, Font font) {
+        int y = height - ROW - 2;
+        int x = PALETTE_WIDTH + 4;
+        g.drawString(font, I18n.get("blueprint.designer.viewport"), x, y, DIM_TEXT, false);
+        x += font.width(I18n.get("blueprint.designer.viewport")) + 6;
+        var current = controller.viewportPreset();
+        for (var viewport : ScreenCanvasController.Viewport.values()) {
+            String label = viewport.width() + "×" + viewport.height();
+            g.drawString(font, label, x, y, viewport == current ? SELECTED : TEXT, false);
+            x += font.width(label) + 8;
+        }
+        // « écran » : la taille réelle du joueur, celle qu'il a sous les yeux.
+        g.drawString(font, I18n.get("blueprint.designer.viewport_mine"), x, y,
+                current == null ? SELECTED : TEXT, false);
+    }
+
+    /** Le clic dans la barre de tailles ; faux si le point est ailleurs. */
+    private boolean clickViewport(double mx, double my, Font font) {
+        int y = height - ROW - 2;
+        if (my < y || my >= y + ROW) {
+            return false;
+        }
+        int x = PALETTE_WIDTH + 4 + font.width(I18n.get("blueprint.designer.viewport")) + 6;
+        for (var viewport : ScreenCanvasController.Viewport.values()) {
+            int w = font.width(viewport.width() + "×" + viewport.height()) + 8;
+            if (mx >= x && mx < x + w) {
+                controller.setViewport(viewport);
+                return true;
+            }
+            x += w;
+        }
+        int w = font.width(I18n.get("blueprint.designer.viewport_mine"));
+        if (mx >= x && mx < x + w) {
+            controller.setViewport(playerViewportWidth, playerViewportHeight);
+            return true;
+        }
+        return true;   // la barre absorbe le clic : rien derrière elle
+    }
+
+    /** La taille réelle de la fenêtre du joueur, en unités — relevée à chaque image. */
+    private int playerViewportWidth = Screen.SAFE_WIDTH;
+    private int playerViewportHeight = Screen.SAFE_HEIGHT;
 
     private void renderPalette(GuiGraphics g, Font font) {
         g.fill(0, top, PALETTE_WIDTH, height, PANEL_BACKGROUND);
@@ -355,6 +411,9 @@ public final class ScreenDesignerWidget {
             return false;
         }
         message = null;
+        if (clickViewport(mx, my, net.minecraft.client.Minecraft.getInstance().font)) {
+            return true;
+        }
         if (mx < PALETTE_WIDTH) {
             return clickPalette(my);
         }

@@ -86,6 +86,18 @@ public final class ScreenCanvasController {
     private final SelectionModel<String> selection = new SelectionModel<>();
 
     private String screenName;
+    /**
+     * La taille du canevas, EN UNITÉS — celle de la fenêtre qu'on simule.
+     *
+     * <p>Elle valait 320×180 en dur, c'est-à-dire la plus petite fenêtre possible.
+     * On concevait donc toujours dans le pire cas, sans jamais voir ce que les ancres
+     * et les pourcentages donnent à la taille réelle du joueur — or c'est exactement
+     * ce qu'ils servent à exprimer. La zone garantie reste dessinée à l'intérieur, et
+     * reste la référence de la validation : ce sont deux choses distinctes, que le
+     * même nombre masquait.
+     */
+    private double viewportWidth = Screen.SAFE_WIDTH;
+    private double viewportHeight = Screen.SAFE_HEIGHT;
     private boolean snapEnabled = true;
     private @Nullable Runnable onMutation;
     private @Nullable Diagnostic lastRefusal;
@@ -149,6 +161,69 @@ public final class ScreenCanvasController {
         return guides;
     }
 
+    /**
+     * Les tailles de fenêtre réellement rencontrées, en unités d'interface.
+     *
+     * <p>Ce ne sont pas des chiffres ronds choisis au hasard : ce sont les résolutions
+     * courantes divisées par leur <i>GUI scale</i>. 1280×720 en <i>scale</i> 4 donne
+     * 320×180 ; 1920×1080 en <i>scale</i> 3 donne 640×360 ; en <i>scale</i> 2, 960×540.
+     * Un menu doit tenir dans <b>tous</b>, et c'est en basculant entre eux qu'on le voit.
+     */
+    public enum Viewport {
+        SMALL(Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT),
+        MEDIUM(480, 270),
+        LARGE(640, 360),
+        HUGE(960, 540);
+
+        private final int width;
+        private final int height;
+
+        Viewport(int width, int height) {
+            this.width = width;
+            this.height = height;
+        }
+
+        public int width() {
+            return width;
+        }
+
+        public int height() {
+            return height;
+        }
+    }
+
+    public double viewportWidth() {
+        return viewportWidth;
+    }
+
+    public double viewportHeight() {
+        return viewportHeight;
+    }
+
+    /**
+     * Change la taille du canevas. Rien n'est modifié dans le blueprint : c'est une
+     * <b>simulation</b>. Un élément ancré à droite se déplace à l'écran, mais son
+     * décalage écrit ne bouge pas — c'est précisément ce qu'on veut voir.
+     */
+    public void setViewport(double width, double height) {
+        this.viewportWidth = Math.max(Screen.SAFE_WIDTH, width);
+        this.viewportHeight = Math.max(Screen.SAFE_HEIGHT, height);
+    }
+
+    public void setViewport(Viewport viewport) {
+        setViewport(viewport.width(), viewport.height());
+    }
+
+    /** Le préréglage courant, ou {@code null} si le canevas suit l'écran du joueur. */
+    public @Nullable Viewport viewportPreset() {
+        for (Viewport viewport : Viewport.values()) {
+            if (viewport.width() == viewportWidth && viewport.height() == viewportHeight) {
+                return viewport;
+            }
+        }
+        return null;
+    }
+
     public boolean snapEnabled() {
         return snapEnabled;
     }
@@ -180,7 +255,7 @@ public final class ScreenCanvasController {
         Screen screen = screen();
         ScreenElement target = screen == null ? null : screen.element(element);
         return target == null ? null
-                : ScreenLayout.resolve(screen, target, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+                : ScreenLayout.resolve(screen, target, viewportWidth, viewportHeight);
     }
 
     /**
@@ -195,7 +270,7 @@ public final class ScreenCanvasController {
         List<ScreenElement> elements = List.copyOf(screen.elements().values());
         for (int i = elements.size() - 1; i >= 0; i--) {
             ScreenElement element = elements.get(i);
-            if (ScreenLayout.resolve(screen, element, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT)
+            if (ScreenLayout.resolve(screen, element, viewportWidth, viewportHeight)
                     .contains(x, y)) {
                 return element.name();
             }
@@ -296,7 +371,7 @@ public final class ScreenCanvasController {
                 List<String> caught = new ArrayList<>();
                 for (ScreenElement element : screen.elements().values()) {
                     ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
-                            Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+                            viewportWidth, viewportHeight);
                     if (rect.x() < band.right() && rect.right() > band.x()
                             && rect.y() < band.bottom() && rect.bottom() > band.y()) {
                         caught.add(element.name());
@@ -329,7 +404,7 @@ public final class ScreenCanvasController {
             ScreenElement element = screen.element(name);
             if (element != null) {
                 grabbed.put(name, ScreenLayout.resolve(screen, element,
-                        Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT));
+                        viewportWidth, viewportHeight));
             }
         }
     }
@@ -435,7 +510,7 @@ public final class ScreenCanvasController {
         for (ScreenElement element : screen.elements().values()) {
             if (!selection.isSelected(element.name())) {
                 out.add(ScreenLayout.resolve(screen, element,
-                        Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT));
+                        viewportWidth, viewportHeight));
             }
         }
         return out;
@@ -482,7 +557,7 @@ public final class ScreenCanvasController {
      */
     private void place(Screen screen, ScreenElement element, ScreenLayout.Rect target) {
         ScreenLayout.Rect parent = ScreenLayout.parentRect(screen, element,
-                Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+                viewportWidth, viewportHeight);
         ScreenLayout.Rect bounded = element.parent() == null ? target : confine(parent, target);
         ScreenElement placed = ScreenLayout.placedIn(parent, element, bounded);
         applyTracked(new ScreenOps.SetElement(screenName, placed));
@@ -548,7 +623,7 @@ public final class ScreenCanvasController {
         for (int i = elements.size() - 1; i >= 0; i--) {
             ScreenElement element = elements.get(i);
             if (element.kind().container()
-                    && ScreenLayout.resolve(screen, element, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT)
+                    && ScreenLayout.resolve(screen, element, viewportWidth, viewportHeight)
                     .contains(x, y)) {
                 return element.name();
             }
@@ -771,7 +846,7 @@ public final class ScreenCanvasController {
                     continue;
                 }
                 ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
-                        Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+                        viewportWidth, viewportHeight);
                 double x = switch (align) {
                     case LEFT -> bounds.x();
                     case CENTER_X -> bounds.x() + (bounds.width() - rect.width()) / 2;
@@ -815,7 +890,7 @@ public final class ScreenCanvasController {
             ScreenElement element = screen.element(name);
             if (element != null) {
                 rects.put(name, ScreenLayout.resolve(screen, element,
-                        Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT));
+                        viewportWidth, viewportHeight));
             }
         }
         targets.removeIf(name -> !rects.containsKey(name));
@@ -851,7 +926,7 @@ public final class ScreenCanvasController {
     }
 
     /** Le rectangle englobant d'un groupe, ou {@code null} si rien n'est résolvable. */
-    private static ScreenLayout.@Nullable Rect boundsOf(Screen screen, List<String> names) {
+    private ScreenLayout.@Nullable Rect boundsOf(Screen screen, List<String> names) {
         double left = Double.MAX_VALUE;
         double top = Double.MAX_VALUE;
         double right = -Double.MAX_VALUE;
@@ -863,7 +938,7 @@ public final class ScreenCanvasController {
                 continue;
             }
             ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
-                    Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+                    viewportWidth, viewportHeight);
             left = Math.min(left, rect.x());
             top = Math.min(top, rect.y());
             right = Math.max(right, rect.right());
