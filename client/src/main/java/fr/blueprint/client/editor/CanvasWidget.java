@@ -15,6 +15,11 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
@@ -55,6 +60,10 @@ public final class CanvasWidget {
 
     private final TapTracker spaceTap = new TapTracker();
     private final java.nio.file.Path configDir;
+    private final PickerState picker = new PickerState();
+    private final java.util.Map<Identifier, ItemStack> iconCache = new java.util.HashMap<>();
+    private @Nullable List<PickerState.Entry> itemEntries;
+    private @Nullable List<PickerState.Entry> blockEntries;
 
     private int width;
     private int height;
@@ -115,7 +124,7 @@ public final class CanvasWidget {
 
     // ---------------------------------------------------------------------- rendu
 
-    public void render(GuiGraphics g, Font font) {
+    public void render(GuiGraphics g, Font font, int mouseX, int mouseY) {
         // Validation débouncée (5.6b) : jamais dans la frame d'une frappe.
         if (diagnostics.shouldValidate()) {
             diagnostics.accept(fr.blueprint.core.graph.GraphValidator
@@ -136,7 +145,53 @@ public final class CanvasWidget {
             DetailsPanel.render(g, font, details.rows(controller.selection().ids()),
                     width, height);
         }
+        renderEnumOptions(g, font);
         PalettePopup.render(g, font, palette, width, height);
+        RegistryPickerPopup.render(g, font, picker, this::iconOf, width, height, mouseX, mouseY);
+    }
+
+    /** Liste déroulante d'une énumération en édition (direction, 5.2c). */
+    private void renderEnumOptions(GuiGraphics g, Font font) {
+        if (literalEdit.mode() != LiteralEditState.Mode.ENUM) {
+            return;
+        }
+        NodeGeometry.Box box = controller.boxOf(literalEdit.node());
+        if (box == null) {
+            return;
+        }
+        Camera.Rect zone = NodeGeometry.literalZone(box, literalEdit.row());
+        int x1 = (int) Math.round(camera.toScreenX(zone.left()));
+        int x2 = (int) Math.round(camera.toScreenX(zone.right()));
+        int y = (int) Math.round(camera.toScreenY(zone.bottom()));
+        List<Direction> options = literalEdit.options();
+        g.fill(x1 - 1, y - 1, x2 + 1, y + options.size() * 12 + 1, 0xFF3A3D42);
+        g.fill(x1, y, x2, y + options.size() * 12, 0xF01A1B1E);
+        for (int i = 0; i < options.size(); i++) {
+            if (i == literalEdit.optionIndex()) {
+                g.fill(x1, y + i * 12, x2, y + (i + 1) * 12, 0xFF2F3A55);
+            }
+            g.drawString(font, options.get(i).getName(), x1 + 3, y + i * 12 + 2,
+                    0xFFD5D8DC, false);
+        }
+    }
+
+    /** Indice d'option de l'énum sous la souris, ou −1. */
+    private int enumOptionAt(double mx, double my) {
+        if (literalEdit.mode() != LiteralEditState.Mode.ENUM) {
+            return -1;
+        }
+        NodeGeometry.Box box = controller.boxOf(literalEdit.node());
+        if (box == null) {
+            return -1;
+        }
+        Camera.Rect zone = NodeGeometry.literalZone(box, literalEdit.row());
+        double x1 = camera.toScreenX(zone.left());
+        double x2 = camera.toScreenX(zone.right());
+        double y = camera.toScreenY(zone.bottom());
+        if (mx < x1 || mx >= x2 || my < y || my >= y + literalEdit.options().size() * 12) {
+            return -1;
+        }
+        return (int) ((my - y) / 12);
     }
 
     private void renderGrid(GuiGraphics g) {
@@ -239,6 +294,27 @@ public final class CanvasWidget {
     // -------------------------------------------------------------------- entrées
 
     public boolean mouseClicked(MouseButtonEvent e, boolean doubled) {
+        if (picker.isOpen()) {
+            if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                int cell = RegistryPickerPopup.cellAt(picker, e.x(), e.y(), width, height);
+                if (cell >= 0 && picker.at(cell) != null) {
+                    pickFromRegistry(picker.at(cell));
+                } else if (!RegistryPickerPopup.contains(e.x(), e.y(), width, height)) {
+                    picker.close();
+                }
+            } else {
+                picker.close();
+            }
+            return true;
+        }
+        if (literalEdit.isOpen() && literalEdit.mode() == LiteralEditState.Mode.ENUM) {
+            int option = enumOptionAt(e.x(), e.y());
+            if (option >= 0) {
+                literalEdit.selectOption(option);
+                commitLiteral(true);
+                return true;
+            }
+        }
         if (literalEdit.isOpen()) {
             // Clic ailleurs = valider (AC2) ; saisie invalide = abandonner (AC3).
             commitLiteral(false);
@@ -352,12 +428,65 @@ public final class CanvasWidget {
                     current != null && current.value() instanceof Direction d ? d : null);
             return true;
         }
+        if (type == PinTypes.ITEMSTACK) {
+            picker.open(nodeId, pin, false, itemEntries());
+            return true;
+        }
+        if (type == PinTypes.BLOCKSTATE) {
+            picker.open(nodeId, pin, true, blockEntries());
+            return true;
+        }
         if (LiteralEditState.editableAsText(type)) {
             literalEdit.openText(nodeId, pin, row, type,
                     LiteralEditState.display(type, current));
             return true;
         }
-        return false; // type 5.2c : le clic retombe sur la sélection du nœud
+        return false; // entity/player : pas de littéral, le clic retombe sur la sélection
+    }
+
+    // ------------------------------------------------- sélecteur item/bloc (5.2c)
+
+    private List<PickerState.Entry> itemEntries() {
+        if (itemEntries == null) {
+            List<PickerState.Entry> out = new ArrayList<>();
+            for (Item item : BuiltInRegistries.ITEM) {
+                Identifier id = BuiltInRegistries.ITEM.getKey(item);
+                out.add(new PickerState.Entry(id, new ItemStack(item).getHoverName().getString()));
+            }
+            out.sort(Comparator.comparing(PickerState.Entry::title));
+            itemEntries = out;
+        }
+        return itemEntries;
+    }
+
+    private List<PickerState.Entry> blockEntries() {
+        if (blockEntries == null) {
+            List<PickerState.Entry> out = new ArrayList<>();
+            for (Block block : BuiltInRegistries.BLOCK) {
+                out.add(new PickerState.Entry(BuiltInRegistries.BLOCK.getKey(block),
+                        block.getName().getString()));
+            }
+            out.sort(Comparator.comparing(PickerState.Entry::title));
+            blockEntries = out;
+        }
+        return blockEntries;
+    }
+
+    private ItemStack iconOf(Identifier id) {
+        return iconCache.computeIfAbsent(id, key -> picker.isBlock()
+                ? new ItemStack(BuiltInRegistries.BLOCK.getValue(key).asItem())
+                : new ItemStack(BuiltInRegistries.ITEM.getValue(key)));
+    }
+
+    private void pickFromRegistry(PickerState.Entry entry) {
+        if (picker.isBlock()) {
+            controller.setLiteral(picker.node(), picker.pin(), LiteralValue.of(PinTypes.BLOCKSTATE,
+                    BuiltInRegistries.BLOCK.getValue(entry.id()).defaultBlockState()));
+        } else {
+            controller.setLiteral(picker.node(), picker.pin(), LiteralValue.of(PinTypes.ITEMSTACK,
+                    new ItemStack(BuiltInRegistries.ITEM.getValue(entry.id()))));
+        }
+        picker.close();
     }
 
     private void handleDetailsPanelClick(MouseButtonEvent e) {
@@ -551,6 +680,10 @@ public final class CanvasWidget {
         if (vAmount == 0) {
             return false;
         }
+        if (picker.isOpen()) {
+            picker.scrollBy(vAmount > 0 ? -1 : 1);
+            return true;
+        }
         if (palette.isOpen()) {
             palette.scrollBy(vAmount > 0 ? -1 : 1);
             return true;
@@ -592,6 +725,22 @@ public final class CanvasWidget {
             }
             return true;
         }
+        if (picker.isOpen()) {
+            switch (e.key()) {
+                case GLFW.GLFW_KEY_ESCAPE -> picker.close();
+                case GLFW.GLFW_KEY_BACKSPACE -> picker.backspace();
+                case GLFW.GLFW_KEY_PAGE_UP -> picker.scrollBy(-PickerState.ROWS);
+                case GLFW.GLFW_KEY_PAGE_DOWN -> picker.scrollBy(PickerState.ROWS);
+                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+                    if (!picker.filtered().isEmpty()) {
+                        pickFromRegistry(picker.filtered().get(0));
+                    }
+                }
+                default -> {
+                }
+            }
+            return true;
+        }
         if (literalEdit.isOpen()) {
             switch (e.key()) {
                 case GLFW.GLFW_KEY_ESCAPE -> literalEdit.close();
@@ -599,6 +748,12 @@ public final class CanvasWidget {
                 case GLFW.GLFW_KEY_BACKSPACE -> literalEdit.backspace();
                 case GLFW.GLFW_KEY_UP -> literalEdit.moveOption(-1);
                 case GLFW.GLFW_KEY_DOWN -> literalEdit.moveOption(1);
+                // Ctrl+P : « position du joueur » dans un champ vec3/blockpos (5.2c).
+                case GLFW.GLFW_KEY_P -> {
+                    if (e.hasControlDown()) {
+                        fillPlayerPosition();
+                    }
+                }
                 default -> {
                 }
             }
@@ -717,7 +872,27 @@ public final class CanvasWidget {
         return false;
     }
 
+    /** Ctrl+P : injecte la position du joueur dans le champ vec3/blockpos (5.2c). */
+    private void fillPlayerPosition() {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        if (literalEdit.type() == PinTypes.BLOCKPOS) {
+            var pos = player.blockPosition();
+            literalEdit.setText(pos.getX() + " " + pos.getY() + " " + pos.getZ());
+        } else if (literalEdit.type() == PinTypes.VEC3) {
+            var pos = player.position();
+            literalEdit.setText(String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f",
+                    pos.x, pos.y, pos.z));
+        }
+    }
+
     public boolean charTyped(CharacterEvent e) {
+        if (picker.isOpen() && e.isAllowedChatCharacter()) {
+            picker.type(e.codepointAsString());
+            return true;
+        }
         if (varPanel.isRenaming() && e.isAllowedChatCharacter()) {
             varPanel.type(e.codepointAsString());
             return true;

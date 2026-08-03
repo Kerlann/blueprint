@@ -41,7 +41,15 @@ public final class LiteralEditState {
     public static boolean editableAsText(PinType type) {
         return type == PinTypes.INT || type == PinTypes.LONG || type == PinTypes.DOUBLE
                 || type == PinTypes.STRING || type == PinTypes.TEXT
-                || type == PinTypes.RESOURCE_LOCATION;
+                || type == PinTypes.RESOURCE_LOCATION
+                || type == PinTypes.VEC3 || type == PinTypes.BLOCKPOS;
+    }
+
+    /** Remplit le tampon (bouton « position du joueur », Ctrl+P — story 5.2c). */
+    public void setText(String text) {
+        if (mode == Mode.TEXT) {
+            buffer = text;
+        }
     }
 
     public void openText(UUID node, String pin, int row, PinType type, String initial) {
@@ -180,6 +188,17 @@ public final class LiteralEditState {
                 Identifier id = Identifier.tryParse(buffer.trim());
                 return id == null ? null : LiteralValue.of(type, id);
             }
+            if (type == PinTypes.VEC3) {
+                double[] v = threeNumbers(buffer);
+                return v == null ? null : LiteralValue.of(type,
+                        new net.minecraft.world.phys.Vec3(v[0], v[1], v[2]));
+            }
+            if (type == PinTypes.BLOCKPOS) {
+                double[] v = threeNumbers(buffer);
+                return v == null ? null : LiteralValue.of(type,
+                        new net.minecraft.core.BlockPos((int) Math.floor(v[0]),
+                                (int) Math.floor(v[1]), (int) Math.floor(v[2])));
+            }
             return null;
         } catch (RuntimeException e) {
             return null; // nombre malformé, valeur hors type : champ rouge, rien d'appliqué
@@ -188,6 +207,20 @@ public final class LiteralEditState {
 
     public boolean isValid() {
         return parse() != null;
+    }
+
+    /** « x y z » (espaces, virgules ou point-virgules), ou null si illisible. */
+    private static double @Nullable [] threeNumbers(String text) {
+        String[] parts = text.trim().split("[,;\\s]+");
+        if (parts.length != 3) {
+            return null;
+        }
+        try {
+            return new double[]{Double.parseDouble(parts[0]),
+                    Double.parseDouble(parts[1]), Double.parseDouble(parts[2])};
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // ------------------------------------------------------------------ affichage
@@ -204,9 +237,26 @@ public final class LiteralEditState {
         if (v instanceof Direction d) {
             return d.getName();
         }
+        if (v instanceof net.minecraft.world.phys.Vec3 vec) {
+            return trim(vec.x) + " " + trim(vec.y) + " " + trim(vec.z);
+        }
+        if (v instanceof net.minecraft.core.BlockPos pos) {
+            return pos.getX() + " " + pos.getY() + " " + pos.getZ();
+        }
+        if (v instanceof net.minecraft.world.item.ItemStack stack) {
+            return stack.isEmpty() ? "" : stack.getHoverName().getString();
+        }
+        if (v instanceof net.minecraft.world.level.block.state.BlockState state) {
+            return state.getBlock().getName().getString();
+        }
         if (v instanceof Double d && d == Math.rint(d) && !d.isInfinite()) {
             return String.valueOf(d.longValue());
         }
         return String.valueOf(v).toLowerCase(Locale.ROOT).equals("null") ? "" : String.valueOf(v);
+    }
+
+    private static String trim(double v) {
+        return v == Math.rint(v) && !Double.isInfinite(v)
+                ? String.valueOf((long) v) : String.valueOf(v);
     }
 }

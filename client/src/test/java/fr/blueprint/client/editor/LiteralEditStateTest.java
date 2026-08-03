@@ -93,9 +93,32 @@ class LiteralEditStateTest {
     @Test
     void typesNonEditables() {
         assertFalse(LiteralEditState.editableAsText(PinTypes.ITEMSTACK));
-        assertFalse(LiteralEditState.editableAsText(PinTypes.VEC3));
+        assertFalse(LiteralEditState.editableAsText(PinTypes.BLOCKSTATE));
         assertFalse(LiteralEditState.editableAsText(PinTypes.BOOL));
         assertTrue(LiteralEditState.editableAsText(PinTypes.RESOURCE_LOCATION));
+        assertTrue(LiteralEditState.editableAsText(PinTypes.VEC3));
+        assertTrue(LiteralEditState.editableAsText(PinTypes.BLOCKPOS));
+    }
+
+    @Test
+    void positionsTroisNombres() {
+        LiteralEditState v = text(PinTypes.VEC3, "1.5, 64, -3");
+        assertTrue(v.isValid());
+        assertEquals(new net.minecraft.world.phys.Vec3(1.5, 64, -3), v.parse().value());
+        assertFalse(text(PinTypes.VEC3, "1 2").isValid());
+        assertFalse(text(PinTypes.VEC3, "a b c").isValid());
+
+        LiteralEditState p = text(PinTypes.BLOCKPOS, "10 -60 7.9");
+        assertTrue(p.isValid());
+        assertEquals(new net.minecraft.core.BlockPos(10, -60, 7), p.parse().value());
+
+        // Ctrl+P remplit le tampon (bouton « position du joueur »).
+        p.setText("1 2 3");
+        assertEquals("1 2 3", p.text());
+
+        assertEquals("1.5 64 -3", LiteralEditState.display(PinTypes.VEC3,
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.VEC3,
+                        new net.minecraft.world.phys.Vec3(1.5, 64, -3))));
     }
 
     @Test

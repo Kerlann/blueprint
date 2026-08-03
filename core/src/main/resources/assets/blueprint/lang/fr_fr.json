@@ -107,6 +107,8 @@
   "blueprint.editor.palette.favorites": "★ Favoris",
   "blueprint.editor.palette.recents": "Récents",
   "blueprint.editor.palette.blocked": "plafonné",
+  "blueprint.editor.picker.item": "Choisir un item (Ctrl+P dans un champ position = position du joueur)",
+  "blueprint.editor.picker.block": "Choisir un bloc",
   "blueprint.editor.saved": "Blueprint %s enregistré",
   "blueprint.editor.unsaved.title": "Modifications non enregistrées",
   "blueprint.editor.unsaved.save": "Enregistrer et quitter",

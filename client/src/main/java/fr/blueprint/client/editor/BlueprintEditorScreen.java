@@ -54,7 +54,7 @@ public final class BlueprintEditorScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // La barre d'outils (5.6b) porte le titre et l'indicateur ● non-enregistré.
-        canvas.render(graphics, font);
+        canvas.render(graphics, font, mouseX, mouseY);
     }
 
     @Override
