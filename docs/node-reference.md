@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-121 nœuds dans 25 catégories.
+129 nœuds dans 25 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -236,6 +236,16 @@ permission `SAFE` · fuel 1
 
 ## event/player
 
+### `blueprint:event/player_attack_entity` — Player attacks entity
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `target` | `blueprint:entity` | — |
+
 ### `blueprint:event/player_break_block` — Player breaks block
 
 permission `SAFE` · fuel 1 · E
@@ -245,6 +255,17 @@ permission `SAFE` · fuel 1 · E
 | `exec_out` | exec | — |
 | `player` | `blueprint:player` | — |
 | `pos` | `blueprint:blockpos` | — |
+
+### `blueprint:event/player_change_world` — Player changes dimension
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `from` | `blueprint:resourcelocation` | — |
+| `to` | `blueprint:resourcelocation` | — |
 
 ### `blueprint:event/player_chat` — Player chats
 
@@ -274,6 +295,26 @@ permission `SAFE` · fuel 1 · E
 | `exec_out` | exec | — |
 | `player` | `blueprint:player` | — |
 
+### `blueprint:event/player_respawn` — Player respawns
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `end_portal` | `blueprint:bool` | — |
+
+### `blueprint:event/player_sleep` — Player goes to sleep
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `pos` | `blueprint:blockpos` | — |
+
 ### `blueprint:event/player_use_block` — Player uses block
 
 permission `SAFE` · fuel 1 · E
@@ -285,7 +326,26 @@ permission `SAFE` · fuel 1 · E
 | `pos` | `blueprint:blockpos` | — |
 | `face` | `blueprint:direction` | — |
 
+### `blueprint:event/player_use_entity` — Player uses entity
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `target` | `blueprint:entity` | — |
+
 ### `blueprint:event/player_use_item` — Player uses item
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+
+### `blueprint:event/player_wake_up` — Player wakes up
 
 permission `SAFE` · fuel 1 · E
 
@@ -350,6 +410,17 @@ permission `SAFE` · fuel 1
 
 ## event/world
 
+### `blueprint:event/entity_damaged` — Entity takes damage
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `entity` | `blueprint:entity` | — |
+| `amount` | `blueprint:double` | — |
+| `attacker` | `blueprint:entity` | — |
+
 ### `blueprint:event/entity_death` — Entity dies
 
 permission `SAFE` · fuel 1 · E
@@ -358,6 +429,16 @@ permission `SAFE` · fuel 1 · E
 |---|---|---|
 | `exec_out` | exec | — |
 | `entity` | `blueprint:entity` | — |
+
+### `blueprint:event/entity_killed` — Entity kills another
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `killer` | `blueprint:entity` | — |
+| `victim` | `blueprint:entity` | — |
 
 
 ## flow/branch

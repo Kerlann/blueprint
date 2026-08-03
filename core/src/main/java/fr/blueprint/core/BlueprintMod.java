@@ -296,6 +296,94 @@ public class BlueprintMod implements ModInitializer {
                         fr.blueprint.core.event.StandardEvents.PLAYER_CHAT,
                         payload -> payload.set("player", sender)
                                 .set("message", message.signedContent())));
+        registerCombatEventBridges();
+        registerPlayerEventBridges();
+    }
+
+    /**
+     * Combat (batch 4). Les dégâts subis sont le socle de tout script de combat :
+     * sans eux, un graphe ne savait d'une entité que sa mort.
+     */
+    private static void registerCombatEventBridges() {
+        net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register(
+                (entity, source, baseAmount, damageTaken, blocked) ->
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.ENTITY_DAMAGED,
+                                payload -> {
+                                    // damageTaken, pas baseAmount : c'est ce que
+                                    // l'entité a RÉELLEMENT encaissé, armure et
+                                    // enchantements déduits.
+                                    payload.set("entity", entity)
+                                            .set("amount", (double) damageTaken);
+                                    if (source.getEntity() != null) {
+                                        payload.set("attacker", source.getEntity());
+                                    }
+                                }));
+        net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY
+                .register((world, killer, victim, source) ->
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.ENTITY_KILLED,
+                                payload -> payload.set("killer", killer).set("victim", victim)));
+        net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register(
+                (player, world, hand, entity, hit) -> {
+                    // Garde main principale, comme pour use_block (QA EVENT-001) :
+                    // Fabric appelle le callback pour chaque main.
+                    if (hand == net.minecraft.world.InteractionHand.MAIN_HAND
+                            && player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.PLAYER_ATTACK_ENTITY,
+                                payload -> payload.set("player", sp).set("target", entity));
+                    }
+                    return net.minecraft.world.InteractionResult.PASS;
+                });
+        net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(
+                (player, world, hand, entity, hit) -> {
+                    if (hand == net.minecraft.world.InteractionHand.MAIN_HAND
+                            && player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.PLAYER_USE_ENTITY,
+                                payload -> payload.set("player", sp).set("target", entity));
+                    }
+                    return net.minecraft.world.InteractionResult.PASS;
+                });
+    }
+
+    /** Cycle de vie du joueur (batch 4) : réapparition, dimension, sommeil. */
+    private static void registerPlayerEventBridges() {
+        net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.AFTER_RESPAWN.register(
+                (oldPlayer, newPlayer, alive) ->
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.PLAYER_RESPAWN,
+                                // « alive » de Fabric signifie « n'est pas mort » :
+                                // c'est le retour par le portail de l'End, pas une
+                                // réapparition après la mort. Le nom du pin le dit.
+                                payload -> payload.set("player", newPlayer)
+                                        .set("end_portal", alive)));
+        net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD
+                .register((player, origin, destination) ->
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.PLAYER_CHANGE_WORLD,
+                                payload -> payload.set("player", player)
+                                        .set("from", origin.dimension().identifier())
+                                        .set("to", destination.dimension().identifier())));
+        net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.START_SLEEPING.register(
+                (entity, pos) -> {
+                    // Fabric émet pour toute entité vivante ; seul un joueur dort
+                    // vraiment, et un pin « player » ne peut pas recevoir un zombie.
+                    if (entity instanceof net.minecraft.server.level.ServerPlayer sp) {
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.PLAYER_SLEEP,
+                                payload -> payload.set("player", sp).set("pos", pos.immutable()));
+                    }
+                });
+        net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.STOP_SLEEPING.register(
+                (entity, pos) -> {
+                    if (entity instanceof net.minecraft.server.level.ServerPlayer sp) {
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.PLAYER_WAKE_UP,
+                                payload -> payload.set("player", sp));
+                    }
+                });
     }
 
     /** Fabrique d'environnement d'exécution — partagée par le pont et la reprise (6.1). */
