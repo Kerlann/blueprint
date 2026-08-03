@@ -1,0 +1,21 @@
+package fr.blueprint.core.net;
+
+/**
+ * Bornes appliquées à TOUT ce qui arrive du réseau (story 6.4, principe P3 : rien
+ * n'est illimité). Elles vivent à part du modèle : un graphe local peut être gros,
+ * un graphe <i>reçu</i> doit tenir dans ce que le serveur accepte de stocker et de
+ * rediffuser.
+ */
+public record NetLimits(int maxGraphBytes, int maxNodes, int maxLinks, int maxVariables,
+                        int maxComments, int maxTextLength, int maxGhosts,
+                        int savesPerWindow, int requestsPerWindow, long windowMillis) {
+
+    /**
+     * Valeurs par défaut. Le graphe compressé plafonne bien en dessous de la borne de
+     * décodage ({@link GraphSync#MAX_BYTES}) : celle-ci protège le décodeur, celle-ci
+     * protège la sauvegarde du monde.
+     */
+    public static final NetLimits DEFAULT = new NetLimits(
+            256 * 1024, 1_000, 4_000, 256, 256, 4_096, 256,
+            10, 60, 10_000L);
+}

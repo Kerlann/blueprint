@@ -169,6 +169,25 @@ public final class GraphValidator {
         return null;
     }
 
+    /**
+     * Contrôle d'un lien DÉJÀ posé — mêmes règles que {@link #canLink}, sans le refus
+     * « doublon » (le lien est là par construction). Sert au garde réseau (6.4) : un
+     * graphe reçu repasse lien par lien devant la règle unique de câblage.
+     */
+    public static @Nullable Diagnostic checkExistingLink(Blueprint bp, NodeTypeLookup lookup,
+                                                         Link link) {
+        Node from = bp.node(link.fromNode());
+        Node to = bp.node(link.toNode());
+        if (from == null || to == null) {
+            return Diagnostic.error(DiagnosticCode.NODE_NOT_FOUND, Diagnostic.link(link),
+                    from == null ? link.fromNode().toString() : link.toNode().toString());
+        }
+        Map<UUID, NodeShape> shapes = new HashMap<>();
+        shapes.put(from.uuid(), shapeOrGhost(bp, lookup, from));
+        shapes.put(to.uuid(), shapeOrGhost(bp, lookup, to));
+        return checkLink(bp, shapes, link, false);
+    }
+
     private static void ensureShape(Blueprint bp, NodeTypeLookup lookup,
                                     Map<UUID, NodeShape> shapes, UUID uuid) {
         if (!shapes.containsKey(uuid)) {

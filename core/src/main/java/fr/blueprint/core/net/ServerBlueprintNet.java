@@ -44,6 +44,9 @@ public final class ServerBlueprintNet {
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ListRequest.TYPE,
                 (payload, context) -> {
+                    if (!allowed(REQUESTS, context, "liste")) {
+                        return;
+                    }
                     List<Identifier> ids = new ArrayList<>();
                     BlueprintManager.of(context.server()).all()
                             .forEach(bp -> ids.add(bp.id()));
@@ -53,6 +56,9 @@ public final class ServerBlueprintNet {
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.OpenRequest.TYPE,
                 (payload, context) -> {
+                    if (!allowed(REQUESTS, context, "ouverture")) {
+                        return;
+                    }
                     Blueprint bp = BlueprintManager.of(context.server())
                             .get(payload.blueprint()).orElse(null);
                     if (bp == null) {
@@ -65,7 +71,8 @@ public final class ServerBlueprintNet {
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.CreateRequest.TYPE,
                 (payload, context) -> {
-                    if (!mayEdit(config, context.player())) {
+                    if (!mayEdit(config, context.player())
+                            || !allowed(SAVES, context, "création")) {
                         deny(context, payload.blueprint(),
                                 BlueprintPayloads.SaveStatus.DENIED, -1);
                         return;
@@ -85,16 +92,33 @@ public final class ServerBlueprintNet {
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.SaveRequest.TYPE,
                 (payload, context) -> {
                     Identifier id = payload.blueprint();
-                    if (!mayEdit(config, context.player())) {
+                    if (!mayEdit(config, context.player())
+                            || !allowed(SAVES, context, "enregistrement")) {
                         deny(context, id, BlueprintPayloads.SaveStatus.DENIED, -1);
+                        return;
+                    }
+                    // Taille : bornée AVANT toute décompression (AC1).
+                    if (payload.data().length > LIMITS.maxGraphBytes()) {
+                        BlueprintMod.LOGGER.warn(
+                                "Enregistrement de « {} » refusé à {} : {} octets (max {})",
+                                id, name(context), payload.data().length, LIMITS.maxGraphBytes());
+                        deny(context, id, BlueprintPayloads.SaveStatus.INVALID, -1);
                         return;
                     }
                     Blueprint snapshot = GraphSync.fromBytes(payload.data(),
                             typeId -> BlueprintMod.registries().pinTypes()
                                     .get(typeId).orElse(null));
-                    // Identifiant du graphe ≠ identifiant annoncé : paquet incohérent,
-                    // on ne devine pas lequel des deux le client voulait.
-                    if (snapshot == null || !snapshot.id().equals(id)) {
+                    if (snapshot == null) {
+                        deny(context, id, BlueprintPayloads.SaveStatus.INVALID, -1);
+                        return;
+                    }
+                    // Tout ce qui arrive du réseau repasse devant le garde (AC2) :
+                    // identifiant annoncé, bornes, liens pendants, câblage.
+                    GraphGuard.Verdict verdict = GraphGuard.inspect(id, snapshot,
+                            BlueprintMod.registries().nodes(), LIMITS);
+                    if (!verdict.accepted()) {
+                        BlueprintMod.LOGGER.warn("Enregistrement de « {} » refusé à {} : {}",
+                                id, name(context), verdict.reason());
                         deny(context, id, BlueprintPayloads.SaveStatus.INVALID, -1);
                         return;
                     }
@@ -115,7 +139,8 @@ public final class ServerBlueprintNet {
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.SetEnabled.TYPE,
                 (payload, context) -> {
-                    if (!mayEdit(config, context.player())) {
+                    if (!mayEdit(config, context.player())
+                            || !allowed(SAVES, context, "activation")) {
                         deny(context, payload.blueprint(),
                                 BlueprintPayloads.SaveStatus.DENIED, -1);
                         return;
@@ -123,6 +148,45 @@ public final class ServerBlueprintNet {
                     BlueprintManager.of(context.server())
                             .setEnabled(payload.blueprint(), payload.enabled());
                 });
+
+        // Un joueur parti ne garde pas de quota : la table suit les connectés.
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
+                (handler, server) -> {
+                    SAVES.forget(handler.player.getUUID());
+                    REQUESTS.forget(handler.player.getUUID());
+                });
+    }
+
+    /** Bornes réseau (6.4) — configurables serveur en 9.3. */
+    private static final NetLimits LIMITS = NetLimits.DEFAULT;
+
+    private static final RateLimiter SAVES = new RateLimiter(
+            LIMITS.savesPerWindow(), LIMITS.windowMillis(), System::currentTimeMillis);
+    private static final RateLimiter REQUESTS = new RateLimiter(
+            LIMITS.requestsPerWindow(), LIMITS.windowMillis(), System::currentTimeMillis);
+
+    /**
+     * Quota par joueur. Un dépassement est journalisé une fois sur dix : un flot de
+     * paquets ne doit pas devenir un flot de lignes de journal (le déni de service se
+     * déplacerait sur le disque).
+     */
+    private static boolean allowed(RateLimiter limiter, ServerPlayNetworking.Context context,
+                                   String what) {
+        if (limiter.allow(context.player().getUUID())) {
+            return true;
+        }
+        if (DROPPED.incrementAndGet() % 10 == 1) {
+            BlueprintMod.LOGGER.warn("Quota réseau dépassé par {} ({}) — paquet ignoré",
+                    name(context), what);
+        }
+        return false;
+    }
+
+    private static final java.util.concurrent.atomic.AtomicLong DROPPED =
+            new java.util.concurrent.atomic.AtomicLong();
+
+    private static String name(ServerPlayNetworking.Context context) {
+        return context.player().getGameProfile().name();
     }
 
     /** Taille des tranches des paquets scindés par Fabric (graphe et instantané). */
