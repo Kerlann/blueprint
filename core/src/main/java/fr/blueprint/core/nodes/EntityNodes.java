@@ -71,7 +71,7 @@ final class EntityNodes {
 
     static void register(NodeRegistry r) {
         r.register(NodeType.builder(id("entity/position"))
-                .category(NodeCategories.ENTITY).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.ENTITY_READ).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .out("pos", PinTypes.VEC3)
                 .action(ctx -> {
@@ -83,7 +83,7 @@ final class EntityNodes {
                 .build());
 
         r.register(NodeType.builder(id("entity/teleport"))
-                .category(NodeCategories.ENTITY).exec().permission(Permission.WORLD)
+                .category(NodeCategories.ENTITY_ACT).exec().permission(Permission.WORLD)
                 .in("entity", PinTypes.ENTITY)
                 .in("pos", PinTypes.VEC3)
                 .action(ctx -> {
@@ -96,7 +96,7 @@ final class EntityNodes {
                 .build());
 
         r.register(NodeType.builder(id("entity/health"))
-                .category(NodeCategories.ENTITY).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.ENTITY_READ).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .out("health", PinTypes.DOUBLE)
                 .action(ctx -> {
@@ -108,7 +108,7 @@ final class EntityNodes {
                 .build());
 
         r.register(NodeType.builder(id("entity/set_health"))
-                .category(NodeCategories.ENTITY).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.ENTITY_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .in("health", PinTypes.DOUBLE, 20.0)
                 .action(ctx -> {
@@ -120,7 +120,7 @@ final class EntityNodes {
                 .build());
 
         r.register(NodeType.builder(id("entity/heal"))
-                .category(NodeCategories.ENTITY).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.ENTITY_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .in("amount", PinTypes.DOUBLE, 1.0)
                 .action(ctx -> {
@@ -132,7 +132,7 @@ final class EntityNodes {
                 .build());
 
         r.register(NodeType.builder(id("entity/add_effect"))
-                .category(NodeCategories.ENTITY).exec().permission(Permission.GAMEPLAY)
+                .category(NodeCategories.ENTITY_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .in("effect", PinTypes.RESOURCE_LOCATION)
                 .in("duration", PinTypes.INT, 200)

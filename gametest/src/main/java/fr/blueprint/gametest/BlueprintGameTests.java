@@ -238,4 +238,147 @@ public final class BlueprintGameTests {
             cleanup(helper, blueprintId);
         });
     }
+
+    /**
+     * VERIFY signal : un blueprint en appelle un autre. L'émetteur tourne au tick et
+     * envoie « poser » ; le récepteur écoute ce nom et pose le bloc. Rien ne relie les
+     * deux graphes sinon la chaîne de caractères — c'est tout l'intérêt.
+     *
+     * <p>Ce test aurait été impossible à écrire avant : l'événement signal existait
+     * depuis la 7.6 et rien ne le déclenchait.
+     */
+    @GameTest(maxTicks = 200)
+    public void aSignalCarriesFromOneBlueprintToAnother(GameTestHelper helper) {
+        Identifier emitterId = id("signal_emitter");
+        Identifier receiverId = id("signal_receiver");
+        BlockPos target = helper.absolutePos(new BlockPos(5, 1, 1));
+        var manager = BlueprintManager.of(helper.getLevel().getServer());
+        manager.delete(emitterId);
+        manager.delete(receiverId);
+
+        // Le récepteur : signal « poser » → pose un bloc d'or.
+        Blueprint receiver = new Blueprint(receiverId, new fr.blueprint.core.graph.BlueprintMeta(
+                "", "", "1.0.0", fr.blueprint.api.node.Permission.WORLD));
+        UUID listen = uuid("sig:listen");
+        UUID place = uuid("sig:place");
+        apply(receiver, new EditOperation.AddNode(listen,
+                StandardEvents.SIGNAL.id(), Vec2d.ZERO));
+        apply(receiver, new EditOperation.SetLiteral(listen, "name",
+                LiteralValue.of(PinTypes.STRING, "poser")));
+        apply(receiver, new EditOperation.AddNode(place,
+                Identifier.fromNamespaceAndPath("blueprint", "world/set_block"),
+                new Vec2d(200, 0)));
+        apply(receiver, new EditOperation.SetLiteral(place, "pos",
+                LiteralValue.of(PinTypes.BLOCKPOS, target)));
+        apply(receiver, new EditOperation.SetLiteral(place, "state",
+                LiteralValue.of(PinTypes.BLOCKSTATE, Blocks.GOLD_BLOCK.defaultBlockState())));
+        apply(receiver, new EditOperation.AddLink(new Link(listen, "exec_out", place, "exec_in")));
+
+        // L'émetteur : un tick, une seule fois, → signal « poser ».
+        Blueprint emitter = new Blueprint(emitterId);
+        UUID tick = uuid("sig:tick");
+        UUID once = uuid("sig:once");
+        UUID emit = uuid("sig:emit");
+        apply(emitter, new EditOperation.AddNode(tick,
+                StandardEvents.SERVER_TICK.id(), Vec2d.ZERO));
+        apply(emitter, new EditOperation.AddNode(once,
+                Identifier.fromNamespaceAndPath("blueprint", "flow/do_once"), new Vec2d(200, 0)));
+        apply(emitter, new EditOperation.AddNode(emit,
+                Identifier.fromNamespaceAndPath("blueprint", "signal/emit"), new Vec2d(400, 0)));
+        apply(emitter, new EditOperation.SetLiteral(emit, "name",
+                LiteralValue.of(PinTypes.STRING, "poser")));
+        apply(emitter, new EditOperation.AddLink(new Link(tick, "exec_out", once, "exec_in")));
+        apply(emitter, new EditOperation.AddLink(new Link(once, "exec_out", emit, "exec_in")));
+
+        manager.adopt(receiver);
+        manager.setEnabled(receiverId, true);
+        manager.adopt(emitter);
+        manager.setEnabled(emitterId, true);
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(
+                    helper.getLevel().getBlockState(target).is(Blocks.GOLD_BLOCK),
+                    Component.literal("le signal n'a pas traversé jusqu'au second blueprint"));
+            helper.getLevel().removeBlock(target, false);
+            cleanup(helper, emitterId);
+            cleanup(helper, receiverId);
+        });
+    }
+
+    /**
+     * VERIFY requêtes : les nœuds qui LISENT le monde. Ils exigent un serveur vivant
+     * (heure, dimension, joueurs connectés) et n'ont donc aucun équivalent headless —
+     * un mauvais nom de méthode Mojang ne se verrait qu'ici.
+     */
+    @GameTest(maxTicks = 100)
+    public void worldQueryNodesReadTheLiveServer(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var registries = BlueprintMod.registries();
+
+        // world/get_time : le jour courant doit être cohérent avec l'heure du monde.
+        var time = runNode(helper, "world/get_time", java.util.Map.of());
+        long dayTime = (Long) time.get("day_time");
+        helper.assertTrue(dayTime >= 0 && dayTime < 24_000L,
+                Component.literal("heure du jour hors bornes : " + dayTime));
+
+        // world/dimension : l'identifiant réel du monde de test.
+        var dimension = runNode(helper, "world/dimension", java.util.Map.of());
+        helper.assertTrue(dimension.get("dimension") != null,
+                Component.literal("dimension nulle"));
+
+        // query/players : la liste des connectés, cohérente avec le serveur.
+        var players = runNode(helper, "query/players", java.util.Map.of());
+        int expected = server.getPlayerList().getPlayers().size();
+        helper.assertTrue(players.get("players") instanceof java.util.List<?> list
+                        && list.size() == expected,
+                Component.literal("liste de joueurs incohérente (attendu " + expected + ")"));
+
+        // entity/as_player sur ce qui n'est pas un joueur : le drapeau doit dire faux
+        // plutôt que de rendre un joueur nul qui se propagerait en silence.
+        var cow = helper.spawn(net.minecraft.world.entity.EntityType.COW, new BlockPos(6, 1, 1));
+        var asPlayer = runNode(helper, "entity/as_player", java.util.Map.of("entity", cow));
+        helper.assertTrue(Boolean.FALSE.equals(asPlayer.get("is_player")),
+                Component.literal("une vache n'est pas un joueur"));
+        cow.discard();
+
+        helper.succeed();
+    }
+
+    /** Exécute un nœud dans le monde du test et rend ses sorties. */
+    private static java.util.Map<String, Object> runNode(GameTestHelper helper, String path,
+                                                         java.util.Map<String, Object> inputs) {
+        var type = BlueprintMod.registries().nodes()
+                .get(Identifier.fromNamespaceAndPath("blueprint", path)).orElseThrow();
+        var handle = new fr.blueprint.api.node.BlueprintHandle() {
+            @Override
+            public Identifier id() {
+                return Identifier.fromNamespaceAndPath("blueprint_gametest", "query");
+            }
+
+            @Override
+            public boolean enabled() {
+                return true;
+            }
+        };
+        var trigger = new fr.blueprint.api.event.TriggerContext() {
+            @Override
+            public Identifier eventId() {
+                return Identifier.fromNamespaceAndPath("blueprint_gametest", "manual");
+            }
+
+            @Override
+            public Object output(String name) {
+                return null;
+            }
+        };
+        try {
+            return fr.blueprint.core.vm.NodeContextImpl.invoke(type,
+                    new fr.blueprint.core.vm.NodeContextImpl(type, inputs,
+                            helper.getLevel().getServer(), helper.getLevel(), handle, trigger,
+                            org.slf4j.LoggerFactory.getLogger("blueprint-gametest")))
+                    .outputs();
+        } catch (Exception e) {
+            throw new IllegalStateException("échec du nœud " + path, e);
+        }
+    }
 }

@@ -102,6 +102,9 @@ interface fr.blueprint.api.node.NodeAction
 class fr.blueprint.api.node.NodeCategories
   field public static final fr.blueprint.api.node.NodeCategory DEBUG
   field public static final fr.blueprint.api.node.NodeCategory ENTITY
+  field public static final fr.blueprint.api.node.NodeCategory ENTITY_ACT
+  field public static final fr.blueprint.api.node.NodeCategory ENTITY_QUERY
+  field public static final fr.blueprint.api.node.NodeCategory ENTITY_READ
   field public static final fr.blueprint.api.node.NodeCategory EVENT
   field public static final fr.blueprint.api.node.NodeCategory EVENT_PLAYER
   field public static final fr.blueprint.api.node.NodeCategory EVENT_SERVER

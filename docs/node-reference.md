@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-107 nœuds dans 23 catégories.
+121 nœuds dans 25 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -24,7 +24,7 @@ permission `SAFE` · fuel 1
 | `exec_out` | exec | — |
 
 
-## entity
+## entity/act
 
 ### `blueprint:entity/add_effect` — Add effect
 
@@ -56,34 +56,6 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 
-### `blueprint:entity/health` — Get health
-
-permission `GAMEPLAY` · fuel 1
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `exec_in` | exec | — |
-| `entity` | `blueprint:entity` | — |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
-| `health` | `blueprint:double` | — |
-
-### `blueprint:entity/position` — Entity position
-
-permission `GAMEPLAY` · fuel 1
-
-| Entrées | Type | Défaut |
-|---|---|---|
-| `exec_in` | exec | — |
-| `entity` | `blueprint:entity` | — |
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
-| `pos` | `blueprint:vec3` | — |
-
 ### `blueprint:entity/set_health` — Set health
 
 permission `GAMEPLAY` · fuel 1
@@ -111,6 +83,155 @@ permission `WORLD` · fuel 1
 | Sorties | Type | Défaut |
 |---|---|---|
 | `exec_out` | exec | — |
+
+
+## entity/query
+
+### `blueprint:query/entities_near` — Nearby entities
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `pos` | `blueprint:vec3` | — |
+| `radius` | `blueprint:double` | `8.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `entities` | `list<blueprint:entity>` | — |
+
+### `blueprint:query/nearest_player` — Nearest player
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `pos` | `blueprint:vec3` | — |
+| `radius` | `blueprint:double` | `16.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `found` | `blueprint:bool` | — |
+
+### `blueprint:query/players` — Online players
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `players` | `list<blueprint:player>` | — |
+
+
+## entity/read
+
+### `blueprint:entity/as_player` — Entity as player
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `is_player` | `blueprint:bool` | — |
+
+### `blueprint:entity/health` — Get health
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `health` | `blueprint:double` | — |
+
+### `blueprint:entity/is_alive` — Is entity alive
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `alive` | `blueprint:bool` | — |
+
+### `blueprint:entity/max_health` — Max health
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `max` | `blueprint:double` | — |
+
+### `blueprint:entity/name` — Entity name
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `name` | `blueprint:string` | — |
+
+### `blueprint:entity/position` — Entity position
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `pos` | `blueprint:vec3` | — |
+
+### `blueprint:entity/type` — Entity type
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `type` | `blueprint:resourcelocation` | — |
 
 
 ## event/player
@@ -1347,6 +1468,20 @@ permission `SAFE` · fuel 1
 | `exec_out` | exec | — |
 | `matches` | `blueprint:bool` | — |
 
+### `blueprint:world/light` — Light level
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `pos` | `blueprint:blockpos` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `light` | `blueprint:int` | — |
+
 ### `blueprint:world/set_block` — Set block
 
 permission `WORLD` · fuel 1
@@ -1360,6 +1495,20 @@ permission `WORLD` · fuel 1
 | Sorties | Type | Défaut |
 |---|---|---|
 | `exec_out` | exec | — |
+
+### `blueprint:world/surface` — Surface height
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `pos` | `blueprint:blockpos` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `pos` | `blueprint:blockpos` | — |
 
 
 ## world/effect
@@ -1412,6 +1561,19 @@ permission `GAMEPLAY` · fuel 1
 
 ## world/state
 
+### `blueprint:world/dimension` — Dimension
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `dimension` | `blueprint:resourcelocation` | — |
+
 ### `blueprint:world/drop_item` — Drop item
 
 permission `GAMEPLAY` · fuel 1
@@ -1425,6 +1587,48 @@ permission `GAMEPLAY` · fuel 1
 | Sorties | Type | Défaut |
 |---|---|---|
 | `exec_out` | exec | — |
+
+### `blueprint:world/get_time` — World time
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `day_time` | `blueprint:long` | — |
+| `game_time` | `blueprint:long` | — |
+| `day` | `blueprint:long` | — |
+
+### `blueprint:world/get_weather` — Weather
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `raining` | `blueprint:bool` | — |
+| `thundering` | `blueprint:bool` | — |
+
+### `blueprint:world/is_day` — Is daytime
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `is_day` | `blueprint:bool` | — |
 
 ### `blueprint:world/set_time` — Set time
 

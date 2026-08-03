@@ -55,6 +55,13 @@ public final class NodeCategories {
     /** Heure, météo, entités déposées dans le monde. */
     public static final NodeCategory WORLD_STATE = new NodeCategory("world/state");
 
+    /** Lire une entité sans la modifier : nom, type, vie, position. */
+    public static final NodeCategory ENTITY_READ = new NodeCategory("entity/read");
+    /** Agir sur une entité : soigner, téléporter, effets. */
+    public static final NodeCategory ENTITY_ACT = new NodeCategory("entity/act");
+    /** Chercher des entités dans le monde. */
+    public static final NodeCategory ENTITY_QUERY = new NodeCategory("entity/query");
+
     /** Événements déclenchés par un joueur. */
     public static final NodeCategory EVENT_PLAYER = new NodeCategory("event/player");
     /** Événements du monde et des entités. */

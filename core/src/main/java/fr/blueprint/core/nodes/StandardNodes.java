@@ -411,6 +411,7 @@ public final class StandardNodes {
         // ----------------------------------------- monde, entités, items (7.3-7.5)
         ListNodes.register(r);
         VectorNodes.register(r);
+        QueryNodes.register(r);
         WorldNodes.register(r);
         EntityNodes.register(r);
         ItemNodes.register(r);
