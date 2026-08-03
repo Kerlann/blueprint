@@ -112,6 +112,7 @@ stories et gates QA.
 | Écrire un mod compagnon | [`docs/extension-api.md`](docs/extension-api.md) |
 | Comprendre les choix | [`docs/architecture.md`](docs/architecture.md) |
 | Savoir ce qui a changé | [`CHANGELOG.md`](CHANGELOG.md) |
+| Savoir où en est le projet | [`docs/rapport-de-fin.md`](docs/rapport-de-fin.md) |
 
 ## Licence
 

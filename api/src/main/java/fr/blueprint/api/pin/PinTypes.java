@@ -160,7 +160,15 @@ public final class PinTypes {
                 k -> new ParameterizedPinType(ParameterizedPinType.Container.LIST, List.of(element)));
     }
 
-    /** {@code map<key, value>} — instance unique par couple. */
+    /**
+     * {@code map<key, value>} — instance unique par couple.
+     *
+     * <p><b>Limite d'encodage</b> : le codec repose sur {@code Codec.unboundedMap},
+     * qui exige des clés représentables en chaîne. Un {@code map<blockpos, T>} se
+     * construit et se valide, mais <b>échouera à la sérialisation</b>. En pratique,
+     * les clés utiles sont {@code string}, {@code int} et {@code resourcelocation} ;
+     * pour une clé structurée, passer par une {@code list} de paires.
+     */
     public static PinType mapOf(PinType key, PinType value) {
         return CACHE.computeIfAbsent(List.of("map", key, value),
                 k -> new ParameterizedPinType(ParameterizedPinType.Container.MAP, List.of(key, value)));

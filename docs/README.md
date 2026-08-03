@@ -71,6 +71,9 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 dans le v1.1 consigné story par story (sucre BScript 4.2b, patchs par opération et
 multi-éditeur 6.3, processeur d'annotations 8.1, corps BScript de datapack 8.2).
 
+> **Relecture finale** : [`rapport-de-fin.md`](rapport-de-fin.md) — l'état complet, ce
+> que la QA a réellement trouvé, ce qui reste, et ce que le harnais ne peut pas garantir.
+
 ## Prochaine action : la session en jeu
 
 Tout ce qui se vérifie sans yeux l'est déjà : suites headless (build vert) et
@@ -93,6 +96,15 @@ l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | V12 | Multijoueur (6.2/6.3) | serveur dédié : édition à deux, verrou optimiste, joueur sans permission → lecture seule |
 | V13 | Survol et liens (5.12) | poser la souris sur un pin, un nœud fauté, un fantôme, un bouton : l'infobulle explique ; cliquer un fil → halo, `Suppr` le retire, `Ctrl+Z` le remet ; pastille de permission et losange de conversion visibles |
 | V14 | Défilement des panneaux (5.12) | un nœud à douze pins et un blueprint à vingt variables : molette dans chaque panneau, curseur visible, rien d'inatteignable |
+| V15 | Boucles et listes (7.1b/7.8) | un graphe qui parcourt une liste de trois noms et envoie un message à chacun : `Pour chaque` + nœuds de liste, sans boucle infinie ni carburant épuisé |
+| V16 | Bibliothèque en monde réel (7.3/7.4/7.5) | poser un bloc, jouer un son, faire apparaître une entité, lire l'heure : les nœuds monde/entité/temps agissent vraiment |
+| V17 | Commande de blueprint (7.7) | `/bpc <nom>` déclenche le graphe qui la déclare, avec suggestion du nom à la frappe |
+| V18 | Quotas et audit (9.3) | `maxNodes: 5` dans la config puis redémarrage → l'éditeur refuse le sixième nœud ; exécuter un nœud ADMIN → ligne `blueprint-audit` avec le nom du joueur |
+| V19 | Nœud annoté et compat (8.1/8.4) | `shout` dans la palette avec ses défauts « salut » et 1 ; `compat/testmod_greet` présent et « Intégration « blueprint_testmod » chargée » au log |
+
+**Déjà clos** : VERIFY-001/002/003 (session du 2026-08-02, épic 1) et VERIFY-004
+(démo ping/pong). **Rien à voir en jeu** pour VERIFY-8.5 : la garde de surface d'API
+s'exerce à chaque construction.
 
 ## Ordre de lecture recommandé
 
