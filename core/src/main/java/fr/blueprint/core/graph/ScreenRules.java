@@ -2,6 +2,7 @@ package fr.blueprint.core.graph;
 
 import fr.blueprint.core.graph.screen.Screen;
 import fr.blueprint.core.graph.screen.ScreenElement;
+import fr.blueprint.core.graph.screen.ScreenLayout;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
@@ -28,9 +29,13 @@ public final class ScreenRules {
                                                       ScreenElement element,
                                                       GraphLimits limits) {
         // Taille : sous le minimum, un élément ne se clique plus et ne se rattrape
-        // plus dans le concepteur — il devient un piège.
-        if (element.width().resolve(Screen.SAFE_WIDTH) < ScreenElement.MIN_SIZE
-                || element.height().resolve(Screen.SAFE_HEIGHT) < ScreenElement.MIN_SIZE) {
+        // plus dans le concepteur — il devient un piège. Mesurée dans la place réelle
+        // du parent, et pas dans celle de l'écran : « 50 % » d'un panneau de 40 unités
+        // fait 20, pas 160, et l'approximation laissait passer des éléments minuscules
+        // dès qu'ils étaient imbriqués.
+        ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
+                Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+        if (rect.width() < ScreenElement.MIN_SIZE || rect.height() < ScreenElement.MIN_SIZE) {
             return Diagnostic.error(DiagnosticCode.ELEMENT_TOO_SMALL,
                     Diagnostic.element(screenName, element.name()),
                     element.name(), (int) ScreenElement.MIN_SIZE);
@@ -91,10 +96,14 @@ public final class ScreenRules {
      * conception qu'une partie de ses joueurs ne le verra pas entier — plutôt que par
      * un rapport de bug.
      */
-    public static boolean outsideSafeArea(ScreenElement element) {
-        double right = element.x() + element.width().resolve(Screen.SAFE_WIDTH);
-        double bottom = element.y() + element.height().resolve(Screen.SAFE_HEIGHT);
-        return right > Screen.SAFE_WIDTH || bottom > Screen.SAFE_HEIGHT
-                || element.x() < 0 || element.y() < 0;
+    public static boolean outsideSafeArea(Screen screen, ScreenElement element) {
+        // Sur le rectangle RÉSOLU, pas sur x/y bruts : ceux-ci sont un décalage depuis
+        // l'ancre, dans le parent. Les lire comme des coordonnées d'écran signalait
+        // tout élément centré au décalage négatif — un faux avertissement qui apprend
+        // vite à ignorer les vrais.
+        ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
+                Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+        return rect.x() < 0 || rect.y() < 0
+                || rect.right() > Screen.SAFE_WIDTH || rect.bottom() > Screen.SAFE_HEIGHT;
     }
 }

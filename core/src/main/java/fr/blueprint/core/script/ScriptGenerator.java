@@ -73,6 +73,7 @@ public final class ScriptGenerator {
         indent++;
         emitMeta();
         emitVariables();
+        emitScreens();
         emitNotes();
         for (Node event : sortedEvents()) {
             emitEvent(event);
@@ -81,6 +82,9 @@ public final class ScriptGenerator {
         line("}");
         if (bp.hasPreservedVariables()) {
             issues.add("variables préservées (P4) non émissibles en texte");
+        }
+        if (bp.hasPreservedScreens()) {
+            issues.add("écrans préservés (P4) non émissibles en texte");
         }
         for (Node node : bp.nodes().values()) {
             if (node.hasPreservedLiterals()) {
@@ -121,6 +125,82 @@ public final class ScriptGenerator {
                     }
                     line(sb.toString());
                 });
+    }
+
+    /**
+     * Les écrans (épic 10). L'ordre des éléments est <b>l'ordre de dessin</b> : il est
+     * émis tel quel, jamais trié — contrairement aux variables et aux notes, où le tri
+     * garantit le déterminisme. Ici, trier changerait la superposition.
+     */
+    private void emitScreens() {
+        for (var screen : bp.screens().values()) {
+            line("screen " + quote(screen.name()) + (screen.hud() ? " @hud" : "") + " {");
+            indent++;
+            for (var element : screen.elements().values()) {
+                line(renderElement(element));
+            }
+            indent--;
+            line("}");
+        }
+    }
+
+    private String renderElement(fr.blueprint.core.graph.screen.ScreenElement element) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(element.kind().name().toLowerCase(java.util.Locale.ROOT))
+                .append(' ').append(quote(element.name()));
+        if (element.parent() != null) {
+            sb.append(" @in(").append(quote(element.parent())).append(')');
+        }
+        sb.append(" @at(").append(element.anchor().name().toLowerCase(java.util.Locale.ROOT))
+                .append(", ").append(num(element.x())).append(", ").append(num(element.y()))
+                .append(')');
+        sb.append(" @size(").append(renderExtent(element.width()))
+                .append(", ").append(renderExtent(element.height())).append(')');
+        if (!element.text().isEmpty()) {
+            sb.append(element.text().translate() ? " @key(" : " @text(")
+                    .append(quote(element.text().value())).append(')');
+        }
+        if (element.texture() != null) {
+            sb.append(" @texture(").append(quote(element.texture().toString())).append(')');
+        }
+        if (!element.visible()) {
+            sb.append(" @hidden");
+        }
+        if (!element.enabled()) {
+            sb.append(" @disabled");
+        }
+        sb.append(" @style(").append(renderStyle(element.style())).append(')');
+        return sb.toString();
+    }
+
+    /** {@code 80} pour une taille fixe, {@code 50%[100, 300]} pour une relative bornée. */
+    private String renderExtent(fr.blueprint.core.graph.screen.Extent extent) {
+        if (!extent.relative()) {
+            return num(extent.value());
+        }
+        // BigDecimal, et pas value * 100 : en virgule flottante 0.07 * 100 vaut
+        // 7.000000000000001, et le texte relu ne redonnerait plus la même fraction.
+        // Passer par la décimale courte rend l'aller-retour exact dans les deux sens.
+        StringBuilder sb = new StringBuilder(java.math.BigDecimal.valueOf(extent.value())
+                .movePointRight(2).stripTrailingZeros().toPlainString()).append('%');
+        if (extent.min() > 0 || extent.max() > 0) {
+            sb.append('[').append(num(extent.min())).append(", ").append(num(extent.max()))
+                    .append(']');
+        }
+        return sb.toString();
+    }
+
+    private String renderStyle(fr.blueprint.core.graph.screen.ElementStyle style) {
+        return String.join(", ",
+                hex(style.background()), hex(style.border()), num(style.borderWidth()),
+                hex(style.textColor()), hex(style.hoverBackground()),
+                hex(style.pressedBackground()), hex(style.disabledBackground()),
+                num(style.padding()),
+                style.align().name().toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private static String hex(int argb) {
+        return "\"#" + String.format("%08X", argb) + "\"";
     }
 
     private void emitNotes() {

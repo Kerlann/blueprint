@@ -1,0 +1,44 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.1"
+story_title: "Modèle d'écran"
+gate: "PASS"
+status_reason: "Le modèle est complet, réversible, sérialisé sans perte et relisible en texte. Trois défauts trouvés en revue ont été corrigés avant le gate, dont deux qui rendaient le contrôle de placement faux dès qu'un élément était imbriqué ou centré."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T17:45:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "SCREEN-001"
+    severity: high
+    finding: "La taille minimale était mesurée dans l'écran entier, pas dans le parent : « 50 % » d'un panneau de 40 unités était compté 160 au lieu de 20, et un élément réellement injouable passait le contrôle dès qu'il était imbriqué"
+    suggested_action: "Corrigé — ScreenLayout.resolve remonte la chaîne de parenté ; test unElementMinusculeParHeritageEstVuQuandMeme"
+  - id: "SCREEN-002"
+    severity: high
+    finding: "Le débordement de la zone garantie lisait x/y comme des coordonnées d'écran alors que ce sont des décalages depuis l'ancre : tout élément centré au décalage négatif était signalé à tort"
+    suggested_action: "Corrigé — même résolveur ; test unElementCentreNAvertitPas. Un avertissement qui se trompe apprend à ignorer ceux qui ont raison"
+  - id: "SCREEN-003"
+    severity: medium
+    finding: "L'aller-retour BScript d'une taille en pourcentage passait par value×100 puis /100 : 0,07 revenait à 0,07000000000000002, et un menu réexporté dix fois dérivait"
+    suggested_action: "Corrigé — décimale courte (BigDecimal) dans les deux sens ; test unPourcentageIndelicatSurvitAuTexte sur cinq fractions indélicates"
+  - id: "SCREEN-004"
+    severity: low
+    finding: "Renommer vers un nom vide était refusé avec le code DUPLICATE_ELEMENT, envoyant l'auteur chercher un homonyme inexistant"
+    suggested_action: "Corrigé — code ELEMENT_NAME_INVALID, traduit fr/en"
+  - id: "SCREEN-005"
+    severity: medium
+    finding: "SetScreen ne rejoue pas ScreenRules — délibéré, puisqu'elle sert à restaurer un état antérieur et qu'un refus casserait l'annulation. Mais le codec réseau de la 10.2 la transportera : un client pourra alors poser un écran qu'AddElement aurait refusé"
+    suggested_action: "Exigence portée dans la story 10.2 (AC de revalidation à la réception). GraphValidator reste le filet : un écran invalide rend le blueprint non exécutable"
+  - id: "SCREEN-006"
+    severity: low
+    finding: "La part d'AC5 « un nœud du graphe qui désigne un élément inexistant » n'est pas couverte : les nœuds GUI n'existent qu'en story 10.4"
+    suggested_action: "Reporté en 10.4, où le diagnostic aura un nœud à pointer. Le reste d'AC5 (doublons, nom vide, taille, plafonds, parenté) est en place et rejoué par GraphValidator"
+  - id: "SCREEN-007"
+    severity: low
+    finding: "AC1c demandait des packs DÉCLARÉS ; ils sont DÉDUITS de l'espace de nom des textures"
+    suggested_action: "Écart assumé — une liste écrite à la main dérive, et avertirait pour un pack devenu inutile en se taisant sur celui qui manque. Screen.requiredPacks() ; test lesPacksRequisSeDeduisentDesTextures"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 2, low: 3 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "SCREEN-005 : la revalidation d'une SetScreen reçue du réseau est une condition de sortie de la 10.2"

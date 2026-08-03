@@ -57,6 +57,14 @@ public final class ScreenOps {
      * Remplace un écran entier. C'est l'inverse naturel de plusieurs des autres : un
      * écran est immuable, donc « défaire une suppression en cascade » revient à
      * reposer l'écran d'avant — bien plus sûr que de reconstituer les enfants un à un.
+     *
+     * <p><b>Elle ne rejoue pas {@link ScreenRules}</b>, et c'est délibéré : elle sert
+     * d'abord à <i>restaurer</i> un état antérieur. Un état chargé d'une sauvegarde peut
+     * être invalide ; refuser de le restaurer casserait l'annulation et perdrait pour de
+     * bon ce que l'auteur venait d'effacer. La contrepartie est qu'une {@code SetScreen}
+     * <b>reçue du réseau</b> doit être revalidée par son destinataire — c'est une
+     * exigence de la story 10.2, où le codec la transporte. {@code GraphValidator} reste
+     * le filet : un écran invalide rend le blueprint non exécutable.
      */
     public record SetScreen(Screen screen) implements EditOperation {
         @Override
@@ -166,8 +174,11 @@ public final class ScreenOps {
                 return Result.refused(Diagnostic.error(DiagnosticCode.ELEMENT_NOT_FOUND,
                         Diagnostic.element(screen, from), from));
             }
+            // Un nom vide ferait lever le constructeur d'écran. Refuser proprement,
+            // et avec le BON code : annoncer un doublon là où le nom est simplement
+            // vide enverrait l'auteur chercher un homonyme qui n'existe pas.
             if (to == null || to.isBlank()) {
-                return Result.refused(Diagnostic.error(DiagnosticCode.DUPLICATE_ELEMENT,
+                return Result.refused(Diagnostic.error(DiagnosticCode.ELEMENT_NAME_INVALID,
                         Diagnostic.element(screen, from), String.valueOf(to)));
             }
             if (!from.equals(to) && target.element(to) != null) {

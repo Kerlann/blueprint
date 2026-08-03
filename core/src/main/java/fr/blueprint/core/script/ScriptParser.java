@@ -17,14 +17,24 @@ import fr.blueprint.core.graph.NodeTypeLookup;
 import fr.blueprint.core.graph.VarScope;
 import fr.blueprint.core.graph.Variable;
 import fr.blueprint.core.graph.Vec2d;
+import fr.blueprint.core.graph.screen.Anchor;
+import fr.blueprint.core.graph.screen.ElementKind;
+import fr.blueprint.core.graph.screen.ElementStyle;
+import fr.blueprint.core.graph.screen.Extent;
+import fr.blueprint.core.graph.screen.Screen;
+import fr.blueprint.core.graph.screen.ScreenElement;
+import fr.blueprint.core.graph.screen.ScreenText;
 import fr.blueprint.core.registry.PluginLoader;
 import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -108,7 +118,7 @@ public final class ScriptParser {
                     i++;
                 }
                 tokens.add(new Token("word", source.substring(start, i), line));
-            } else if ("{}():,@$<>=#.[]".indexOf(c) >= 0) {
+            } else if ("{}():,@$<>=#.[]%".indexOf(c) >= 0) {
                 tokens.add(new Token("sym", String.valueOf(c), line));
                 i++;
             } else {
@@ -191,9 +201,10 @@ public final class ScriptParser {
                 case "meta" -> meta = parseMeta();
                 case "var" -> parseVar();
                 case "note" -> parseNote();
+                case "screen" -> parseScreen();
                 case "on" -> parseEvent();
                 default -> throw new ParseError(token.line(),
-                        "attendu meta/var/note/on, trouvé « " + token.text() + " »");
+                        "attendu meta/var/screen/note/on, trouvé « " + token.text() + " »");
             }
         }
         // setMeta est package-private : on reconstruit avec la meta définitive.
@@ -201,6 +212,7 @@ public final class ScriptParser {
         bp.nodes().values().forEach(n -> GraphLoader.addNode(complete, n));
         bp.variables().values().forEach(v -> GraphLoader.addVariable(complete, v));
         bp.comments().forEach(c -> GraphLoader.addComment(complete, c));
+        bp.screens().values().forEach(s -> GraphLoader.addScreen(complete, s));
         bp = complete;
     }
 
@@ -286,6 +298,216 @@ public final class ScriptParser {
         Annotations anns = parseAnnotations();
         GraphLoader.addComment(bp, new CommentBox(anns.idOr(UUID.randomUUID()), text,
                 anns.posOr(nextAutoPos()), anns.sizeOr(new Vec2d(120, 60)), anns.color));
+    }
+
+    // ------------------------------------------------------------------- écrans
+
+    /**
+     * Un écran (épic 10) : {@code screen "nom" @hud { … }}. Les éléments sont relus
+     * dans l'ordre écrit, qui est <b>l'ordre de dessin</b> — jamais trié.
+     *
+     * <p>Contrairement au chargement NBT, qui ne refuse rien (P4), l'import texte
+     * <i>refuse</i> les noms en double. Un fichier BScript est écrit à la main : deux
+     * éléments du même nom y sont une faute d'auteur, et les accepter en silence
+     * perdrait le premier des deux sans que personne ne le voie.
+     */
+    private void parseScreen() {
+        Token keyword = expect("word", "screen");
+        String name = expect("string", null).text();
+        boolean hud = false;
+        while (peek().kind().equals("sym") && peek().text().equals("@")) {
+            next();
+            Token ann = expect("word", null);
+            if (!ann.text().equals("hud")) {
+                throw new ParseError(ann.line(),
+                        "annotation inconnue @" + ann.text() + " sur un écran");
+            }
+            hud = true;
+        }
+        if (bp.screen(name) != null) {
+            throw new ParseError(keyword.line(), "écran « " + name + " » déjà défini");
+        }
+        expect("sym", "{");
+        List<ScreenElement> elements = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        while (!eat("sym", "}")) {
+            ScreenElement element = parseElement();
+            if (!seen.add(element.name())) {
+                throw new ParseError(peek().line(),
+                        "élément « " + element.name() + " » déjà défini dans « " + name + " »");
+            }
+            elements.add(element);
+        }
+        try {
+            GraphLoader.addScreen(bp, new Screen(name, hud, elements));
+        } catch (IllegalArgumentException e) {
+            throw new ParseError(keyword.line(), e.getMessage());
+        }
+    }
+
+    private ScreenElement parseElement() {
+        Token kindToken = expect("word", null);
+        ElementKind kind;
+        try {
+            kind = ElementKind.valueOf(kindToken.text().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new ParseError(kindToken.line(),
+                    "type d'élément inconnu « " + kindToken.text() + " »");
+        }
+        String name = expect("string", null).text();
+
+        String parent = null;
+        Anchor anchor = Anchor.TOP_LEFT;
+        double x = 0;
+        double y = 0;
+        Extent width = Extent.of(ScreenElement.MIN_SIZE);
+        Extent height = Extent.of(ScreenElement.MIN_SIZE);
+        ScreenText text = ScreenText.EMPTY;
+        Identifier texture = null;
+        ElementStyle style = ElementStyle.DEFAULT;
+        boolean visible = true;
+        boolean enabled = true;
+
+        while (peek().kind().equals("sym") && peek().text().equals("@")) {
+            next();
+            Token ann = expect("word", null);
+            switch (ann.text()) {
+                case "in" -> {
+                    expect("sym", "(");
+                    parent = expect("string", null).text();
+                    expect("sym", ")");
+                }
+                case "at" -> {
+                    expect("sym", "(");
+                    Token anchorToken = expect("word", null);
+                    try {
+                        anchor = Anchor.valueOf(anchorToken.text().toUpperCase(Locale.ROOT));
+                    } catch (IllegalArgumentException e) {
+                        throw new ParseError(anchorToken.line(),
+                                "ancre inconnue « " + anchorToken.text() + " »");
+                    }
+                    expect("sym", ",");
+                    x = number(next());
+                    expect("sym", ",");
+                    y = number(next());
+                    expect("sym", ")");
+                }
+                case "size" -> {
+                    expect("sym", "(");
+                    width = parseExtent();
+                    expect("sym", ",");
+                    height = parseExtent();
+                    expect("sym", ")");
+                }
+                case "text" -> {
+                    expect("sym", "(");
+                    text = ScreenText.literal(expect("string", null).text());
+                    expect("sym", ")");
+                }
+                case "key" -> {
+                    expect("sym", "(");
+                    text = ScreenText.key(expect("string", null).text());
+                    expect("sym", ")");
+                }
+                case "texture" -> {
+                    expect("sym", "(");
+                    Token raw = expect("string", null);
+                    texture = Identifier.tryParse(raw.text());
+                    if (texture == null) {
+                        throw new ParseError(raw.line(),
+                                "texture invalide « " + raw.text() + " »");
+                    }
+                    expect("sym", ")");
+                }
+                case "hidden" -> visible = false;
+                case "disabled" -> enabled = false;
+                case "style" -> style = parseStyle();
+                default -> throw new ParseError(ann.line(),
+                        "annotation inconnue @" + ann.text() + " sur un élément");
+            }
+        }
+        try {
+            return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
+                    text, texture, style, visible, enabled);
+        } catch (IllegalArgumentException e) {
+            throw new ParseError(kindToken.line(), e.getMessage());
+        }
+    }
+
+    /** {@code 80} pour une taille fixe, {@code 50%[100, 300]} pour une relative bornée. */
+    private Extent parseExtent() {
+        Token token = next();
+        double value = number(token);
+        if (!eat("sym", "%")) {
+            return wrapExtent(token, () -> Extent.of(value));
+        }
+        // Décimale courte, comme à l'émission : diviser le double par 100 ne rendrait
+        // pas la fraction d'origine (7 / 100 ≠ 0,07 au bit près).
+        double fraction = new java.math.BigDecimal(token.text()).movePointLeft(2).doubleValue();
+        double min = 0;
+        double max = 0;
+        if (eat("sym", "[")) {
+            min = number(next());
+            expect("sym", ",");
+            max = number(next());
+            expect("sym", "]");
+        }
+        double boundedMin = min;
+        double boundedMax = max;
+        return wrapExtent(token, () -> Extent.percent(fraction, boundedMin, boundedMax));
+    }
+
+    private Extent wrapExtent(Token token, java.util.function.Supplier<Extent> build) {
+        try {
+            return build.get();
+        } catch (IllegalArgumentException e) {
+            throw new ParseError(token.line(), e.getMessage());
+        }
+    }
+
+    private ElementStyle parseStyle() {
+        Token open = expect("sym", "(");
+        int background = argb();
+        expect("sym", ",");
+        int border = argb();
+        expect("sym", ",");
+        int borderWidth = (int) number(next());
+        expect("sym", ",");
+        int textColor = argb();
+        expect("sym", ",");
+        int hover = argb();
+        expect("sym", ",");
+        int pressed = argb();
+        expect("sym", ",");
+        int disabled = argb();
+        expect("sym", ",");
+        int padding = (int) number(next());
+        expect("sym", ",");
+        Token alignToken = expect("word", null);
+        ElementStyle.TextAlign align;
+        try {
+            align = ElementStyle.TextAlign.valueOf(alignToken.text().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new ParseError(alignToken.line(),
+                    "alignement inconnu « " + alignToken.text() + " »");
+        }
+        expect("sym", ")");
+        try {
+            return new ElementStyle(background, border, borderWidth, textColor,
+                    hover, pressed, disabled, padding, align);
+        } catch (IllegalArgumentException e) {
+            throw new ParseError(open.line(), e.getMessage());
+        }
+    }
+
+    /** Une couleur {@code "#AARRGGBB"}. */
+    private int argb() {
+        Token token = expect("string", null);
+        try {
+            return (int) Long.parseLong(token.text().replace("#", ""), 16);
+        } catch (NumberFormatException e) {
+            throw new ParseError(token.line(), "couleur invalide « " + token.text() + " »");
+        }
     }
 
     private void parseEvent() {

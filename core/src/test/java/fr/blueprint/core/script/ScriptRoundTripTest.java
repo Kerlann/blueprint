@@ -10,6 +10,12 @@ import fr.blueprint.core.graph.Link;
 import fr.blueprint.core.graph.Variable;
 import fr.blueprint.core.graph.VarScope;
 import fr.blueprint.core.graph.Vec2d;
+import fr.blueprint.core.graph.screen.Anchor;
+import fr.blueprint.core.graph.screen.ElementKind;
+import fr.blueprint.core.graph.screen.ElementStyle;
+import fr.blueprint.core.graph.screen.Extent;
+import fr.blueprint.core.graph.screen.ScreenElement;
+import fr.blueprint.core.graph.screen.ScreenText;
 import fr.blueprint.core.registry.PluginLoader;
 import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
@@ -260,5 +266,134 @@ class ScriptRoundTripTest {
         assertFalse(ScriptParser.parse("", LOADED).success());
         assertFalse(ScriptParser.parse("{{{ n'importe quoi", LOADED).success());
         assertFalse(ScriptParser.parse("blueprint test:x {\n  chaîne \"non terminée\n}", LOADED).success());
+    }
+
+    // ------------------------------------------------------------------- écrans
+
+    private static Blueprint withScreens(fr.blueprint.core.graph.screen.Screen... screens) {
+        Blueprint bp = new Blueprint(Identifier.fromNamespaceAndPath("test", "ecrans"));
+        for (var screen : screens) {
+            fr.blueprint.core.graph.GraphLoader.addScreen(bp, screen);
+        }
+        return bp;
+    }
+
+    /** L'écran le plus chargé qu'on puisse écrire : chaque annotation est exercée. */
+    @Test
+    void unEcranRicheRevientIdentiqueParLeTexte() {
+        var panel = new ScreenElement("cadre", ElementKind.PANEL, null,
+                Anchor.CENTER, 10, -20,
+                Extent.percent(0.8, 100, 400), Extent.of(180.5),
+                ScreenText.key("menu.titre"),
+                Identifier.fromNamespaceAndPath("pack", "textures/gui/fond.png"),
+                new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
+                        0xFF203040, 0xFF001020, 0x40101010, 4,
+                        ElementStyle.TextAlign.CENTER),
+                false, false);
+        var child = ScreenElement.of("ok", ElementKind.BUTTON, 5, 5, 60, 20)
+                .withParent("cadre")
+                .withText(ScreenText.literal("Valider \"maintenant\""));
+
+        Blueprint before = withScreens(
+                new fr.blueprint.core.graph.screen.Screen("menu", false, List.of(panel, child)),
+                new fr.blueprint.core.graph.screen.Screen("barre", true, List.of(
+                        ScreenElement.of("argent", ElementKind.LABEL, 0, 0, 80, 10))));
+
+        Blueprint back = roundTrip(before);
+        assertTrue(before.contentEquals(back),
+                () -> "aller-retour non identique :\n"
+                        + ScriptGenerator.generate(before, LOADED.nodes()).text());
+        assertTrue(back.screen("barre").hud(), "le drapeau @hud survit");
+    }
+
+    /**
+     * Le piège du pourcentage. {@code 0,07 × 100} vaut 7.000000000000001 en virgule
+     * flottante : émettre puis relire par une multiplication ferait dériver la fraction
+     * à chaque export, et un menu réenregistré dix fois finirait décalé.
+     */
+    @Test
+    void unPourcentageIndelicatSurvitAuTexte() {
+        for (double fraction : new double[]{0.07, 1.0 / 3, 0.815, 0.999, 0.001}) {
+            Blueprint before = withScreens(new fr.blueprint.core.graph.screen.Screen(
+                    "menu", false, List.of(ScreenElement.of("x", ElementKind.LABEL, 0, 0, 10, 10)
+                            .resized(Extent.percent(fraction, 0, 0), Extent.of(10)))));
+            assertEquals(fraction, roundTrip(before).screen("menu").element("x").width().value(),
+                    0.0, "fraction " + fraction);
+        }
+    }
+
+    /** L'ordre des éléments est l'ordre de dessin : le texte ne le trie jamais. */
+    @Test
+    void lOrdreDeDessinSurvitAuTexte() {
+        Blueprint before = withScreens(new fr.blueprint.core.graph.screen.Screen("menu", false,
+                List.of(ScreenElement.of("z", ElementKind.LABEL, 0, 0, 10, 10),
+                        ScreenElement.of("a", ElementKind.LABEL, 0, 0, 10, 10),
+                        ScreenElement.of("m", ElementKind.LABEL, 0, 0, 10, 10))));
+        assertEquals(List.of("z", "a", "m"),
+                List.copyOf(roundTrip(before).screen("menu").elements().keySet()));
+    }
+
+    /**
+     * Un fichier écrit à la main peut nommer deux éléments pareil. Le NBT ne refuse
+     * rien (P4), mais ici l'auteur a un canal d'erreur : le lui dire vaut mieux que
+     * perdre un élément en silence.
+     */
+    @Test
+    void lesNomsEnDoubleSontRefusesALImportTexte() {
+        var dupElement = ScriptParser.parse("""
+                blueprint test:x {
+                  screen "menu" {
+                    label "a" @at(top_left, 0, 0) @size(10, 10)
+                    label "a" @at(top_left, 0, 0) @size(10, 10)
+                  }
+                }""", LOADED);
+        assertFalse(dupElement.success());
+        assertTrue(dupElement.error().contains("déjà défini"), dupElement.error());
+
+        var dupScreen = ScriptParser.parse("""
+                blueprint test:x {
+                  screen "menu" { }
+                  screen "menu" { }
+                }""", LOADED);
+        assertFalse(dupScreen.success());
+        assertTrue(dupScreen.error().contains("déjà défini"), dupScreen.error());
+    }
+
+    @Test
+    void unEcranMalEcritEstRefuseAvecSaLigne() {
+        for (String body : List.of(
+                "screen \"m\" { hologramme \"a\" @size(10, 10) }",
+                "screen \"m\" { label \"a\" @at(nord_ouest, 0, 0) }",
+                "screen \"m\" { label \"a\" @size(50%[100, 10], 10) }",
+                "screen \"m\" { label \"a\" @inconnue }",
+                "screen \"m\" @modal { }",
+                "screen \"m\" { label \"a\" @texture(\"PAS UN ID\") }")) {
+            var result = ScriptParser.parse("blueprint test:x {\n  " + body + "\n}", LOADED);
+            assertFalse(result.success(), body);
+            assertTrue(result.error().contains("ligne"), body + " → " + result.error());
+        }
+    }
+
+    /** Un blueprint sans écran n'en gagne pas, et le texte ne mentionne pas « screen ». */
+    @Test
+    void unBlueprintSansEcranNeGagneRien() {
+        Blueprint demo = DemoBlueprint.build(LOADED.nodes());
+        assertFalse(ScriptGenerator.generate(demo, LOADED.nodes()).text().contains("screen "));
+        assertTrue(roundTrip(demo).screens().isEmpty());
+    }
+
+    /** Ce qui est préservé en brut ne s'écrit pas en texte : l'export doit le dire. */
+    @Test
+    void lesEcransPreservesSontSignalesCommeNonEmis() {
+        net.minecraft.nbt.CompoundTag root = fr.blueprint.core.graph.GraphNbt.encode(
+                new Blueprint(Identifier.fromNamespaceAndPath("test", "ecrans")));
+        root.getListOrEmpty("screens").add(new net.minecraft.nbt.CompoundTag());
+        Blueprint reloaded = fr.blueprint.core.graph.GraphNbt.decode(root,
+                id -> PinTypes.builtin().stream()
+                        .filter(type -> type.id().equals(id)).findFirst().orElse(null));
+
+        var generated = ScriptGenerator.generate(reloaded, LOADED.nodes());
+        assertTrue(generated.issues().stream().anyMatch(i -> i.contains("écrans préservés")),
+                () -> "points signalés : " + generated.issues());
     }
 }

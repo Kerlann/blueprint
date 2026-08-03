@@ -1,9 +1,12 @@
 package fr.blueprint.core.graph;
 
+import fr.blueprint.core.graph.screen.Anchor;
 import fr.blueprint.core.graph.screen.ElementKind;
+import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
 import fr.blueprint.core.graph.screen.Screen;
 import fr.blueprint.core.graph.screen.ScreenElement;
+import fr.blueprint.core.graph.screen.ScreenText;
 import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -174,6 +177,19 @@ class ScreenOpsTest {
         applyOk(new ScreenOps.AddElement("menu", button("b")));
         assertEquals(DiagnosticCode.DUPLICATE_ELEMENT,
                 refusalOf(new ScreenOps.RenameElement("menu", "a", "b")));
+    }
+
+    /**
+     * Un nom vide ferait lever le constructeur d'écran. Il est refusé, et avec son
+     * propre code : annoncer un doublon enverrait l'auteur chercher un homonyme
+     * inexistant.
+     */
+    @Test
+    void renommerVersUnNomVideEstRefuseAvecSonPropreCode() {
+        applyOk(new ScreenOps.AddElement("menu", button("a")));
+        assertEquals(DiagnosticCode.ELEMENT_NAME_INVALID,
+                refusalOf(new ScreenOps.RenameElement("menu", "a", "   ")));
+        assertNotNull(bp.screen("menu").element("a"), "et rien n'a bougé");
     }
 
     @Test
@@ -348,6 +364,44 @@ class ScreenOpsTest {
                                 && d.severity() == Diagnostic.Severity.WARNING),
                 "un avertissement, pas une erreur");
         assertTrue(result.errors().isEmpty(), "et rien qui bloque");
+    }
+
+    /**
+     * Un élément centré ne déborde de rien. La règle lisait {@code x} et {@code y}
+     * comme des coordonnées d'écran alors que ce sont des décalages depuis l'ancre :
+     * tout élément centré au décalage négatif était signalé à tort, et un
+     * avertissement qui se trompe apprend à ignorer ceux qui ont raison.
+     */
+    @Test
+    void unElementCentreNAvertitPas() {
+        Blueprint centered = new Blueprint(Identifier.fromNamespaceAndPath("test", "centre"));
+        centered.putScreen(new Screen("menu", false, List.of(
+                new ScreenElement("cadre", ElementKind.PANEL, null, Anchor.CENTER,
+                        -10, -5, Extent.of(200), Extent.of(120), ScreenText.EMPTY, null,
+                        ElementStyle.DEFAULT, true, true))));
+
+        assertTrue(GraphValidator.validate(centered, LOOKUP).diagnostics().stream()
+                        .noneMatch(d -> d.code() == DiagnosticCode.ELEMENT_OUTSIDE_SAFE_AREA),
+                "un panneau centré tient dans 320×180");
+    }
+
+    /**
+     * « 50 % » d'un panneau de 40 unités fait 20, pas 160. La taille minimale se
+     * mesurait dans l'écran entier : un élément imbriqué réellement invisible passait,
+     * et l'auteur ne découvrait le piège qu'en jeu.
+     */
+    @Test
+    void unElementMinusculeParHeritageEstVuQuandMeme() {
+        Blueprint nested = new Blueprint(Identifier.fromNamespaceAndPath("test", "imbrique"));
+        nested.putScreen(new Screen("menu", false, List.of(
+                ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 40, 40),
+                new ScreenElement("miette", ElementKind.BUTTON, "cadre", Anchor.TOP_LEFT,
+                        0, 0, Extent.percent(0.05, 0, 0), Extent.of(20),
+                        ScreenText.EMPTY, null, ElementStyle.DEFAULT, true, true))));
+
+        assertTrue(GraphValidator.validate(nested, LOOKUP).diagnostics().stream()
+                        .anyMatch(d -> d.code() == DiagnosticCode.ELEMENT_TOO_SMALL),
+                "2 unités de large dans son parent : injouable");
     }
 
     @Test

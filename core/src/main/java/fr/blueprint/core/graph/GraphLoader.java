@@ -30,6 +30,10 @@ public final class GraphLoader {
         bp.putComment(comment);
     }
 
+    public static void addScreen(Blueprint bp, fr.blueprint.core.graph.screen.Screen screen) {
+        bp.putScreen(screen);
+    }
+
     public static void setLiteral(Node node, String pin, @Nullable LiteralValue value) {
         node.setLiteral(pin, value);
     }

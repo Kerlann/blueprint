@@ -161,7 +161,7 @@ public final class GraphValidator {
                 // Déborder de la zone garantie n'est qu'un AVERTISSEMENT : le menu
                 // reste valide, mais son auteur doit apprendre à la conception qu'une
                 // partie de ses joueurs ne le verra pas entier.
-                if (ScreenRules.outsideSafeArea(element)) {
+                if (ScreenRules.outsideSafeArea(screen, element)) {
                     out.add(Diagnostic.warning(DiagnosticCode.ELEMENT_OUTSIDE_SAFE_AREA,
                             Diagnostic.element(screen.name(), element.name()),
                             element.name()));

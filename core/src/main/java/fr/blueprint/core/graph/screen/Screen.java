@@ -85,6 +85,28 @@ public final class Screen {
         return List.copyOf(out);
     }
 
+    /**
+     * Les packs de ressources dont cet écran a besoin (AC1c), <b>déduits</b> des
+     * textures utilisées : l'espace de nom d'une texture EST le pack qui la fournit.
+     *
+     * <p>Déduits et non déclarés, à dessein. Une liste écrite à la main dérive : on
+     * ajoute une image sans compléter la liste, ou on retire la dernière image d'un
+     * pack sans l'en retirer. L'éditeur avertirait alors pour un pack devenu inutile et
+     * se tairait sur celui qui manque — exactement l'inverse du service rendu.
+     *
+     * <p>{@code minecraft} en est exclu : il est toujours là.
+     */
+    public java.util.Set<String> requiredPacks() {
+        java.util.Set<String> packs = new java.util.LinkedHashSet<>();
+        for (ScreenElement element : elements.values()) {
+            if (element.texture() != null
+                    && !"minecraft".equals(element.texture().getNamespace())) {
+                packs.add(element.texture().getNamespace());
+            }
+        }
+        return java.util.Collections.unmodifiableSet(packs);
+    }
+
     // ------------------------------------------------------------- modifications
     // Toutes rendent un NOUVEL écran : c'est ce qui permet aux EditOperation de
     // porter leur inverse sans copier le monde à la main.
