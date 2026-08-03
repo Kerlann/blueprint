@@ -8,3 +8,9 @@ libs/
 .vscode/
 .claude/
 .DS_Store
+
+# Journaux des runs de dev (runClient / runServer / runGametest) — jamais versionnés :
+# ils changent à chaque lancement et polluent chaque diff.
+logs/
+*.log
+*.log.gz
