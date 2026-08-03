@@ -30,7 +30,12 @@ import java.util.UUID;
  */
 public final class CanvasController {
 
-    public enum Gesture { NONE, MOVE, RUBBER, WIRE }
+    public enum Gesture { NONE, MOVE, RUBBER, WIRE, MOVE_COMMENT, RESIZE_COMMENT }
+
+    /** Hauteur de la barre de titre d'un commentaire, en unités monde. */
+    public static final double COMMENT_TITLE = 14;
+    /** Poignée de redimensionnement (coin bas-droit). */
+    public static final double COMMENT_GRIP = 12;
 
     /** Rayon de saisie d'un pin, en unités monde. */
     public static final double PIN_HIT_RADIUS = 6;
@@ -68,6 +73,12 @@ public final class CanvasController {
     private @Nullable PinRef wireFrom;
     private double wireX;
     private double wireY;
+    /** Commentaire sélectionné (Suppr le retire) et geste en cours sur lui. */
+    private @Nullable UUID selectedComment;
+    private @Nullable UUID activeComment;
+    private double commentGrabX;
+    private double commentGrabY;
+    private final Map<UUID, Vec2d> commentNodeOffsets = new HashMap<>();
     /** Index boîte par nœud, reconstruit avec le cache de géométrie. */
     private final Map<UUID, NodeGeometry.Box> boxIndex = new HashMap<>();
     private int boxIndexRevision = -1;
@@ -269,6 +280,37 @@ public final class CanvasController {
         }
         NodeGeometry.Box hit = hitTest(wx, wy);
         if (hit == null) {
+            // Les commentaires vivent SOUS les nœuds : testés après eux (5.7).
+            fr.blueprint.core.graph.CommentBox grip = commentGripAt(wx, wy);
+            if (grip != null) {
+                selectedComment = grip.uuid();
+                activeComment = grip.uuid();
+                selection.clear();
+                gesture = Gesture.RESIZE_COMMENT;
+                return;
+            }
+            fr.blueprint.core.graph.CommentBox title = commentTitleAt(wx, wy);
+            if (title != null) {
+                selectedComment = title.uuid();
+                activeComment = title.uuid();
+                selection.clear();
+                commentGrabX = title.position().x() - wx;
+                commentGrabY = title.position().y() - wy;
+                commentNodeOffsets.clear();
+                // Déplacer la boîte déplace les nœuds qu'elle contient (centre dedans).
+                for (NodeGeometry.Box b : boxes()) {
+                    double cx = b.x() + b.width() / 2;
+                    double cy = b.y() + b.height() / 2;
+                    if (cx >= title.position().x() && cx < title.position().x() + title.size().x()
+                            && cy >= title.position().y() && cy < title.position().y() + title.size().y()) {
+                        commentNodeOffsets.put(b.node().uuid(),
+                                new Vec2d(b.x() - wx, b.y() - wy));
+                    }
+                }
+                gesture = Gesture.MOVE_COMMENT;
+                return;
+            }
+            selectedComment = null;
             if (!additive) {
                 selection.clear();
             }
@@ -277,6 +319,7 @@ public final class CanvasController {
             rubberStartY = rubberEndY = wy;
             return;
         }
+        selectedComment = null;
         UUID id = hit.node().uuid();
         selection.click(id, additive);
         dragOffsets.clear();
@@ -294,6 +337,41 @@ public final class CanvasController {
             case WIRE -> {
                 wireX = wx;
                 wireY = wy;
+            }
+            case MOVE_COMMENT -> {
+                fr.blueprint.core.graph.CommentBox box = activeComment == null ? null
+                        : blueprint.comment(activeComment);
+                if (box == null) {
+                    return;
+                }
+                Vec2d target = camera.snap(new Vec2d(wx + commentGrabX, wy + commentGrabY));
+                if (!target.equals(box.position())) {
+                    apply(new EditOperation.EditComment(new fr.blueprint.core.graph.CommentBox(
+                            box.uuid(), box.text(), target, box.size(), box.color())));
+                }
+                for (Map.Entry<UUID, Vec2d> e : commentNodeOffsets.entrySet()) {
+                    Node node = blueprint.node(e.getKey());
+                    if (node == null) {
+                        continue;
+                    }
+                    Vec2d nodeTarget = camera.snap(new Vec2d(wx + e.getValue().x(), wy + e.getValue().y()));
+                    if (!nodeTarget.equals(node.position())) {
+                        apply(new EditOperation.MoveNode(e.getKey(), nodeTarget));
+                    }
+                }
+            }
+            case RESIZE_COMMENT -> {
+                fr.blueprint.core.graph.CommentBox box = activeComment == null ? null
+                        : blueprint.comment(activeComment);
+                if (box == null) {
+                    return;
+                }
+                Vec2d size = new Vec2d(Math.max(60, wx - box.position().x()),
+                        Math.max(40, wy - box.position().y()));
+                if (!size.equals(box.size())) {
+                    apply(new EditOperation.EditComment(new fr.blueprint.core.graph.CommentBox(
+                            box.uuid(), box.text(), box.position(), size, box.color())));
+                }
             }
             case RUBBER -> {
                 rubberEndX = wx;
@@ -433,10 +511,110 @@ public final class CanvasController {
             for (UUID id : List.copyOf(selection.ids())) {
                 apply(new EditOperation.RemoveNode(id));
             }
+            if (selection.isEmpty() && selectedComment != null) {
+                apply(new EditOperation.RemoveComment(selectedComment));
+                selectedComment = null;
+            }
         } finally {
             history.endGesture();
         }
         selection.clear();
+    }
+
+    // ------------------------------------------------------- commentaires (5.7)
+
+    public @Nullable UUID selectedComment() {
+        return selectedComment;
+    }
+
+    public fr.blueprint.core.graph.@Nullable CommentBox commentTitleAt(double wx, double wy) {
+        for (fr.blueprint.core.graph.CommentBox box : blueprint.comments()) {
+            if (wx >= box.position().x() && wx < box.position().x() + box.size().x()
+                    && wy >= box.position().y() && wy < box.position().y() + COMMENT_TITLE) {
+                return box;
+            }
+        }
+        return null;
+    }
+
+    public fr.blueprint.core.graph.@Nullable CommentBox commentGripAt(double wx, double wy) {
+        for (fr.blueprint.core.graph.CommentBox box : blueprint.comments()) {
+            double x2 = box.position().x() + box.size().x();
+            double y2 = box.position().y() + box.size().y();
+            if (wx >= x2 - COMMENT_GRIP && wx < x2 && wy >= y2 - COMMENT_GRIP && wy < y2) {
+                return box;
+            }
+        }
+        return null;
+    }
+
+    /** Entoure la sélection d'une boîte de commentaire (touche C, UX §11). */
+    public @Nullable UUID createCommentAroundSelection(String title) {
+        List<NodeGeometry.Box> selected = new ArrayList<>();
+        for (NodeGeometry.Box b : boxes()) {
+            if (selection.isSelected(b.node().uuid())) {
+                selected.add(b);
+            }
+        }
+        if (selected.isEmpty()) {
+            return null;
+        }
+        Camera.Rect bounds = NodeGeometry.boundsOf(selected);
+        UUID id = UUID.randomUUID();
+        boolean ok = applyTracked(new EditOperation.AddComment(new fr.blueprint.core.graph.CommentBox(
+                id, title,
+                new Vec2d(bounds.left() - 12, bounds.top() - COMMENT_TITLE - 8),
+                new Vec2d(bounds.right() - bounds.left() + 24,
+                        bounds.bottom() - bounds.top() + COMMENT_TITLE + 20),
+                0x337DCFFF)));
+        if (ok) {
+            selectedComment = id;
+        }
+        return ok ? id : null;
+    }
+
+    public boolean renameComment(UUID id, String text) {
+        fr.blueprint.core.graph.CommentBox box = blueprint.comment(id);
+        return box != null && applyTracked(new EditOperation.EditComment(
+                new fr.blueprint.core.graph.CommentBox(id, text, box.position(),
+                        box.size(), box.color())));
+    }
+
+    // -------------------------------------------------- alignement, mise en page
+
+    /** Q : aligne et distribue la sélection selon l'axe dominant (une entrée d'annulation). */
+    public boolean alignSelection() {
+        List<NodeGeometry.Box> selected = new ArrayList<>();
+        for (NodeGeometry.Box b : boxes()) {
+            if (selection.isSelected(b.node().uuid())) {
+                selected.add(b);
+            }
+        }
+        Map<UUID, Vec2d> targets = AlignActions.align(selected);
+        return applyMoves(targets);
+    }
+
+    /** Ctrl+Shift+A : mise en page automatique de tout le graphe (AutoLayout core). */
+    public boolean autoLayout() {
+        return applyMoves(fr.blueprint.core.script.AutoLayout.compute(blueprint, lookup));
+    }
+
+    private boolean applyMoves(Map<UUID, Vec2d> targets) {
+        if (targets.isEmpty()) {
+            return false;
+        }
+        history.beginGesture();
+        try {
+            for (Map.Entry<UUID, Vec2d> e : targets.entrySet()) {
+                Node node = blueprint.node(e.getKey());
+                if (node != null && !node.position().equals(e.getValue())) {
+                    applyTracked(new EditOperation.MoveNode(e.getKey(), e.getValue()));
+                }
+            }
+        } finally {
+            history.endGesture();
+        }
+        return true;
     }
 
     /** La pile d'annulation (5.6a) : toutes les mutations y naissent réversibles. */

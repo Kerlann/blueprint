@@ -62,6 +62,9 @@ public final class CanvasWidget {
 
     private final TapTracker spaceTap = new TapTracker();
     private final java.nio.file.Path configDir;
+    /** Renommage d'une boîte de commentaire (double-clic sur son titre). */
+    private @Nullable UUID commentRenaming;
+    private String commentBuffer = "";
     private final PickerState picker = new PickerState();
     private final java.util.Map<Identifier, ItemStack> iconCache = new java.util.HashMap<>();
     private @Nullable List<PickerState.Entry> itemEntries;
@@ -138,6 +141,7 @@ public final class CanvasWidget {
         }
         g.fill(0, 0, width, height, BACKGROUND);
         renderGrid(g);
+        renderComments(g, font);
         WireLayer.renderLinks(g, camera, controller, width, height);
         renderNodes(g, font);
         renderRubber(g);
@@ -292,6 +296,34 @@ public final class CanvasWidget {
         return false;
     }
 
+    /** Boîtes de commentaire (5.7) : sous les nœuds, translucides, titre + poignée. */
+    private void renderComments(GuiGraphics g, Font font) {
+        for (fr.blueprint.core.graph.CommentBox box : controller.blueprint().comments()) {
+            int x1 = (int) Math.round(camera.toScreenX(box.position().x()));
+            int y1 = (int) Math.round(camera.toScreenY(box.position().y()));
+            int x2 = (int) Math.round(camera.toScreenX(box.position().x() + box.size().x()));
+            int y2 = (int) Math.round(camera.toScreenY(box.position().y() + box.size().y()));
+            int titleH = (int) Math.round(CanvasController.COMMENT_TITLE * camera.zoom());
+            boolean selected = box.uuid().equals(controller.selectedComment());
+            g.fill(x1, y1, x2, y2, box.color());
+            g.fill(x1, y1, x2, y1 + titleH, (box.color() & 0x00FFFFFF) | 0x66000000);
+            int border = selected ? 0xFF7AA2F7 : 0x887DCFFF;
+            g.fill(x1, y1, x2, y1 + 1, border);
+            g.fill(x1, y2 - 1, x2, y2, border);
+            g.fill(x1, y1, x1 + 1, y2, border);
+            g.fill(x2 - 1, y1, x2, y2, border);
+            int grip = (int) Math.round(CanvasController.COMMENT_GRIP * camera.zoom());
+            g.fill(x2 - grip, y2 - 2, x2, y2, border);
+            g.fill(x2 - 2, y2 - grip, x2, y2, border);
+            if (camera.zoom() >= 0.35) {
+                String title = box.uuid().equals(commentRenaming)
+                        ? commentBuffer + "_" : box.text();
+                g.drawString(font, font.plainSubstrByWidth(title, Math.max(10, x2 - x1 - 8)),
+                        x1 + 4, y1 + 2, 0xFFE6E6E6, false);
+            }
+        }
+    }
+
     private void renderRubber(GuiGraphics g) {
         Camera.Rect r = controller.rubberRect();
         if (r == null) {
@@ -418,6 +450,17 @@ public final class CanvasWidget {
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             double wx = camera.toWorldX(e.x());
             double wy = camera.toWorldY(e.y());
+            if (commentRenaming != null) {
+                commitCommentRename();
+            }
+            if (doubled && controller.hitTest(wx, wy) == null) {
+                var title = controller.commentTitleAt(wx, wy);
+                if (title != null) {
+                    commentRenaming = title.uuid();
+                    commentBuffer = title.text();
+                    return true;
+                }
+            }
             if (openLiteralEdit(wx, wy)) {
                 return true;
             }
@@ -425,6 +468,14 @@ public final class CanvasWidget {
             return true;
         }
         return false;
+    }
+
+    private void commitCommentRename() {
+        if (commentRenaming != null && !commentBuffer.isBlank()) {
+            controller.renameComment(commentRenaming, commentBuffer.trim());
+        }
+        commentRenaming = null;
+        commentBuffer = "";
     }
 
     /** Clic sur une zone littérale : bascule le bool, ouvre le champ ou l'énum. */
@@ -797,6 +848,23 @@ public final class CanvasWidget {
             }
             return true;
         }
+        if (commentRenaming != null) {
+            switch (e.key()) {
+                case GLFW.GLFW_KEY_ESCAPE -> {
+                    commentRenaming = null;
+                    commentBuffer = "";
+                }
+                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> commitCommentRename();
+                case GLFW.GLFW_KEY_BACKSPACE -> {
+                    if (!commentBuffer.isEmpty()) {
+                        commentBuffer = commentBuffer.substring(0, commentBuffer.length() - 1);
+                    }
+                }
+                default -> {
+                }
+            }
+            return true;
+        }
         if (picker.isOpen()) {
             switch (e.key()) {
                 case GLFW.GLFW_KEY_ESCAPE -> picker.close();
@@ -885,6 +953,23 @@ public final class CanvasWidget {
                     copySelection(false);
                     return true;
                 }
+                if (!e.hasControlDown() && !controller.selection().isEmpty()) {
+                    // C : boîte de commentaire autour de la sélection (UX §11).
+                    controller.createCommentAroundSelection(
+                            I18n.get("blueprint.editor.comment.default"));
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_Q -> {
+                if (controller.alignSelection()) {
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_A -> {
+                if (e.hasControlDown() && e.hasShiftDown()) {
+                    controller.autoLayout();
+                    return true;
+                }
             }
             case GLFW.GLFW_KEY_X -> {
                 if (e.hasControlDown() && !controller.selection().isEmpty()) {
@@ -971,6 +1056,10 @@ public final class CanvasWidget {
         }
         if (details.isEditingMeta() && e.isAllowedChatCharacter()) {
             details.type(e.codepointAsString());
+            return true;
+        }
+        if (commentRenaming != null && e.isAllowedChatCharacter()) {
+            commentBuffer += e.codepointAsString();
             return true;
         }
         if (literalEdit.isOpen() && e.isAllowedChatCharacter()) {

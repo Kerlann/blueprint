@@ -149,6 +149,7 @@
   "blueprint.editor.details.category": "Category",
   "blueprint.editor.details.provider": "Provider",
   "blueprint.editor.details.permission": "Permission",
+  "blueprint.editor.comment.default": "Comment",
   "blueprint.editor.vars.retype_warning": "%s link(s) will break — click T again to confirm",
   "blueprint.editor.diag.summary": "%s error(s), %s warning(s)",
   "key.blueprint.open_editor": "Open the blueprint editor (demo)",

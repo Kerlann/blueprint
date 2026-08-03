@@ -315,6 +315,54 @@ class CanvasControllerTest {
                 fr.blueprint.api.pin.LiteralValue.of(PinTypes.STRING, "nope")));
     }
 
+    // -------------------------------------------------- commentaires, alignement (5.7)
+
+    @Test
+    void commentaireAutourDeLaSelectionDeplaceSonContenu() {
+        controller.selection().selectAll(List.of(n1), false);
+        UUID comment = controller.createCommentAroundSelection("Note");
+        assertNotNull(comment);
+        var box = bp.comment(comment);
+        assertNotNull(box);
+        assertEquals(comment, controller.selectedComment());
+
+        // Saisir la barre de titre et glisser : la boîte ET n1 (centre dedans) suivent.
+        double grabX = box.position().x() + 5;
+        double grabY = box.position().y() + 5;
+        Vec2d n1Before = bp.node(n1).position();
+        controller.press(grabX, grabY, false);
+        assertEquals(CanvasController.Gesture.MOVE_COMMENT, controller.gesture());
+        controller.drag(grabX + 100, grabY + 50);
+        controller.release(false);
+        assertEquals(n1Before.x() + 100, bp.node(n1).position().x());
+        assertEquals(box.position().x() + 100, bp.comment(comment).position().x());
+
+        // Suppr retire la boîte sélectionnée, pas les nœuds.
+        controller.deleteSelection();
+        assertNull(bp.comment(comment));
+        assertNotNull(bp.node(n1));
+        // Renommage (la presse sur la boîte avait vidé la sélection : resélectionner).
+        controller.selection().selectAll(List.of(n1), false);
+        UUID second = controller.createCommentAroundSelection("A");
+        assertNotNull(second);
+        assertTrue(controller.renameComment(second, "B"));
+        assertEquals("B", bp.comment(second).text());
+    }
+
+    @Test
+    void alignementSelonLAxeDominant() {
+        // n1 (0,0) et n2 (300,100) + n3 : sélection plus large que haute → rangée.
+        UUID n3 = addNode(600, 40);
+        controller.selection().selectAll(List.of(n1, n2, n3), false);
+        assertTrue(controller.alignSelection());
+        assertEquals(1, controller.history().undoDepth() > 0 ? 1 : 0);
+        assertEquals(bp.node(n1).position().y(), bp.node(n2).position().y());
+        assertEquals(bp.node(n1).position().y(), bp.node(n3).position().y());
+        // L'ordre horizontal est préservé et espacé d'au moins la largeur + l'écart.
+        assertTrue(bp.node(n2).position().x() >= bp.node(n1).position().x()
+                + NodeGeometry.WIDTH + AlignActions.GAP - 1e-9);
+    }
+
     @Test
     void insertionDepuisLaPaletteAvecAutoConnexion() {
         camera.toggleSnap();
