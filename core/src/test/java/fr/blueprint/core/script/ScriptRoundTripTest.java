@@ -268,6 +268,36 @@ class ScriptRoundTripTest {
         assertFalse(ScriptParser.parse("blueprint test:x {\n  chaîne \"non terminée\n}", LOADED).success());
     }
 
+    /**
+     * <b>Le littéral d'un nœud d'ÉVÉNEMENT survit à l'aller-retour.</b>
+     *
+     * <p>Trois événements en portent un — {@code command}, {@code signal},
+     * {@code gui_clicked} — et c'est leur <b>filtre</b> : le nom de la commande, du
+     * signal, de l'élément écouté. L'export l'omettait. Un {@code .bp} réimporté
+     * revenait donc entier, se validait, s'affichait normalement dans l'éditeur… et ne
+     * se déclenchait plus jamais. La panne la plus silencieuse qu'on puisse écrire.
+     */
+    @Test
+    void leFiltreDUnNoeudDEvenementSurvitAuTexte() {
+        for (String[] event : new String[][]{
+                {"blueprint:event/signal", "name", "alarme"},
+                {"blueprint:event/command", "name", "ouvrir"},
+                {"blueprint:event/gui_clicked", "element", "acheter"}}) {
+            Blueprint bp = new Blueprint(Identifier.fromNamespaceAndPath("test", "filtre"));
+            UUID node = UUID.randomUUID();
+            apply(bp, new EditOperation.AddNode(node,
+                    Identifier.tryParse(event[0]), new Vec2d(0, 0)));
+            apply(bp, new EditOperation.SetLiteral(node, event[1],
+                    LiteralValue.of(PinTypes.STRING, event[2])));
+
+            Blueprint back = roundTrip(bp);
+            var literal = back.node(node).literal(event[1]);
+            assertNotNull(literal, event[0] + " a perdu son filtre");
+            assertEquals(event[2], literal.value(), event[0]);
+            assertTrue(bp.contentEquals(back), event[0]);
+        }
+    }
+
     // ------------------------------------------------------------------- écrans
 
     private static Blueprint withScreens(fr.blueprint.core.graph.screen.Screen... screens) {

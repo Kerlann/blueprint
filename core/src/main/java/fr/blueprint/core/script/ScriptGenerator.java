@@ -220,6 +220,25 @@ public final class ScriptGenerator {
                 .toList();
     }
 
+    /**
+     * Les littéraux d'ENTRÉE d'un nœud d'événement, en {@code @with(pin: valeur)}.
+     *
+     * <p>Trois nœuds d'événement en portent : {@code command}, {@code signal} et
+     * {@code gui_clicked}. Le littéral y est le <b>filtre</b> — le nom de la commande,
+     * du signal, de l'élément écouté. Sans lui à l'export, un {@code .bp} réimporté
+     * n'écoutait plus rien : le graphe se rechargeait entier, se validait, s'affichait
+     * normalement, et ne se déclenchait jamais. La panne la plus silencieuse possible.
+     */
+    private String eventLiterals(Node event, NodeShape shape) {
+        List<String> args = new ArrayList<>();
+        for (NodeShape.PinDef pin : shape.inputs()) {
+            if (pin.kind() == PinKind.DATA && event.literal(pin.name()) != null) {
+                args.add(pin.name() + ": " + renderLiteral(event.literal(pin.name())));
+            }
+        }
+        return args.isEmpty() ? "" : " @with(" + String.join(", ", args) + ")";
+    }
+
     private void emitEvent(Node event) {
         NodeShape shape = shapes.get(event.uuid());
         List<String> outs = shape.outputs().stream()
@@ -229,7 +248,8 @@ public final class ScriptGenerator {
         currentEvent = event.uuid();
         line("on " + event.typeId() + "(" + String.join(", ", outs) + ")"
                 + " @id(" + quote(event.uuid().toString()) + ")"
-                + " @pos(" + num(event.position().x()) + ", " + num(event.position().y()) + ") {");
+                + " @pos(" + num(event.position().x()) + ", " + num(event.position().y()) + ")"
+                + eventLiterals(event, shape) + " {");
         indent++;
         for (NodeShape.PinDef pin : shape.outputs()) {
             if (pin.kind() == PinKind.EXEC) {

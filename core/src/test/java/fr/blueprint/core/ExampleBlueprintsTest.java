@@ -173,6 +173,11 @@ class ExampleBlueprintsTest {
                     example.id() + " a perdu des nœuds à l'aller-retour");
             assertEquals(original.links().size(), parsed.blueprint().links().size(),
                     example.id() + " a perdu des liens à l'aller-retour");
+            // Le CONTENU, et pas seulement les comptes. Compter laissait passer la
+            // perte du littéral « name » d'un nœud d'événement : le graphe revenait
+            // entier, se validait, s'affichait — et n'écoutait plus rien.
+            assertTrue(original.contentEquals(parsed.blueprint()),
+                    () -> example.id() + " diffère après l'aller-retour :\n" + text);
         }
     }
 

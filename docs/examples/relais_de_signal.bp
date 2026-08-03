@@ -12,7 +12,7 @@ blueprint blueprint:example/relais_de_signal {
       }
     }
   }
-  on blueprint:event/signal(payload) @id("777ef048-9b41-3486-a229-71c9f9572dbf") @pos(-520, 200) {
+  on blueprint:event/signal(payload) @id("777ef048-9b41-3486-a229-71c9f9572dbf") @pos(-520, 200) @with(name: "alarme") {
     blueprint:query/players() @id("e72b9627-6e6e-33f7-9404-cc6c766af235") @pos(-280, 200)
     blueprint:flow/for_each(list: $node("e72b9627-6e6e-33f7-9404-cc6c766af235").players) @id("873f7459-9889-3533-8ae9-f523f2dad785") @pos(-40, 200) {
       body: {

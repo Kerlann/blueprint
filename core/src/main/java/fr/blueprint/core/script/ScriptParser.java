@@ -525,6 +525,7 @@ public final class ScriptParser {
         UUID uuid = anns.idOr(UUID.randomUUID());
         Node event = new Node(uuid, eventId, anns.posOr(nextAutoPos()));
         GraphLoader.addNode(bp, event);
+        applyEventLiterals(event, anns);
 
         Map<String, String> scope = new HashMap<>();
         for (String param : params) {
@@ -536,6 +537,32 @@ public final class ScriptParser {
         parseStatements(uuid, firstExecOutName(eventId, uuid));
         eventParams = Map.of();
         currentEvent = null;
+    }
+
+    /**
+     * Les littéraux d'entrée d'un nœud d'événement ({@code @with}). Le type vient du
+     * pin quand la forme est connue ; sur un fantôme, il est inféré du jeton — le
+     * chargement ne refuse rien (P4), et un filtre préservé vaut mieux qu'un filtre
+     * perdu parce que le mod qui déclare l'événement est momentanément absent.
+     */
+    private void applyEventLiterals(Node event, Annotations anns) {
+        if (anns.with.isEmpty()) {
+            return;
+        }
+        NodeShape shape = lookup.shape(event.typeId());
+        for (var entry : anns.with.entrySet()) {
+            PinType type = null;
+            if (shape != null) {
+                for (NodeShape.PinDef pin : shape.inputs()) {
+                    if (pin.name().equals(entry.getKey())) {
+                        type = pin.type();
+                        break;
+                    }
+                }
+            }
+            GraphLoader.setLiteral(event, entry.getKey(),
+                    convertRaw(type, entry.getValue(), anns.withLine));
+        }
     }
 
     /** Une suite d'instructions ; la première se lie à {@code (prev, prevPin)}. */
@@ -722,6 +749,13 @@ public final class ScriptParser {
         @Nullable Vec2d size;
         int color = 0xFF303030;
         int line;
+        /**
+         * Littéraux d'entrée d'un nœud d'événement ({@code @with}). Gardés BRUTS : le
+         * type du pin ne se connaît qu'une fois la forme du nœud résolue, ce qui
+         * n'arrive qu'après la lecture des annotations.
+         */
+        final Map<String, Raw> with = new java.util.LinkedHashMap<>();
+        int withLine;
 
         UUID idOr(UUID fallback) {
             return id != null ? id : fallback;
@@ -763,6 +797,18 @@ public final class ScriptParser {
                         throw new ParseError(name.line(), "@color invalide");
                     }
                     expect("sym", ")");
+                }
+                case "with" -> {
+                    anns.withLine = name.line();
+                    expect("sym", "(");
+                    while (!eat("sym", ")")) {
+                        if (!anns.with.isEmpty()) {
+                            expect("sym", ",");
+                        }
+                        String pin = expect("word", null).text();
+                        expect("sym", ":");
+                        anns.with.put(pin, parseRawLit());
+                    }
                 }
                 default -> throw new ParseError(name.line(), "annotation inconnue @" + name.text());
             }
