@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "8.4"
+story_title: "Couche de compatibilité"
+gate: "PASS"
+status_reason: "Chargement conditionnel testable sans jeu (la présence d'un mod est un paramètre), intégration de référence livrée, cas « aucun de ces mods » vérifié. Pas de cycle de modules : Blueprint se branche par son propre mécanisme de plugin."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T09:30:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "COMPAT-001"
+    severity: low
+    finding: "L'intégration de référence n'appelle l'API d'aucun mod tiers : elle montre le mécanisme, pas l'appel croisé"
+    suggested_action: "Assumé — les deux voies sûres (compileOnly + classe séparée, réflexion) sont documentées ; une vraie intégration viendra avec un mod cible réel"
+  - id: "COMPAT-002"
+    severity: low
+    finding: "La liste des intégrations est une constante compilée : en ajouter une demande de recompiler Blueprint"
+    suggested_action: "C'est le principe d'un plan de repli maison ; la voie normale reste que le mod déclare ses nœuds"
+  - id: "COMPAT-003"
+    severity: low
+    finding: "Les intégrations n'enregistrent que des nœuds — ni type de pin, ni événement"
+    suggested_action: "Étendre l'interface le jour où une intégration en a besoin, plutôt que de spéculer"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 3 }
+  recommendations:
+    must_fix: []

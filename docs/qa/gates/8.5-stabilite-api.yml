@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "8.5"
+story_title: "Stabilité de l'API"
+gate: "PASS"
+status_reason: "La promesse de compatibilité n'est plus une intention mais une garde : 319 lignes de signature relevées par réflexion et comparées à chaque construction. Le message d'échec distingue l'ajout de la rupture et dit quoi faire."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T09:30:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "API-001"
+    severity: low
+    finding: "Le relevé ignore les génériques et les exceptions déclarées (effacement de type à la réflexion) : un changement de <T> ne serait pas vu"
+    suggested_action: "Déviation assumée face à japicmp : ce qui casse un mod compilé — disparition et signature — est couvert ; le reste coûterait une dépendance de build"
+  - id: "API-002"
+    severity: low
+    finding: "La version est en dur dans BlueprintApi et n'est pas reliée à la version Gradle du mod"
+    suggested_action: "Volontaire : la version d'API décrit la SURFACE, pas la livraison — les deux n'avancent pas au même rythme"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []

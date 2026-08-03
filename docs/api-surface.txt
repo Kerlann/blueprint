@@ -1,0 +1,319 @@
+# Surface publique de fr.blueprint.api — FICHIER GÉNÉRÉ (story 8.5)
+# Comparé à chaque build par ApiSurfaceTest : une ligne qui disparaît
+# est une rupture de compatibilité pour les mods tiers.
+
+class fr.blueprint.api.BlueprintApi
+  field public static final int MAJOR
+  field public static final int MINOR
+  field public static final int PATCH
+  field public static final java.lang.String API_VERSION
+  method public static boolean isCompatibleWith(int, int)
+
+interface fr.blueprint.api.BlueprintPlugin
+  method public abstract void registerNodes(fr.blueprint.api.registry.NodeRegistry)
+  method public void registerEvents(fr.blueprint.api.event.EventRegistry)
+  method public void registerTypes(fr.blueprint.api.registry.PinTypeRegistry)
+
+class fr.blueprint.api.annotation.AnnotatedNodes
+  method public static java.util.List derive(java.lang.Class)
+  method public static java.util.List derive(java.lang.Class, java.util.Map)
+  method public static transient void register(fr.blueprint.api.registry.NodeRegistry, [Ljava.lang.Class;)
+  method public static transient void register(fr.blueprint.api.registry.NodeRegistry, java.util.Map, [Ljava.lang.Class;)
+
+annotation fr.blueprint.api.annotation.BlueprintNode implements java.lang.annotation.Annotation
+  method public abstract boolean deterministic()
+  method public abstract boolean pure()
+  method public abstract fr.blueprint.api.node.Permission permission()
+  method public abstract int fuelCost()
+  method public abstract java.lang.String category()
+  method public abstract java.lang.String descKey()
+  method public abstract java.lang.String titleKey()
+  method public abstract java.lang.String value()
+
+annotation fr.blueprint.api.annotation.In implements java.lang.annotation.Annotation
+  method public abstract java.lang.String def()
+  method public abstract java.lang.String value()
+
+annotation fr.blueprint.api.annotation.Out implements java.lang.annotation.Annotation
+  method public abstract java.lang.String value()
+
+class fr.blueprint.api.event.BlueprintEvents
+  method public static void fire(fr.blueprint.api.event.EventType, java.util.function.Consumer)
+  method public static void install(fr.blueprint.api.event.EventSink)
+  method public static void uninstall()
+
+enum fr.blueprint.api.event.Dispatch
+  field public static final fr.blueprint.api.event.Dispatch GLOBAL
+  field public static final fr.blueprint.api.event.Dispatch PER_LEVEL
+  field public static final fr.blueprint.api.event.Dispatch PER_PLAYER
+  method public static [Lfr.blueprint.api.event.Dispatch; values()
+  method public static fr.blueprint.api.event.Dispatch valueOf(java.lang.String)
+
+interface fr.blueprint.api.event.EventPayload
+  method public abstract fr.blueprint.api.event.EventPayload set(java.lang.String, java.lang.Object)
+
+interface fr.blueprint.api.event.EventRegistry
+  method public abstract java.util.Collection all()
+  method public abstract java.util.Optional get(net.minecraft.resources.Identifier)
+  method public abstract void register(fr.blueprint.api.event.EventType)
+
+interface fr.blueprint.api.event.EventSink
+  method public abstract void fire(fr.blueprint.api.event.EventType, java.util.function.Consumer)
+
+class fr.blueprint.api.event.EventType
+  method public fr.blueprint.api.event.Dispatch dispatch()
+  method public fr.blueprint.api.event.EventType$OutDef output(java.lang.String)
+  method public java.lang.String titleKey()
+  method public java.lang.String toString()
+  method public java.util.List outputs()
+  method public net.minecraft.resources.Identifier id()
+  method public static fr.blueprint.api.event.EventType$Builder builder(net.minecraft.resources.Identifier)
+
+class fr.blueprint.api.event.EventType$Builder
+  method public fr.blueprint.api.event.EventType build()
+  method public fr.blueprint.api.event.EventType$Builder dispatch(fr.blueprint.api.event.Dispatch)
+  method public fr.blueprint.api.event.EventType$Builder out(java.lang.String, fr.blueprint.api.pin.PinType)
+  method public fr.blueprint.api.event.EventType$Builder titleKey(java.lang.String)
+
+record fr.blueprint.api.event.EventType$OutDef
+  ctor public (java.lang.String, fr.blueprint.api.pin.PinType)
+  method public final boolean equals(java.lang.Object)
+  method public final int hashCode()
+  method public final java.lang.String toString()
+  method public fr.blueprint.api.pin.PinType type()
+  method public java.lang.String name()
+
+interface fr.blueprint.api.event.TriggerContext
+  method public abstract java.lang.Object output(java.lang.String)
+  method public abstract net.minecraft.resources.Identifier eventId()
+
+interface fr.blueprint.api.node.BlueprintHandle
+  method public abstract boolean enabled()
+  method public abstract net.minecraft.resources.Identifier id()
+
+enum fr.blueprint.api.node.ExecSide
+  field public static final fr.blueprint.api.node.ExecSide SERVER
+  method public static [Lfr.blueprint.api.node.ExecSide; values()
+  method public static fr.blueprint.api.node.ExecSide valueOf(java.lang.String)
+
+interface fr.blueprint.api.node.NodeAction
+  method public abstract void run(fr.blueprint.api.node.NodeContext)
+
+class fr.blueprint.api.node.NodeCategories
+  field public static final fr.blueprint.api.node.NodeCategory DEBUG
+  field public static final fr.blueprint.api.node.NodeCategory ENTITY
+  field public static final fr.blueprint.api.node.NodeCategory EVENT
+  field public static final fr.blueprint.api.node.NodeCategory FLOW
+  field public static final fr.blueprint.api.node.NodeCategory ITEM
+  field public static final fr.blueprint.api.node.NodeCategory LIST
+  field public static final fr.blueprint.api.node.NodeCategory LOGIC
+  field public static final fr.blueprint.api.node.NodeCategory MATH
+  field public static final fr.blueprint.api.node.NodeCategory MISC
+  field public static final fr.blueprint.api.node.NodeCategory PLAYER
+  field public static final fr.blueprint.api.node.NodeCategory STRING
+  field public static final fr.blueprint.api.node.NodeCategory STRUCT
+  field public static final fr.blueprint.api.node.NodeCategory TEXT
+  field public static final fr.blueprint.api.node.NodeCategory WORLD
+
+record fr.blueprint.api.node.NodeCategory
+  ctor public (java.lang.String)
+  method public final boolean equals(java.lang.Object)
+  method public final int hashCode()
+  method public final java.lang.String toString()
+  method public java.lang.String id()
+
+interface fr.blueprint.api.node.NodeContext
+  method public abstract fr.blueprint.api.event.TriggerContext trigger()
+  method public abstract fr.blueprint.api.node.BlueprintHandle blueprint()
+  method public abstract java.lang.Object in(java.lang.String)
+  method public abstract net.minecraft.server.MinecraftServer server()
+  method public abstract net.minecraft.server.level.ServerLevel level()
+  method public abstract org.slf4j.Logger logger()
+  method public abstract void exec(java.lang.String)
+  method public abstract void fail(net.minecraft.network.chat.Component)
+  method public abstract void out(java.lang.String, java.lang.Object)
+  method public abstract void suspend(int)
+
+class fr.blueprint.api.node.NodeType
+  method public boolean deterministic()
+  method public boolean entryPoint()
+  method public boolean pure()
+  method public fr.blueprint.api.node.ExecSide side()
+  method public fr.blueprint.api.node.NodeAction action()
+  method public fr.blueprint.api.node.NodeCategory category()
+  method public fr.blueprint.api.node.Permission permission()
+  method public int fuelCost()
+  method public java.lang.String descKey()
+  method public java.lang.String titleKey()
+  method public java.lang.String toString()
+  method public java.util.List inputs()
+  method public java.util.List outputs()
+  method public net.minecraft.resources.Identifier id()
+  method public static fr.blueprint.api.node.NodeType$Builder builder(net.minecraft.resources.Identifier)
+
+class fr.blueprint.api.node.NodeType$Builder
+  method public fr.blueprint.api.node.NodeType build()
+  method public fr.blueprint.api.node.NodeType$Builder action(fr.blueprint.api.node.NodeAction)
+  method public fr.blueprint.api.node.NodeType$Builder category(fr.blueprint.api.node.NodeCategory)
+  method public fr.blueprint.api.node.NodeType$Builder descKey(java.lang.String)
+  method public fr.blueprint.api.node.NodeType$Builder deterministic(boolean)
+  method public fr.blueprint.api.node.NodeType$Builder entryPoint()
+  method public fr.blueprint.api.node.NodeType$Builder exec()
+  method public fr.blueprint.api.node.NodeType$Builder execIn(java.lang.String)
+  method public fr.blueprint.api.node.NodeType$Builder execOut(java.lang.String)
+  method public fr.blueprint.api.node.NodeType$Builder fuelCost(int)
+  method public fr.blueprint.api.node.NodeType$Builder generic(java.lang.String)
+  method public fr.blueprint.api.node.NodeType$Builder in(java.lang.String, fr.blueprint.api.pin.PinType)
+  method public fr.blueprint.api.node.NodeType$Builder in(java.lang.String, fr.blueprint.api.pin.PinType, java.lang.Object)
+  method public fr.blueprint.api.node.NodeType$Builder out(java.lang.String, fr.blueprint.api.pin.PinType)
+  method public fr.blueprint.api.node.NodeType$Builder permission(fr.blueprint.api.node.Permission)
+  method public fr.blueprint.api.node.NodeType$Builder pure()
+  method public fr.blueprint.api.node.NodeType$Builder side(fr.blueprint.api.node.ExecSide)
+  method public fr.blueprint.api.node.NodeType$Builder titleKey(java.lang.String)
+
+record fr.blueprint.api.node.NodeType$PinSpec
+  ctor public (java.lang.String, fr.blueprint.api.pin.PinKind, fr.blueprint.api.pin.PinType, fr.blueprint.api.pin.LiteralValue)
+  method public final boolean equals(java.lang.Object)
+  method public final int hashCode()
+  method public final java.lang.String toString()
+  method public fr.blueprint.api.pin.LiteralValue defaultValue()
+  method public fr.blueprint.api.pin.PinKind kind()
+  method public fr.blueprint.api.pin.PinType type()
+  method public java.lang.String name()
+
+enum fr.blueprint.api.node.Permission
+  field public static final fr.blueprint.api.node.Permission ADMIN
+  field public static final fr.blueprint.api.node.Permission GAMEPLAY
+  field public static final fr.blueprint.api.node.Permission SAFE
+  field public static final fr.blueprint.api.node.Permission WORLD
+  method public boolean allowedUnder(fr.blueprint.api.node.Permission)
+  method public static [Lfr.blueprint.api.node.Permission; values()
+  method public static fr.blueprint.api.node.Permission valueOf(java.lang.String)
+
+class fr.blueprint.api.pin.GenericResolution
+  ctor public ()
+  method public boolean isFullyResolved(fr.blueprint.api.pin.PinType)
+  method public boolean unify(fr.blueprint.api.pin.PinType, fr.blueprint.api.pin.PinType)
+  method public fr.blueprint.api.pin.PinType binding(java.lang.String)
+  method public fr.blueprint.api.pin.PinType resolve(fr.blueprint.api.pin.PinType)
+
+class fr.blueprint.api.pin.LiteralValue
+  method public boolean equals(java.lang.Object)
+  method public com.mojang.serialization.DataResult encode(com.mojang.serialization.DynamicOps)
+  method public fr.blueprint.api.pin.PinType type()
+  method public int hashCode()
+  method public java.lang.Object value()
+  method public java.lang.String toString()
+  method public static com.mojang.serialization.DataResult decode(fr.blueprint.api.pin.PinType, com.mojang.serialization.DynamicOps, java.lang.Object)
+  method public static fr.blueprint.api.pin.LiteralValue of(fr.blueprint.api.pin.PinType, java.lang.Object)
+
+class fr.blueprint.api.pin.ParameterizedPinType implements fr.blueprint.api.pin.PinType
+  method public boolean hasCodec()
+  method public boolean hasStreamCodec()
+  method public boolean isAssignableFrom(fr.blueprint.api.pin.PinType)
+  method public boolean supportsLiteral()
+  method public com.mojang.serialization.Codec codec()
+  method public fr.blueprint.api.pin.LiteralValue defaultValue()
+  method public fr.blueprint.api.pin.ParameterizedPinType$Container container()
+  method public fr.blueprint.api.pin.PinKind kind()
+  method public fr.blueprint.api.pin.PinShape shape()
+  method public int color()
+  method public java.lang.Class javaType()
+  method public java.lang.String toString()
+  method public java.lang.String translationKey()
+  method public java.util.List args()
+  method public java.util.function.Function coercionFor(fr.blueprint.api.pin.PinType)
+  method public net.minecraft.network.codec.StreamCodec streamCodec()
+  method public net.minecraft.resources.Identifier id()
+
+enum fr.blueprint.api.pin.ParameterizedPinType$Container
+  field public static final fr.blueprint.api.pin.ParameterizedPinType$Container LIST
+  field public static final fr.blueprint.api.pin.ParameterizedPinType$Container MAP
+  method public static [Lfr.blueprint.api.pin.ParameterizedPinType$Container; values()
+  method public static fr.blueprint.api.pin.ParameterizedPinType$Container valueOf(java.lang.String)
+
+enum fr.blueprint.api.pin.PinKind
+  field public static final fr.blueprint.api.pin.PinKind DATA
+  field public static final fr.blueprint.api.pin.PinKind EXEC
+  method public static [Lfr.blueprint.api.pin.PinKind; values()
+  method public static fr.blueprint.api.pin.PinKind valueOf(java.lang.String)
+
+enum fr.blueprint.api.pin.PinShape
+  field public static final fr.blueprint.api.pin.PinShape ARRAY
+  field public static final fr.blueprint.api.pin.PinShape CIRCLE
+  field public static final fr.blueprint.api.pin.PinShape CROSS
+  field public static final fr.blueprint.api.pin.PinShape DIAMOND
+  field public static final fr.blueprint.api.pin.PinShape EXEC
+  field public static final fr.blueprint.api.pin.PinShape MAP
+  field public static final fr.blueprint.api.pin.PinShape RING
+  field public static final fr.blueprint.api.pin.PinShape TRIANGLE
+  method public static [Lfr.blueprint.api.pin.PinShape; values()
+  method public static fr.blueprint.api.pin.PinShape valueOf(java.lang.String)
+
+interface fr.blueprint.api.pin.PinType
+  method public abstract boolean hasCodec()
+  method public abstract boolean hasStreamCodec()
+  method public abstract boolean isAssignableFrom(fr.blueprint.api.pin.PinType)
+  method public abstract boolean supportsLiteral()
+  method public abstract com.mojang.serialization.Codec codec()
+  method public abstract fr.blueprint.api.pin.LiteralValue defaultValue()
+  method public abstract fr.blueprint.api.pin.PinKind kind()
+  method public abstract fr.blueprint.api.pin.PinShape shape()
+  method public abstract int color()
+  method public abstract java.lang.Class javaType()
+  method public abstract java.lang.String translationKey()
+  method public abstract java.util.function.Function coercionFor(fr.blueprint.api.pin.PinType)
+  method public abstract net.minecraft.network.codec.StreamCodec streamCodec()
+  method public abstract net.minecraft.resources.Identifier id()
+  method public boolean isGeneric()
+  method public java.lang.String genericName()
+  method public static fr.blueprint.api.pin.PinType$Builder builder(net.minecraft.resources.Identifier)
+
+class fr.blueprint.api.pin.PinType$Builder
+  method public fr.blueprint.api.pin.PinType build()
+  method public fr.blueprint.api.pin.PinType$Builder codec(com.mojang.serialization.Codec)
+  method public fr.blueprint.api.pin.PinType$Builder coerceFrom(fr.blueprint.api.pin.PinType, java.util.function.Function)
+  method public fr.blueprint.api.pin.PinType$Builder color(int)
+  method public fr.blueprint.api.pin.PinType$Builder defaultValue(java.util.function.Supplier)
+  method public fr.blueprint.api.pin.PinType$Builder javaType(java.lang.Class)
+  method public fr.blueprint.api.pin.PinType$Builder kind(fr.blueprint.api.pin.PinKind)
+  method public fr.blueprint.api.pin.PinType$Builder lazyCodec(java.util.function.Supplier)
+  method public fr.blueprint.api.pin.PinType$Builder lazyStreamCodec(java.util.function.Supplier)
+  method public fr.blueprint.api.pin.PinType$Builder noLiteral()
+  method public fr.blueprint.api.pin.PinType$Builder shape(fr.blueprint.api.pin.PinShape)
+  method public fr.blueprint.api.pin.PinType$Builder streamCodec(net.minecraft.network.codec.StreamCodec)
+  method public fr.blueprint.api.pin.PinType$Builder translationKey(java.lang.String)
+
+class fr.blueprint.api.pin.PinTypes
+  field public static final com.mojang.serialization.Codec UUID_CODEC
+  field public static final fr.blueprint.api.pin.PinType ANY
+  field public static final fr.blueprint.api.pin.PinType BLOCKPOS
+  field public static final fr.blueprint.api.pin.PinType BLOCKSTATE
+  field public static final fr.blueprint.api.pin.PinType BOOL
+  field public static final fr.blueprint.api.pin.PinType DIRECTION
+  field public static final fr.blueprint.api.pin.PinType DOUBLE
+  field public static final fr.blueprint.api.pin.PinType ENTITY
+  field public static final fr.blueprint.api.pin.PinType EXEC
+  field public static final fr.blueprint.api.pin.PinType INT
+  field public static final fr.blueprint.api.pin.PinType ITEMSTACK
+  field public static final fr.blueprint.api.pin.PinType LONG
+  field public static final fr.blueprint.api.pin.PinType PLAYER
+  field public static final fr.blueprint.api.pin.PinType RESOURCE_LOCATION
+  field public static final fr.blueprint.api.pin.PinType STRING
+  field public static final fr.blueprint.api.pin.PinType TEXT
+  field public static final fr.blueprint.api.pin.PinType VEC3
+  method public static fr.blueprint.api.pin.PinType generic(java.lang.String)
+  method public static fr.blueprint.api.pin.PinType listOf(fr.blueprint.api.pin.PinType)
+  method public static fr.blueprint.api.pin.PinType mapOf(fr.blueprint.api.pin.PinType, fr.blueprint.api.pin.PinType)
+  method public static java.util.List builtin()
+
+interface fr.blueprint.api.registry.NodeRegistry
+  method public abstract java.util.Collection all()
+  method public abstract java.util.Optional get(net.minecraft.resources.Identifier)
+  method public abstract void register(fr.blueprint.api.node.NodeType)
+
+interface fr.blueprint.api.registry.PinTypeRegistry
+  method public abstract java.util.Collection all()
+  method public abstract java.util.Optional get(net.minecraft.resources.Identifier)
+  method public abstract void register(fr.blueprint.api.pin.PinType)
+

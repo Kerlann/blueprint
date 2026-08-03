@@ -388,20 +388,55 @@ dans une classe distincte, jamais un `import` en tête de votre initialiseur pri
 Vérification de version :
 
 ```java
-if (BlueprintApi.API_VERSION.isCompatibleWith("1.0")) { ... }
+if (!BlueprintApi.isCompatibleWith(1, 0)) {
+    LOGGER.warn("Blueprint {} : cette intégration attend 1.0", BlueprintApi.API_VERSION);
+    return;
+}
 ```
 
-Politique : rupture uniquement en majeure, dépréciation maintenue au moins un cycle de
-version Minecraft, surface publique vérifiée en CI par japicmp.
+**Politique de dépréciation** (story 8.5) :
+
+- La version décrit la **surface publique**, pas le contenu du mod : `majeure` = rupture,
+  `mineure` = ajout compatible, `corrective` = ni l'un ni l'autre.
+- Rien ne disparaît sans avoir été `@Deprecated` pendant **au moins une mineure**, avec
+  le remplacement nommé dans le javadoc ; la suppression n'arrive qu'à une **majeure**.
+- Ce contrat est **vérifié mécaniquement** : `docs/api-surface.txt` est la signature de
+  référence de `fr.blueprint.api`, comparée à chaque construction par `ApiSurfaceTest`.
+  Une ligne qui disparaît fait échouer le build — impossible de casser un mod tiers sans
+  s'en apercevoir.
 
 ---
 
 ## 9. Intégrations livrées par Blueprint lui-même
 
 Quand un mod tiers populaire n'expose pas ses propres nœuds, Blueprint peut fournir
-l'intégration : `compat/src/main/java/fr/blueprint/compat/<modid>/`, chargée uniquement si
-`FabricLoader.isModLoaded("<modid>")`. C'est un plan de repli, pas la voie normale : la
-voie normale est que le mod déclare ses nœuds lui-même.
+l'intégration. C'est un plan de repli, pas la voie normale : la voie normale est que le
+mod déclare ses nœuds lui-même.
+
+Une intégration implémente `CompatLoader.Integration` — le modid visé, et ce qu'elle
+ajoute — et n'est chargée que si ce mod est présent :
+
+```java
+final class MonmodCompat implements CompatLoader.Integration {
+    @Override public String modId() { return "monmod"; }
+
+    @Override public void register(NodeRegistryImpl nodes) {
+        nodes.register(NodeType.builder(...).build());
+    }
+}
+```
+
+Trois règles, apprises en écrivant l'intégration de référence (`TestmodCompat`) :
+
+1. **Ne référencez aucune classe du mod visé depuis l'intégration elle-même.** Un
+   `import com.exemple.Machin` fait tomber le chargement de classe dès que le mod est
+   absent — la garde `isModLoaded` arrive trop tard. Pour appeler son API : un module
+   compilé en `compileOnly` avec une classe séparée chargée après la garde, ou la
+   réflexion.
+2. **La présence du mod est un paramètre**, pas un appel direct à `FabricLoader` : c'est
+   ce qui permet de tester le cas « aucun de ces mods » sans lancer le jeu.
+3. **Une intégration qui lève est isolée** : ses nœuds sont retirés, Blueprint continue.
+   Un mod compagnon cassé ne doit jamais emporter le reste.
 
 ---
 

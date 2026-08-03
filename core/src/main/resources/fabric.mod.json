@@ -16,7 +16,9 @@
     "client": [
       "fr.blueprint.client.BlueprintClient"
     ],
-    "blueprint": []
+    "blueprint": [
+      "fr.blueprint.compat.CompatPlugin"
+    ]
   },
   "depends": {
     "fabricloader": ">=0.16.0",
