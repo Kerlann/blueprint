@@ -16,6 +16,9 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Régénération de la doc générée (story 9.5) : la propriété doit traverser jusqu'à
+    // la JVM des tests, sinon -D ne parle qu'au démon Gradle.
+    systemProperty("blueprint.regenDocs", System.getProperty("blueprint.regenDocs") ?: "false")
     // Les tests de core tournent sans Minecraft démarré (coding-standards §7).
     testLogging {
         events("failed", "skipped")
