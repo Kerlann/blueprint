@@ -30,6 +30,8 @@ public class BlueprintMod implements ModInitializer {
 
         config = BlueprintConfig.load(FabricLoader.getInstance().getConfigDir());
         BlueprintCommand.register(config);
+        // NFR15 : l'audit des nœuds ADMIN se coupe depuis la configuration serveur.
+        fr.blueprint.core.debug.AdminAudit.enabled(config.auditAdminNodes());
 
         int declared = FabricLoader.getInstance()
                 .getEntrypointContainers("blueprint", BlueprintPlugin.class)

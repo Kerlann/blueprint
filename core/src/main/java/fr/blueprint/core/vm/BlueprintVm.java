@@ -117,6 +117,23 @@ public final class BlueprintVm {
         }
     }
 
+    /**
+     * Qui a déclenché l'exécution : le joueur de la charge utile s'il y en a un, sinon
+     * l'événement lui-même (un tick serveur n'a pas d'acteur). Jamais d'exception : un
+     * audit ne doit pas casser une exécution.
+     */
+    private static String actorOf(ExecutionEnvironment env) {
+        try {
+            Object player = env.trigger().output("player");
+            if (player != null) {
+                return String.valueOf(player);
+            }
+        } catch (RuntimeException e) {
+            // L'événement ne déclare pas de « player » : ce n'est pas une anomalie.
+        }
+        return env.trigger().eventId().toString();
+    }
+
     /** Exécute un {@code Call} ; retourne un résultat d'interruption, ou null pour continuer. */
     private static ExecResult call(Ir ir, ExecutionState state, ExecutionEnvironment env,
                                    Instruction.Call call, int pc,
@@ -138,6 +155,12 @@ public final class BlueprintVm {
         }
         NodeContextImpl ctx = new NodeContextImpl(type, inputs, env.server(), env.level(),
                 env.blueprint(), env.trigger(), env.logger(), debug != null);
+        // NFR15 : un nœud ADMIN est journalisé AVANT de tourner — s'il fait tomber le
+        // serveur, la trace doit déjà exister. Coût hors ADMIN : une comparaison d'enum.
+        if (type.permission() == fr.blueprint.api.node.Permission.ADMIN) {
+            fr.blueprint.core.debug.AdminAudit.record(type.permission(), env.blueprint().id(),
+                    call.source(), type.id(), actorOf(env), System.currentTimeMillis());
+        }
         long begin = profiler != null ? System.nanoTime() : 0L;
         try {
             NodeContextImpl.invoke(type, ctx);

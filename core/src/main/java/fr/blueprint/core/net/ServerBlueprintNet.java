@@ -29,6 +29,13 @@ public final class ServerBlueprintNet {
     }
 
     public static void register(BlueprintConfig config) {
+        // Quotas et bornes : ce que dit la configuration serveur (9.3), pas des constantes.
+        LIMITS = config.netLimits();
+        SAVES = new RateLimiter(LIMITS.savesPerWindow(), LIMITS.windowMillis(),
+                System::currentTimeMillis);
+        REQUESTS = new RateLimiter(LIMITS.requestsPerWindow(), LIMITS.windowMillis(),
+                System::currentTimeMillis);
+
         var s2c = PayloadTypeRegistry.playS2C();
         var c2s = PayloadTypeRegistry.playC2S();
         s2c.register(BlueprintPayloads.ListData.TYPE, BlueprintPayloads.ListData.CODEC);
@@ -167,12 +174,12 @@ public final class ServerBlueprintNet {
                 });
     }
 
-    /** Bornes réseau (6.4) — configurables serveur en 9.3. */
-    private static final NetLimits LIMITS = NetLimits.DEFAULT;
+    /** Bornes réseau, issues de la configuration serveur (9.3). */
+    private static NetLimits LIMITS = NetLimits.DEFAULT;
 
-    private static final RateLimiter SAVES = new RateLimiter(
+    private static RateLimiter SAVES = new RateLimiter(
             LIMITS.savesPerWindow(), LIMITS.windowMillis(), System::currentTimeMillis);
-    private static final RateLimiter REQUESTS = new RateLimiter(
+    private static RateLimiter REQUESTS = new RateLimiter(
             LIMITS.requestsPerWindow(), LIMITS.windowMillis(), System::currentTimeMillis);
 
     /**

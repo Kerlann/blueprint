@@ -17,13 +17,37 @@ import java.nio.file.Path;
  * valeurs par défaut au premier lancement. Volontairement plate et tolérante :
  * un fichier illisible vaut configuration par défaut, jamais un crash.
  */
-public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int maxOverBudgetTicks) {
+public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int maxOverBudgetTicks,
+                              int maxNodes, int maxGraphKilobytes, int savesPerWindow,
+                              int requestsPerWindow, boolean auditAdminNodes) {
 
     public static final BlueprintConfig DEFAULT = new BlueprintConfig(2);
 
     /** Commodité : niveau de permission seul, runtime aux défauts. */
     public BlueprintConfig(int commandPermissionLevel) {
-        this(commandPermissionLevel, 10_000, 100);
+        this(commandPermissionLevel, 10_000, 100, 1_000, 256, 10, 60, true);
+    }
+
+    /** Compatibilité : les trois premiers champs, le reste aux défauts. */
+    public BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int maxOverBudgetTicks) {
+        this(commandPermissionLevel, fuelPerTick, maxOverBudgetTicks, 1_000, 256, 10, 60, true);
+    }
+
+    /** Bornes structurelles d'un graphe (validateur, opérations d'édition). */
+    public fr.blueprint.core.graph.GraphLimits graphLimits() {
+        return new fr.blueprint.core.graph.GraphLimits(Math.max(1, maxNodes));
+    }
+
+    /** Bornes et quotas du réseau (story 6.4), dérivés de la configuration. */
+    public fr.blueprint.core.net.NetLimits netLimits() {
+        var defaults = fr.blueprint.core.net.NetLimits.DEFAULT;
+        return new fr.blueprint.core.net.NetLimits(
+                Math.max(16, maxGraphKilobytes) * 1024,
+                Math.max(1, maxNodes),
+                defaults.maxLinks(), defaults.maxVariables(), defaults.maxComments(),
+                defaults.maxTextLength(), defaults.maxGhosts(),
+                Math.max(1, savesPerWindow), Math.max(1, requestsPerWindow),
+                defaults.windowMillis());
     }
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -54,6 +78,11 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                 defaults.addProperty("commandPermissionLevel", DEFAULT.commandPermissionLevel());
                 defaults.addProperty("fuelPerTick", DEFAULT.fuelPerTick());
                 defaults.addProperty("maxOverBudgetTicks", DEFAULT.maxOverBudgetTicks());
+                defaults.addProperty("maxNodes", DEFAULT.maxNodes());
+                defaults.addProperty("maxGraphKilobytes", DEFAULT.maxGraphKilobytes());
+                defaults.addProperty("savesPerWindow", DEFAULT.savesPerWindow());
+                defaults.addProperty("requestsPerWindow", DEFAULT.requestsPerWindow());
+                defaults.addProperty("auditAdminNodes", DEFAULT.auditAdminNodes());
                 Files.writeString(file, GSON.toJson(defaults));
                 return DEFAULT;
             }
@@ -64,7 +93,12 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
             return new BlueprintConfig(
                     intOr(json, "commandPermissionLevel", DEFAULT.commandPermissionLevel()),
                     intOr(json, "fuelPerTick", DEFAULT.fuelPerTick()),
-                    intOr(json, "maxOverBudgetTicks", DEFAULT.maxOverBudgetTicks()));
+                    intOr(json, "maxOverBudgetTicks", DEFAULT.maxOverBudgetTicks()),
+                    intOr(json, "maxNodes", DEFAULT.maxNodes()),
+                    intOr(json, "maxGraphKilobytes", DEFAULT.maxGraphKilobytes()),
+                    intOr(json, "savesPerWindow", DEFAULT.savesPerWindow()),
+                    intOr(json, "requestsPerWindow", DEFAULT.requestsPerWindow()),
+                    boolOr(json, "auditAdminNodes", DEFAULT.auditAdminNodes()));
         } catch (IOException | RuntimeException e) {
             BlueprintMod.LOGGER.warn("Config illisible ({}), valeurs par défaut appliquées", file, e);
             return DEFAULT;
@@ -72,6 +106,21 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
     }
 
     private static int intOr(JsonObject json, String key, int fallback) {
-        return json.has(key) ? json.get(key).getAsInt() : fallback;
+        try {
+            return json.has(key) ? json.get(key).getAsInt() : fallback;
+        } catch (RuntimeException e) {
+            // Une valeur absurde (« beaucoup ») ne doit pas coûter TOUTE la config.
+            BlueprintMod.LOGGER.warn("Config : « {} » illisible, défaut {} appliqué", key, fallback);
+            return fallback;
+        }
+    }
+
+    private static boolean boolOr(JsonObject json, String key, boolean fallback) {
+        try {
+            return json.has(key) ? json.get(key).getAsBoolean() : fallback;
+        } catch (RuntimeException e) {
+            BlueprintMod.LOGGER.warn("Config : « {} » illisible, défaut {} appliqué", key, fallback);
+            return fallback;
+        }
     }
 }
