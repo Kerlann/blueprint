@@ -255,6 +255,11 @@ public final class StandardNodes {
                     throw new IllegalStateException("var/set est abaissé en StoreVar par le compilateur");
                 })
                 .build());
+
+        // ----------------------------------------- monde, entités, items (7.3-7.5)
+        WorldNodes.register(r);
+        EntityNodes.register(r);
+        ItemNodes.register(r);
     }
 
     private static void binaryMath(NodeRegistry r, String path, DoubleBinaryOperator op) {
