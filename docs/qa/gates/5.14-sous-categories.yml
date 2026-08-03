@@ -1,0 +1,32 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.14"
+story_title: "Sous-catégories dans le menu d'ajout de nœud"
+gate: "PASS"
+status_reason: "Changement structurel, entièrement couvert par des tests purs, et sans coût de sérialisation : le chemin vit dans une chaîne qui traversait déjà le NBT, le réseau et BScript. Les deux gardes de documentation générée ont échoué comme elles le devaient. Aucun défaut haut ni moyen ; quatre observations basses, toutes assumées."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T13:40:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "CAT-001"
+    severity: low
+    finding: "La profondeur est bornée à deux niveaux par une exception au constructeur — un mod tiers qui déclare « a/b/c » plante au chargement de son plugin plutôt que de voir sa catégorie aplatie"
+    suggested_action: "Assumé : PluginLoader isole déjà les échecs par mod (le reste du serveur démarre), et un message d'exception nommé vaut mieux qu'un rangement silencieusement faux. Documenté dans extension-api.md §2.2b."
+  - id: "CAT-002"
+    severity: low
+    finding: "Le classement des événements repose sur leurs SORTIES (un pin player → événement de joueur). Un événement tiers qui exposerait un joueur sans en être un serait mal rangé."
+    suggested_action: "Assumé : c'est la seule règle qui marche aussi pour les mods tiers, dont les noms ne suivent pas notre convention. Un champ de catégorie sur EventType serait plus juste mais élargirait la surface d'API pour un cas hypothétique."
+  - id: "CAT-003"
+    severity: low
+    finding: "Sept catégories restent plates (string 6, entity 6, player 5, item 4, text 3, misc 2, debug 1) : le rangement n'est pas uniforme d'une catégorie à l'autre"
+    suggested_action: "Choix assumé : subdiviser une catégorie de quatre nœuds n'ajoute qu'un clic. Le test aucuneCategorieNeDevientIngerable exigera de ranger dès qu'une dépasse douze."
+  - id: "CAT-004"
+    severity: low
+    finding: "La palette n'affiche que le libellé de la sous-catégorie, sans rappeler sa parente : une fois la ligne parente défilée hors écran, « Fonctions » ne dit plus de quoi"
+    suggested_action: "L'indentation et la couleur atténuée restent visibles ; un fil d'Ariane collant en haut de la palette est le vrai remède, reporté."
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 4 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "VERIFY-5.14 : l'arbre à l'écran — indentation, repli d'une parente, comptes"

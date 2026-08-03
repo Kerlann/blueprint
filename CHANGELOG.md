@@ -22,6 +22,15 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 - **Aspect** rapproché de l'éditeur d'Unreal : coins arrondis, ombre portée, en-tête
   en dégradé, pictogramme de catégorie, halo de sélection.
 - **Billes de flux** sur les fils d'exécution parcourus, en débogage.
+- **Sous-catégories** de nœuds (`math/arithmetic`, `event/player`…) : la palette les
+  affiche en arbre repliable, les six catégories qui dépassaient la dizaine de nœuds
+  sont rangées, et un mod tiers peut déclarer les siennes.
+
+### Modifié
+
+- **API 1.0.0 → 1.1.0** : `NodeCategory` accepte un chemin à deux niveaux et gagne
+  `parent()`, `leaf()`, `isSub()` ; `NodeCategories` gagne 13 constantes. Rien de
+  retiré ni de modifié — `isCompatibleWith(1, 0)` reste vrai.
 
 ## [0.1.0] — 2026-08-03
 
