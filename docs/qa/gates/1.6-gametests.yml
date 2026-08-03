@@ -18,8 +18,8 @@ top_issues:
     suggested_action: "Volontaire (démarrage d'un serveur, ~15 s) ; c'est à la CI de l'appeler explicitement"
   - id: "GT-003"
     severity: low
-    finding: "Aucun test client : tout ce qui est visuel reste hors de portée de ce harnais"
-    suggested_action: "Limite assumée et annoncée dans la story ; c'est ce qui reste à la session en jeu finale"
+    finding: "Le harnais gametest ne couvre pas le client : le RENDU reste hors de portée. L'état de l'éditeur, lui, est couvert depuis l'épic 5 par une suite headless (couverture ≥ 82 % sur la partie testable)."
+    suggested_action: "Limite assumée et annoncée dans la story ; ce qui reste vraiment à l'œil est la liste VERIFY de docs/README.md."
 risk_summary:
   totals: { critical: 0, high: 0, medium: 1, low: 2 }
   recommendations:

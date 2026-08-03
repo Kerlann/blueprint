@@ -18,8 +18,8 @@ top_issues:
     suggested_action: "Consigné dès la story — typage par instance à étudier avec la résolution de jokers"
   - id: "VAR-003"
     severity: low
-    finding: "AC6 (point discret « variable inutilisée ») non implémenté, avec l'ascenseur du panneau"
-    suggested_action: "Backlog polissage épic 9 ; consigné dans la story"
+    finding: "AC6 (point discret « variable inutilisée ») non implémenté. L'ascenseur du panneau, lui, est livré depuis la story 5.12."
+    suggested_action: "Le défilement est fait (PanelScroll). Le marqueur « inutilisée » reste consigné en v1.1 : il demande une analyse d'atteignabilité que le validateur ne fait pas encore."
 risk_summary:
   totals: { critical: 0, high: 0, medium: 1, low: 2 }
   recommendations:

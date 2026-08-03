@@ -10,8 +10,8 @@ waiver: { active: false }
 top_issues:
   - id: "DEMO-001"
     severity: low
-    finding: "/blueprint demo annonce « créé et exporté » même si l'écriture disque a échoué (résultat d'export ignoré) — l'échec n'est visible qu'au log serveur"
-    suggested_action: "Différencier le message au prochain passage sur la commande (avec la 4.4 complète/BScript)"
+    finding: "CORRIGÉ (passe de dette 5.12) — /blueprint demo annonçait « créé et exporté » même quand l'écriture disque avait échoué : le joueur partait chercher un fichier absent, l'échec n'étant qu'au log serveur"
+    suggested_action: "Fait : message distinct blueprint.cmd.demo_created_no_file, qui dit aussi que le blueprint fonctionne quand même en jeu."
 risk_summary:
   totals: { critical: 0, high: 0, medium: 0, low: 1 }
   recommendations:

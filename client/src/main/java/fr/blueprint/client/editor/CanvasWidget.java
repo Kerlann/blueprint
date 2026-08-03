@@ -944,6 +944,19 @@ public final class CanvasWidget {
         }
     }
 
+    /**
+     * Montre le refus du dernier geste, s'il y en a eu un. Un câblage refusé était un
+     * no-op silencieux : le fil ne se faisait pas et rien ne disait pourquoi, alors
+     * que le validateur produit déjà la phrase exacte (« l'entrée « a » est déjà
+     * connectée », « le pin attend un entier mais reçoit une chaîne »).
+     */
+    private void showRefusal() {
+        var refusal = controller.takeRefusal();
+        if (refusal != null) {
+            actionBar(refusal.translationKey(), refusal.args().toArray());
+        }
+    }
+
     private void handleToolbar(@Nullable ToolbarWidget.Action action) {
         if (action == null) {
             return;
@@ -1111,6 +1124,7 @@ public final class CanvasWidget {
                 palette.open(camera.toScreenX(drop.worldX()), camera.toScreenY(drop.worldY()),
                         drop.worldX(), drop.worldY(), drop.from());
             }
+            showRefusal();
             return true;
         }
         return false;

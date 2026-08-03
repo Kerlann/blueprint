@@ -408,9 +408,13 @@ public final class BlueprintCommand {
             ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.exists", bp.id().toString()));
             return 0;
         }
-        fr.blueprint.core.BlueprintFiles.export(bp, exportsDir(),
+        // Le blueprint existe en mémoire quoi qu'il arrive ; l'export sur disque, lui,
+        // peut échouer (droits, disque plein). Annoncer « créé et exporté » dans ce cas
+        // envoyait le joueur chercher un fichier absent, l'échec n'étant qu'au log.
+        var file = fr.blueprint.core.BlueprintFiles.export(bp, exportsDir(),
                 fr.blueprint.core.BlueprintMod.registries());
-        ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.demo_created",
+        ctx.getSource().sendSuccess(() -> Component.translatable(
+                file != null ? "blueprint.cmd.demo_created" : "blueprint.cmd.demo_created_no_file",
                 bp.id().toString()), true);
         return 1;
     }

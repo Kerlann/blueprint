@@ -14,8 +14,8 @@ top_issues:
     suggested_action: "Corrigé : recentrage dans canvasWidth() (moitié canevas quand le script est ouvert)"
   - id: "DIAG-002"
     severity: low
-    finding: "La liste dépliée plafonne à 8 diagnostics sans défilement — les suivants sont dans le compteur mais pas cliquables"
-    suggested_action: "Ascenseur avec celui des panneaux (polissage épic 9)"
+    finding: "RÉSOLU DEPUIS (story 5.12) — la liste dépliée défile : au-delà de huit diagnostics, les suivants étaient comptés mais pas atteignables, donc pas cliquables"
+    suggested_action: "PanelScroll commun aux trois panneaux ; molette routée par panneau."
 risk_summary:
   totals: { critical: 0, high: 0, medium: 0, low: 2 }
   recommendations:

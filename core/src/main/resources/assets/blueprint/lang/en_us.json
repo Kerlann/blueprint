@@ -54,6 +54,7 @@
   "blueprint.cmd.imported": "Blueprint %s imported (%s nodes)",
   "blueprint.cmd.import_failed": "Could not import \"%s\" (missing or unreadable file)",
   "blueprint.cmd.demo_created": "Demo blueprint %s created and exported — rejoin the world for the welcome message, or type a chat message containing \"ping\"",
+  "blueprint.cmd.demo_created_no_file": "Demo blueprint %s created, but could NOT be written to disk (see the server log) — it still works in game",
   "blueprint.cmd.debug_on": "Debugging %s — breakpoints and values are now recorded",
   "blueprint.cmd.debug_off": "Debugging of %s stopped (a paused run resumes)",
   "blueprint.cmd.debug_not_open": "Debugging is not on for %s — /blueprint debug <id> on",

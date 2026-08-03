@@ -147,7 +147,14 @@ public final class LiteralEditState {
         }
         if (type == PinTypes.INT || type == PinTypes.LONG) {
             try {
-                buffer = String.valueOf(Long.parseLong(buffer.trim()) + delta);
+                long next = Long.parseLong(buffer.trim()) + delta;
+                // La molette compte en long : sur un pin int, elle poussait le tampon
+                // au-delà d'Integer.MAX_VALUE et laissait le champ rouge, sans que
+                // rien n'indique qu'il fallait retaper la valeur à la main.
+                if (type == PinTypes.INT) {
+                    next = Math.clamp(next, Integer.MIN_VALUE, Integer.MAX_VALUE);
+                }
+                buffer = String.valueOf(next);
             } catch (NumberFormatException e) {
                 buffer = String.valueOf(delta);
             }

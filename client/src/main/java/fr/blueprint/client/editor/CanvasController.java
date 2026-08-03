@@ -75,6 +75,8 @@ public final class CanvasController {
     private double wireY;
     /** Lien sélectionné (Suppr le retire) : cliquer un fil était le geste sans effet. */
     private @Nullable Link selectedLink;
+    /** Dernier refus non encore montré au joueur (voir {@link #takeRefusal()}). */
+    private fr.blueprint.core.graph.@Nullable Diagnostic lastRefusal;
     /** Commentaire sélectionné (Suppr le retire) et geste en cours sur lui. */
     private @Nullable UUID selectedComment;
     private @Nullable UUID activeComment;
@@ -159,6 +161,12 @@ public final class CanvasController {
                     NodeShape.PinDef def = shape.outputs().get(row);
                     return new PinRef(b.node().uuid(), def.name(), def.kind(), def.type(), true, row);
                 }
+            }
+            // Ce nœud est le plus haut sous le point et n'y a pas de pin : ceux des
+            // nœuds DESSOUS ne se saisissent pas à travers lui. (Le rayon de saisie
+            // déborde des boîtes, donc hors de toute boîte on continue de chercher.)
+            if (b.contains(wx, wy)) {
+                return null;
             }
         }
         return null;
@@ -860,7 +868,20 @@ public final class CanvasController {
                 history.record(result.inverse());
             }
             notifyMutation();
+        } else {
+            lastRefusal = result.refusal();
         }
         return result.applied();
+    }
+
+    /**
+     * Diagnostic du dernier refus, consommé une fois. Un câblage refusé était un
+     * no-op SILENCIEUX : le lien ne se faisait pas, rien ne disait pourquoi, et
+     * l'explication existait pourtant déjà — le validateur la produit à chaque fois.
+     */
+    public fr.blueprint.core.graph.@Nullable Diagnostic takeRefusal() {
+        fr.blueprint.core.graph.Diagnostic refusal = lastRefusal;
+        lastRefusal = null;
+        return refusal;
     }
 }

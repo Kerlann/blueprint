@@ -565,6 +565,55 @@ class CanvasControllerTest {
         assertEquals(avant, bp.node(n2).position());
     }
 
+    // ------------------------------------------------------- passe de dette (low)
+
+    /**
+     * Un nœud qui en recouvre un autre doit MASQUER ses pins : sinon on câble un pin
+     * qu'on ne voit pas, et le lien apparaît en sortant d'un nœud au hasard.
+     */
+    @Test
+    void unNoeudRecouvertNeLaissePasSaisirSesPins() {
+        Vec2d pin = out1();
+        assertNotNull(controller.pinAt(pin.x(), pin.y()));
+
+        // n3, ajouté après n1, se dessine par-dessus et couvre le pin.
+        UUID n3 = addNode(pin.x() - NodeGeometry.WIDTH / 2, pin.y() - 20);
+        assertNotNull(controller.hitTest(pin.x(), pin.y()));
+        assertEquals(n3, controller.hitTest(pin.x(), pin.y()).node().uuid());
+        assertNull(controller.pinAt(pin.x(), pin.y()),
+                "le pin de n1 est sous n3 : il ne se saisit plus");
+    }
+
+    /**
+     * Un câblage refusé était un no-op SILENCIEUX. Le validateur produit pourtant la
+     * phrase exacte à chaque fois — elle était simplement jetée.
+     */
+    @Test
+    void unCablageRefuseExpliquePourquoi() {
+        assertNull(controller.takeRefusal(), "rien à raconter au départ");
+
+        // Deuxième lien sur le même exec_out : refusé par cardinalité.
+        Vec2d from = out1();
+        controller.press(from.x(), from.y(), false);
+        Vec2d to = in2(0);
+        controller.drag(to.x(), to.y());
+        controller.release(false);
+        assertEquals(1, bp.links().size());
+
+        UUID n3 = addNode(600, 300);
+        controller.press(from.x(), from.y(), false);
+        Vec2d autre = NodeGeometry.inputPinCenter(controller.boxOf(n3), 0);
+        controller.drag(autre.x(), autre.y());
+        controller.release(false);
+
+        assertEquals(1, bp.links().size(), "le lien est bien refusé");
+        var refus = controller.takeRefusal();
+        assertNotNull(refus, "et le joueur peut enfin savoir pourquoi");
+        assertEquals(fr.blueprint.core.graph.DiagnosticCode.EXEC_OUT_ALREADY_LINKED,
+                refus.code());
+        assertNull(controller.takeRefusal(), "consommé une fois, pas répété à l'infini");
+    }
+
     @Test
     void cliquerUnNoeudDefaitLaSelectionDeFil() {
         Vec2d middle = wireUpAndPickMiddle();

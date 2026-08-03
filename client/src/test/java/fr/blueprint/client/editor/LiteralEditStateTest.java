@@ -73,6 +73,29 @@ class LiteralEditStateTest {
         assertEquals("3.5", d.text());
     }
 
+    /**
+     * La molette compte en long. Sur un pin int, elle poussait le tampon au-delà
+     * d'Integer.MAX_VALUE et laissait un champ rouge que seule une saisie manuelle
+     * pouvait sauver — un cran de molette de trop et la valeur était perdue.
+     */
+    @Test
+    void laMoletteNeDepasseJamaisLesBornesDUnEntier() {
+        LiteralEditState haut = text(PinTypes.INT, String.valueOf(Integer.MAX_VALUE));
+        haut.adjustNumber(10);
+        assertEquals(String.valueOf(Integer.MAX_VALUE), haut.text());
+        assertTrue(haut.isValid(), "et le champ reste vert");
+
+        LiteralEditState bas = text(PinTypes.INT, String.valueOf(Integer.MIN_VALUE));
+        bas.adjustNumber(-10);
+        assertEquals(String.valueOf(Integer.MIN_VALUE), bas.text());
+        assertTrue(bas.isValid());
+
+        // Un pin long, lui, a le droit d'aller plus loin.
+        LiteralEditState grand = text(PinTypes.LONG, String.valueOf(Integer.MAX_VALUE));
+        grand.adjustNumber(10);
+        assertEquals(String.valueOf(Integer.MAX_VALUE + 10L), grand.text());
+    }
+
     @Test
     void enumDirection() {
         LiteralEditState s = new LiteralEditState();

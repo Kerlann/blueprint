@@ -54,6 +54,9 @@ public final class PaletteState {
     private boolean open;
     private String query = "";
     private List<NodeSearch.Entry> entries = List.of();
+    /** Correspondance ligne ↔ entrée par POSITION (voir {@link #indexRows()}). */
+    private int[] itemToEntry = new int[0];
+    private int[] entryToItem = new int[0];
     private List<Item> items = List.of();
     private int selected;
     private int scroll;
@@ -173,13 +176,16 @@ public final class PaletteState {
         }
     }
 
-    /** L'indice d'entrée correspondant à une ligne, ou −1 (section, catégorie). */
+    /**
+     * L'indice d'entrée correspondant à une ligne, ou −1 (section, catégorie).
+     *
+     * <p>Par POSITION, pas par identité : un nœud mis en favori apparaît DEUX fois,
+     * une fois dans « Favoris » et une fois dans sa catégorie. Chercher son entrée
+     * dans la liste plate renvoyait toujours la première — cliquer la ligne de la
+     * catégorie surlignait celle des favoris, tout en haut.
+     */
     public int entryIndexOf(int itemIndex) {
-        if (itemIndex < 0 || itemIndex >= items.size()
-                || !(items.get(itemIndex) instanceof Item.EntryItem target)) {
-            return -1;
-        }
-        return entries.indexOf(target.entry());
+        return itemIndex >= 0 && itemIndex < itemToEntry.length ? itemToEntry[itemIndex] : -1;
     }
 
     public void toggleCategory(String name) {
@@ -237,6 +243,27 @@ public final class PaletteState {
         }
         items = List.copyOf(out);
         entries = List.copyOf(flat);
+        indexRows();
+    }
+
+    /**
+     * Correspondance ligne ↔ entrée, dans les deux sens. Construite ici et pas
+     * cherchée à la demande : une entrée peut apparaître à DEUX lignes (favoris et
+     * catégorie), et seule la position les distingue.
+     */
+    private void indexRows() {
+        itemToEntry = new int[items.size()];
+        entryToItem = new int[entries.size()];
+        java.util.Arrays.fill(itemToEntry, -1);
+        java.util.Arrays.fill(entryToItem, -1);
+        int entry = 0;
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i) instanceof Item.EntryItem && entry < entryToItem.length) {
+                itemToEntry[i] = entry;
+                entryToItem[entry] = i;
+                entry++;
+            }
+        }
     }
 
     private void section(List<Item> out, List<NodeSearch.Entry> flat, String labelKey,
@@ -262,19 +289,22 @@ public final class PaletteState {
     }
 
     private void ensureSelectedVisible() {
-        NodeSearch.Entry entry = selectedEntry();
-        if (entry == null) {
+        // Même piège que entryIndexOf : chercher la ligne par identité d'entrée
+        // ramenait celle des favoris et faisait remonter la liste tout en haut.
+        int i = itemRowOf(selected);
+        if (i < 0) {
             return;
         }
-        for (int i = 0; i < items.size(); i++) {
-            if (items.get(i) instanceof Item.EntryItem e && e.entry() == entry) {
-                int maxScroll = Math.max(0, items.size() - VISIBLE_ROWS);
-                scroll = Math.clamp(scroll,
-                        Math.min(Math.max(0, i - VISIBLE_ROWS + 1), maxScroll),
-                        Math.min(i, maxScroll));
-                return;
-            }
-        }
+        int maxScroll = Math.max(0, items.size() - VISIBLE_ROWS);
+        scroll = Math.clamp(scroll,
+                Math.min(Math.max(0, i - VISIBLE_ROWS + 1), maxScroll),
+                Math.min(i, maxScroll));
+    }
+
+    /** La ligne affichée d'une entrée, ou −1. Inverse de {@link #entryIndexOf}. */
+    public int itemRowOf(int entryIndex) {
+        return entryIndex >= 0 && entryIndex < entryToItem.length
+                ? entryToItem[entryIndex] : -1;
     }
 
     /** Sans lien source : tout passe. Sinon : au moins un pin compatible. */

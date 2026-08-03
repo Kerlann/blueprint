@@ -10,8 +10,8 @@ waiver: { active: false }
 top_issues:
   - id: "SEL-001"
     severity: low
-    finding: "pinAt parcourt tous les nœuds sans s'arrêter au premier qui contient le point : un pin d'un nœud RECOUVERT peut être saisi à travers le nœud du dessus (chevauchement quasi total requis)"
-    suggested_action: "Borner pinAt à la boîte du dessus si le cas se matérialise en jeu ; improbable avec l'accroche"
+    finding: "CORRIGÉ (passe de dette 5.12) — pinAt parcourait tous les nœuds sans s'arrêter au premier qui contient le point : un pin d'un nœud RECOUVERT pouvait être saisi à travers le nœud du dessus, et le lien apparaissait alors en sortant d'un nœud au hasard"
+    suggested_action: "Fait : pinAt s'arrête au nœud le plus haut qui contient le point. Hors de toute boîte il continue de chercher — le rayon de saisie déborde des boîtes. Test unNoeudRecouvertNeLaissePasSaisirSesPins."
   - id: "SEL-002"
     severity: low
     finding: "Noms de pins affichés bruts (exec_in, a…) — les PinSpec n'ont pas de clé de traduction"

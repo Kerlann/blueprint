@@ -54,6 +54,7 @@
   "blueprint.cmd.imported": "Blueprint %s importé (%s nœuds)",
   "blueprint.cmd.import_failed": "Import de « %s » impossible (fichier absent ou illisible)",
   "blueprint.cmd.demo_created": "Blueprint de démo %s créé et exporté — reconnecte-toi pour le message d'accueil, ou écris un message contenant « ping » dans le chat",
+  "blueprint.cmd.demo_created_no_file": "Blueprint de démo %s créé, mais SANS pouvoir écrire le fichier (voir le log serveur) — il fonctionne quand même en jeu",
   "blueprint.cmd.debug_on": "Débogage de %s — points d'arrêt et valeurs enregistrés",
   "blueprint.cmd.debug_off": "Débogage de %s arrêté (une exécution en pause repart)",
   "blueprint.cmd.debug_not_open": "Le débogage n'est pas actif sur %s — /blueprint debug <id> on",

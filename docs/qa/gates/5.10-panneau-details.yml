@@ -14,8 +14,8 @@ top_issues:
     suggested_action: "Mettre en cache par (révision, sélection) si le profileur (9.x) le pointe"
   - id: "DET-002"
     severity: low
-    finding: "Pas d'ascenseur : un nœud à très nombreux pins tronque la liste ; superposition < 800 px non faite"
-    suggested_action: "Consigné dès la story ; avec l'ascenseur commun (épic 9)"
+    finding: "RÉSOLU DEPUIS (story 5.12) — le panneau défile et affiche son curseur ; un nœud à douze pins se lit entièrement. Reste la superposition sous 800 px, non faite."
+    suggested_action: "PanelScroll commun aux trois panneaux, position re-bornée à l'affichage. La superposition sous 800 px reste consignée."
 risk_summary:
   totals: { critical: 0, high: 0, medium: 0, low: 2 }
   recommendations:

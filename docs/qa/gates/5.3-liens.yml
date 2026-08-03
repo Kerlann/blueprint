@@ -14,8 +14,8 @@ top_issues:
     suggested_action: "Corrigé : endGesture() explicite dans la branche Alt ; régression testée (détacher puis déplacer = deux entrées, annulations dans le bon ordre)"
   - id: "WIRE-001"
     severity: low
-    finding: "Un lien refusé par canLink au relâchement (ex. second lien sur un exec_out) est un no-op silencieux — le diagnostic du refus est perdu"
-    suggested_action: "Acceptable : les cibles incompatibles sont déjà grisées PENDANT le tracé (UX §5) ; surfacer le refus en barre d'action si les retours utilisateurs le réclament"
+    finding: "CORRIGÉ (passe de dette 5.12) — un lien refusé par canLink au relâchement était un no-op SILENCIEUX : le fil ne se faisait pas et rien ne disait pourquoi, alors que le validateur produisait déjà la phrase exacte, jetée par applyTracked"
+    suggested_action: "Fait : CanvasController.takeRefusal() rend le diagnostic une fois, le widget l'affiche en barre d'action. Test unCablageRefuseExpliquePourquoi."
   - id: "WIRE-002"
     severity: low
     finding: "Les pins déduits des liens sur un nœud fantôme ne se dessinent pas encore (ligne de secours au bord de boîte)"

@@ -14,8 +14,8 @@ top_issues:
     suggested_action: "Corrigé : le tap n'ouvre que si gesture == NONE et pas de pan en cours"
   - id: "PAL-004"
     severity: low
-    finding: "Une entrée présente en favoris ET dans sa catégorie partage l'indice de sélection (indexOf sur la première occurrence) : le surlignage clavier peut apparaître sur la copie favoris"
-    suggested_action: "Cosmétique ; indexer par ligne si un retour utilisateur s'en plaint"
+    finding: "CORRIGÉ (passe de dette 5.12) — une entrée en favori apparaît DEUX fois ; entryIndexOf et ensureSelectedVisible cherchaient par identité et ramenaient toujours la première : cliquer la ligne de la catégorie surlignait celle des favoris et faisait remonter la liste tout en haut"
+    suggested_action: "Fait : correspondance ligne ↔ entrée par POSITION, construite au rafraîchissement, dans les deux sens. Test unFavoriApparaitDeuxFoisEtChaqueLigneEstDistincte."
   - id: "PAL-005"
     severity: low
     finding: "prefs.save() à chaque étoile/insertion = IO synchrone sur le thread de rendu (fichier minuscule)"

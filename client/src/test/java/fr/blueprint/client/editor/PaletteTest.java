@@ -217,4 +217,48 @@ class PaletteTest {
         p.close();
         assertFalse(p.isOpen());
     }
+
+    /**
+     * Un nœud en favori apparaît DEUX fois : dans « Favoris » et dans sa catégorie.
+     * Le clic doit sélectionner la ligne cliquée, pas sa jumelle — sinon le
+     * surlignage saute tout en haut de la liste sans rien expliquer.
+     */
+    @Test
+    void unFavoriApparaitDeuxFoisEtChaqueLigneEstDistincte() {
+        PaletteState p = palette();
+        p.toggleFavorite(PURE_NODE.id());
+        p.open(0, 0, 0, 0, null);
+
+        // Les deux lignes qui portent le même nœud.
+        List<Integer> rows = new java.util.ArrayList<>();
+        for (int i = 0; i < p.items().size(); i++) {
+            if (p.items().get(i) instanceof PaletteState.Item.EntryItem(var e, var f, var b)
+                    && e.id().equals(PURE_NODE.id())) {
+                rows.add(i);
+            }
+        }
+        assertEquals(2, rows.size(), "une fois en favori, une fois dans sa catégorie");
+
+        int premiere = p.entryIndexOf(rows.get(0));
+        int seconde = p.entryIndexOf(rows.get(1));
+        assertTrue(premiere >= 0 && seconde >= 0);
+        assertFalse(premiere == seconde, "deux lignes, deux indices d'entrée");
+
+        // Et la correspondance revient bien sur la ligne cliquée, dans les deux sens.
+        p.select(seconde);
+        assertEquals(seconde, p.selectedIndex());
+        assertEquals(rows.get(1).intValue(), p.itemRowOf(seconde));
+        assertEquals(rows.get(0).intValue(), p.itemRowOf(premiere));
+    }
+
+    /** Les sections et les catégories ne sont pas des entrées : −1, jamais un indice. */
+    @Test
+    void uneEnteteNestPasUneEntree() {
+        PaletteState p = palette();
+        p.open(0, 0, 0, 0, null);
+        assertEquals(-1, p.entryIndexOf(0), "la première ligne est une catégorie");
+        assertEquals(-1, p.entryIndexOf(-1));
+        assertEquals(-1, p.entryIndexOf(9999));
+        assertEquals(-1, p.itemRowOf(9999));
+    }
 }

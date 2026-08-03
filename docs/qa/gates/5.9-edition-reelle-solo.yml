@@ -18,8 +18,8 @@ top_issues:
     suggested_action: "Corrigé : échec → retour à l'éditeur, modifications intactes"
   - id: "SAVE-003"
     severity: low
-    finding: "Deux éditions du même blueprint : dernier Ctrl+S gagne (pas de verrou par révision)"
-    suggested_action: "Assumé en solo dès la story ; le verrouillage optimiste arrive avec la synchro réseau (épic 6)"
+    finding: "RÉSOLU DEPUIS (story 6.3) — deux éditions du même blueprint : le dernier Ctrl+S gagnait et écrasait le travail de l'autre en silence"
+    suggested_action: "BlueprintManager.save(snapshot, baseRevision) refuse un enregistrement dont la révision de base a bougé ; le client garde son travail et l'annonce."
 risk_summary:
   totals: { critical: 0, high: 1, medium: 1, low: 1 }
   recommendations:

@@ -14,8 +14,8 @@ top_issues:
     suggested_action: "Corrigé : bord droit ramené à 0,60 (rendu ET zone de clic, NodeGeometry.LITERAL_RIGHT partagé)"
   - id: "LIT-002"
     severity: low
-    finding: "La molette sur un champ int peut pousser le tampon au-delà d'Integer.MAX_VALUE (arithmétique long) : champ rouge jusqu'à correction manuelle"
-    suggested_action: "Acceptable — le refus est visible ; borner au type si un usage réel le réclame"
+    finding: "CORRIGÉ (passe de dette 5.12) — la molette compte en long : sur un pin int elle poussait le tampon au-delà d'Integer.MAX_VALUE et laissait un champ rouge que seule une saisie manuelle pouvait sauver. Un cran de trop et la valeur était perdue."
+    suggested_action: "Fait : bornage au type sur les pins int, les pins long gardent leur amplitude. Test laMoletteNeDepasseJamaisLesBornesDUnEntier."
 risk_summary:
   totals: { critical: 0, high: 0, medium: 1, low: 1 }
   recommendations:
