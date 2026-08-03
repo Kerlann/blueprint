@@ -87,6 +87,7 @@ public final class CanvasWidget {
 
     // Défilement des trois panneaux (5.12) : au-delà d'une trentaine de lignes, le
     // contenu était purement inatteignable.
+    private final ContextMenuState contextMenu = new ContextMenuState();
     private final HoverTracker hover = new HoverTracker();
     private final PanelScroll varScroll = new PanelScroll();
     private final PanelScroll detailsScroll = new PanelScroll();
@@ -198,6 +199,8 @@ public final class CanvasWidget {
         renderEnumOptions(g, font);
         PalettePopup.render(g, font, palette, width, height);
         RegistryPickerPopup.render(g, font, picker, this::iconOf, width, height, mouseX, mouseY);
+        contextMenu.hover(mouseX, mouseY, ContextMenuPopup.WIDTH);
+        ContextMenuPopup.render(g, font, contextMenu);
         // En dernier : une infobulle passe par-dessus tout, sinon elle disparaît sous
         // le nœud voisin dès qu'on survole le bord d'un nœud. Et seulement souris
         // posée : pendant un geste ou un déplacement, elle ne ferait que gêner.
@@ -250,7 +253,7 @@ public final class CanvasWidget {
     }
 
     private List<String> tooltipAt(Font font, double mx, double my) {
-        if (palette.isOpen() || picker.isOpen() || gotoState.isOpen()) {
+        if (palette.isOpen() || picker.isOpen() || gotoState.isOpen() || contextMenu.isOpen()) {
             return List.of();
         }
         if (my < ToolbarWidget.HEIGHT) {
@@ -581,6 +584,11 @@ public final class CanvasWidget {
                 return true;
             }
         }
+        // Le menu contextuel passe AVANT tout le reste : il est au-dessus de tout,
+        // et un clic ailleurs doit le refermer plutôt que d'agir sous lui.
+        if (contextMenu.isOpen()) {
+            return clickInContextMenu(e);
+        }
         commitPendingEdits();
         if (palette.isOpen()) {
             return clickInPalette(e);
@@ -592,8 +600,7 @@ public final class CanvasWidget {
             return true;
         }
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            palette.open(e.x(), e.y(), camera.toWorldX(e.x()), camera.toWorldY(e.y()), null);
-            return true;
+            return rightClickOnCanvas(e);
         }
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return clickOnCanvas(e, doubled);
@@ -727,6 +734,124 @@ public final class CanvasWidget {
     }
 
     /** Le canevas lui-même : renommage d'un commentaire, littéral, puis geste. */
+    /**
+     * Clic droit sur le canevas. Sur un pin, un nœud ou un fil : le menu contextuel,
+     * comme dans Unreal. Sur le vide : la palette — c'est aussi ce qu'Unreal y met.
+     * Avant, la palette s'ouvrait PARTOUT : le geste existait mais donnait toujours
+     * la même chose, quelle que soit la cible.
+     */
+    private boolean rightClickOnCanvas(MouseButtonEvent e) {
+        double wx = camera.toWorldX(e.x());
+        double wy = camera.toWorldY(e.y());
+
+        CanvasController.PinRef pin = controller.pinAt(wx, wy);
+        if (pin != null) {
+            Node node = controller.blueprint().node(pin.node());
+            contextMenu.openForPin(e.x(), e.y(), pin.node(), pin.pin(),
+                    isWired(pin.node(), pin.pin()),
+                    node != null && node.literal(pin.pin()) != null,
+                    pin.kind() == fr.blueprint.api.pin.PinKind.DATA && !pin.type().isGeneric());
+            return openedContextMenu();
+        }
+        NodeGeometry.Box box = controller.hitTest(wx, wy);
+        if (box != null) {
+            // Le clic droit sélectionne le nœud s'il ne l'était pas : agir sur une
+            // cible non sélectionnée surprendrait, surtout pour « aligner ».
+            if (!controller.selection().isSelected(box.node().uuid())) {
+                controller.selection().click(box.node().uuid(), false);
+            }
+            contextMenu.openForNode(e.x(), e.y(), box.node().uuid(),
+                    !controller.blueprint().linksTouching(box.node().uuid()).isEmpty(),
+                    controller.selection().size());
+            return openedContextMenu();
+        }
+        Link wire = controller.linkAt(wx, wy);
+        if (wire != null) {
+            contextMenu.openForLink(e.x(), e.y(), wire);
+            return openedContextMenu();
+        }
+        palette.open(e.x(), e.y(), wx, wy, null);
+        return true;
+    }
+
+    /** Recale le menu à l'écran une fois ouvert (rendu et clic partagent la position). */
+    private boolean openedContextMenu() {
+        contextMenu.clampToScreen(ContextMenuPopup.WIDTH, width, height);
+        return true;
+    }
+
+    /** Exécute l'entrée choisie, puis referme. */
+    private boolean clickInContextMenu(MouseButtonEvent e) {
+        ContextMenuState.Action action =
+                contextMenu.choose(e.x(), e.y(), ContextMenuPopup.WIDTH);
+        ContextMenuState.Target target = contextMenu.target();
+        contextMenu.close();
+        if (action == null) {
+            return true; // clic à côté ou sur une entrée grisée : on referme, sans plus
+        }
+        runContextAction(action, target);
+        return true;
+    }
+
+    private void runContextAction(ContextMenuState.Action action,
+                                  ContextMenuState.Target target) {
+        switch (action) {
+            case DUPLICATE -> duplicateSelection();
+            case DELETE_NODE -> controller.deleteSelection();
+            case BREAK_NODE_LINKS -> {
+                if (target.node() != null) {
+                    controller.breakNodeLinks(target.node());
+                }
+            }
+            case COMMENT_SELECTION -> controller.createCommentAroundSelection(
+                    I18n.get("blueprint.editor.comment.default"));
+            case ALIGN_SELECTION -> controller.alignSelection();
+            case BREAK_PIN_LINKS -> withPin(target, controller::breakPinLinks);
+            case RESET_LITERAL -> {
+                if (target.node() != null && target.pin() != null) {
+                    controller.resetLiteral(target.node(), target.pin());
+                }
+            }
+            case PROMOTE_TO_VARIABLE -> promote(target);
+            case DELETE_LINK -> {
+                if (target.link() != null) {
+                    controller.applyOp(new fr.blueprint.core.graph.EditOperation
+                            .RemoveLink(target.link()));
+                }
+            }
+        }
+        showRefusal();
+    }
+
+    /** Retrouve le PinRef depuis la cible : le menu ne retient que nœud + nom de pin. */
+    private void withPin(ContextMenuState.Target target,
+                         java.util.function.Consumer<CanvasController.PinRef> action) {
+        CanvasController.PinRef pin = pinRefOf(target);
+        if (pin != null) {
+            action.accept(pin);
+        }
+    }
+
+    private CanvasController.@Nullable PinRef pinRefOf(ContextMenuState.Target target) {
+        if (target.node() == null || target.pin() == null) {
+            return null;
+        }
+        var center = controller.pinCenter(target.node(), target.pin());
+        return center == null ? null : controller.pinAt(center.x(), center.y());
+    }
+
+    private void promote(ContextMenuState.Target target) {
+        CanvasController.PinRef pin = pinRefOf(target);
+        if (pin == null) {
+            return;
+        }
+        String name = controller.promoteToVariable(pin, pin.pin());
+        if (name != null) {
+            varPanel.select(name);
+            actionBar("blueprint.editor.menu.promoted", name);
+        }
+    }
+
     private boolean clickOnCanvas(MouseButtonEvent e, boolean doubled) {
         double wx = camera.toWorldX(e.x());
         double wy = camera.toWorldY(e.y());
@@ -1201,6 +1326,15 @@ public final class CanvasWidget {
     public boolean keyPressed(KeyEvent e) {
         if (e.key() == GLFW.GLFW_KEY_LEFT_SHIFT || e.key() == GLFW.GLFW_KEY_RIGHT_SHIFT) {
             shiftDown = true;
+        }
+        // Échap referme le menu contextuel avant tout le reste ; toute autre touche
+        // le referme aussi et repart au canevas — un menu qui survit à une frappe
+        // reste devant sans qu'on comprenne ce qui l'y retient.
+        if (contextMenu.isOpen()) {
+            contextMenu.close();
+            if (e.key() == GLFW.GLFW_KEY_ESCAPE) {
+                return true;
+            }
         }
         if (varPanel.isRenaming()) {
             return keyInVariableRename(e);

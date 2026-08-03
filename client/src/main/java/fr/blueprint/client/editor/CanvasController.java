@@ -560,6 +560,113 @@ public final class CanvasController {
         return selectedLink;
     }
 
+    // ------------------------------------------------- actions du menu contextuel
+
+    /** Détache tous les liens d'un pin — même chemin qu'Alt+clic, un seul geste. */
+    public boolean breakPinLinks(PinRef pin) {
+        history.beginGesture();
+        try {
+            int before = blueprint.links().size();
+            detach(pin);
+            return blueprint.links().size() != before;
+        } finally {
+            history.endGesture();
+        }
+    }
+
+    /** Détache tous les liens d'un nœud, entrées et sorties confondues. */
+    public boolean breakNodeLinks(UUID node) {
+        history.beginGesture();
+        try {
+            List<Link> links = List.copyOf(blueprint.linksTouching(node));
+            boolean any = false;
+            for (Link link : links) {
+                any |= applyTracked(new EditOperation.RemoveLink(link));
+            }
+            return any;
+        } finally {
+            history.endGesture();
+        }
+    }
+
+    /** Remet un pin à sa valeur par défaut, en retirant son littéral explicite. */
+    public boolean resetLiteral(UUID node, String pin) {
+        return applyTracked(new EditOperation.SetLiteral(node, pin, null));
+    }
+
+    /**
+     * Promeut un pin data en variable (geste d'Unreal) : crée une variable du type du
+     * pin, avec sa valeur courante pour défaut, dépose un nœud Get/Set à côté et le
+     * câble. Un seul geste d'annulation pour les quatre opérations — sinon quatre
+     * Ctrl+Z pour défaire une seule intention.
+     *
+     * @return le nom de la variable créée, ou null si le pin ne s'y prête pas
+     */
+    public @Nullable String promoteToVariable(PinRef pin, String baseName) {
+        if (pin.kind() != fr.blueprint.api.pin.PinKind.DATA || pin.type().isGeneric()) {
+            return null;
+        }
+        NodeGeometry.Box box = boxOf(pin.node());
+        if (box == null) {
+            return null;
+        }
+        history.beginGesture();
+        try {
+            String name = uniqueVariableName(baseName);
+            Node node = blueprint.node(pin.node());
+            fr.blueprint.api.pin.LiteralValue current =
+                    node == null ? null : node.literal(pin.pin());
+            // La valeur du pin devient le défaut de la variable : promouvoir ne doit
+            // pas perdre ce qui était déjà saisi.
+            fr.blueprint.api.pin.LiteralValue initial =
+                    current != null && current.type().equals(pin.type()) ? current : null;
+            if (!applyTracked(new EditOperation.AddVariable(new fr.blueprint.core.graph.Variable(
+                    name, pin.type(), initial,
+                    fr.blueprint.core.graph.VarScope.GRAPH, false)))) {
+                return null;
+            }
+            // Un pin d'ENTRÉE se nourrit d'un Get posé à sa gauche ; un pin de SORTIE
+            // alimente un Set posé à sa droite.
+            boolean set = pin.output();
+            double x = set ? box.x() + box.width() + 48 : box.x() - NodeGeometry.WIDTH - 48;
+            double y = box.y() + pin.row() * NodeGeometry.ROW_HEIGHT;
+            UUID varNode = addVariableNode(set, name, x, y);
+            if (varNode == null) {
+                return null;
+            }
+            NodeShape shape = lookup.shape(set
+                    ? fr.blueprint.core.graph.VarNodes.SET : fr.blueprint.core.graph.VarNodes.GET);
+            if (shape != null) {
+                List<NodeShape.PinDef> candidates = set ? shape.inputs() : shape.outputs();
+                for (NodeShape.PinDef def : candidates) {
+                    if (def.kind() == fr.blueprint.api.pin.PinKind.DATA
+                            && applyTracked(new EditOperation.AddLink(
+                                    buildLink(pin, varNode, def.name())))) {
+                        break;
+                    }
+                }
+            }
+            return name;
+        } finally {
+            history.endGesture();
+        }
+    }
+
+    private String uniqueVariableName(String base) {
+        String clean = base.replaceAll("[^A-Za-z0-9_]", "");
+        if (clean.isEmpty()) {
+            clean = "var";
+        }
+        if (!blueprint.variables().containsKey(clean)) {
+            return clean;
+        }
+        int n = 2;
+        while (blueprint.variables().containsKey(clean + n)) {
+            n++;
+        }
+        return clean + n;
+    }
+
     /** Rectangle élastique courant (normalisé), ou null hors geste. */
     public @Nullable Camera.Rect rubberRect() {
         if (gesture != Gesture.RUBBER) {
@@ -806,18 +913,28 @@ public final class CanvasController {
     public @Nullable UUID insertVariableNode(boolean set, String name, double wx, double wy) {
         history.beginGesture();
         try {
-            UUID id = UUID.randomUUID();
-            Identifier type = set ? fr.blueprint.core.graph.VarNodes.SET
-                    : fr.blueprint.core.graph.VarNodes.GET;
-            if (!applyTracked(new EditOperation.AddNode(id, type, camera.snap(new Vec2d(wx, wy))))) {
-                return null;
-            }
-            applyTracked(new EditOperation.SetLiteral(id, fr.blueprint.core.graph.VarNodes.VAR_PIN,
-                    fr.blueprint.api.pin.LiteralValue.of(fr.blueprint.api.pin.PinTypes.STRING, name)));
-            return id;
+            return addVariableNode(set, name, wx, wy);
         } finally {
             history.endGesture();
         }
+    }
+
+    /**
+     * Le corps de {@link #insertVariableNode}, <b>sans</b> ouvrir de geste.
+     * {@code beginGesture} est idempotent : un appelant qui a déjà ouvert le sien
+     * verrait son geste refermé au milieu par le {@code endGesture} imbriqué, et son
+     * intention unique se scinderait en deux annulations.
+     */
+    private @Nullable UUID addVariableNode(boolean set, String name, double wx, double wy) {
+        UUID id = UUID.randomUUID();
+        Identifier type = set ? fr.blueprint.core.graph.VarNodes.SET
+                : fr.blueprint.core.graph.VarNodes.GET;
+        if (!applyTracked(new EditOperation.AddNode(id, type, camera.snap(new Vec2d(wx, wy))))) {
+            return null;
+        }
+        applyTracked(new EditOperation.SetLiteral(id, fr.blueprint.core.graph.VarNodes.VAR_PIN,
+                fr.blueprint.api.pin.LiteralValue.of(fr.blueprint.api.pin.PinTypes.STRING, name)));
+        return id;
     }
 
     public void setOnMutation(@Nullable Runnable onMutation) {

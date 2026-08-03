@@ -565,6 +565,101 @@ class CanvasControllerTest {
         assertEquals(avant, bp.node(n2).position());
     }
 
+    // ---------------------------------------------- actions du menu contextuel (5.13)
+
+    @Test
+    void casserLesLiensDUnNoeudLesRetireTousEnUneAnnulation() {
+        wireUpAndPickMiddle();
+        assertEquals(1, bp.links().size());
+
+        assertTrue(controller.breakNodeLinks(n1));
+        assertEquals(0, bp.links().size());
+        assertTrue(controller.undo(), "un seul Ctrl+Z, quel que soit le nombre de liens");
+        assertEquals(1, bp.links().size());
+
+        assertFalse(controller.breakNodeLinks(UUID.randomUUID()),
+                "un nœud sans lien ne crée pas d'entrée d'annulation vide");
+    }
+
+    @Test
+    void casserLesLiensDUnPinNeToucheQueLuiMeme() {
+        wireUpAndPickMiddle();
+        Vec2d out = out1();
+        CanvasController.PinRef pin = controller.pinAt(out.x(), out.y());
+        assertNotNull(pin);
+
+        assertTrue(controller.breakPinLinks(pin));
+        assertEquals(0, bp.links().size());
+        assertFalse(controller.breakPinLinks(pin), "plus rien à casser");
+    }
+
+    @Test
+    void valeurParDefautRetireLeLitteralExplicite() {
+        assertTrue(controller.setLiteral(n1, "a",
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.DOUBLE, 7.0)));
+        assertNotNull(bp.node(n1).literal("a"));
+
+        assertTrue(controller.resetLiteral(n1, "a"));
+        assertNull(bp.node(n1).literal("a"));
+        assertTrue(controller.undo(), "et la valeur saisie revient");
+        assertEquals(7.0, bp.node(n1).literal("a").value());
+    }
+
+    /**
+     * Promouvoir un pin en variable (geste d'Unreal) : quatre opérations — créer la
+     * variable, poser le nœud, y écrire son nom, câbler — qui doivent former UNE
+     * seule intention. Quatre Ctrl+Z pour défaire un clic serait absurde.
+     */
+    @Test
+    void promouvoirUnPinCreeLaVariableEtLaCable() {
+        assertTrue(controller.setLiteral(n1, "a",
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.DOUBLE, 3.5)));
+        Vec2d entree = NodeGeometry.inputPinCenter(controller.boxOf(n1), 1);
+        CanvasController.PinRef pin = controller.pinAt(entree.x(), entree.y());
+        assertNotNull(pin);
+        assertEquals("a", pin.pin());
+
+        String name = controller.promoteToVariable(pin, "a");
+        assertEquals("a", name);
+
+        var variable = bp.variables().get("a");
+        assertNotNull(variable);
+        assertEquals(PinTypes.DOUBLE, variable.type());
+        assertEquals(3.5, variable.defaultValue().value(),
+                "la valeur déjà saisie devient le défaut : promouvoir ne perd rien");
+
+        assertEquals(3, bp.nodes().size(), "un nœud Get est apparu");
+        assertEquals(1, bp.links().size(), "et il est câblé sur le pin");
+        Link link = bp.links().iterator().next();
+        assertEquals(n1, link.toNode());
+        assertEquals("a", link.toPin());
+
+        assertTrue(controller.undo(), "UNE annulation pour les quatre opérations");
+        assertEquals(2, bp.nodes().size());
+        assertTrue(bp.variables().isEmpty());
+        assertEquals(0, bp.links().size());
+    }
+
+    @Test
+    void promouvoirUnPinExecNaAucunSens() {
+        Vec2d exec = NodeGeometry.inputPinCenter(controller.boxOf(n1), 0);
+        CanvasController.PinRef pin = controller.pinAt(exec.x(), exec.y());
+        assertNotNull(pin);
+        assertNull(controller.promoteToVariable(pin, "exec_in"));
+        assertTrue(bp.variables().isEmpty(), "et rien n'est créé au passage");
+    }
+
+    /** Deux promotions du même nom ne doivent pas se marcher dessus. */
+    @Test
+    void deuxPromotionsDuMemeNomSeDistinguent() {
+        Vec2d a1 = NodeGeometry.inputPinCenter(controller.boxOf(n1), 1);
+        assertEquals("a", controller.promoteToVariable(controller.pinAt(a1.x(), a1.y()), "a"));
+
+        Vec2d a2 = NodeGeometry.inputPinCenter(controller.boxOf(n2), 1);
+        assertEquals("a2", controller.promoteToVariable(controller.pinAt(a2.x(), a2.y()), "a"));
+        assertEquals(2, bp.variables().size());
+    }
+
     // ------------------------------------------------------- passe de dette (low)
 
     /**
