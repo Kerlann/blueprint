@@ -29,9 +29,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # `build` enchaîne : compilation des 6 modules, isolation de l'api, ~250 tests
-      # headless, couverture ≥ 80 % sur core, référence des nœuds et surface d'API
-      # comparées à ce qui est commité.
+      # `build` enchaîne : compilation des 6 modules, isolation de l'api, ~260 tests
+      # headless, couverture ≥ 80 % sur core et ≥ 82 % sur la partie testable du
+      # client, référence des nœuds et surface d'API comparées à ce qui est commité.
       - name: ./gradlew build
         run: ./gradlew build --stacktrace
 

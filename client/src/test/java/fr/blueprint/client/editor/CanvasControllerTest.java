@@ -32,7 +32,16 @@ class CanvasControllerTest {
             List.of(new NodeShape.PinDef("exec_out", PinKind.EXEC, PinTypes.EXEC, false)),
             false, Permission.SAFE);
 
-    private static final NodeTypeLookup LOOKUP = typeId -> SHAPE;
+    /** Get/Set portent le pin « var » : sans lui, SetLiteral serait refusé (5.5). */
+    private static final NodeShape VAR_SHAPE = new NodeShape(
+            List.of(new NodeShape.PinDef(fr.blueprint.core.graph.VarNodes.VAR_PIN,
+                    PinKind.DATA, PinTypes.STRING, false)),
+            List.of(new NodeShape.PinDef("value", PinKind.DATA, PinTypes.DOUBLE, false)),
+            true, Permission.SAFE);
+
+    private static final NodeTypeLookup LOOKUP = typeId ->
+            fr.blueprint.core.graph.VarNodes.GET.equals(typeId)
+                    || fr.blueprint.core.graph.VarNodes.SET.equals(typeId) ? VAR_SHAPE : SHAPE;
 
     private Blueprint bp;
     private Camera camera;
@@ -464,6 +473,96 @@ class CanvasControllerTest {
         controller.press(0, 900, false);
         assertNull(controller.selectedLink());
         assertEquals(CanvasController.Gesture.RUBBER, controller.gesture());
+    }
+
+    // -------------------------------------------- remplacement total et navigation
+
+    /**
+     * L'import de script (5.11) écrase TOUT le graphe. C'est l'opération la plus
+     * destructrice de l'éditeur et elle n'était couverte par aucun test : sa promesse
+     * — « Ctrl+Z annule » — n'était vérifiée nulle part.
+     */
+    @Test
+    void remplacerToutLeGrapheTientEnUneSeuleAnnulation() {
+        wireUpAndPickMiddle();
+        assertTrue(controller.applyOp(new EditOperation.AddVariable(
+                new fr.blueprint.core.graph.Variable("ancienne", PinTypes.DOUBLE, null,
+                        fr.blueprint.core.graph.VarScope.GRAPH, false))));
+        int avant = bp.nodes().size();
+        assertEquals(2, avant);
+
+        Blueprint fragment = new Blueprint(Identifier.fromNamespaceAndPath("test", "fragment"));
+        UUID importe = UUID.randomUUID();
+        assertTrue(new EditOperation.AddNode(importe, TYPE, new Vec2d(42, 42))
+                .apply(fragment, LOOKUP).applied());
+        assertTrue(new EditOperation.AddVariable(
+                new fr.blueprint.core.graph.Variable("nouvelle", PinTypes.DOUBLE, null,
+                        fr.blueprint.core.graph.VarScope.GRAPH, false))
+                .apply(fragment, LOOKUP).applied());
+
+        controller.replaceAll(fragment);
+
+        assertEquals(1, bp.nodes().size(), "les anciens nœuds sont partis");
+        assertNotNull(bp.node(importe), "et l'UUID importé est CONSERVÉ tel quel");
+        assertEquals(new Vec2d(42, 42), bp.node(importe).position());
+        assertEquals(0, bp.links().size(), "les liens des anciens nœuds avec eux");
+        assertTrue(bp.variables().containsKey("nouvelle"));
+        assertFalse(bp.variables().containsKey("ancienne"));
+
+        assertTrue(controller.undo(), "un seul Ctrl+Z remet tout en place");
+        assertEquals(avant, bp.nodes().size());
+        assertEquals(1, bp.links().size());
+        assertTrue(bp.variables().containsKey("ancienne"));
+        assertNull(bp.node(importe));
+    }
+
+    /** Le nœud Get/Set d'une variable, déposé depuis le panneau (5.5). */
+    @Test
+    void deposerUnNoeudDeVariableLeRelieALaVariable() {
+        UUID id = controller.insertVariableNode(false, "compteur", 100, 100);
+        assertNotNull(id);
+        assertEquals(fr.blueprint.core.graph.VarNodes.GET, bp.node(id).typeId());
+        assertEquals("compteur", bp.node(id)
+                .literals().get(fr.blueprint.core.graph.VarNodes.VAR_PIN).value());
+
+        assertTrue(controller.undo(), "dépôt et littéral = un seul geste");
+        assertNull(bp.node(id));
+    }
+
+    /** Clic sur un diagnostic : recentrer ET sélectionner, sinon on cherche encore. */
+    @Test
+    void focusNodeRecentreEtSelectionne() {
+        assertFalse(controller.focusNode(UUID.randomUUID(), 800, 600),
+                "un nœud disparu ne fait pas bouger la caméra");
+
+        assertTrue(controller.focusNode(n2, 800, 600));
+        assertEquals(java.util.Set.of(n2), controller.selection().ids());
+
+        NodeGeometry.Box box = controller.boxOf(n2);
+        assertEquals(400, camera.toScreenX(box.x() + box.width() / 2), 1e-6,
+                "le centre du nœud atterrit au centre de l'écran");
+        assertEquals(300, camera.toScreenY(box.y() + box.height() / 2), 1e-6);
+    }
+
+    /** {@code pinDef} sert au rendu des fils (couleur, coercition) : jamais testé. */
+    @Test
+    void pinDefTrouveEntreesEtSorties() {
+        assertNotNull(controller.pinDef(n1, "exec_out"));
+        assertNotNull(controller.pinDef(n1, "a"));
+        assertNull(controller.pinDef(n1, "inconnu"));
+        assertNull(controller.pinDef(UUID.randomUUID(), "exec_out"),
+                "un nœud absent n'a pas de pins");
+    }
+
+    @Test
+    void autoLayoutDeplaceLeGraphe() {
+        wireUpAndPickMiddle();
+        Vec2d avant = bp.node(n2).position();
+        assertTrue(controller.autoLayout());
+        assertFalse(avant.equals(bp.node(n2).position()));
+
+        assertTrue(controller.undo(), "une seule entrée d'annulation pour tout le graphe");
+        assertEquals(avant, bp.node(n2).position());
     }
 
     @Test
