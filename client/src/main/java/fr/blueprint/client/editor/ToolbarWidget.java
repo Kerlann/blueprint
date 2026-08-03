@@ -14,9 +14,10 @@ public final class ToolbarWidget {
 
     public static final int HEIGHT = 16;
 
-    public enum Action { COMPILE, TEST, SAVE, CLOSE }
+    public enum Action { COMPILE, TEST, SCRIPT, SAVE, CLOSE }
 
-    private static final Action[] ORDER = {Action.CLOSE, Action.SAVE, Action.TEST, Action.COMPILE};
+    private static final Action[] ORDER =
+            {Action.CLOSE, Action.SAVE, Action.SCRIPT, Action.TEST, Action.COMPILE};
 
     private static final int BACKGROUND = 0xF0141519;
     private static final int BORDER = 0xFF3A3D42;
@@ -32,6 +33,7 @@ public final class ToolbarWidget {
         return switch (action) {
             case COMPILE -> I18n.get("blueprint.editor.toolbar.compile");
             case TEST -> I18n.get("blueprint.editor.toolbar.test");
+            case SCRIPT -> I18n.get("blueprint.editor.toolbar.script");
             case SAVE -> I18n.get("blueprint.editor.toolbar.save");
             case CLOSE -> "✕";
         };

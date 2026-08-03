@@ -506,6 +506,37 @@ public final class CanvasController {
         }
     }
 
+    /**
+     * Remplace tout le graphe par le contenu du fragment (import de script, 5.11) —
+     * UUID et positions CONSERVÉS, un seul geste d'annulation. Les métadonnées et
+     * l'identifiant du blueprint restent ceux de la session.
+     */
+    public void replaceAll(Blueprint fragment) {
+        history.beginGesture();
+        try {
+            for (UUID id : List.copyOf(blueprint.nodes().keySet())) {
+                applyTracked(new EditOperation.RemoveNode(id));
+            }
+            for (String name : List.copyOf(blueprint.variables().keySet())) {
+                applyTracked(new EditOperation.RemoveVariable(name));
+            }
+            for (fr.blueprint.core.graph.Variable variable : fragment.variables().values()) {
+                applyTracked(new EditOperation.AddVariable(variable));
+            }
+            for (Node node : fragment.nodes().values()) {
+                applyTracked(new EditOperation.AddNode(node.uuid(), node.typeId(), node.position()));
+                node.literals().forEach((pin, value) ->
+                        applyTracked(new EditOperation.SetLiteral(node.uuid(), pin, value)));
+            }
+            for (Link link : fragment.links()) {
+                applyTracked(new EditOperation.AddLink(link));
+            }
+            selection.clear();
+        } finally {
+            history.endGesture();
+        }
+    }
+
     /** Dépose un nœud Get (ou Set) lié à la variable, accroché — un seul geste. */
     public @Nullable UUID insertVariableNode(boolean set, String name, double wx, double wy) {
         history.beginGesture();

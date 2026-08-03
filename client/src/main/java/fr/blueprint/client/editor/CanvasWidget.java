@@ -49,8 +49,10 @@ public final class CanvasWidget {
     private final PaletteState palette;
     private final EditorSession session;
     private final NodeTypeLookup lookup;
+    private final fr.blueprint.core.registry.PluginLoader.LoadedRegistries registries;
     private final Runnable closeRequest;
     private final DiagnosticsState diagnostics = new DiagnosticsState(System::currentTimeMillis);
+    private final ScriptViewState scriptView = new ScriptViewState(System::currentTimeMillis);
     /** Tampon réutilisé chaque image : pas d'allocation dans la passe de rendu. */
     private final List<NodeGeometry.Box> visible = new ArrayList<>();
 
@@ -83,11 +85,15 @@ public final class CanvasWidget {
                         Runnable closeRequest) {
         this.session = session;
         this.lookup = lookup;
+        this.registries = registries;
         this.descriptors = descriptors;
         this.clipboard = new ClipboardCodec(registries);
         this.closeRequest = closeRequest;
         this.controller = new CanvasController(session.blueprint(), lookup, camera);
-        this.controller.setOnMutation(diagnostics::invalidate);
+        this.controller.setOnMutation(() -> {
+            diagnostics.invalidate();
+            scriptView.invalidate();
+        });
         // Titres et descriptions traduits une fois à l'ouverture ; l'index reste pur.
         List<NodeSearch.Entry> entries = new ArrayList<>();
         for (NodeDescriptor d : descriptors.descriptors()) {
@@ -140,11 +146,22 @@ public final class CanvasWidget {
                 session.dirty(), session.savable(),
                 session.savable() && !diagnostics.blocking(), width);
         DiagnosticsPanel.render(g, font, diagnostics, width, height);
+        if (scriptView.shouldRegenerate()) {
+            scriptView.regenerate(controller.blueprint(), lookup);
+        }
+        if (scriptView.visible()) {
+            UUID first = controller.selection().ids().isEmpty() ? null
+                    : controller.selection().ids().iterator().next();
+            scriptView.syncSelection(first, ScriptView.visibleLines(height));
+        }
         if (panelVisible) {
             VariablePanel.render(g, font, varPanel, height);
-            DetailsPanel.render(g, font, details.rows(controller.selection().ids()),
-                    width, height);
+            if (!scriptView.visible()) {
+                DetailsPanel.render(g, font, details.rows(controller.selection().ids()),
+                        width, height);
+            }
         }
+        ScriptView.render(g, font, scriptView, width, height);
         renderEnumOptions(g, font);
         PalettePopup.render(g, font, palette, width, height);
         RegistryPickerPopup.render(g, font, picker, this::iconOf, width, height, mouseX, mouseY);
@@ -384,7 +401,12 @@ public final class CanvasWidget {
             handleVariablePanelClick(e, doubled);
             return true;
         }
-        if (panelVisible && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+        if (scriptView.visible() && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && ScriptView.contains(e.x(), e.y(), width, height)) {
+            handleScriptViewClick(e);
+            return true;
+        }
+        if (panelVisible && !scriptView.visible() && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && DetailsPanel.contains(e.x(), e.y(), width, height)) {
             handleDetailsPanelClick(e);
             return true;
@@ -590,7 +612,53 @@ public final class CanvasWidget {
                             controller.blueprint().id().toString());
                 }
             }
+            case SCRIPT -> scriptView.toggle();
             case CLOSE -> closeRequest.run();
+        }
+    }
+
+    /** Clics dans la vue script (5.11) : boutons, ou ligne → recentrer le nœud. */
+    private void handleScriptViewClick(MouseButtonEvent e) {
+        ScriptView.Action action = ScriptView.actionAt(minecraftFont(), scriptView,
+                e.x(), e.y(), width);
+        if (action != null) {
+            switch (action) {
+                case COPY -> {
+                    net.minecraft.client.Minecraft.getInstance().keyboardHandler
+                            .setClipboard(scriptView.fullText());
+                    actionBar("blueprint.editor.script.copied");
+                }
+                case EXPORT -> {
+                    var path = fr.blueprint.core.BlueprintFiles.export(controller.blueprint(),
+                            configDir.resolve("blueprint").resolve("exports"), registries);
+                    actionBar(path != null ? "blueprint.editor.script.exported"
+                            : "blueprint.editor.script.export_failed");
+                }
+                case IMPORT -> {
+                    // Premier clic : arme la confirmation (U2) ; second : remplace tout.
+                    if (!scriptView.armImport()) {
+                        return;
+                    }
+                    String text = net.minecraft.client.Minecraft.getInstance()
+                            .keyboardHandler.getClipboard();
+                    ClipboardCodec.PasteResult parsed = clipboard.paste(text);
+                    if (parsed.success() && !parsed.fragment().nodes().isEmpty()) {
+                        controller.replaceAll(parsed.fragment());
+                        actionBar("blueprint.editor.script.imported",
+                                parsed.fragment().nodes().size());
+                    } else {
+                        actionBar("blueprint.editor.clipboard.invalid");
+                    }
+                }
+            }
+            return;
+        }
+        scriptView.disarmImport();
+        int line = ScriptView.lineAt(scriptView, e.y(), height);
+        UUID node = line < 0 ? null : scriptView.nodeAtLine(line);
+        if (node != null) {
+            // Recentrer dans la MOITIÉ canevas, pas l'écran entier.
+            controller.focusNode(node, width / 2.0, height);
         }
     }
 
@@ -686,6 +754,10 @@ public final class CanvasWidget {
         }
         if (palette.isOpen()) {
             palette.scrollBy(vAmount > 0 ? -1 : 1);
+            return true;
+        }
+        if (scriptView.visible() && mouseX >= ScriptView.panelLeft(width)) {
+            scriptView.scrollBy(vAmount > 0 ? -3 : 3, ScriptView.visibleLines(height));
             return true;
         }
         if (literalEdit.isOpen()) {
