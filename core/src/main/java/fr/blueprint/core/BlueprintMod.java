@@ -404,7 +404,12 @@ public class BlueprintMod implements ModInitializer {
     /** Fabrique d'environnement d'exécution — partagée par le pont et la reprise (6.1). */
     private static fr.blueprint.core.event.BlueprintEventBridge.EnvFactory envFactory(
             net.minecraft.server.MinecraftServer server) {
-        return (bp, trigger) -> new fr.blueprint.core.vm.ExecutionEnvironment(
+        return (bp, trigger) -> {
+            // Les valeurs par défaut déclarées deviennent réelles ici, et nulle part
+            // ailleurs : sans cette ligne, un « var double or = 20 » lu avant d'avoir
+            // été écrit rendait null et faisait tomber le nœud consommateur.
+            varsOf(server).seedDefaults(bp);
+            return new fr.blueprint.core.vm.ExecutionEnvironment(
                 typeId -> registries.nodes().get(typeId).orElse(null),
                 new fr.blueprint.api.node.BlueprintHandle() {
                     @Override
@@ -418,6 +423,7 @@ public class BlueprintMod implements ModInitializer {
                     }
                 },
                 trigger, varsOf(server), server, server.overworld(), LOGGER);
+        };
     }
 
     /** Pont événements par serveur — consulté par /bpc (7.7). */

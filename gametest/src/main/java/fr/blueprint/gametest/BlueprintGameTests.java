@@ -262,6 +262,68 @@ public final class BlueprintGameTests {
     }
 
     /**
+     * La valeur par défaut d'une variable est LUE au premier accès, dans un vrai
+     * serveur. Elle ne l'était pas : le graphe tombait en faute au lieu de tourner, et
+     * le message accusait le câblage alors que le câblage était bon.
+     */
+    @GameTest(maxTicks = 200)
+    public void aVariableDefaultIsReadableBeforeAnyWrite(GameTestHelper helper) {
+        Identifier blueprintId = id("var_default");
+        BlockPos target = helper.absolutePos(new BlockPos(4, 1, 1));
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        Blueprint bp = new Blueprint(blueprintId, new fr.blueprint.core.graph.BlueprintMeta(
+                "", "", "1.0.0", fr.blueprint.api.node.Permission.WORLD));
+        fr.blueprint.core.graph.GraphLoader.addVariable(bp,
+                new fr.blueprint.core.graph.Variable("seuil", PinTypes.DOUBLE,
+                        LiteralValue.of(PinTypes.DOUBLE, 7.0),
+                        fr.blueprint.core.graph.VarScope.GRAPH, false));
+
+        UUID event = uuid(blueprintId + ":event");
+        UUID once = uuid(blueprintId + ":once");
+        UUID get = uuid(blueprintId + ":get");
+        UUID test = uuid(blueprintId + ":test");
+        UUID branch = uuid(blueprintId + ":branch");
+        UUID place = uuid(blueprintId + ":place");
+        apply(bp, new EditOperation.AddNode(event, StandardEvents.SERVER_TICK.id(),
+                new Vec2d(0, 0)));
+        apply(bp, new EditOperation.AddNode(once, node("flow/do_once"), new Vec2d(200, 0)));
+        apply(bp, new EditOperation.AddNode(get, node("var/get"), new Vec2d(200, 200)));
+        apply(bp, new EditOperation.SetLiteral(get, "var",
+                LiteralValue.of(PinTypes.STRING, "seuil")));
+        apply(bp, new EditOperation.AddNode(test, node("logic/greater_eq"), new Vec2d(400, 200)));
+        apply(bp, new EditOperation.SetLiteral(test, "b",
+                LiteralValue.of(PinTypes.DOUBLE, 7.0)));
+        apply(bp, new EditOperation.AddNode(branch, node("flow/branch"), new Vec2d(400, 0)));
+        apply(bp, new EditOperation.AddNode(place, node("world/set_block"), new Vec2d(600, 0)));
+        apply(bp, new EditOperation.SetLiteral(place, "pos",
+                LiteralValue.of(PinTypes.BLOCKPOS, target)));
+        apply(bp, new EditOperation.SetLiteral(place, "state",
+                LiteralValue.of(PinTypes.BLOCKSTATE, Blocks.GOLD_BLOCK.defaultBlockState())));
+        apply(bp, new EditOperation.AddLink(new Link(event, "exec_out", once, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(once, "exec_out", branch, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(get, "value", test, "a")));
+        apply(bp, new EditOperation.AddLink(new Link(test, "result", branch, "condition")));
+        apply(bp, new EditOperation.AddLink(new Link(branch, "true", place, "exec_in")));
+
+        manager.adopt(bp);
+        manager.setEnabled(blueprintId, true);
+
+        helper.succeedWhen(() -> {
+            // Le bloc n'apparaît que si « seuil » valait 7 — donc si le défaut a été lu.
+            helper.assertTrue(helper.getLevel().getBlockState(target).is(Blocks.GOLD_BLOCK),
+                    Component.literal("le défaut de la variable n'a pas été lu"));
+            cleanup(helper, blueprintId);
+        });
+    }
+
+    private static Identifier node(String path) {
+        return Identifier.fromNamespaceAndPath("blueprint", path);
+    }
+
+    /**
      * NFR15 en conditions réelles : un nœud {@code ADMIN} exécuté par un graphe laisse
      * une trace nommant le blueprint et l'acteur.
      */
