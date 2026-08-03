@@ -34,7 +34,13 @@ tasks.jacocoTestCoverageVerification {
     violationRules {
         rule {
             classDirectories.setFrom(sourceSets.main.get().output.classesDirs.asFileTree.matching {
+                // Raccords Fabric/Brigadier : ils ne s'exercent qu'avec un serveur vivant
+                // (gametests, story 1.6). Leur LOGIQUE est extraite et testée à part —
+                // GraphGuard, RateLimiter, DebugSession.resolve, Profiler.report… — c'est
+                // ce qui reste ici qui n'est que du câblage.
                 exclude("fr/blueprint/core/BlueprintMod*")
+                exclude("fr/blueprint/core/command/BlueprintCommand*")
+                exclude("fr/blueprint/core/net/ServerBlueprintNet*")
             })
             limit {
                 minimum = "0.80".toBigDecimal()

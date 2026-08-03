@@ -173,6 +173,44 @@ public final class DebugSession {
         }
     }
 
+    /**
+     * Résolution d'un nœud par <b>préfixe d'UUID</b> parmi ceux que la session connaît
+     * (trace, points d'arrêt, valeurs). Taper un UUID complet dans le chat est
+     * impraticable ; 8 caractères suffisent, et un préfixe ambigu est <b>refusé</b>
+     * plutôt que deviné — poser un point d'arrêt sur le mauvais nœud ferait perdre
+     * plus de temps que d'en taper deux de plus.
+     */
+    public record Match(@Nullable UUID node, boolean ambiguous) {
+
+        public boolean found() {
+            return node != null;
+        }
+    }
+
+    public Match resolve(String prefix) {
+        java.util.Set<UUID> candidates = new java.util.LinkedHashSet<>(trace());
+        candidates.addAll(breakpoints);
+        candidates.addAll(values.keySet());
+        UUID found = null;
+        for (UUID candidate : candidates) {
+            if (candidate.toString().startsWith(prefix)) {
+                if (found != null) {
+                    return new Match(null, true);
+                }
+                found = candidate;
+            }
+        }
+        if (found != null) {
+            return new Match(found, false);
+        }
+        // Un UUID complet reste accepté : l'éditeur, lui, les connaît tous.
+        try {
+            return new Match(UUID.fromString(prefix), false);
+        } catch (IllegalArgumentException e) {
+            return new Match(null, false);
+        }
+    }
+
     public void clearValues() {
         values.clear();
         hits.clear();

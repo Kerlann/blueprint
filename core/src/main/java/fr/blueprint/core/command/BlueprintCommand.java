@@ -113,7 +113,87 @@ public final class BlueprintCommand {
                                         .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument(
                                                         "node", com.mojang.brigadier.arguments.StringArgumentType.word())
                                                 .suggests(TRACED_NODES)
-                                                .executes(BlueprintCommand::debugValues)))));
+                                                .executes(BlueprintCommand::debugValues)))))
+                // Profileur (9.2) : où part le temps, nœud par nœud.
+                .then(literal("profile")
+                        .requires(admin)
+                        .then(idArgument()
+                                .suggests(EXISTING_IDS)
+                                .executes(ctx -> profile(ctx, "show"))
+                                .then(literal("on").executes(ctx -> profile(ctx, "on")))
+                                .then(literal("off").executes(ctx -> profile(ctx, "off")))
+                                .then(literal("show").executes(ctx -> profile(ctx, "show")))
+                                .then(literal("reset").executes(ctx -> profile(ctx, "reset")))
+                                .then(literal("export").executes(ctx -> profile(ctx, "export")))));
+    }
+
+    // ------------------------------------------------------------------ profileur
+
+    private static int profile(CommandContext<CommandSourceStack> ctx, String action) {
+        Identifier id = IdentifierArgument.getId(ctx, "id");
+        if ("on".equals(action)) {
+            fr.blueprint.core.debug.Profiler.enable(id);
+            ctx.getSource().sendSuccess(() -> Component.translatable(
+                    "blueprint.cmd.profile_on", id.toString()), true);
+            return 1;
+        }
+        if ("off".equals(action)) {
+            fr.blueprint.core.debug.Profiler.disable(id);
+            ctx.getSource().sendSuccess(() -> Component.translatable(
+                    "blueprint.cmd.profile_off", id.toString()), true);
+            return 1;
+        }
+        var profiler = fr.blueprint.core.debug.Profiler.of(id);
+        if (profiler == null) {
+            ctx.getSource().sendFailure(Component.translatable(
+                    "blueprint.cmd.profile_not_on", id.toString()));
+            return 0;
+        }
+        if ("reset".equals(action)) {
+            profiler.reset();
+            ctx.getSource().sendSuccess(() -> Component.translatable(
+                    "blueprint.cmd.profile_reset", id.toString()), false);
+            return 1;
+        }
+
+        // Le coût par blueprint vient de l'ordonnanceur, le coût par nœud du profileur :
+        // les deux dans le même rapport, c'est là qu'ils se comparent.
+        var stats = fr.blueprint.core.BlueprintMod
+                .schedulerOf(ctx.getSource().getServer()).stats(id);
+        String report = String.format("%s%n%s",
+                String.format("Exécutions %d, terminées %d, fautes %d, fuel %d, "
+                                + "temps total %d µs, pic %d µs",
+                        stats.runs(), stats.completed(), stats.faults(), stats.fuel(),
+                        stats.totalNanos() / 1_000, stats.peakNanos() / 1_000),
+                profiler.report(id, 10));
+
+        if ("export".equals(action)) {
+            java.nio.file.Path file = exportsDir().resolveSibling("profiles")
+                    .resolve(id.getNamespace() + "-" + id.getPath().replace('/', '_')
+                            + "-" + System.currentTimeMillis() + ".txt");
+            try {
+                java.nio.file.Files.createDirectories(file.getParent());
+                java.nio.file.Files.writeString(file, report,
+                        java.nio.charset.StandardCharsets.UTF_8);
+            } catch (java.io.IOException e) {
+                fr.blueprint.core.BlueprintMod.LOGGER.error("Export du profil de « {} » impossible",
+                        id, e);
+                ctx.getSource().sendFailure(Component.translatable(
+                        "blueprint.cmd.profile_export_failed", id.toString()));
+                return 0;
+            }
+            ctx.getSource().sendSuccess(() -> Component.translatable(
+                    "blueprint.cmd.profile_exported", file.toString()), false);
+            return 1;
+        }
+
+        // Affichage : une ligne par ligne du rapport, le chat n'aime pas les blocs.
+        for (String line : report.split("\n")) {
+            if (!line.isBlank()) {
+                ctx.getSource().sendSuccess(() -> Component.literal(line), false);
+            }
+        }
+        return 1;
     }
 
     // ------------------------------------------------------------------ débogage
@@ -247,35 +327,22 @@ public final class BlueprintCommand {
         return 1;
     }
 
-    /** Résout un préfixe d'UUID parmi les nœuds vus et les points d'arrêt posés. */
+    /** Résout un préfixe d'UUID (la logique est dans {@code DebugSession}, testée à part). */
     private static @org.jetbrains.annotations.Nullable java.util.UUID resolveNode(
             CommandContext<CommandSourceStack> ctx, fr.blueprint.core.debug.DebugSession session,
             String prefix) {
-        java.util.Set<java.util.UUID> candidates = new java.util.LinkedHashSet<>(session.trace());
-        candidates.addAll(session.breakpoints());
-        candidates.addAll(session.allValues().keySet());
-        java.util.UUID found = null;
-        for (java.util.UUID candidate : candidates) {
-            if (candidate.toString().startsWith(prefix)) {
-                if (found != null) {
-                    ctx.getSource().sendFailure(Component.translatable(
-                            "blueprint.cmd.debug_ambiguous", prefix));
-                    return null;
-                }
-                found = candidate;
-            }
+        var match = session.resolve(prefix);
+        if (match.ambiguous()) {
+            ctx.getSource().sendFailure(Component.translatable(
+                    "blueprint.cmd.debug_ambiguous", prefix));
+            return null;
         }
-        if (found == null) {
-            // Un UUID complet reste accepté : l'éditeur, lui, les connaît tous.
-            try {
-                return java.util.UUID.fromString(prefix);
-            } catch (IllegalArgumentException e) {
-                ctx.getSource().sendFailure(Component.translatable(
-                        "blueprint.cmd.debug_unknown_node", prefix));
-                return null;
-            }
+        if (!match.found()) {
+            ctx.getSource().sendFailure(Component.translatable(
+                    "blueprint.cmd.debug_unknown_node", prefix));
+            return null;
         }
-        return found;
+        return match.node();
     }
 
     private static @org.jetbrains.annotations.Nullable fr.blueprint.core.debug.DebugSession

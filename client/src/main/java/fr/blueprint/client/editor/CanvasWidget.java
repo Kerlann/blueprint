@@ -723,12 +723,12 @@ public final class CanvasWidget {
                 if (session.save()) {
                     actionBar("blueprint.editor.saved", controller.blueprint().id().toString());
                 } else {
-                    actionBar("blueprint.editor.toolbar.unsavable");
+                    actionBar(unsavableReason());
                 }
             }
             case TEST -> {
                 if (!session.savable()) {
-                    actionBar("blueprint.editor.toolbar.unsavable");
+                    actionBar(unsavableReason());
                 } else if (diagnostics.blocking()) {
                     // Tester est grisé : la raison passe par la barre d'action (U2).
                     actionBar("blueprint.editor.toolbar.blocked", diagnostics.errors());
@@ -740,6 +740,17 @@ public final class CanvasWidget {
             case SCRIPT -> scriptView.toggle();
             case CLOSE -> closeRequest.run();
         }
+    }
+
+    /**
+     * Pourquoi l'enregistrement est impossible. Deux raisons très différentes se
+     * cachaient derrière le même message : « c'est la démo » et « le serveur ne vous
+     * laisse pas écrire » — le joueur doit savoir laquelle des deux le concerne.
+     */
+    private String unsavableReason() {
+        return session.readOnly()
+                ? "blueprint.editor.toolbar.readonly"
+                : "blueprint.editor.toolbar.unsavable";
     }
 
     /** Clics dans la vue script (5.11) : boutons, ou ligne → recentrer le nœud. */

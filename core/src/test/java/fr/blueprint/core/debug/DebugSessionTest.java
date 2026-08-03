@@ -196,6 +196,30 @@ class DebugSessionTest {
                 "la table ne contient que du texte");
     }
 
+    /** Désigner un nœud par préfixe : 8 caractères suffisent, l'ambigu est refusé. */
+    @Test
+    void nodesAreResolvedByUuidPrefix() {
+        DebugSession session = new DebugSession(BLUEPRINT);
+        session.record(NODE_A, Map.of(), Map.of());
+        session.breakOn(NODE_B);
+
+        assertEquals(NODE_A, session.resolve(NODE_A.toString().substring(0, 8)).node());
+        assertEquals(NODE_B, session.resolve(NODE_B.toString()).node(),
+                "un UUID complet passe aussi");
+
+        var nothing = session.resolve("zzzzzzzz");
+        assertFalse(nothing.found());
+        assertFalse(nothing.ambiguous());
+
+        var ambiguous = session.resolve("");
+        assertTrue(ambiguous.ambiguous(), "un préfixe vide vise tout le monde");
+        assertFalse(ambiguous.found(), "et n'est donc pas résolu");
+
+        // Un UUID inconnu de la session reste accepté : l'éditeur les connaît tous.
+        UUID elsewhere = UUID.randomUUID();
+        assertEquals(elsewhere, session.resolve(elsewhere.toString()).node());
+    }
+
     @Test
     void theTraceIsBounded() {
         DebugSession session = new DebugSession(BLUEPRINT);

@@ -37,6 +37,11 @@ public final class BlueprintVm {
                 fr.blueprint.core.debug.DebugSessions.active()
                         ? fr.blueprint.core.debug.DebugSessions.of(env.blueprint().id())
                         : null;
+        // Profileur (9.2) : même discipline, et indépendant du débogueur.
+        fr.blueprint.core.debug.Profiler profiler =
+                fr.blueprint.core.debug.Profiler.active()
+                        ? fr.blueprint.core.debug.Profiler.of(env.blueprint().id())
+                        : null;
         while (true) {
             int pc = state.pc();
             if (pc < 0 || pc >= ir.instructions().size()) {
@@ -65,7 +70,7 @@ public final class BlueprintVm {
                         return new RunOutcome(new ExecResult.Suspended(1), spent);
                     }
                     spent += call.fuelCost();
-                    ExecResult interrupt = call(ir, state, env, call, pc, debug);
+                    ExecResult interrupt = call(ir, state, env, call, pc, debug, profiler);
                     if (interrupt != null) {
                         return new RunOutcome(interrupt, spent);
                     }
@@ -116,7 +121,9 @@ public final class BlueprintVm {
     private static ExecResult call(Ir ir, ExecutionState state, ExecutionEnvironment env,
                                    Instruction.Call call, int pc,
                                    @org.jetbrains.annotations.Nullable
-                                   fr.blueprint.core.debug.DebugSession debug) {
+                                   fr.blueprint.core.debug.DebugSession debug,
+                                   @org.jetbrains.annotations.Nullable
+                                   fr.blueprint.core.debug.Profiler profiler) {
         NodeType type = env.nodeResolver().apply(call.type());
         if (type == null) {
             return new ExecResult.Faulted(call.source(),
@@ -131,12 +138,16 @@ public final class BlueprintVm {
         }
         NodeContextImpl ctx = new NodeContextImpl(type, inputs, env.server(), env.level(),
                 env.blueprint(), env.trigger(), env.logger(), debug != null);
+        long begin = profiler != null ? System.nanoTime() : 0L;
         try {
             NodeContextImpl.invoke(type, ctx);
         } catch (Exception e) {
             env.logger().error("Nœud « {} » en faute", type.id(), e);
             return new ExecResult.Faulted(call.source(),
                     e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+        }
+        if (profiler != null) {
+            profiler.record(call.source(), call.type(), System.nanoTime() - begin, call.fuelCost());
         }
         if (ctx.failReason() != null) {
             return new ExecResult.Faulted(call.source(), ctx.failReason().getString());

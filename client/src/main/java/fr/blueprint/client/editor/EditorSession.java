@@ -59,6 +59,11 @@ public final class EditorSession {
         this.writable = writable;
     }
 
+    /** Vrai pour un VRAI blueprint que le serveur refuse de laisser modifier. */
+    public boolean readOnly() {
+        return saveHandler != null && !writable;
+    }
+
     public int serverRevision() {
         return serverRevision;
     }

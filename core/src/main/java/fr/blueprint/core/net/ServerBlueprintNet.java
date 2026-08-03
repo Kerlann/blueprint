@@ -51,7 +51,7 @@ public final class ServerBlueprintNet {
                     BlueprintManager.of(context.server()).all()
                             .forEach(bp -> ids.add(bp.id()));
                     context.responseSender().sendPacket(new BlueprintPayloads.ListData(
-                            ids, mayEdit(config, context.player())));
+                            ids, mayEdit(config, context)));
                 });
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.OpenRequest.TYPE,
@@ -66,12 +66,12 @@ public final class ServerBlueprintNet {
                                 BlueprintPayloads.SaveStatus.UNKNOWN, -1);
                         return;
                     }
-                    sendGraph(context, bp, mayEdit(config, context.player()));
+                    sendGraph(context, bp, mayEdit(config, context));
                 });
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.CreateRequest.TYPE,
                 (payload, context) -> {
-                    if (!mayEdit(config, context.player())
+                    if (!mayEdit(config, context)
                             || !allowed(SAVES, context, "création")) {
                         deny(context, payload.blueprint(),
                                 BlueprintPayloads.SaveStatus.DENIED, -1);
@@ -92,7 +92,7 @@ public final class ServerBlueprintNet {
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.SaveRequest.TYPE,
                 (payload, context) -> {
                     Identifier id = payload.blueprint();
-                    if (!mayEdit(config, context.player())
+                    if (!mayEdit(config, context)
                             || !allowed(SAVES, context, "enregistrement")) {
                         deny(context, id, BlueprintPayloads.SaveStatus.DENIED, -1);
                         return;
@@ -149,7 +149,7 @@ public final class ServerBlueprintNet {
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.SetEnabled.TYPE,
                 (payload, context) -> {
-                    if (!mayEdit(config, context.player())
+                    if (!mayEdit(config, context)
                             || !allowed(SAVES, context, "activation")) {
                         deny(context, payload.blueprint(),
                                 BlueprintPayloads.SaveStatus.DENIED, -1);
@@ -214,10 +214,24 @@ public final class ServerBlueprintNet {
                 : fr.blueprint.api.node.Permission.WORLD;
     }
 
-    /** Écriture = permission d'administration configurée (null = ouvert à tous). */
-    private static boolean mayEdit(BlueprintConfig config, ServerPlayer player) {
+    /**
+     * Écriture = permission d'administration configurée (null = ouvert à tous).
+     *
+     * <p>Exception qui n'en est pas une : <b>le propriétaire d'un monde solo</b> peut
+     * toujours éditer ses blueprints. Sans ça, un joueur qui crée un monde sans cocher
+     * « autoriser les tricheurs » a le niveau 0 et ne peut plus enregistrer SES graphes
+     * dans SON monde — la permission est là pour arbitrer entre joueurs d'un serveur,
+     * pas pour se protéger de soi-même.
+     */
+    private static boolean mayEdit(BlueprintConfig config, ServerPlayNetworking.Context context) {
+        ServerPlayer player = context.player();
         var required = config.adminPermission();
-        return required == null || player.permissions().hasPermission(required);
+        if (required == null || player.permissions().hasPermission(required)) {
+            return true;
+        }
+        var server = context.server();
+        return server.isSingleplayer() && server.isSingleplayerOwner(
+                new net.minecraft.server.players.NameAndId(player.getGameProfile()));
     }
 
     private static void sendGraph(ServerPlayNetworking.Context context, Blueprint bp,
