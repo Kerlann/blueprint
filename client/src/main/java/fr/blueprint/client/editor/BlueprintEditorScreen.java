@@ -51,6 +51,11 @@ public final class BlueprintEditorScreen extends Screen {
         return session;
     }
 
+    /** État du débogueur affiché (9.1b) — alimenté par les instantanés du serveur. */
+    public DebugView debug() {
+        return canvas.debug();
+    }
+
     @Override
     protected void init() {
         canvas.setSize(width, height);

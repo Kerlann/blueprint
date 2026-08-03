@@ -171,6 +171,75 @@ public final class BlueprintPayloads {
         }
     }
 
+    // ------------------------------------------------------------------ débogage
+
+    /** Ce qu'un éditeur demande au débogueur (story 9.1b). */
+    public enum DebugAction {
+        ON, OFF, TOGGLE_BREAKPOINT, STEP, CONTINUE, CLEAR
+    }
+
+    /** C2S : une action de débogage sur un blueprint, éventuellement ciblant un nœud. */
+    public record DebugCommand(Identifier blueprint, DebugAction action,
+                               java.util.Optional<java.util.UUID> node)
+            implements CustomPacketPayload {
+        public static final Type<DebugCommand> TYPE = new Type<>(id("debug_command"));
+        public static final StreamCodec<ByteBuf, DebugCommand> CODEC = StreamCodec.composite(
+                Identifier.STREAM_CODEC, DebugCommand::blueprint,
+                ByteBufCodecs.VAR_INT.map(DebugCommand::actionOf, action -> action.ordinal()),
+                DebugCommand::action,
+                ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC),
+                DebugCommand::node,
+                DebugCommand::new);
+
+        /** Ordinal inconnu (paquet forgé) : on ne devine pas, on ignore. */
+        private static DebugAction actionOf(int ordinal) {
+            DebugAction[] all = DebugAction.values();
+            return ordinal >= 0 && ordinal < all.length ? all[ordinal] : DebugAction.OFF;
+        }
+
+        @Override
+        public Type<DebugCommand> type() {
+            return TYPE;
+        }
+    }
+
+    /** Valeurs vues sur un nœud, déjà rendues en texte par le serveur (jamais d'objet vivant). */
+    public record NodeValues(java.util.UUID node, java.util.List<String> lines) {
+        public static final StreamCodec<ByteBuf, NodeValues> CODEC = StreamCodec.composite(
+                net.minecraft.core.UUIDUtil.STREAM_CODEC, NodeValues::node,
+                ByteBufCodecs.stringUtf8(160).apply(ByteBufCodecs.list(32)), NodeValues::lines,
+                NodeValues::new);
+    }
+
+    /**
+     * S2C : l'état du débogueur pour un blueprint — ce que l'éditeur dessine. Poussé
+     * pendant que le joueur débogue, jamais autrement.
+     */
+    public record DebugSnapshot(Identifier blueprint, boolean debugging,
+                                java.util.Optional<java.util.UUID> pausedAt,
+                                java.util.List<java.util.UUID> breakpoints,
+                                java.util.List<NodeValues> values)
+            implements CustomPacketPayload {
+        public static final Type<DebugSnapshot> TYPE = new Type<>(id("debug_snapshot"));
+        public static final StreamCodec<ByteBuf, DebugSnapshot> CODEC = StreamCodec.composite(
+                Identifier.STREAM_CODEC, DebugSnapshot::blueprint,
+                ByteBufCodecs.BOOL, DebugSnapshot::debugging,
+                ByteBufCodecs.optional(net.minecraft.core.UUIDUtil.STREAM_CODEC),
+                DebugSnapshot::pausedAt,
+                net.minecraft.core.UUIDUtil.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_DEBUG_NODES)),
+                DebugSnapshot::breakpoints,
+                NodeValues.CODEC.apply(ByteBufCodecs.list(MAX_DEBUG_NODES)), DebugSnapshot::values,
+                DebugSnapshot::new);
+
+        @Override
+        public Type<DebugSnapshot> type() {
+            return TYPE;
+        }
+    }
+
+    /** Un instantané de débogage reste petit : au-delà, l'éditeur n'affiche plus rien d'utile. */
+    public static final int MAX_DEBUG_NODES = 64;
+
     /** Bornes du fil : un paquet plus gros est rejeté par le décodeur, pas par nous. */
     public static final int MAX_GRAPH_BYTES = fr.blueprint.core.net.GraphSync.MAX_BYTES;
     public static final int MAX_LIST = 4_096;

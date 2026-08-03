@@ -117,6 +117,7 @@ public class BlueprintMod implements ModInitializer {
         registerWorldEventBridges();
         registerRegistrySync();
         fr.blueprint.core.net.ServerBlueprintNet.register(config);
+        fr.blueprint.core.net.DebugNet.register(config);
         registerDatapackNodes();
     }
 

@@ -89,6 +89,7 @@ public class BlueprintClient implements ClientModInitializer {
         // Synchro du registre serveur (6.2) puis ouverture/enregistrement réseau (6.3).
         fr.blueprint.client.net.RegistrySync.register();
         fr.blueprint.client.net.BlueprintNet.register();
+        fr.blueprint.client.net.DebugClient.register();
 
         BlueprintMod.LOGGER.info("Blueprint client initialisé");
     }

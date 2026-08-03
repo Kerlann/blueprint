@@ -83,6 +83,13 @@ public final class CanvasWidget {
     private double lastMouseX;
     private double lastMouseY;
 
+    /** Débogueur (9.1b) : ce que le serveur pousse, ce que le canevas dessine. */
+    private final DebugView debug;
+
+    public DebugView debug() {
+        return debug;
+    }
+
     public CanvasWidget(EditorSession session, NodeTypeLookup lookup,
                         ClientNodeRegistry descriptors,
                         fr.blueprint.core.registry.PluginLoader.LoadedRegistries registries,
@@ -93,6 +100,7 @@ public final class CanvasWidget {
         this.descriptors = descriptors;
         this.clipboard = new ClipboardCodec(registries);
         this.closeRequest = closeRequest;
+        this.debug = new DebugView(session.blueprint().id());
         this.controller = new CanvasController(session.blueprint(), lookup, camera);
         this.controller.setOnMutation(() -> {
             diagnostics.invalidate();
@@ -312,10 +320,42 @@ public final class CanvasWidget {
             NodeDescriptor desc = descriptors.descriptor(b.node().typeId());
             NodeWidget.LiteralProvider literals = desc == null ? null
                     : pin -> literalToShow(b.node(), desc, pin);
+            // Le nœud en pause prime sur le liseré de diagnostic : c'est LUI qu'on
+            // cherche des yeux quand l'exécution est arrêtée.
+            int outline = debug.isPaused(uuid) ? fr.blueprint.client.theme.Theme.current().debugActive()
+                    : diagnostics.outlineColor(uuid);
             NodeWidget.render(g, font, b, desc,
                     controller.selection().isSelected(uuid), z,
                     camera.toScreenX(b.x()), camera.toScreenY(b.y()), dimmer,
-                    literals, literalEdit, diagnostics.outlineColor(uuid));
+                    literals, literalEdit, outline);
+            if (debug.debugging()) {
+                renderDebugOverlay(g, font, b, uuid);
+            }
+        }
+    }
+
+    /**
+     * Pastille de point d'arrêt et valeurs vues, dessinées PAR-DESSUS le nœud, dans
+     * l'espace écran : le texte reste lisible quel que soit le zoom, alors que le
+     * contenu du nœud, lui, suit l'échelle.
+     */
+    private void renderDebugOverlay(GuiGraphics g, Font font, NodeGeometry.Box box, UUID uuid) {
+        int x = (int) Math.round(camera.toScreenX(box.x()));
+        int y = (int) Math.round(camera.toScreenY(box.y()));
+        if (debug.hasBreakpoint(uuid)) {
+            // Pastille rouge en haut à gauche, hors du cadre — jamais sur le titre.
+            g.fill(x - 7, y + 1, x - 1, y + 7, 0xFFF7768E);
+        }
+        List<String> values = debug.valuesOf(uuid);
+        if (values.isEmpty() || camera.zoom() < 0.5) {
+            return;   // trop dézoomé : le texte serait illisible, on ne l'écrit pas
+        }
+        int lineY = y - 2 - values.size() * 9;
+        for (String line : values) {
+            int w = font.width(line);
+            g.fill(x - 1, lineY - 1, x + w + 2, lineY + 8, 0xC0101318);
+            g.drawString(font, line, x + 1, lineY, 0xFFFFD866, false);
+            lineY += 9;
         }
     }
 
@@ -778,6 +818,19 @@ public final class CanvasWidget {
                             controller.blueprint().id().toString());
                 }
             }
+            case DEBUG -> {
+                // Le débogueur s'ouvre sur un VRAI blueprint : la démo n'existe pas
+                // côté serveur, il n'y aurait rien à déboguer.
+                if (!session.savable()) {
+                    actionBar(unsavableReason());
+                } else if (debug.debugging()) {
+                    fr.blueprint.client.net.DebugClient.stop(session.blueprint().id());
+                    actionBar("blueprint.editor.toolbar.debug_off");
+                } else {
+                    fr.blueprint.client.net.DebugClient.start(session.blueprint().id());
+                    actionBar("blueprint.editor.toolbar.debug_on");
+                }
+            }
             case SCRIPT -> scriptView.toggle();
             case CLOSE -> closeRequest.run();
         }
@@ -1095,6 +1148,23 @@ public final class CanvasWidget {
             }
             case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
                 return editFirstLiteralOfSelection();
+            }
+            // Débogueur (9.1b) : B pose/retire un point d'arrêt, F5 reprend, F10 avance.
+            case GLFW.GLFW_KEY_B -> {
+                if (!e.hasControlDown() && controller.selection().ids().size() == 1) {
+                    fr.blueprint.client.net.DebugClient.toggleBreakpoint(
+                            session.blueprint().id(),
+                            controller.selection().ids().iterator().next());
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_F5 -> {
+                fr.blueprint.client.net.DebugClient.resume(session.blueprint().id());
+                return true;
+            }
+            case GLFW.GLFW_KEY_F10 -> {
+                fr.blueprint.client.net.DebugClient.step(session.blueprint().id());
+                return true;
             }
             case GLFW.GLFW_KEY_Z -> {
                 if (e.hasControlDown()) {

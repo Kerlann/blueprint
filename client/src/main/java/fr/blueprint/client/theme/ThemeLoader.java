@@ -46,7 +46,11 @@ public final class ThemeLoader {
                     color(state, "ghost", base.ghost()),
                     color(state, "error", base.error()),
                     color(state, "warning", base.warning()),
-                    color(wire, "exec", base.execWire()));
+                    color(wire, "exec", base.execWire()),
+                    // 9.1b : la couleur du nœud en pause suit le thème de base si le
+                    // fichier ne la précise pas — sinon « fort contraste » perdrait la
+                    // sienne au premier chargement.
+                    color(state, "debugActive", base.debugActive()));
         } catch (IOException | RuntimeException e) {
             return Theme.DEFAULT;
         }
