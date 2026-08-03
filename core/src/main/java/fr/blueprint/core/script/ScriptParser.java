@@ -428,7 +428,9 @@ public final class ScriptParser {
                 case "texture" -> {
                     expect("sym", "(");
                     Token raw = expect("string", null);
-                    texture = Identifier.tryParse(raw.text());
+                    // La MÊME lecture que le générateur écrit : « ma_boutique/fond »
+                    // désigne un pack, un identifiant complet une texture du jeu.
+                    texture = fr.blueprint.core.graph.screen.PackRef.texture(raw.text());
                     if (texture == null) {
                         throw new ParseError(raw.line(),
                                 "texture invalide « " + raw.text() + " »");

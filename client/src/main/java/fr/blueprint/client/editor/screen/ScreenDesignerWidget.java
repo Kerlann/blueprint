@@ -245,6 +245,23 @@ public final class ScreenDesignerWidget {
         // « écran » : la taille réelle du joueur, celle qu'il a sous les yeux.
         g.drawString(font, I18n.get("blueprint.designer.viewport_mine"), x, y,
                 current == null ? SELECTED : TEXT, false);
+
+        // Les packs dont l'écran dépend (10.5, AC5), déduits de ses textures. En rouge
+        // ceux qui ne sont PAS installés ici : l'auteur voit ainsi, en concevant, ce que
+        // verra celui à qui il donnera son menu sans le dossier qui va avec.
+        Screen screen = controller.screen();
+        if (screen != null && !screen.requiredPacks().isEmpty()) {
+            var installed = fr.blueprint.client.pack.PackTextures.packs().keySet();
+            int px = PALETTE_WIDTH + 4;
+            int py = y - ROW;
+            String label = I18n.get("blueprint.designer.packs", "");
+            g.drawString(font, label, px, py, DIM_TEXT, false);
+            px += font.width(label) + 2;
+            for (String pack : screen.requiredPacks()) {
+                g.drawString(font, pack, px, py, installed.contains(pack) ? TEXT : INVALID, false);
+                px += font.width(pack) + 6;
+            }
+        }
     }
 
     /** Le clic dans la barre de tailles ; faux si le point est ailleurs. */

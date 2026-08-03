@@ -169,7 +169,12 @@ public final class ScriptGenerator {
                     .append(quote(element.text().value())).append(')');
         }
         if (element.texture() != null) {
-            sb.append(" @texture(").append(quote(element.texture().toString())).append(')');
+            // L'écriture COURTE pour un pack (« ma_boutique/fond ») : c'est celle que
+            // l'auteur reconnaît dans son dossier, et le parseur la relit à l'identique.
+            sb.append(" @texture(")
+                    .append(quote(fr.blueprint.core.graph.screen.PackRef
+                            .reference(element.texture())))
+                    .append(')');
         }
         if (!element.visible()) {
             sb.append(" @hidden");

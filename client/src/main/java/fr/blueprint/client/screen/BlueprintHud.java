@@ -54,6 +54,11 @@ public final class BlueprintHud {
                         }
 
                         @Override
+                        public String missingPack(Identifier texture) {
+                            return TEXTURES.missingPack(texture);
+                        }
+
+                        @Override
                         public double progress(String element) {
                             return VIEW.progressOf(screen.name(), element);
                         }

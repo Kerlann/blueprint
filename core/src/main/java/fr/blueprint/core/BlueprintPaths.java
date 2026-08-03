@@ -37,6 +37,14 @@ public final class BlueprintPaths {
     }
 
     /**
+     * Les <b>packs</b> : un dossier par pack, avec ses textures et son {@code pack.json}
+     * (story 10.5). C'est le dossier qu'on donne à quelqu'un.
+     */
+    public static Path scripts() {
+        return ensure(root().resolve("scripts"));
+    }
+
+    /**
      * L'ancien emplacement, {@code config/blueprint}. Conservé pour la <b>reprise</b> :
      * une mise à jour du mod ne doit pas faire disparaître les fichiers de quelqu'un
      * parce qu'on a changé d'avis sur le rangement.

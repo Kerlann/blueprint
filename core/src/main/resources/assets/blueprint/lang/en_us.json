@@ -535,5 +535,11 @@
   "blueprint.designer.styles": "Styles",
   "blueprint.designer.styles.create": "From selection",
   "blueprint.designer.styles.detach": "Detach",
-  "blueprint.designer.styles.none": "No named style on this screen yet"
+  "blueprint.designer.styles.none": "No named style on this screen yet",
+  "blueprint.pack.missing": "pack \"%s\" missing",
+  "blueprint.pack.none": "No script pack installed — drop a folder into %s, then /blueprint-packs reload",
+  "blueprint.pack.header": "%s script pack(s):",
+  "blueprint.pack.rejected": "Set aside — %s: %s",
+  "blueprint.pack.reloaded": "%s pack(s) loaded, %s item(s) set aside",
+  "blueprint.designer.packs": "Needs: %s"
 }

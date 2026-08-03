@@ -121,7 +121,57 @@ La vue **Script** (bouton de la barre d'outils) montre le texte du graphe en dir
 
 ---
 
-## 8. Pour aller plus loin
+## 8. Donner un menu avec ses images
+
+Un menu se dessine **chez le joueur**. Le serveur envoie la description de l'écran — les
+positions, les couleurs, les textes — mais il ne peut pas pousser de fichiers sur la
+machine de quelqu'un. Les images voyagent donc à part, dans un **dossier de pack** :
+
+```
+blueprint/scripts/
+└── ma_boutique/
+    ├── pack.json          nom, version, auteur (facultatif)
+    ├── textures/
+    │   ├── fond.png
+    │   └── bouton.png
+    └── boutique.bp        le blueprint, pour l'importer
+```
+
+Dans l'écran, une image se désigne par `<pack>/<fichier>` — `ma_boutique/fond`.
+
+- **Donner son menu** = donner le dossier.
+- **Le recevoir** = le déposer dans `blueprint/scripts/`, puis `/blueprint-packs reload`
+  — sans quitter la partie.
+- `/blueprint-packs` liste ce qui est installé, et **ce qui a été écarté avec la raison**.
+
+Un exemple complet, prêt à copier : [`examples/packs/ma_boutique/`](examples/packs/ma_boutique/).
+
+### La contrepartie, à savoir avant de partager
+
+En multijoueur, le blueprint vit sur le **serveur** et les images vivent chez **chaque
+joueur**. Un menu à images n'est donc joli que pour ceux qui ont le pack ; les autres
+voient la mise en page, les couleurs et les textes — mais un damier magenta à la place
+des images, avec le nom du pack qui leur manque écrit dessus.
+
+Ce n'est pas un défaut à contourner, c'est la conséquence directe du fait qu'un serveur
+ne peut pas déposer de fichiers chez vous. Deux façons de faire avec :
+
+- **Concevoir sans image d'abord.** Couleurs, bordures, marges et alignements ne
+  demandent aucun pack, et un menu bien réglé s'en passe très bien.
+- **Donner le dossier en même temps que l'adresse du serveur**, si les images comptent.
+
+L'onglet **Écrans** de l'éditeur affiche les packs dont l'écran dépend, en rouge ceux qui
+ne sont pas installés chez vous — de quoi voir en concevant ce que verront les autres.
+
+### Les bornes
+
+PNG uniquement, 2048×2048 au maximum, 4 Mo par fichier, 256 images par pack. Au-delà,
+l'image est écartée **et nommée** ; le reste du pack charge quand même. Un pack illisible
+n'empêche jamais les autres de fonctionner, ni le jeu de démarrer.
+
+---
+
+## 9. Pour aller plus loin
 
 - [`node-reference.md`](node-reference.md) — tous les nœuds livrés, leurs pins et leur coût.
 - [`bscript-spec.md`](bscript-spec.md) — la grammaire du texte généré.

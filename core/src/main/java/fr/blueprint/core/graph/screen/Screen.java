@@ -145,8 +145,19 @@ public final class Screen {
     public java.util.Set<String> requiredPacks() {
         java.util.Set<String> packs = new java.util.LinkedHashSet<>();
         for (ScreenElement element : elements.values()) {
-            if (element.texture() != null
-                    && !"minecraft".equals(element.texture().getNamespace())) {
+            if (element.texture() == null) {
+                continue;
+            }
+            // Une image de pack porte l'espace de nom « blueprint » et son pack dans le
+            // CHEMIN (story 10.5) : lire l'espace de nom aurait déclaré « blueprint »
+            // comme pack requis, c'est-à-dire rien d'installable, sur tout écran à
+            // images. C'est le genre de faux positif qui apprend à ignorer la liste.
+            String pack = PackRef.packOf(element.texture());
+            if (pack != null) {
+                packs.add(pack);
+            } else if (!"minecraft".equals(element.texture().getNamespace())) {
+                // Un mod tiers reste signalé sous son espace de nom : ce n'est pas un
+                // pack à déposer, mais c'est bien une dépendance de l'écran.
                 packs.add(element.texture().getNamespace());
             }
         }

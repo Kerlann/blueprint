@@ -58,6 +58,18 @@ public final class ScreenPainter {
         default boolean textureMissing(net.minecraft.resources.Identifier texture) {
             return false;
         }
+
+        /**
+         * Le <b>pack</b> qui manque pour cette texture, ou {@code null} si l'absence ne
+         * vient pas d'un pack (story 10.5, AC3).
+         *
+         * <p>Nommer le fichier ne suffit pas : le joueur ne sait pas d'où il devrait
+         * venir. Nommer le pack lui dit ce qu'il doit demander à l'auteur du menu —
+         * la même promesse que les nœuds fantômes, qui nomment le mod absent (FR41).
+         */
+        default @Nullable String missingPack(net.minecraft.resources.Identifier texture) {
+            return null;
+        }
     }
 
     /** Damier magenta : deux couleurs, comme la texture manquante de Minecraft. */
@@ -146,7 +158,8 @@ public final class ScreenPainter {
                     // Ni écran vide, ni exception : le joueur doit voir CE qui manque.
                     // Vider l'écran ou lever lui donnerait un menu blanc sans indice,
                     // et l'auteur ne saurait pas quel fichier livrer avec son pack.
-                    paintMissing(g, font, element.texture(), left, top, right, bottom);
+                    paintMissing(g, font, element.texture(),
+                            visuals.missingPack(element.texture()), left, top, right, bottom);
                 } else {
                     // u = v = 0 et une région de la taille de la destination : les UV
                     // valent alors 0→1, donc la texture ENTIÈRE est étirée dans le
@@ -181,6 +194,7 @@ public final class ScreenPainter {
      */
     private static void paintMissing(GuiGraphics g, Font font,
                                      net.minecraft.resources.Identifier texture,
+                                     @Nullable String missingPack,
                                      int left, int top, int right, int bottom) {
         for (int y = top; y < bottom; y += MISSING_CELL) {
             for (int x = left; x < right; x += MISSING_CELL) {
@@ -194,6 +208,16 @@ public final class ScreenPainter {
         String name = font.plainSubstrByWidth(texture.toString(), Math.max(0, right - left - 2));
         if (!name.isEmpty() && bottom - top >= font.lineHeight) {
             g.drawString(font, name, left + 1, top + 1, 0xFFFFFFFF, true);
+        }
+        // Et SURTOUT le pack qui manque : le nom du fichier dit ce qui est absent, le
+        // nom du pack dit à qui le demander. C'est la seule des deux lignes qui permette
+        // au joueur d'agir sans deviner (story 10.5, AC3).
+        if (missingPack != null && bottom - top >= font.lineHeight * 2 + 2) {
+            String detail = font.plainSubstrByWidth(
+                    net.minecraft.client.resources.language.I18n.get(
+                            "blueprint.pack.missing", missingPack),
+                    Math.max(0, right - left - 2));
+            g.drawString(font, detail, left + 1, top + 1 + font.lineHeight, 0xFFFFFFFF, true);
         }
     }
 

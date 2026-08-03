@@ -108,7 +108,10 @@ public final class ElementPropertiesState {
             case WIDTH -> extent(element.width());
             case HEIGHT -> extent(element.height());
             case TEXT -> element.text().value();
-            case TEXTURE -> element.texture() == null ? "" : element.texture().toString();
+            // L'écriture COURTE d'un pack : « ma_boutique/fond », pas
+            // « blueprint:pack/ma_boutique/fond ». C'est celle que l'auteur tape.
+            case TEXTURE -> element.texture() == null ? ""
+                    : fr.blueprint.core.graph.screen.PackRef.reference(element.texture());
             case BACKGROUND -> hex(element.style().background());
             case BORDER -> hex(element.style().border());
             case TEXT_COLOR -> hex(element.style().textColor());
@@ -135,7 +138,8 @@ public final class ElementPropertiesState {
             case NAME -> nameAvailable.test(buffer.trim());
             case X, Y, PADDING, GAP, CROSS_GAP, COLUMNS -> parseNumber(buffer) != null;
             case WIDTH, HEIGHT -> parseExtent(buffer, Extent.of(0)) != null;
-            case TEXTURE -> buffer.isBlank() || Identifier.tryParse(buffer.trim()) != null;
+            case TEXTURE -> buffer.isBlank()
+                    || fr.blueprint.core.graph.screen.PackRef.texture(buffer) != null;
             case BACKGROUND, BORDER, TEXT_COLOR, HOVER -> parseHex(buffer) != null;
             case TEXT -> true;
         };
@@ -157,8 +161,8 @@ public final class ElementPropertiesState {
             case HEIGHT -> element.resized(element.width(), parseExtent(buffer, element.height()));
             case TEXT -> element.withText(buffer.startsWith("#")
                     ? ScreenText.key(buffer.substring(1)) : ScreenText.literal(buffer));
-            case TEXTURE -> element.withTexture(
-                    buffer.isBlank() ? null : Identifier.tryParse(buffer.trim()));
+            case TEXTURE -> element.withTexture(buffer.isBlank() ? null
+                    : fr.blueprint.core.graph.screen.PackRef.texture(buffer));
             case BACKGROUND -> element.styled(withBackground(element.style(), parseHex(buffer)));
             case BORDER -> element.styled(withBorder(element.style(), parseHex(buffer)));
             case TEXT_COLOR -> element.styled(withTextColor(element.style(), parseHex(buffer)));

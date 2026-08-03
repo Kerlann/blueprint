@@ -1,0 +1,63 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.5"
+story_title: "Packs — un dossier qui contient le menu et ses images"
+gate: "PASS"
+status_reason: "Un dossier déposé dans blueprint/scripts/ devient des images utilisables, rechargeable à chaud, sans redémarrage ni écran d'acceptation. Un pack cassé est nommé et écarté sans emporter les autres, et une image démesurée est refusée sur son en-tête — avant tout décodage, ce qui est la seule façon utile de la refuser. Deux défauts trouvés en revue ont été corrigés, dont un qui aurait déclaré « blueprint » comme pack requis sur tout écran à images."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T22:20:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "PACK-001"
+    severity: high
+    finding: "Screen.requiredPacks() lisait l'ESPACE DE NOM de la texture. Une image de pack porte « blueprint » et son pack dans le chemin : la liste des dépendances aurait donc affiché « blueprint » — rien d'installable — sur tout écran à images, et le panneau de l'éditeur aurait montré un pack manquant impossible à installer. C'est le genre de faux positif qui apprend à ignorer la liste entière"
+    suggested_action: "Corrigé — requiredPacks lit PackRef.packOf, et retombe sur l'espace de nom pour un mod tiers, qui reste une vraie dépendance. Vérifié par chaqueTextureNommeeParLExempleExisteDansLePack"
+  - id: "PACK-002"
+    severity: medium
+    finding: "ScriptPack.textures() promettait un ordre stable et rendait Map.copyOf — immuable, mais dont l'itération dépend du hachage. Les images changeaient d'ordre d'un lancement à l'autre. Attrapé par un test qui a passé une fois puis échoué sans qu'une ligne du chargeur ait changé"
+    suggested_action: "Corrigé — LinkedHashMap non modifiable. Le test d'ordre est resté, c'est lui qui l'a trouvé"
+  - id: "PACK-003"
+    severity: medium
+    finding: "TextureCache interrogeait le gestionnaire de RESSOURCES. Une image de pack est téléversée directement sur la carte : elle n'y est pas, donc toutes les images d'un pack pourtant chargé auraient été déclarées absentes et remplacées par un damier"
+    suggested_action: "Corrigé — le cache reconnaît une texture de pack et interroge PackTextures. Il suit aussi la génération de rechargement et se vide de lui-même, sans quoi /blueprint-packs reload n'aurait rien changé tant qu'un menu reste ouvert — exactement le moment où on l'utilise"
+  - id: "PACK-004"
+    severity: medium
+    finding: "Le module client ne propageait pas -Dblueprint.regenDocs à la JVM des tests : la régénération semblait tourner et n'écrivait rien, en signalant un échec de comparaison que rien n'expliquait"
+    suggested_action: "Corrigé — systemProperty dans client/build.gradle.kts, comme core l'avait déjà"
+  - id: "PACK-005"
+    severity: low
+    finding: "Le .bp d'exemple, écrit à la main, ne se parsait pas (permission inexistante, parents non cités). Un exemple « prêt à copier » faux est pire qu'absent"
+    suggested_action: "Corrigé à la racine : il est GÉNÉRÉ depuis le modèle, comme les autres exemples et la référence des nœuds, et un test compare le fichier commité au modèle. Écrit à la main, il aurait dérivé à la première évolution de la grammaire"
+  - id: "PACK-006"
+    severity: low
+    finding: "TextureManager.release ferme-t-il la texture, ou fuit-on un NativeImage par rechargement ? Un joueur qui ajuste son pack recharge dix fois de suite"
+    suggested_action: "Vérifié au bytecode sur le jar 1.21.11 : release appelle safeClose, qui ferme la DynamicTexture et donc son NativeImage. Pas de fuite"
+  - id: "PACK-007"
+    severity: low
+    finding: "Le neuf-tranches d'une IMAGE (étirer un bouton sans déformer ses coins) n'est pas implémenté"
+    suggested_action: "Hors périmètre et assumé. L'AC6 demande que le style fonctionne SANS pack : c'est le cas, fond, bordure et marge ne viennent d'aucun fichier. Le neuf-tranches d'une texture demande ses dimensions au moment du dessin et appartient aux éléments riches (10.8)"
+  - id: "PACK-008"
+    severity: low
+    finding: "PackTextures.reload s'exécute sur le thread client (téléversement GL). Un appel depuis un autre thread planterait"
+    suggested_action: "Borné : les deux seuls appelants sont une commande cliente et le tick client, tous deux sur le thread principal. Aucun chemin asynchrone n'existe"
+  - id: "PACK-009"
+    severity: low
+    finding: "Le décodage réel d'un PNG et le téléversement ne sont vérifiés par aucun test — ils ne s'exercent pas headless"
+    suggested_action: "Borné par construction : tout ce qui DÉCIDE (bornes, refus, nommage, ordre, résolution d'identifiant) vit dans ScriptPackLoader, testé par 10 tests avec de vrais PNG écrits à la volée. Il ne reste dans PackTextures que l'appel au moteur. Reste à voir de ses yeux : VERIFY-10.5"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 3, low: 5 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Un pack est un fichier reçu d'un tiers : les bornes de l'AC4 sont la seule barrière. Elles s'appliquent avant tout décodage, mais un format PNG exotique reste décodé par la bibliothèque du jeu — le try/catch autour de NativeImage.read est ce qui garde un pack partiellement cassé utilisable."
+      - "En multijoueur, les images vivent chez chaque joueur. C'est écrit dans getting-started.md §8, et l'AC3 fait que le joueur l'apprend de lui-même plutôt qu'en le devinant."
+evidence:
+  tests_reviewed: 935
+  gametests: 12
+  new_tests:
+    - "ScriptPackLoaderTest (10) — lecture, isolation d'un pack cassé, bornes sur en-tête, PNG uniquement, nommage, style sans image"
+    - "ExamplePackTest (4) — le pack livré charge, son .bp correspond au modèle, chaque texture nommée existe, et l'écran reste lisible sans le pack"
+  risks_without_gate:
+    - "Un pack reçu de quelqu'un d'autre qui empêcherait le jeu de démarrer serait la pire panne possible pour une fonctionnalité dont le geste central est « déposer un dossier qu'on m'a donné ». unPackCasseNemporteJamaisLesAutres la ferme."
+quality_score: 90
+expires: "2026-08-17T00:00:00Z"

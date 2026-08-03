@@ -1,0 +1,5 @@
+{
+  "version": "1.0",
+  "author": "Kerlann",
+  "description": "Un pack d'exemple : un fond, un bouton et son survol. Copie ce dossier dans blueprint/scripts/ puis /blueprint-packs reload."
+}

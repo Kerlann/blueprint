@@ -93,6 +93,31 @@ public class BlueprintClient implements ClientModInitializer {
                                         "blueprint edit "
                                                 + StringArgumentType.getString(context, "id"))))));
 
+        // Les packs (10.5) : le dossier qu'on s'échange. Rechargeable à chaud — c'est
+        // tout l'intérêt d'un format qui n'est pas un pack de ressources Minecraft.
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
+                dispatcher.register(ClientCommandManager.literal("blueprint-packs")
+                        .executes(context -> listPacks(context.getSource()))
+                        .then(ClientCommandManager.literal("list")
+                                .executes(context -> listPacks(context.getSource())))
+                        .then(ClientCommandManager.literal("reload")
+                                .executes(context -> reloadPacks(context.getSource())))));
+
+        // Au démarrage, une fois : sans cela le premier menu à images d'une session
+        // montrerait des damiers, et le joueur croirait son pack cassé.
+        ClientTickEvents.END_CLIENT_TICK.register(new ClientTickEvents.EndTick() {
+            private boolean done;
+
+            @Override
+            public void onEndTick(Minecraft client) {
+                if (!done && client.getTextureManager() != null) {
+                    done = true;
+                    fr.blueprint.client.pack.PackTextures.reload(
+                            fr.blueprint.core.BlueprintPaths.scripts());
+                }
+            }
+        });
+
         // Synchro du registre serveur (6.2) puis ouverture/enregistrement réseau (6.3).
         fr.blueprint.client.net.RegistrySync.register();
         fr.blueprint.client.net.BlueprintNet.register();
@@ -116,6 +141,43 @@ public class BlueprintClient implements ClientModInitializer {
             return 0;
         }
         connection.sendCommand(command);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * Les packs installés, et ce qui a été écarté.
+     *
+     * <p>Les rejets sont montrés <b>au joueur</b>, pas seulement au log : celui dont
+     * l'image ne s'affiche pas ne pense pas à ouvrir {@code latest.log}, et c'est
+     * exactement lui qui a besoin de la raison.
+     */
+    private static int listPacks(FabricClientCommandSource source) {
+        var packs = fr.blueprint.client.pack.PackTextures.packs();
+        if (packs.isEmpty()) {
+            source.sendFeedback(Component.translatable("blueprint.pack.none",
+                    fr.blueprint.core.BlueprintPaths.scripts().toString()));
+        } else {
+            source.sendFeedback(Component.translatable("blueprint.pack.header", packs.size()));
+            for (var pack : packs.values()) {
+                source.sendFeedback(Component.literal("- " + pack.summary()));
+            }
+        }
+        for (var rejection : fr.blueprint.client.pack.PackTextures.rejections()) {
+            source.sendFeedback(Component.translatable("blueprint.pack.rejected",
+                    rejection.pack(), rejection.detail()));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int reloadPacks(FabricClientCommandSource source) {
+        var result = fr.blueprint.client.pack.PackTextures.reload(
+                fr.blueprint.core.BlueprintPaths.scripts());
+        source.sendFeedback(Component.translatable("blueprint.pack.reloaded",
+                result.packs().size(), result.rejections().size()));
+        for (var rejection : result.rejections()) {
+            source.sendFeedback(Component.translatable("blueprint.pack.rejected",
+                    rejection.pack(), rejection.detail()));
+        }
         return Command.SINGLE_SUCCESS;
     }
 

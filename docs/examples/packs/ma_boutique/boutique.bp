@@ -1,0 +1,19 @@
+blueprint blueprint:boutique {
+  meta {
+    author "Kerlann"
+    description "Exemple de pack : un menu qui utilise les images de ma_boutique"
+    version "1.0"
+    permission SAFE
+  }
+  screen "boutique" {
+    styles {
+      "bouton" = "#FF262E42", "#FF7AA2F7", 1, "#FFE6E6E6", "#FF3A4868", "#FF141922", "#40303030", 3, center
+    }
+    image "fond" @at(center, 0, 0) @size(160, 96) @texture("ma_boutique/fond") @style("#00000000", "#00000000", 0, "#FFE6E6E6", "#00000000", "#00000000", "#00000000", 0, left)
+    panel "colonne" @in("fond") @at(top_left, 8, 8) @size(144, 80) @layout(column, gap: 4, cross: stretch) @style("#00000000", "#00000000", 0, "#FFE6E6E6", "#00000000", "#00000000", "#00000000", 0, left)
+    label "titre" @in("colonne") @at(top_left, 0, 0) @size(fill, 12) @text("Boutique du village") @style("#00000000", "#00000000", 0, "#FFE6E6E6", "#00000000", "#00000000", "#00000000", 0, left)
+    button "acheter" @in("colonne") @at(top_left, 0, 0) @size(fill, 20) @text("Acheter une pomme") @uses("bouton") @style("#FF262E42", "#FF7AA2F7", 1, "#FFE6E6E6", "#FF3A4868", "#FF141922", "#40303030", 3, center)
+    button "vendre" @in("colonne") @at(top_left, 0, 0) @size(fill, 20) @text("Vendre du ble") @uses("bouton") @style("#FF262E42", "#FF7AA2F7", 1, "#FFE6E6E6", "#FF3A4868", "#FF141922", "#40303030", 3, center)
+    button "fermer" @in("colonne") @at(top_left, 0, 0) @size(fill, 20) @text("Fermer") @uses("bouton") @style("#FF262E42", "#FF7AA2F7", 1, "#FFE6E6E6", "#FF3A4868", "#FF141922", "#40303030", 3, center)
+  }
+}

@@ -14,6 +14,9 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Comme core : la propriété doit traverser jusqu'à la JVM des tests, sinon -D ne
+    // parle qu'au démon Gradle — et la régénération semble tourner sans rien écrire.
+    systemProperty("blueprint.regenDocs", System.getProperty("blueprint.regenDocs") ?: "false")
     // Comme core : les tests tournent sans Minecraft démarré (coding-standards §7).
     // Camera, NodeGeometry et le banc de rendu sont de la logique pure.
     testLogging {

@@ -110,6 +110,11 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             }
 
             @Override
+            public String missingPack(Identifier texture) {
+                return textures.missingPack(texture);
+            }
+
+            @Override
             public boolean hovered(String element) {
                 return element.equals(hovered);
             }
