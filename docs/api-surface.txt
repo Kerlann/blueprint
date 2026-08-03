@@ -132,6 +132,8 @@ class fr.blueprint.api.node.NodeCategories
   field public static final fr.blueprint.api.node.NodeCategory PLAYER
   field public static final fr.blueprint.api.node.NodeCategory PLAYER_ACT
   field public static final fr.blueprint.api.node.NodeCategory PLAYER_FEEDBACK
+  field public static final fr.blueprint.api.node.NodeCategory PLAYER_INVENTORY
+  field public static final fr.blueprint.api.node.NodeCategory SCOREBOARD
   field public static final fr.blueprint.api.node.NodeCategory STRING
   field public static final fr.blueprint.api.node.NodeCategory STRING_EDIT
   field public static final fr.blueprint.api.node.NodeCategory STRING_QUERY

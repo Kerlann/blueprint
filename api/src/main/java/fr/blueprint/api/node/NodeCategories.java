@@ -77,6 +77,9 @@ public final class NodeCategories {
     /** Chercher des entités dans le monde. */
     public static final NodeCategory ENTITY_QUERY = new NodeCategory("entity/query");
 
+    /** Lire et retirer ce que porte le joueur. */
+    public static final NodeCategory PLAYER_INVENTORY = new NodeCategory("player/inventory");
+
     /** Ce que le joueur VOIT et ENTEND : titre, barre d'action, son, particules. */
     public static final NodeCategory PLAYER_FEEDBACK = new NodeCategory("player/feedback");
     /** Agir sur le joueur : donner, retirer, changer son état. */
@@ -86,6 +89,9 @@ public final class NodeCategories {
     public static final NodeCategory EVENT_PLAYER = new NodeCategory("event/player");
     /** Événements du monde et des entités. */
     public static final NodeCategory EVENT_WORLD = new NodeCategory("event/world");
+    /** Scores, objectifs et équipes : la mémoire partagée de Minecraft. */
+    public static final NodeCategory SCOREBOARD = new NodeCategory("scoreboard");
+
     /** Tick, commande, signal : ce qui ne vient ni d'un joueur ni du monde. */
     public static final NodeCategory EVENT_SERVER = new NodeCategory("event/server");
 

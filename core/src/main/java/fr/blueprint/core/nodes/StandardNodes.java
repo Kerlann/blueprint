@@ -415,6 +415,11 @@ public final class StandardNodes {
         ClientNodes.register(r);
         MapNodes.register(r);
         TextMathNodes.register(r);
+        InventoryNodes.register(r);
+        ScoreboardNodes.register(r);
+        RichTextNodes.register(r);
+        RaycastNodes.register(r);
+        BossBarNodes.register(r);
         WorldNodes.register(r);
         EntityNodes.register(r);
         ItemNodes.register(r);

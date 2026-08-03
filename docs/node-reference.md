@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-161 nœuds dans 32 catégories.
+184 nœuds dans 34 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -131,6 +131,23 @@ permission `SAFE` · fuel 1
 | `exec_out` | exec | — |
 | `players` | `list<blueprint:player>` | — |
 
+### `blueprint:world/raycast_entity` — Raycast entity
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `from` | `blueprint:vec3` | — |
+| `direction` | `blueprint:vec3` | — |
+| `distance` | `blueprint:double` | `16.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `hit` | `blueprint:bool` | — |
+| `entity` | `blueprint:entity` | — |
+
 
 ## entity/read
 
@@ -176,6 +193,23 @@ permission `SAFE` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 | `alive` | `blueprint:bool` | — |
+
+### `blueprint:entity/looking_at` — Entity is looking at
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+| `distance` | `blueprint:double` | `6.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `hit` | `blueprint:bool` | — |
+| `pos` | `blueprint:blockpos` | — |
+| `face` | `blueprint:direction` | — |
 
 ### `blueprint:entity/max_health` — Max health
 
@@ -1654,6 +1688,37 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 
+### `blueprint:player/bossbar_hide` — Hide boss bar
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `bar` | `blueprint:string` | `principale` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:player/bossbar_show` — Show boss bar
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `bar` | `blueprint:string` | `principale` |
+| `title` | `blueprint:string` | `` |
+| `progress` | `blueprint:double` | `1.0` |
+| `color` | `blueprint:string` | `white` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
 ### `blueprint:player/particles` — Particles (private)
 
 permission `GAMEPLAY` · fuel 1
@@ -1730,6 +1795,178 @@ permission `GAMEPLAY` · fuel 1
 | Sorties | Type | Défaut |
 |---|---|---|
 | `exec_out` | exec | — |
+
+
+## player/inventory
+
+### `blueprint:player/count_item` — Count item
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `item` | `blueprint:resourcelocation` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `count` | `blueprint:int` | — |
+
+### `blueprint:player/has_item` — Has item
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `item` | `blueprint:resourcelocation` | — |
+| `count` | `blueprint:int` | `1` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `has` | `blueprint:bool` | — |
+
+### `blueprint:player/main_hand` — Main hand item
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `item` | `blueprint:itemstack` | — |
+
+### `blueprint:player/off_hand` — Off hand item
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `item` | `blueprint:itemstack` | — |
+
+### `blueprint:player/remove_item` — Remove item
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `item` | `blueprint:resourcelocation` | — |
+| `count` | `blueprint:int` | `1` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `removed` | `blueprint:int` | — |
+
+
+## scoreboard
+
+### `blueprint:score/add` — Add to score
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+| `objective` | `blueprint:string` | `points` |
+| `amount` | `blueprint:int` | `1` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `score` | `blueprint:int` | — |
+
+### `blueprint:score/get` — Get score
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+| `objective` | `blueprint:string` | `points` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `score` | `blueprint:int` | — |
+| `exists` | `blueprint:bool` | — |
+
+### `blueprint:score/reset` — Reset score
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+| `objective` | `blueprint:string` | `points` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:score/set` — Set score
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+| `objective` | `blueprint:string` | `points` |
+| `score` | `blueprint:int` | `0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:team/of` — Entity team
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `entity` | `blueprint:entity` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `team` | `blueprint:string` | — |
+| `in_team` | `blueprint:bool` | — |
+
+### `blueprint:team/same` — Same team
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `a` | `blueprint:entity` | — |
+| `b` | `blueprint:entity` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `same` | `blueprint:bool` | — |
 
 
 ## string/edit
@@ -1919,6 +2156,45 @@ permission `SAFE` · fuel 1 · P
 
 ## text
 
+### `blueprint:text/click_command` — Click: run command
+
+permission `ADMIN` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+| `command` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+
+### `blueprint:text/click_copy` — Click: copy
+
+permission `GAMEPLAY` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+| `value` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+
+### `blueprint:text/click_suggest` — Click: suggest
+
+permission `GAMEPLAY` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+| `command` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+
 ### `blueprint:text/colored` — Colored text
 
 permission `SAFE` · fuel 1 · P
@@ -1945,6 +2221,19 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `text` | `blueprint:text` | — |
 
+### `blueprint:text/hover` — Hover text
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+| `tooltip` | `blueprint:text` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+
 ### `blueprint:text/literal` — Text
 
 permission `SAFE` · fuel 1 · P
@@ -1952,6 +2241,34 @@ permission `SAFE` · fuel 1 · P
 | Entrées | Type | Défaut |
 |---|---|---|
 | `value` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+
+### `blueprint:text/styled` — Styled text
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+| `bold` | `blueprint:bool` | `false` |
+| `italic` | `blueprint:bool` | `false` |
+| `underlined` | `blueprint:bool` | `false` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `text` | `blueprint:text` | — |
+
+### `blueprint:text/translate` — Translated text
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `key` | `blueprint:string` | `` |
+| `arg` | `blueprint:string` | `` |
 
 | Sorties | Type | Défaut |
 |---|---|---|
@@ -2002,6 +2319,26 @@ permission `SAFE` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 | `light` | `blueprint:int` | — |
+
+### `blueprint:world/raycast` — Raycast
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `from` | `blueprint:vec3` | — |
+| `direction` | `blueprint:vec3` | — |
+| `distance` | `blueprint:double` | `16.0` |
+| `through_fluids` | `blueprint:bool` | `false` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `hit` | `blueprint:bool` | — |
+| `pos` | `blueprint:blockpos` | — |
+| `face` | `blueprint:direction` | — |
+| `point` | `blueprint:vec3` | — |
 
 ### `blueprint:world/set_block` — Set block
 
@@ -2081,6 +2418,19 @@ permission `GAMEPLAY` · fuel 1
 
 
 ## world/state
+
+### `blueprint:world/bossbar_remove` — Remove boss bar
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `bar` | `blueprint:string` | `principale` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
 
 ### `blueprint:world/dimension` — Dimension
 

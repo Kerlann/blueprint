@@ -102,6 +102,9 @@ public class BlueprintMod implements ModInitializer {
         });
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             fr.blueprint.api.event.BlueprintEvents.uninstall();
+            // Les barres de boss sont le seul état vivant que laissent les nœuds :
+            // sans ce nettoyage, elles survivraient à un rechargement sans propriétaire.
+            fr.blueprint.core.nodes.BossBarNodes.clear();
             BRIDGES.remove(server);
         });
 
