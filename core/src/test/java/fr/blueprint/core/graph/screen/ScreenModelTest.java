@@ -58,9 +58,12 @@ class ScreenModelTest {
 
     @Test
     void uneLongueurIncoherenteEstRefuseeALaConstruction() {
-        assertThrows(IllegalArgumentException.class, () -> new Extent(Double.NaN, false, 0, 0));
-        assertThrows(IllegalArgumentException.class, () -> new Extent(1, true, -1, 0));
-        assertThrows(IllegalArgumentException.class, () -> new Extent(1, true, 100, 50),
+        assertThrows(IllegalArgumentException.class,
+                () -> new Extent(Extent.Mode.FIXED, Double.NaN, 0, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Extent(Extent.Mode.PERCENT, 1, -1, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Extent(Extent.Mode.PERCENT, 1, 100, 50),
                 "borne haute sous la basse : la taille n'aurait aucune solution");
     }
 

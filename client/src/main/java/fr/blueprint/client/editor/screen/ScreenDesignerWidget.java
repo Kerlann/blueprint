@@ -154,12 +154,14 @@ public final class ScreenDesignerWidget {
      * coup, elle arrive sous forme de rapport de bug d'un joueur en <i>GUI scale</i> 4.
      */
     private void renderOverflow(GuiGraphics g, Screen screen) {
+        // La zone garantie se mesure toujours à 320×180, quelle que soit la taille
+        // simulée du canevas : c'est la fenêtre du joueur le moins bien loti.
+        var placed = ScreenLayout.solve(screen, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
         for (ScreenElement element : screen.elements().values()) {
-            if (!fr.blueprint.core.graph.ScreenRules.outsideSafeArea(screen, element)) {
+            ScreenLayout.Rect rect = placed.get(element.name());
+            if (rect == null || !fr.blueprint.core.graph.ScreenRules.outsideSafeArea(rect)) {
                 continue;
             }
-            ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
-                    Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
             int left = surface.toScreenX(rect.x());
             int topPx = surface.toScreenY(rect.y());
             int right = surface.toScreenX(rect.right());
@@ -172,8 +174,11 @@ public final class ScreenDesignerWidget {
     }
 
     private void renderSelection(GuiGraphics g, Screen screen) {
+        // Une seule passe pour toute la sélection : rectOf en résout une par élément, et
+        // vingt éléments sélectionnés en auraient donc lancé vingt par image.
+        var placed = controller.rects();
         for (String name : controller.selection().ids()) {
-            ScreenLayout.Rect rect = controller.rectOf(name);
+            ScreenLayout.Rect rect = placed.get(name);
             if (rect == null) {
                 continue;
             }
@@ -189,11 +194,15 @@ public final class ScreenDesignerWidget {
         if (controller.selection().size() != 1) {
             return;
         }
-        ScreenLayout.Rect rect = controller.rectOf(controller.selection().ids().iterator().next());
+        String only = controller.selection().ids().iterator().next();
+        ScreenLayout.Rect rect = placed.get(only);
         if (rect == null) {
             return;
         }
-        for (ScreenCanvasController.Handle handle : ScreenCanvasController.Handle.values()) {
+        // Seules les poignées qui AGISSENT sont dessinées : sur un enfant rangé par son
+        // conteneur, tirer une largeur ne changerait rien, et une poignée inerte fait
+        // croire à un outil cassé.
+        for (ScreenCanvasController.Handle handle : controller.operableHandles(only)) {
             int hx = surface.toScreenX(rect.x() + rect.width() * handle.fractionX());
             int hy = surface.toScreenY(rect.y() + rect.height() * handle.fractionY());
             g.fill(hx - 2, hy - 2, hx + 2, hy + 2, HANDLE);
@@ -362,34 +371,193 @@ public final class ScreenDesignerWidget {
         return "blueprint.designer.kind." + kind.name().toLowerCase(java.util.Locale.ROOT);
     }
 
+    /**
+     * Une zone cliquable du panneau. Le rendu et le clic <b>partagent la même liste</b> :
+     * les deux se recalculaient chacun leurs ordonnées, et toute rangée ajoutée au milieu
+     * décalait les clics d'un cran sans que rien ne le dise (story 10.10).
+     */
+    private record Chip(String label, int x, int width, boolean active, Runnable onClick) {
+    }
+
+    private record Row(int y, String label, java.util.List<Chip> chips,
+                       ElementPropertiesState.@Nullable Field field, @Nullable String value) {
+    }
+
+    private java.util.List<Row> propertyRows() {
+        ScreenElement element = properties.element();
+        Screen screen = controller.screen();
+        if (element == null || screen == null) {
+            return java.util.List.of();
+        }
+        java.util.List<Row> rows = new java.util.ArrayList<>();
+        int y = top + 3;
+        rows.add(new Row(y, I18n.get(kindKey(element.kind())), java.util.List.of(), null, null));
+        y += ROW;
+
+        // L'ancre : une grille 3×3 cliquable. Elle se faisait défiler d'un clic parmi
+        // neuf valeurs à l'aveugle — jusqu'à huit clics pour atteindre celle qu'on veut.
+        // Inutile si le parent range ses enfants : leur place ne vient pas de l'ancre.
+        boolean arranged = arrangedByParent(screen, element);
+        if (!arranged) {
+            int[] cell = properties.anchorCell();
+            for (int row = 0; row < 3; row++) {
+                java.util.List<Chip> chips = new java.util.ArrayList<>(3);
+                for (int column = 0; column < 3; column++) {
+                    int c = column;
+                    int r = row;
+                    chips.add(new Chip("", 52 + column * 11, 10,
+                            cell[0] == column && cell[1] == row,
+                            () -> apply(properties.setAnchor(c, r))));
+                }
+                rows.add(new Row(y, row == 0 ? I18n.get("blueprint.designer.anchor") : "",
+                        chips, null, null));
+                y += ROW;
+            }
+        }
+
+        for (ElementPropertiesState.Field field : ElementPropertiesState.Field.values()) {
+            if (!fieldApplies(element, field, arranged)) {
+                continue;
+            }
+            // Chaque axe de taille porte ses quatre modes : les taper en texte demandait
+            // de connaître une syntaxe qu'aucun panneau n'affichait.
+            java.util.List<Chip> chips = java.util.List.of();
+            if (field == ElementPropertiesState.Field.WIDTH
+                    || field == ElementPropertiesState.Field.HEIGHT) {
+                boolean horizontal = field == ElementPropertiesState.Field.WIDTH;
+                chips = sizeModeChips(element, horizontal);
+            }
+            boolean editing = properties.isEditing(field);
+            rows.add(new Row(y, I18n.get(fieldKey(field)), chips, field,
+                    editing ? properties.buffer() + "_" : properties.valueOf(field)));
+            y += ROW;
+        }
+
+        if (element.kind().container()) {
+            rows.add(new Row(y, I18n.get("blueprint.designer.layout"),
+                    enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Mode.values(),
+                            element.layout().mode(), "blueprint.designer.layout.",
+                            mode -> apply(properties.setLayoutMode(mode))), null, null));
+            y += ROW;
+            if (element.arranges()) {
+                rows.add(new Row(y, I18n.get("blueprint.designer.main"),
+                        enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Distribute.values(),
+                                element.layout().main(), "blueprint.designer.main.",
+                                main -> apply(properties.setLayoutMain(main))), null, null));
+                y += ROW;
+                rows.add(new Row(y, I18n.get("blueprint.designer.cross"),
+                        enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Cross.values(),
+                                element.layout().cross(), "blueprint.designer.cross.",
+                                cross -> apply(properties.setLayoutCross(cross))), null, null));
+                y += ROW;
+            }
+        }
+
+        y += 2;
+        rows.add(new Row(y, I18n.get("blueprint.designer.styles"), java.util.List.of(
+                new Chip(I18n.get("blueprint.designer.styles.create"), 4, PROPERTIES_WIDTH - 8,
+                        false, controller::createStyleFromSelection)), null, null));
+        y += ROW;
+        if (screen.styles().isEmpty()) {
+            rows.add(new Row(y, I18n.get("blueprint.designer.styles.none"),
+                    java.util.List.of(), null, null));
+        }
+        for (String styleName : screen.styles().keySet()) {
+            rows.add(new Row(y, "", java.util.List.of(
+                    new Chip(styleName, 4, PROPERTIES_WIDTH - 40,
+                            styleName.equals(element.styleName()),
+                            () -> controller.applyStyleToSelection(styleName)),
+                    new Chip(I18n.get("blueprint.designer.styles.detach"),
+                            PROPERTIES_WIDTH - 34, 30, false,
+                            () -> controller.applyStyleToSelection(""))), null, null));
+            y += ROW;
+        }
+        return rows;
+    }
+
+    /** Les quatre modes de taille d'un axe, celui en cours mis en avant. */
+    private java.util.List<Chip> sizeModeChips(ScreenElement element, boolean horizontal) {
+        var current = (horizontal ? element.width() : element.height()).mode();
+        java.util.List<Chip> chips = new java.util.ArrayList<>(4);
+        int x = 52;
+        for (var mode : fr.blueprint.core.graph.screen.Extent.Mode.values()) {
+            String label = I18n.get("blueprint.designer.size."
+                    + mode.name().toLowerCase(java.util.Locale.ROOT));
+            chips.add(new Chip(label, x, 17, current == mode,
+                    () -> apply(properties.setSizeMode(horizontal, mode))));
+            x += 18;
+        }
+        return chips;
+    }
+
+    private <E extends Enum<E>> java.util.List<Chip> enumChips(
+            E[] values, E current, String keyPrefix, java.util.function.Consumer<E> onPick) {
+        java.util.List<Chip> chips = new java.util.ArrayList<>(values.length);
+        int x = 52;
+        for (E value : values) {
+            String label = I18n.get(keyPrefix + value.name().toLowerCase(java.util.Locale.ROOT));
+            chips.add(new Chip(label, x, 17, current == value, () -> onPick.accept(value)));
+            x += 18;
+        }
+        return chips;
+    }
+
+    /**
+     * Un champ n'est montré que s'il agit. Un x/y sur un enfant rangé par son conteneur
+     * s'écrirait sans rien changer à l'écran, et {@code colonnes} n'existe qu'en grille.
+     */
+    private static boolean fieldApplies(ScreenElement element,
+                                        ElementPropertiesState.Field field, boolean arranged) {
+        return switch (field) {
+            case X, Y -> !arranged;
+            case GAP, CROSS_GAP -> element.arranges();
+            case COLUMNS -> element.layout().mode()
+                    == fr.blueprint.core.graph.screen.LayoutSpec.Mode.GRID;
+            default -> true;
+        };
+    }
+
+    private static boolean arrangedByParent(Screen screen, ScreenElement element) {
+        ScreenElement container = element.parent() == null ? null
+                : screen.element(element.parent());
+        return container != null && container.arranges();
+    }
+
     private void renderProperties(GuiGraphics g, Font font) {
         int left = width - PROPERTIES_WIDTH;
         g.fill(left, top, width, height, PANEL_BACKGROUND);
         g.fill(left, top, left + 1, height, PANEL_BORDER);
 
-        ScreenElement element = properties.element();
-        if (element == null) {
+        if (properties.element() == null) {
             g.drawString(font, I18n.get("blueprint.designer.no_selection"), left + 4, top + 4,
                     DIM_TEXT, false);
             return;
         }
-        int y = top + 3;
-        g.drawString(font, I18n.get(kindKey(element.kind())), left + 4, y, DIM_TEXT, false);
-        y += ROW;
-        g.drawString(font, I18n.get("blueprint.designer.anchor",
-                element.anchor().name().toLowerCase(java.util.Locale.ROOT)), left + 4, y,
-                DIM_TEXT, false);
-        y += ROW;
-
-        for (ElementPropertiesState.Field field : ElementPropertiesState.Field.values()) {
-            boolean editing = properties.isEditing(field);
-            String value = editing ? properties.buffer() + "_" : properties.valueOf(field);
-            int color = editing
-                    ? (properties.valid(this::nameFree) ? SELECTED : INVALID) : TEXT;
-            g.drawString(font, I18n.get(fieldKey(field)), left + 4, y, DIM_TEXT, false);
-            g.drawString(font, font.plainSubstrByWidth(value, PROPERTIES_WIDTH - 56),
-                    left + 52, y, color, false);
-            y += ROW;
+        for (Row row : propertyRows()) {
+            if (!row.label().isEmpty()) {
+                g.drawString(font, font.plainSubstrByWidth(row.label(), PROPERTIES_WIDTH - 8),
+                        left + 4, row.y(), DIM_TEXT, false);
+            }
+            for (Chip chip : row.chips()) {
+                int x = left + chip.x();
+                g.fill(x, row.y() - 1, x + chip.width(), row.y() + ROW - 3,
+                        chip.active() ? SELECTED : PANEL_BORDER);
+                if (!chip.label().isEmpty()) {
+                    g.drawString(font,
+                            font.plainSubstrByWidth(chip.label(), chip.width() - 2),
+                            x + 1, row.y(), chip.active() ? PANEL_BACKGROUND : TEXT, false);
+                }
+            }
+            if (row.value() != null) {
+                boolean editing = properties.isEditing(row.field());
+                int color = editing
+                        ? (properties.valid(this::nameFree) ? SELECTED : INVALID) : TEXT;
+                int valueX = row.chips().isEmpty() ? 52
+                        : row.chips().getLast().x() + row.chips().getLast().width() + 3;
+                g.drawString(font, font.plainSubstrByWidth(row.value(),
+                                PROPERTIES_WIDTH - valueX - 4),
+                        left + valueX, row.y(), color, false);
+            }
         }
     }
 
@@ -418,7 +586,7 @@ public final class ScreenDesignerWidget {
             return clickPalette(my);
         }
         if (mx >= width - PROPERTIES_WIDTH) {
-            return clickProperties(my);
+            return clickProperties(mx, my);
         }
         if (!surface.contains(mx, my)) {
             return false;
@@ -513,22 +681,26 @@ public final class ScreenDesignerWidget {
         }
     }
 
-    private boolean clickProperties(double my) {
+    private boolean clickProperties(double mx, double my) {
         if (properties.element() == null) {
             return true;
         }
-        int y = top + 3 + ROW;
-        if (my >= y && my < y + ROW) {
-            apply(properties.cycleAnchor(1));
-            return true;
-        }
-        y += ROW;
-        for (ElementPropertiesState.Field field : ElementPropertiesState.Field.values()) {
-            if (my >= y && my < y + ROW) {
-                properties.beginEdit(field);
-                return true;
+        double local = mx - (width - PROPERTIES_WIDTH);
+        for (Row row : propertyRows()) {
+            if (my < row.y() - 1 || my >= row.y() + ROW - 1) {
+                continue;
             }
-            y += ROW;
+            for (Chip chip : row.chips()) {
+                if (local >= chip.x() && local < chip.x() + chip.width()) {
+                    chip.onClick().run();
+                    reportRefusal();
+                    return true;
+                }
+            }
+            if (row.field() != null) {
+                properties.beginEdit(row.field());
+            }
+            return true;
         }
         return true;
     }

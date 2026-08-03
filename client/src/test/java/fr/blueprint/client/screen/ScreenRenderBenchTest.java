@@ -2,6 +2,7 @@ package fr.blueprint.client.screen;
 
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.Extent;
+import fr.blueprint.core.graph.screen.LayoutSpec;
 import fr.blueprint.core.graph.screen.Screen;
 import fr.blueprint.core.graph.screen.ScreenElement;
 import fr.blueprint.core.graph.screen.ScreenLayout;
@@ -44,7 +45,8 @@ class ScreenRenderBenchTest {
                     fr.blueprint.core.graph.screen.Anchor.CENTER, 0, 0,
                     Extent.percent(0.8, 200, 600), Extent.percent(0.8, 120, 400),
                     ScreenText.EMPTY, null,
-                    fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, page == 0, true));
+                    fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "",
+                    LayoutSpec.ABSOLUTE, page == 0, true));
             for (int i = 0; i < 15; i++) {
                 elements.add(new ScreenElement("p" + page + "_e" + i, ElementKind.BUTTON,
                         "page" + page,
@@ -52,7 +54,7 @@ class ScreenRenderBenchTest {
                         i % 5 * 12, i * 6,
                         Extent.percent(0.3, 40, 120), Extent.of(16),
                         ScreenText.literal("Bouton " + i), null,
-                        fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, true, true));
+                        fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, true, true));
             }
         }
         return new Screen("dense", false, elements);
@@ -83,16 +85,25 @@ class ScreenRenderBenchTest {
                         perFrame, ELEMENTS, BUDGET_NANOS_PER_FRAME));
     }
 
-    /** Exactement ce que fait {@code ScreenPainter} avant le premier appel de dessin. */
+    /**
+     * Exactement ce que fait {@code ScreenPainter} avant le premier appel de dessin :
+     * <b>une</b> passe de disposition pour tout l'écran, puis le dessin lit la table.
+     *
+     * <p>Le banc mesurait la remontée par élément, celle d'avant les conteneurs. Il
+     * tenait toujours son budget — mais plus sur le code qui tourne, ce qui est la
+     * seule chose qu'un banc serve à garantir (story 10.10).
+     */
     private static double resolveFrame(Screen screen, double[] viewport) {
+        var placed = ScreenLayout.solve(screen, viewport[0], viewport[1]);
         double sum = 0;
         for (ScreenElement element : screen.elements().values()) {
             if (!ScreenPainter.visible(screen, element, ScreenPainter.Visuals.NONE)) {
                 continue;
             }
-            ScreenLayout.Rect rect =
-                    ScreenLayout.resolve(screen, element, viewport[0], viewport[1]);
-            sum += rect.x() + rect.width();
+            ScreenLayout.Rect rect = placed.get(element.name());
+            if (rect != null) {
+                sum += rect.x() + rect.width();
+            }
         }
         return sum;
     }

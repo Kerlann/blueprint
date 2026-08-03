@@ -35,7 +35,13 @@ import java.util.Set;
  */
 public final class ScreenCanvasController {
 
-    public enum Gesture { NONE, MOVE, RUBBER, RESIZE }
+    /**
+     * {@code REORDER} est le geste des enfants <b>rangés</b> par leur conteneur : leur
+     * place ne s'écrit pas, elle se déduit de leur rang. Y glisser écrirait un x/y sans
+     * le moindre effet visible — et un geste sans effet est ce qui fait douter d'un
+     * outil plus sûrement qu'un geste refusé (story 10.10).
+     */
+    public enum Gesture { NONE, MOVE, RUBBER, RESIZE, REORDER }
 
     /** Les huit poignées, dans le sens horaire depuis le coin haut-gauche. */
     public enum Handle {
@@ -251,11 +257,19 @@ public final class ScreenCanvasController {
         return refusal;
     }
 
-    public ScreenLayout.@Nullable Rect rectOf(String element) {
+    /**
+     * Les rectangles de tout l'écran, par la <b>même passe que le rendu</b>. Deux
+     * chemins de résolution divergeraient au premier conteneur qui range ses enfants,
+     * et le concepteur montrerait un menu que le jeu ne dessine pas (story 10.10).
+     */
+    public java.util.Map<String, ScreenLayout.Rect> rects() {
         Screen screen = screen();
-        ScreenElement target = screen == null ? null : screen.element(element);
-        return target == null ? null
-                : ScreenLayout.resolve(screen, target, viewportWidth, viewportHeight);
+        return screen == null ? java.util.Map.of()
+                : ScreenLayout.solve(screen, viewportWidth, viewportHeight);
+    }
+
+    public ScreenLayout.@Nullable Rect rectOf(String element) {
+        return rects().get(element);
     }
 
     /**
@@ -267,11 +281,12 @@ public final class ScreenCanvasController {
         if (screen == null) {
             return null;
         }
+        var rects = rects();
         List<ScreenElement> elements = List.copyOf(screen.elements().values());
         for (int i = elements.size() - 1; i >= 0; i--) {
             ScreenElement element = elements.get(i);
-            if (ScreenLayout.resolve(screen, element, viewportWidth, viewportHeight)
-                    .contains(x, y)) {
+            ScreenLayout.Rect rect = rects.get(element.name());
+            if (rect != null && rect.contains(x, y)) {
                 return element.name();
             }
         }
@@ -287,11 +302,12 @@ public final class ScreenCanvasController {
         if (selection.size() != 1) {
             return null;
         }
-        ScreenLayout.Rect rect = rectOf(selection.ids().iterator().next());
+        String only = selection.ids().iterator().next();
+        ScreenLayout.Rect rect = rectOf(only);
         if (rect == null) {
             return null;
         }
-        for (Handle handle : Handle.values()) {
+        for (Handle handle : operableHandles(only)) {
             double hx = rect.x() + rect.width() * handle.fractionX();
             double hy = rect.y() + rect.height() * handle.fractionY();
             if (Math.abs(x - hx) <= HANDLE_RADIUS && Math.abs(y - hy) <= HANDLE_RADIUS) {
@@ -342,9 +358,63 @@ public final class ScreenCanvasController {
             history.endGesture();
             return;
         }
-        gesture = Gesture.MOVE;
         primary = topmostUnselectedAncestorOr(screen, hit);
+        gesture = arrangedByParent(screen, primary) ? Gesture.REORDER : Gesture.MOVE;
         snapshotSelection(screen);
+    }
+
+    /** Le parent de cet élément range-t-il ses enfants lui-même ? */
+    private boolean arrangedByParent(Screen screen, @Nullable String name) {
+        ScreenElement element = name == null ? null : screen.element(name);
+        if (element == null || element.parent() == null) {
+            return false;
+        }
+        ScreenElement container = screen.element(element.parent());
+        return container != null && container.arranges();
+    }
+
+    /**
+     * Les poignées qui ont un effet sur cet élément. Une poignée de largeur sur un
+     * enfant {@code fill} d'une colonne ne ferait rien : la montrer quand même et la
+     * laisser inerte est pire que ne pas la montrer — l'auteur croit son outil cassé.
+     */
+    public java.util.Set<Handle> operableHandles(String name) {
+        Screen screen = screen();
+        ScreenElement element = screen == null ? null : screen.element(name);
+        if (element == null) {
+            return java.util.Set.of();
+        }
+        boolean freeX = sizeIsWritable(screen, element, true);
+        boolean freeY = sizeIsWritable(screen, element, false);
+        java.util.Set<Handle> out = new LinkedHashSet<>();
+        for (Handle handle : Handle.values()) {
+            if ((handle.freeX() && freeX) || (handle.freeY() && freeY)) {
+                out.add(handle);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Redimensionner cet élément sur cet axe écrit-il quelque chose de visible ? Non si
+     * sa taille est décidée par son conteneur ({@code fill} sur l'axe rangé, étirement
+     * sur l'axe transverse) ou par son propre contenu ({@code hug}).
+     */
+    private boolean sizeIsWritable(Screen screen, ScreenElement element, boolean horizontal) {
+        var extent = horizontal ? element.width() : element.height();
+        if (extent.mode() == fr.blueprint.core.graph.screen.Extent.Mode.FILL
+                || extent.mode() == fr.blueprint.core.graph.screen.Extent.Mode.HUG) {
+            return false;
+        }
+        ScreenElement container = element.parent() == null ? null
+                : screen.element(element.parent());
+        if (container == null || !container.arranges()) {
+            return true;
+        }
+        // Sur l'axe transverse d'un conteneur en étirement, la taille écrite est ignorée.
+        boolean crossAxis = container.layout().vertical() == horizontal;
+        return !(crossAxis && container.layout().cross()
+                == fr.blueprint.core.graph.screen.LayoutSpec.Cross.STRETCH);
     }
 
     public void drag(double x, double y) {
@@ -358,6 +428,7 @@ public final class ScreenCanvasController {
                 rubberEndY = y;
             }
             case MOVE -> moveTo(screen, x - grabX, y - grabY);
+            case REORDER -> reorderTo(screen, x, y);
             case RESIZE -> resizeTo(screen, x, y);
             case NONE -> { }
         }
@@ -369,9 +440,12 @@ public final class ScreenCanvasController {
             if (screen != null) {
                 ScreenLayout.Rect band = rubberBand();
                 List<String> caught = new ArrayList<>();
+                var placed = rects();
                 for (ScreenElement element : screen.elements().values()) {
-                    ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
-                            viewportWidth, viewportHeight);
+                    ScreenLayout.Rect rect = placed.get(element.name());
+                    if (rect == null) {
+                        continue;
+                    }
                     if (rect.x() < band.right() && rect.right() > band.x()
                             && rect.y() < band.bottom() && rect.bottom() > band.y()) {
                         caught.add(element.name());
@@ -400,11 +474,11 @@ public final class ScreenCanvasController {
 
     private void snapshotSelection(Screen screen) {
         grabbed.clear();
+        var placed = rects();
         for (String name : movable()) {
-            ScreenElement element = screen.element(name);
-            if (element != null) {
-                grabbed.put(name, ScreenLayout.resolve(screen, element,
-                        viewportWidth, viewportHeight));
+            ScreenLayout.Rect rect = placed.get(name);
+            if (rect != null) {
+                grabbed.put(name, rect);
             }
         }
     }
@@ -505,12 +579,73 @@ public final class ScreenCanvasController {
         }
     }
 
+    /**
+     * Glisser un enfant rangé change son <b>rang</b> parmi ses frères, et le conteneur
+     * les repose tous. Le rang est appliqué pendant le glisser, pas au relâchement :
+     * l'élément se range sous le curseur à mesure, et l'auteur voit le résultat au lieu
+     * d'une ligne d'insertion qui promet quelque chose.
+     */
+    private void reorderTo(Screen screen, double x, double y) {
+        if (primary == null) {
+            return;
+        }
+        ScreenElement element = screen.element(primary);
+        if (element == null || element.parent() == null) {
+            return;
+        }
+        ScreenElement container = screen.element(element.parent());
+        if (container == null || !container.arranges()) {
+            return;
+        }
+        // Les frères dans l'ordre de dessin, avec leur index GLOBAL : c'est celui-là
+        // que ReorderElement manipule, et les frères n'y sont pas forcément contigus.
+        List<String> order = List.copyOf(screen.elements().keySet());
+        List<Integer> siblings = new ArrayList<>();
+        int from = -1;
+        for (int i = 0; i < order.size(); i++) {
+            ScreenElement candidate = screen.element(order.get(i));
+            if (candidate != null && element.parent().equals(candidate.parent())) {
+                if (order.get(i).equals(primary)) {
+                    from = siblings.size();
+                }
+                siblings.add(i);
+            }
+        }
+        if (from < 0 || siblings.size() < 2) {
+            return;
+        }
+
+        var placed = rects();
+        boolean vertical = container.layout().vertical();
+        double point = vertical ? y : x;
+        int target = 0;
+        for (int rank = 0; rank < siblings.size(); rank++) {
+            if (rank == from) {
+                continue;
+            }
+            ScreenLayout.Rect rect = placed.get(order.get(siblings.get(rank)));
+            if (rect == null) {
+                continue;
+            }
+            double centre = vertical ? rect.y() + rect.height() / 2
+                    : rect.x() + rect.width() / 2;
+            if (point > centre) {
+                target++;
+            }
+        }
+        if (target != from) {
+            applyTracked(new ScreenOps.ReorderElement(screenName, primary,
+                    siblings.get(target) - siblings.get(from)));
+        }
+    }
+
     private List<ScreenLayout.Rect> neighbours(Screen screen) {
         List<ScreenLayout.Rect> out = new ArrayList<>();
+        var placed = rects();
         for (ScreenElement element : screen.elements().values()) {
-            if (!selection.isSelected(element.name())) {
-                out.add(ScreenLayout.resolve(screen, element,
-                        viewportWidth, viewportHeight));
+            ScreenLayout.Rect rect = placed.get(element.name());
+            if (rect != null && !selection.isSelected(element.name())) {
+                out.add(rect);
             }
         }
         return out;
@@ -547,7 +682,19 @@ public final class ScreenCanvasController {
                 bottom = Math.max(snap(y), top + ScreenElement.MIN_SIZE);
             }
         }
-        place(screen, element, new ScreenLayout.Rect(left, top, right - left, bottom - top));
+
+        // Les guides valaient pour le déplacement seulement — alors que caler un bord
+        // sur celui du voisin est justement ce qu'on cherche en redimensionnant. Le
+        // rectangle est accroché puis les bords LIBRES seuls en reprennent la valeur :
+        // sans cela, tirer la poignée est reculerait aussi le bord ouest.
+        ScreenLayout.Rect wanted = new ScreenLayout.Rect(left, top, right - left, bottom - top);
+        AlignmentGuides.Result snapped = AlignmentGuides.snapEdges(wanted, neighbours(screen),
+                activeHandle.freeX() && activeHandle.movesLeft(),
+                activeHandle.freeX() && !activeHandle.movesLeft(),
+                activeHandle.freeY() && activeHandle.movesTop(),
+                activeHandle.freeY() && !activeHandle.movesTop());
+        guides = snapped.guides();
+        place(screen, element, snapped.rect());
     }
 
     /**
@@ -555,12 +702,12 @@ public final class ScreenCanvasController {
      * enfant qui déborde de son cadre est invisible en jeu — le parent découpe — et
      * l'auteur ne comprendrait pas pourquoi son bouton a disparu.
      */
-    private void place(Screen screen, ScreenElement element, ScreenLayout.Rect target) {
+    private boolean place(Screen screen, ScreenElement element, ScreenLayout.Rect target) {
         ScreenLayout.Rect parent = ScreenLayout.parentRect(screen, element,
                 viewportWidth, viewportHeight);
         ScreenLayout.Rect bounded = element.parent() == null ? target : confine(parent, target);
         ScreenElement placed = ScreenLayout.placedIn(parent, element, bounded);
-        applyTracked(new ScreenOps.SetElement(screenName, placed));
+        return applyTracked(new ScreenOps.SetElement(screenName, placed));
     }
 
     /**
@@ -619,12 +766,12 @@ public final class ScreenCanvasController {
 
     /** Le conteneur le plus haut sous le point : poser dans un panneau y rattache. */
     private @Nullable String hitContainer(Screen screen, double x, double y) {
+        var placed = rects();
         List<ScreenElement> elements = List.copyOf(screen.elements().values());
         for (int i = elements.size() - 1; i >= 0; i--) {
             ScreenElement element = elements.get(i);
-            if (element.kind().container()
-                    && ScreenLayout.resolve(screen, element, viewportWidth, viewportHeight)
-                    .contains(x, y)) {
+            ScreenLayout.Rect rect = placed.get(element.name());
+            if (element.kind().container() && rect != null && rect.contains(x, y)) {
                 return element.name();
             }
         }
@@ -754,6 +901,71 @@ public final class ScreenCanvasController {
      * Le nom est-il libre ? Sert au contrôle <b>en direct</b> du panneau de propriétés
      * (AC7) : un doublon doit se voir pendant la frappe, pas au moment de valider.
      */
+    // ------------------------------------------------------ styles nommés (10.10)
+
+    /** Les styles de l'écran courant, dans leur ordre de création. */
+    public Map<String, fr.blueprint.core.graph.screen.ElementStyle> styles() {
+        Screen screen = screen();
+        return screen == null ? Map.of() : screen.styles();
+    }
+
+    /**
+     * Crée un style nommé à partir du <b>premier élément sélectionné</b>, et y attache
+     * toute la sélection. C'est le geste qui rend les styles réels plutôt que théoriques :
+     * on peint un bouton comme on le veut, puis on dit « les autres comme celui-là ».
+     */
+    public @Nullable String createStyleFromSelection() {
+        Screen screen = screen();
+        if (screen == null || selection.isEmpty()) {
+            return null;
+        }
+        ScreenElement source = screen.element(selection.ids().iterator().next());
+        if (source == null) {
+            return null;
+        }
+        String name = freshName(screen.styles().keySet(), "style");
+        history.beginGesture();
+        try {
+            if (!applyTracked(new ScreenOps.SetScreen(
+                    screen.withStyle(name, screen.styleOf(source))))) {
+                return null;
+            }
+            applyStyleToSelection(name);
+        } finally {
+            history.endGesture();
+        }
+        return name;
+    }
+
+    /** Attache un style nommé à toute la sélection ; un nom vide l'en détache. */
+    public boolean applyStyleToSelection(String styleName) {
+        Screen screen = screen();
+        if (screen == null || selection.isEmpty()) {
+            return false;
+        }
+        boolean any = false;
+        history.beginGesture();
+        try {
+            for (String name : selection.ids()) {
+                ScreenElement element = screen.element(name);
+                if (element != null && !styleName.equals(element.styleName())) {
+                    any |= applyTracked(new ScreenOps.SetElement(screenName,
+                            element.withStyleName(styleName)));
+                }
+            }
+        } finally {
+            history.endGesture();
+        }
+        return any;
+    }
+
+    /** Redéfinit un style nommé : tous ceux qui le suivent changent d'un coup. */
+    public boolean putStyle(String styleName, fr.blueprint.core.graph.screen.ElementStyle style) {
+        Screen screen = screen();
+        return screen != null
+                && applyTracked(new ScreenOps.SetScreen(screen.withStyle(styleName, style)));
+    }
+
     public boolean nameAvailable(String candidate, String current) {
         Screen screen = screen();
         if (screen == null || candidate == null || candidate.isBlank()) {
@@ -803,17 +1015,44 @@ public final class ScreenCanvasController {
         boolean any = false;
         history.beginGesture();
         try {
+            var placed = rects();
             for (String name : movable()) {
                 ScreenElement element = screen.element(name);
-                if (element != null) {
-                    any |= applyTracked(new ScreenOps.SetElement(screenName,
-                            element.movedTo(element.x() + dx, element.y() + dy)));
+                ScreenLayout.Rect rect = placed.get(name);
+                if (element == null || rect == null) {
+                    continue;
                 }
+                // Un enfant rangé n'a pas de position à décaler : ses frères la lui
+                // donnent. Les flèches le font changer de RANG, comme le glisser.
+                if (arrangedByParent(screen, name)) {
+                    any |= nudgeRank(screen, element, dx, dy);
+                    continue;
+                }
+                // Par le MÊME chemin que la souris : le raccourci direct par
+                // {@code movedTo} ne confinait pas dans le parent, si bien qu'une
+                // flèche maintenue faisait sortir un bouton de son cadre là où le
+                // glisser l'en empêchait. Deux gestes, un seul résultat attendu.
+                any |= place(screen, element, new ScreenLayout.Rect(
+                        rect.x() + dx, rect.y() + dy, rect.width(), rect.height()));
             }
         } finally {
             history.endGesture();
         }
         return any;
+    }
+
+    /** Une flèche sur un enfant rangé le monte ou le descend d'un cran. */
+    private boolean nudgeRank(Screen screen, ScreenElement element, double dx, double dy) {
+        ScreenElement container = screen.element(element.parent());
+        if (container == null) {
+            return false;
+        }
+        double along = container.layout().vertical() ? dy : dx;
+        if (along == 0) {
+            return false;
+        }
+        return applyTracked(new ScreenOps.ReorderElement(screenName, element.name(),
+                along > 0 ? 1 : -1));
     }
 
     /** Les six alignements, sur le rectangle englobant de la sélection. */
@@ -840,13 +1079,13 @@ public final class ScreenCanvasController {
         boolean any = false;
         history.beginGesture();
         try {
+            var placed = rects();
             for (String name : targets) {
                 ScreenElement element = screen.element(name);
-                if (element == null) {
+                ScreenLayout.Rect rect = placed.get(name);
+                if (element == null || rect == null) {
                     continue;
                 }
-                ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
-                        viewportWidth, viewportHeight);
                 double x = switch (align) {
                     case LEFT -> bounds.x();
                     case CENTER_X -> bounds.x() + (bounds.width() - rect.width()) / 2;
@@ -886,11 +1125,11 @@ public final class ScreenCanvasController {
             return false;
         }
         Map<String, ScreenLayout.Rect> rects = new HashMap<>();
+        var placed = rects();
         for (String name : targets) {
             ScreenElement element = screen.element(name);
-            if (element != null) {
-                rects.put(name, ScreenLayout.resolve(screen, element,
-                        viewportWidth, viewportHeight));
+            if (element != null && placed.containsKey(name)) {
+                rects.put(name, placed.get(name));
             }
         }
         targets.removeIf(name -> !rects.containsKey(name));
@@ -932,13 +1171,12 @@ public final class ScreenCanvasController {
         double right = -Double.MAX_VALUE;
         double bottom = -Double.MAX_VALUE;
         boolean any = false;
+        var placed = rects();
         for (String name : names) {
-            ScreenElement element = screen.element(name);
-            if (element == null) {
+            ScreenLayout.Rect rect = placed.get(name);
+            if (rect == null) {
                 continue;
             }
-            ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
-                    viewportWidth, viewportHeight);
             left = Math.min(left, rect.x());
             top = Math.min(top, rect.y());
             right = Math.max(right, rect.right());

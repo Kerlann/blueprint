@@ -83,6 +83,76 @@ public final class AlignmentGuides {
         return new Result(snapped, List.copyOf(guides));
     }
 
+    /**
+     * Accroche les <b>bords indiqués</b> sans déplacer les autres — ce qu'il faut au
+     * redimensionnement, où seul le bord tiré bouge.
+     *
+     * <p>Les guides ne valaient que pour le déplacement, alors que caler un bord sur
+     * celui du voisin est justement ce qu'on cherche en redimensionnant : c'était le
+     * geste le plus pénible du concepteur, et le seul où l'aide manquait (story 10.10).
+     */
+    public static Result snapEdges(ScreenLayout.Rect moving, List<ScreenLayout.Rect> neighbours,
+                                   boolean west, boolean east, boolean north, boolean south) {
+        Candidate bestX = null;
+        Candidate bestY = null;
+        for (ScreenLayout.Rect other : neighbours) {
+            for (double edge : new double[]{other.x(), other.right()}) {
+                if (west) {
+                    bestX = better(bestX, moving.x(), edge, other);
+                }
+                if (east) {
+                    bestX = better(bestX, moving.right(), edge, other);
+                }
+            }
+            for (double edge : new double[]{other.y(), other.bottom()}) {
+                if (north) {
+                    bestY = better(bestY, moving.y(), edge, other);
+                }
+                if (south) {
+                    bestY = better(bestY, moving.bottom(), edge, other);
+                }
+            }
+        }
+
+        double left = moving.x();
+        double top = moving.y();
+        double right = moving.right();
+        double bottom = moving.bottom();
+        if (bestX != null) {
+            if (bestX.source() == left) {
+                left = Math.min(bestX.target(), right - MIN_EDGE);
+            } else {
+                right = Math.max(bestX.target(), left + MIN_EDGE);
+            }
+        }
+        if (bestY != null) {
+            if (bestY.source() == top) {
+                top = Math.min(bestY.target(), bottom - MIN_EDGE);
+            } else {
+                bottom = Math.max(bestY.target(), top + MIN_EDGE);
+            }
+        }
+        ScreenLayout.Rect snapped =
+                new ScreenLayout.Rect(left, top, right - left, bottom - top);
+
+        List<Guide> guides = new ArrayList<>(2);
+        if (bestX != null) {
+            guides.add(new Guide(true, bestX.target(),
+                    Math.min(snapped.y(), bestX.other().y()),
+                    Math.max(snapped.bottom(), bestX.other().bottom())));
+        }
+        if (bestY != null) {
+            guides.add(new Guide(false, bestY.target(),
+                    Math.min(snapped.x(), bestY.other().x()),
+                    Math.max(snapped.right(), bestY.other().right())));
+        }
+        return new Result(snapped, List.copyOf(guides));
+    }
+
+    /** Un bord accroché ne doit jamais retourner l'élément : la taille minimale tient. */
+    private static final double MIN_EDGE =
+            fr.blueprint.core.graph.screen.ScreenElement.MIN_SIZE;
+
     private record Candidate(double source, double target, double distance,
                              ScreenLayout.Rect other) {
     }

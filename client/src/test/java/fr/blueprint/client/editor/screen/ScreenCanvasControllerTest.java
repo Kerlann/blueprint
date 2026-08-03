@@ -6,6 +6,7 @@ import fr.blueprint.core.graph.NodeTypeLookup;
 import fr.blueprint.core.graph.ScreenOps;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.Extent;
+import fr.blueprint.core.graph.screen.LayoutSpec;
 import fr.blueprint.core.graph.screen.Screen;
 import fr.blueprint.core.graph.screen.ScreenElement;
 import fr.blueprint.core.graph.screen.ScreenLayout;
@@ -255,7 +256,7 @@ class ScreenCanvasControllerTest {
                 fr.blueprint.core.graph.screen.Anchor.TOP_LEFT, 0, 0,
                 Extent.percent(0.5, 0, 0), Extent.of(40),
                 fr.blueprint.core.graph.screen.ScreenText.EMPTY, null,
-                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, true, true));
+                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, true, true));
         controller.press(80, 20, false);
         controller.release();
 
@@ -406,6 +407,130 @@ class ScreenCanvasControllerTest {
         assertEquals(ScreenCanvasController.Gesture.NONE, controller.gesture());
         assertTrue(controller.selection().isEmpty());
         assertNull(controller.screen().element("a"), "l'autre écran est vide");
+    }
+
+    // ------------------------------------------------- conteneurs qui rangent (10.10)
+
+    /** Une colonne de trois boutons, rangés par elle : aucun x/y n'est écrit nulle part. */
+    private void colonneDeTrois() {
+        put(ScreenElement.of("colonne", ElementKind.PANEL, 0, 0, 100, 150)
+                .withLayout(fr.blueprint.core.graph.screen.LayoutSpec.column(4)));
+        for (String name : List.of("a", "b", "c")) {
+            put(ScreenElement.of(name, ElementKind.BUTTON, 0, 0, 100, 40)
+                    .withParent("colonne"));
+        }
+    }
+
+    /**
+     * <b>Le geste qui change de nature.</b> Dans un conteneur qui range, glisser ne
+     * repositionne pas : ça réordonne. Écrire un x/y n'aurait aucun effet visible — et
+     * un geste sans effet fait douter de l'outil plus sûrement qu'un geste refusé.
+     */
+    @Test
+    void glisserDansUneColonneReordonneAuLieuDeDeplacer() {
+        colonneDeTrois();
+        assertEquals(List.of("colonne", "a", "b", "c"),
+                List.copyOf(controller.screen().elements().keySet()));
+
+        // « a » est en haut ; on le tire sous « c ».
+        double aCentre = controller.rectOf("a").y() + controller.rectOf("a").height() / 2;
+        controller.press(20, aCentre, false);
+        controller.drag(20, controller.rectOf("c").bottom() - 1);
+        controller.release();
+
+        assertEquals(List.of("colonne", "b", "c", "a"),
+                List.copyOf(controller.screen().elements().keySet()),
+                "le rang a changé");
+        assertEquals(0, element("a").y(), 1e-9, "et aucune coordonnée n'a été écrite");
+        assertEquals(0, element("b").y(), 1e-9);
+        assertTrue(controller.rectOf("a").y() > controller.rectOf("c").y(),
+                "à l'écran, « a » est bien passé sous « c »");
+    }
+
+    /** Hors d'un conteneur qui range, le glisser reste un déplacement — comme avant. */
+    @Test
+    void glisserResteUnDeplacementDansUnConteneurAbsolu() {
+        put(ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 150, 150));
+        put(ScreenElement.of("a", ElementKind.BUTTON, 10, 10, 40, 20).withParent("cadre"));
+
+        dragFrom(20, 20, 60, 60);
+        assertEquals(50, element("a").x(), 1e-9);
+        assertEquals(50, element("a").y(), 1e-9);
+    }
+
+    /**
+     * Une poignée de largeur sur un enfant {@code fill} ne ferait rien : la montrer
+     * quand même et la laisser inerte est pire que ne pas la montrer.
+     */
+    @Test
+    void lesPoigneesInoperantesNeSontPasProposees() {
+        put(ScreenElement.of("colonne", ElementKind.PANEL, 0, 0, 100, 150)
+                .withLayout(fr.blueprint.core.graph.screen.LayoutSpec.column(4)
+                        .withCross(fr.blueprint.core.graph.screen.LayoutSpec.Cross.STRETCH)));
+        put(ScreenElement.of("a", ElementKind.BUTTON, 0, 0, 100, 40).withParent("colonne")
+                .resized(fr.blueprint.core.graph.screen.Extent.of(100),
+                        fr.blueprint.core.graph.screen.Extent.fill()));
+
+        var handles = controller.operableHandles("a");
+        assertTrue(handles.isEmpty(),
+                () -> "hauteur fill, largeur étirée : rien à tirer, mais " + handles);
+
+        put(ScreenElement.of("libre", ElementKind.BUTTON, 10, 10, 40, 20));
+        assertEquals(8, controller.operableHandles("libre").size(),
+                "un élément libre garde ses huit poignées");
+    }
+
+    /**
+     * Les flèches passaient par {@code movedTo} en direct : pas de confinement dans le
+     * parent, là où le glisser en imposait un. Deux gestes pour un seul résultat attendu.
+     */
+    @Test
+    void lesFlechesConfinentDansLeParentCommeLaSouris() {
+        put(ScreenElement.of("cadre", ElementKind.PANEL, 10, 10, 100, 60));
+        put(ScreenElement.of("bouton", ElementKind.BUTTON, 4, 4, 40, 20).withParent("cadre"));
+        controller.selection().selectAll(List.of("bouton"), false);
+
+        for (int i = 0; i < 60; i++) {
+            controller.nudgeSelection(10, 10);
+        }
+
+        ScreenLayout.Rect rect = controller.rectOf("bouton");
+        assertTrue(rect.right() <= 110 + 1e-9, "bord droit dans le cadre : " + rect);
+        assertTrue(rect.bottom() <= 70 + 1e-9, "bord bas dans le cadre : " + rect);
+    }
+
+    /** Sur un enfant rangé, les flèches changent le rang — la position n'existe pas. */
+    @Test
+    void lesFlechesChangentLeRangDansUnConteneurQuiRange() {
+        colonneDeTrois();
+        controller.selection().selectAll(List.of("a"), false);
+
+        assertTrue(controller.nudgeSelection(0, 2));
+        assertEquals(List.of("colonne", "b", "a", "c"),
+                List.copyOf(controller.screen().elements().keySet()));
+        assertEquals(0, element("a").y(), 1e-9, "toujours aucune coordonnée écrite");
+    }
+
+    /**
+     * Caler un bord sur celui du voisin est ce qu'on cherche en redimensionnant — et
+     * c'était le seul geste du concepteur où l'aide manquait.
+     */
+    @Test
+    void lesGuidesAccrochentAussiAuRedimensionnement() {
+        put(ScreenElement.of("repere", ElementKind.LABEL, 100, 40, 40, 20));
+        put(ScreenElement.of("mobile", ElementKind.LABEL, 10, 100, 40, 20));
+        controller.selection().selectAll(List.of("mobile"), false);
+
+        // Poignée est, tirée à une unité du bord gauche du repère.
+        controller.press(50, 110, false);
+        controller.drag(101, 110);
+
+        assertEquals(100, controller.rectOf("mobile").right(), 1e-9, "accroché sur le bord");
+        assertEquals(10, controller.rectOf("mobile").x(), 1e-9,
+                "et le bord opposé n'a pas bougé");
+        assertFalse(controller.guides().isEmpty(), "la ligne est montrée");
+        controller.release();
+        assertTrue(controller.guides().isEmpty());
     }
 
     /** Un écran supprimé sous les pieds du concepteur ne le fait pas tomber. */

@@ -152,19 +152,39 @@ public final class GraphValidator {
                         Diagnostic.screen(screen.name()),
                         screen.size(), limits.maxElementsPerScreen()));
             }
+            // Une seule passe de disposition pour tout l'écran : c'est ce qui donne la
+            // taille RÉELLE de chaque élément, celle qui se décide entre frères. La
+            // remontée par élément, elle, ne connaît que le parent (story 10.10).
+            var rects = fr.blueprint.core.graph.screen.ScreenLayout.solve(
+                    screen, fr.blueprint.core.graph.screen.Screen.SAFE_WIDTH,
+                    fr.blueprint.core.graph.screen.Screen.SAFE_HEIGHT);
             for (var element : screen.elements().values()) {
                 Diagnostic refusal =
                         ScreenRules.checkPlacement(screen.name(), screen, element, limits);
                 if (refusal != null) {
                     out.add(refusal);
                 }
+                var rect = rects.get(element.name());
+                if (rect == null) {
+                    continue;   // parenté cyclique : déjà signalée par checkPlacement
+                }
                 // Déborder de la zone garantie n'est qu'un AVERTISSEMENT : le menu
                 // reste valide, mais son auteur doit apprendre à la conception qu'une
                 // partie de ses joueurs ne le verra pas entier.
-                if (ScreenRules.outsideSafeArea(screen, element)) {
+                if (ScreenRules.outsideSafeArea(rect)) {
                     out.add(Diagnostic.warning(DiagnosticCode.ELEMENT_OUTSIDE_SAFE_AREA,
                             Diagnostic.element(screen.name(), element.name()),
                             element.name()));
+                }
+                if (ScreenRules.squeezed(rect)) {
+                    out.add(Diagnostic.warning(DiagnosticCode.ELEMENT_SQUEEZED,
+                            Diagnostic.element(screen.name(), element.name()),
+                            element.name()));
+                }
+                if (ScreenRules.styleNotFound(screen, element)) {
+                    out.add(Diagnostic.warning(DiagnosticCode.SCREEN_STYLE_NOT_FOUND,
+                            Diagnostic.element(screen.name(), element.name()),
+                            element.name(), element.styleName()));
                 }
             }
         }

@@ -61,4 +61,38 @@ class DesignerLocalizationTest {
         }
         assertTrue(missing.isEmpty(), "champs de propriétés non traduits : " + missing);
     }
+
+    /**
+     * Les modes de taille et de disposition (story 10.10) : une clé par valeur
+     * d'énumération, construite à l'exécution comme les champs. Ajouter un mode sans sa
+     * traduction afficherait un bouton nommé {@code blueprint.designer.size.wrap}.
+     */
+    @Test
+    void everyLayoutAndSizeModeIsTranslated() {
+        JsonObject english = lang("en_us");
+        JsonObject french = lang("fr_fr");
+        List<String> missing = new ArrayList<>();
+        record Family(String prefix, Enum<?>[] values) {
+        }
+        for (Family family : List.of(
+                new Family("blueprint.designer.size.",
+                        fr.blueprint.core.graph.screen.Extent.Mode.values()),
+                new Family("blueprint.designer.layout.",
+                        fr.blueprint.core.graph.screen.LayoutSpec.Mode.values()),
+                new Family("blueprint.designer.main.",
+                        fr.blueprint.core.graph.screen.LayoutSpec.Distribute.values()),
+                new Family("blueprint.designer.cross.",
+                        fr.blueprint.core.graph.screen.LayoutSpec.Cross.values()))) {
+            for (Enum<?> value : family.values()) {
+                String key = family.prefix() + value.name().toLowerCase(Locale.ROOT);
+                if (!english.has(key)) {
+                    missing.add(key + " (en_us)");
+                }
+                if (!french.has(key)) {
+                    missing.add(key + " (fr_fr)");
+                }
+            }
+        }
+        assertTrue(missing.isEmpty(), "modes non traduits : " + missing);
+    }
 }

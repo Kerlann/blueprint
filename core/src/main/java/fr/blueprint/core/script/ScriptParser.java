@@ -21,6 +21,7 @@ import fr.blueprint.core.graph.screen.Anchor;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
+import fr.blueprint.core.graph.screen.LayoutSpec;
 import fr.blueprint.core.graph.screen.Screen;
 import fr.blueprint.core.graph.screen.ScreenElement;
 import fr.blueprint.core.graph.screen.ScreenText;
@@ -165,6 +166,11 @@ public final class ScriptParser {
 
     private Token peek() {
         return tokens.get(position);
+    }
+
+    /** Le jeton à {@code offset} rangs devant ; le dernier (fin de fichier) au-delà. */
+    private Token peekAt(int offset) {
+        return tokens.get(Math.min(position + offset, tokens.size() - 1));
     }
 
     private Token next() {
@@ -330,7 +336,15 @@ public final class ScriptParser {
         expect("sym", "{");
         List<ScreenElement> elements = new ArrayList<>();
         Set<String> seen = new HashSet<>();
+        java.util.LinkedHashMap<String, ElementStyle> styles = new java.util.LinkedHashMap<>();
         while (!eat("sym", "}")) {
+            // « styles » n'est pas un type d'élément, et un élément est toujours suivi
+            // de son nom entre guillemets : la levée d'ambiguïté tient sur l'accolade.
+            if (peek().kind().equals("word") && peek().text().equals("styles")
+                    && peekAt(1).kind().equals("sym") && peekAt(1).text().equals("{")) {
+                parseScreenStyles(styles);
+                continue;
+            }
             ScreenElement element = parseElement();
             if (!seen.add(element.name())) {
                 throw new ParseError(peek().line(),
@@ -339,7 +353,7 @@ public final class ScriptParser {
             elements.add(element);
         }
         try {
-            GraphLoader.addScreen(bp, new Screen(name, hud, elements));
+            GraphLoader.addScreen(bp, new Screen(name, hud, elements, styles));
         } catch (IllegalArgumentException e) {
             throw new ParseError(keyword.line(), e.getMessage());
         }
@@ -365,6 +379,8 @@ public final class ScriptParser {
         ScreenText text = ScreenText.EMPTY;
         Identifier texture = null;
         ElementStyle style = ElementStyle.DEFAULT;
+        String styleName = "";
+        LayoutSpec layout = LayoutSpec.ABSOLUTE;
         boolean visible = true;
         boolean enabled = true;
 
@@ -421,6 +437,12 @@ public final class ScriptParser {
                 }
                 case "hidden" -> visible = false;
                 case "disabled" -> enabled = false;
+                case "layout" -> layout = parseLayout();
+                case "uses" -> {
+                    expect("sym", "(");
+                    styleName = expect("string", null).text();
+                    expect("sym", ")");
+                }
                 case "style" -> style = parseStyle();
                 default -> throw new ParseError(ann.line(),
                         "annotation inconnue @" + ann.text() + " sur un élément");
@@ -428,22 +450,44 @@ public final class ScriptParser {
         }
         try {
             return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                    text, texture, style, visible, enabled);
+                    text, texture, style, styleName, layout, visible, enabled);
         } catch (IllegalArgumentException e) {
             throw new ParseError(kindToken.line(), e.getMessage());
         }
     }
 
-    /** {@code 80} pour une taille fixe, {@code 50%[100, 300]} pour une relative bornée. */
+    /**
+     * {@code 80} pour une taille fixe, {@code 50%[100, 300]} pour une relative bornée,
+     * {@code fill} / {@code fill:2} pour une part de la place restante, {@code hug} pour
+     * un conteneur qui s'ajuste. Les bornes {@code [min, max]} valent pour tous.
+     */
     private Extent parseExtent() {
         Token token = next();
-        double value = number(token);
-        if (!eat("sym", "%")) {
-            return wrapExtent(token, () -> Extent.of(value));
+        Extent.Mode mode;
+        double value;
+        if (token.kind().equals("word")) {
+            switch (token.text()) {
+                case "fill" -> {
+                    mode = Extent.Mode.FILL;
+                    value = eat("sym", ":") ? number(next()) : 1;
+                }
+                case "hug" -> {
+                    mode = Extent.Mode.HUG;
+                    value = 0;
+                }
+                default -> throw new ParseError(token.line(),
+                        "taille inconnue « " + token.text() + " » (attendu : un nombre, "
+                                + "un pourcentage, fill ou hug)");
+            }
+        } else if (eat("sym", "%")) {
+            mode = Extent.Mode.PERCENT;
+            // Décimale courte, comme à l'émission : diviser le double par 100 ne rendrait
+            // pas la fraction d'origine (7 / 100 ≠ 0,07 au bit près).
+            value = new java.math.BigDecimal(token.text()).movePointLeft(2).doubleValue();
+        } else {
+            mode = Extent.Mode.FIXED;
+            value = number(token);
         }
-        // Décimale courte, comme à l'émission : diviser le double par 100 ne rendrait
-        // pas la fraction d'origine (7 / 100 ≠ 0,07 au bit près).
-        double fraction = new java.math.BigDecimal(token.text()).movePointLeft(2).doubleValue();
         double min = 0;
         double max = 0;
         if (eat("sym", "[")) {
@@ -452,9 +496,64 @@ public final class ScriptParser {
             max = number(next());
             expect("sym", "]");
         }
+        Extent.Mode builtMode = mode;
+        double builtValue = value;
         double boundedMin = min;
         double boundedMax = max;
-        return wrapExtent(token, () -> Extent.percent(fraction, boundedMin, boundedMax));
+        return wrapExtent(token,
+                () -> new Extent(builtMode, builtValue, boundedMin, boundedMax));
+    }
+
+    /** {@code @layout(column, gap: 4, cross: stretch)} — tout est optionnel sauf le mode. */
+    private LayoutSpec parseLayout() {
+        expect("sym", "(");
+        Token modeToken = expect("word", null);
+        LayoutSpec.Mode mode = enumOf(LayoutSpec.Mode.class, modeToken, "disposition");
+        LayoutSpec spec = LayoutSpec.ABSOLUTE.withMode(mode);
+        while (eat("sym", ",")) {
+            Token key = expect("word", null);
+            expect("sym", ":");
+            spec = switch (key.text()) {
+                case "gap" -> spec.withGap(number(next()));
+                case "crossGap" -> spec.withCrossGap(number(next()));
+                case "columns" -> spec.withColumns((int) number(next()));
+                case "main" -> spec.withMain(
+                        enumOf(LayoutSpec.Distribute.class, expect("word", null), "répartition"));
+                case "cross" -> spec.withCross(
+                        enumOf(LayoutSpec.Cross.class, expect("word", null), "alignement"));
+                default -> throw new ParseError(key.line(),
+                        "réglage de disposition inconnu « " + key.text() + " »");
+            };
+        }
+        expect("sym", ")");
+        return spec;
+    }
+
+    /** Le bloc {@code styles { "nom" = ... }} en tête d'un écran (story 10.10). */
+    private void parseScreenStyles(java.util.Map<String, ElementStyle> out) {
+        expect("word", "styles");
+        expect("sym", "{");
+        while (!eat("sym", "}")) {
+            Token name = expect("string", null);
+            if (name.text().isEmpty()) {
+                throw new ParseError(name.line(), "un style nommé ne peut pas être anonyme");
+            }
+            if (out.containsKey(name.text())) {
+                throw new ParseError(name.line(),
+                        "style « " + name.text() + " » déjà défini dans cet écran");
+            }
+            expect("sym", "=");
+            out.put(name.text(), parseStyleFields());
+        }
+    }
+
+    private <E extends Enum<E>> E enumOf(Class<E> type, Token token, String what) {
+        try {
+            return Enum.valueOf(type, token.text().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new ParseError(token.line(),
+                    what + " inconnue « " + token.text() + " »");
+        }
     }
 
     private Extent wrapExtent(Token token, java.util.function.Supplier<Extent> build) {
@@ -466,7 +565,15 @@ public final class ScriptParser {
     }
 
     private ElementStyle parseStyle() {
-        Token open = expect("sym", "(");
+        expect("sym", "(");
+        ElementStyle style = parseStyleFields();
+        expect("sym", ")");
+        return style;
+    }
+
+    /** Les neuf champs d'un style, sans leur ponctuation englobante. */
+    private ElementStyle parseStyleFields() {
+        Token open = peek();
         int background = argb();
         expect("sym", ",");
         int border = argb();
@@ -491,7 +598,6 @@ public final class ScriptParser {
             throw new ParseError(alignToken.line(),
                     "alignement inconnu « " + alignToken.text() + " »");
         }
-        expect("sym", ")");
         try {
             return new ElementStyle(background, border, borderWidth, textColor,
                     hover, pressed, disabled, padding, align);

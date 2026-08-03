@@ -292,7 +292,13 @@ class LocalizationTest {
                     // Types d'élément et champs du concepteur (10.2) : construits à
                     // l'exécution, et vérifiés par les deux tests ci-dessous.
                     || key.startsWith("blueprint.designer.kind.")
-                    || key.startsWith("blueprint.designer.field.")) {
+                    || key.startsWith("blueprint.designer.field.")
+                    // Modes de taille et de disposition (10.10) : une clé par valeur
+                    // d'énumération, et le test ci-dessous les exige toutes.
+                    || key.startsWith("blueprint.designer.size.")
+                    || key.startsWith("blueprint.designer.layout.")
+                    || key.startsWith("blueprint.designer.main.")
+                    || key.startsWith("blueprint.designer.cross.")) {
                 continue;
             }
             dead.add(key);

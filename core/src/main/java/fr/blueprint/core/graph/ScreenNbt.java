@@ -4,6 +4,7 @@ import fr.blueprint.core.graph.screen.Anchor;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
+import fr.blueprint.core.graph.screen.LayoutSpec;
 import fr.blueprint.core.graph.screen.Screen;
 import fr.blueprint.core.graph.screen.ScreenElement;
 import fr.blueprint.core.graph.screen.ScreenText;
@@ -71,6 +72,11 @@ public final class ScreenNbt {
             elements.add(encodeElement(element));
         }
         tag.put("elements", elements);
+        if (!screen.styles().isEmpty()) {
+            CompoundTag styles = new CompoundTag();
+            screen.styles().forEach((styleName, style) -> styles.put(styleName, encodeStyle(style)));
+            tag.put("styles", styles);
+        }
         return tag;
     }
 
@@ -94,14 +100,34 @@ public final class ScreenNbt {
             tag.putString("texture", element.texture().toString());
         }
         tag.put("style", encodeStyle(element.style()));
+        if (element.followsNamedStyle()) {
+            tag.putString("styleName", element.styleName());
+        }
+        if (element.layout().arranges()) {
+            tag.put("layout", encodeLayout(element.layout()));
+        }
         tag.putBoolean("visible", element.visible());
         tag.putBoolean("enabled", element.enabled());
+        return tag;
+    }
+
+    private static CompoundTag encodeLayout(LayoutSpec layout) {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("mode", layout.mode().name().toLowerCase(Locale.ROOT));
+        tag.putDouble("gap", layout.gap());
+        tag.putDouble("crossGap", layout.crossGap());
+        tag.putInt("columns", layout.columns());
+        tag.putString("main", layout.main().name().toLowerCase(Locale.ROOT));
+        tag.putString("cross", layout.cross().name().toLowerCase(Locale.ROOT));
         return tag;
     }
 
     private static CompoundTag encodeExtent(Extent extent) {
         CompoundTag tag = new CompoundTag();
         tag.putDouble("v", extent.value());
+        tag.putString("mode", extent.mode().name().toLowerCase(Locale.ROOT));
+        // « rel » reste écrit : une version antérieure du mod relit alors les tailles
+        // fixes et les pourcentages correctement, au lieu de tout croire fixe.
         tag.putBoolean("rel", extent.relative());
         tag.putDouble("min", extent.min());
         tag.putDouble("max", extent.max());
@@ -162,7 +188,12 @@ public final class ScreenNbt {
             }
             elements.add(element);
         }
-        return new Screen(name, tag.getBooleanOr("hud", false), elements);
+        java.util.Map<String, ElementStyle> styles = new java.util.LinkedHashMap<>();
+        CompoundTag styleTag = tag.getCompoundOrEmpty("styles");
+        for (String styleName : styleTag.keySet()) {
+            styles.put(styleName, decodeStyle(styleTag.getCompoundOrEmpty(styleName)));
+        }
+        return new Screen(name, tag.getBooleanOr("hud", false), elements, styles);
     }
 
     private static @Nullable ScreenElement decodeElement(CompoundTag tag) {
@@ -186,15 +217,48 @@ public final class ScreenNbt {
                 decodeExtent(tag.getCompoundOrEmpty("h")),
                 text, texture,
                 decodeStyle(tag.getCompoundOrEmpty("style")),
+                tag.getStringOr("styleName", ""),
+                decodeLayout(tag.getCompoundOrEmpty("layout")),
                 tag.getBooleanOr("visible", true),
                 tag.getBooleanOr("enabled", true));
+    }
+
+    /**
+     * La disposition d'un conteneur (10.10). Absente — tous les écrans d'avant — vaut
+     * {@code ABSOLUTE}, c'est-à-dire le comportement historique : chaque enfant se place
+     * lui-même. C'est ce qui fait qu'aucun fichier enregistré ne change de sens.
+     */
+    private static LayoutSpec decodeLayout(CompoundTag tag) {
+        if (tag.isEmpty()) {
+            return LayoutSpec.ABSOLUTE;
+        }
+        return new LayoutSpec(
+                enumOr(LayoutSpec.Mode.class, tag.getStringOr("mode", ""),
+                        LayoutSpec.Mode.ABSOLUTE),
+                tag.getDoubleOr("gap", 0), tag.getDoubleOr("crossGap", 0),
+                tag.getIntOr("columns", 1),
+                enumOr(LayoutSpec.Distribute.class, tag.getStringOr("main", ""),
+                        LayoutSpec.Distribute.START),
+                enumOr(LayoutSpec.Cross.class, tag.getStringOr("cross", ""),
+                        LayoutSpec.Cross.START));
+    }
+
+    /** Une valeur d'énumération inconnue retombe sur le défaut plutôt que de lever. */
+    private static <E extends Enum<E>> E enumOr(Class<E> type, String raw, E fallback) {
+        for (E value : type.getEnumConstants()) {
+            if (value.name().equalsIgnoreCase(raw)) {
+                return value;
+            }
+        }
+        return fallback;
     }
 
     /**
      * Une longueur illisible retombe sur une taille minimale plutôt que de lever : un
      * écran à moitié lu vaut mieux qu'un monde qui refuse de charger.
      */
-    private static Extent decodeExtent(CompoundTag tag) {
+    /** Visible pour que la rétrocompatibilité des tailles soit testable directement. */
+    static Extent decodeExtent(CompoundTag tag) {
         double min = Math.max(0, tag.getDoubleOr("min", 0));
         double max = Math.max(0, tag.getDoubleOr("max", 0));
         if (max > 0 && max < min) {
@@ -204,7 +268,13 @@ public final class ScreenNbt {
         if (!Double.isFinite(value)) {
             value = ScreenElement.MIN_SIZE;
         }
-        return new Extent(value, tag.getBooleanOr("rel", false), min, max);
+        // Le mode a remplacé le drapeau « rel » (10.10). Un fichier d'avant n'a pas de
+        // « mode » : on le déduit du drapeau, et la longueur garde exactement le sens
+        // qu'elle avait. C'est ce qui fait qu'aucun écran enregistré ne bouge.
+        Extent.Mode mode = tag.getStringOr("mode", "").isEmpty()
+                ? (tag.getBooleanOr("rel", false) ? Extent.Mode.PERCENT : Extent.Mode.FIXED)
+                : enumOr(Extent.Mode.class, tag.getStringOr("mode", ""), Extent.Mode.FIXED);
+        return new Extent(mode, value, min, max);
     }
 
     private static ElementStyle decodeStyle(CompoundTag tag) {

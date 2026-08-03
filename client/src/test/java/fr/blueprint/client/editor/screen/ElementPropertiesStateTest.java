@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.function.Predicate;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -189,6 +190,108 @@ class ElementPropertiesStateTest {
 
         assertNull(state.editing());
         assertEquals("", state.buffer());
+    }
+
+    // ------------------------------------------------- manipulation directe (10.10)
+
+    /**
+     * L'ancre se posait en faisant défiler neuf valeurs à l'aveugle : jusqu'à huit clics
+     * pour atteindre celle qu'on voulait, sans jamais voir laquelle venait ensuite. La
+     * grille 3×3 la donne d'un clic, et montre laquelle est active.
+     */
+    @Test
+    void lAncreSePoseParSaCaseDansLaGrille() {
+        assertArrayEquals(new int[]{0, 0}, state.anchorCell(), "TOP_LEFT en haut à gauche");
+
+        ScreenElement centre = state.setAnchor(1, 1);
+        assertNotNull(centre);
+        assertEquals(Anchor.CENTER, centre.anchor());
+
+        state.select(centre);
+        assertArrayEquals(new int[]{1, 1}, state.anchorCell());
+        assertEquals(Anchor.BOTTOM_RIGHT, state.setAnchor(2, 2).anchor());
+        assertNull(state.setAnchor(3, 0), "hors de la grille : rien");
+    }
+
+    /**
+     * Changer de mode garde les bornes mais <b>remplace la valeur</b> quand elle n'a plus
+     * de sens : reprendre 60 comme fraction donnerait 6000 % du parent — un élément que
+     * l'auteur ne retrouverait plus.
+     */
+    @Test
+    void changerDeModeDeTailleNeGardeQueCeQuiAUnSens() {
+        state.select(ScreenElement.of("b", ElementKind.BUTTON, 0, 0, 60, 20)
+                .resized(Extent.percent(0.5, 20, 120), Extent.of(20)));
+
+        ScreenElement fixe = state.setSizeMode(true, Extent.Mode.FIXED);
+        assertEquals(Extent.Mode.FIXED, fixe.width().mode());
+        assertEquals(20, fixe.width().min(), 1e-9, "les bornes survivent");
+        assertEquals(120, fixe.width().max(), 1e-9);
+
+        ScreenElement remplir = state.setSizeMode(true, Extent.Mode.FILL);
+        assertEquals(Extent.Mode.FILL, remplir.width().mode());
+        assertEquals(1, remplir.width().value(), 1e-9, "poids par défaut, pas 0,5");
+
+        state.select(remplir);
+        assertTrue(state.sizeValueMatters(true), "un poids se règle");
+        state.select(state.setSizeMode(true, Extent.Mode.HUG));
+        assertFalse(state.sizeValueMatters(true), "« ajuster » ne consomme aucune valeur");
+    }
+
+    /** La taille s'écrit aussi au clavier, dans la même syntaxe qu'en BScript. */
+    @Test
+    void laTailleSeTapeCommeEnBScript() {
+        state.select(ScreenElement.of("b", ElementKind.BUTTON, 0, 0, 60, 20)
+                .resized(new Extent(Extent.Mode.FIXED, 60, 10, 200), Extent.of(20)));
+
+        edit(ElementPropertiesState.Field.WIDTH, "fill:2");
+        ScreenElement out = state.commit(LIBRE);
+        assertEquals(Extent.Mode.FILL, out.width().mode());
+        assertEquals(2, out.width().value(), 1e-9);
+        assertEquals(10, out.width().min(), 1e-9, "les bornes ne se perdent pas à la frappe");
+
+        state.select(out);
+        edit(ElementPropertiesState.Field.WIDTH, "hug");
+        assertEquals(Extent.Mode.HUG, state.commit(LIBRE).width().mode());
+
+        state.select(out);
+        edit(ElementPropertiesState.Field.WIDTH, "n'importe quoi");
+        assertFalse(state.valid(LIBRE));
+        assertNull(state.commit(LIBRE), "rien d'invalide n'entre dans le modèle");
+    }
+
+    /** Les réglages de disposition passent par les mêmes champs que le reste. */
+    @Test
+    void laDispositionSeRegleDepuisLePanneau() {
+        state.select(ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 100, 100));
+
+        ScreenElement colonne = state.setLayoutMode(
+                fr.blueprint.core.graph.screen.LayoutSpec.Mode.COLUMN);
+        assertTrue(colonne.arranges());
+
+        state.select(colonne);
+        edit(ElementPropertiesState.Field.GAP, "6");
+        ScreenElement espace = state.commit(LIBRE);
+        assertEquals(6, espace.layout().gap(), 1e-9);
+
+        state.select(espace);
+        assertEquals(fr.blueprint.core.graph.screen.LayoutSpec.Cross.STRETCH,
+                state.setLayoutCross(fr.blueprint.core.graph.screen.LayoutSpec.Cross.STRETCH)
+                        .layout().cross());
+        assertEquals("6", state.valueOf(ElementPropertiesState.Field.GAP));
+    }
+
+    /** Suivre un style nommé n'efface pas le style en ligne : détacher le rend intact. */
+    @Test
+    void suivreUnStyleNommePuisSEnDetacher() {
+        ScreenElement suiveur = state.useStyle("principal");
+        assertTrue(suiveur.followsNamedStyle());
+        assertEquals("principal", suiveur.styleName());
+
+        state.select(suiveur);
+        ScreenElement detache = state.useStyle("");
+        assertFalse(detache.followsNamedStyle());
+        assertEquals(suiveur.style(), detache.style(), "le style en ligne n'a pas bougé");
     }
 
     @Test

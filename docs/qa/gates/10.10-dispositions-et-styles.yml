@@ -1,0 +1,74 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.10"
+story_title: "Dispositions, tailles et styles nommés"
+gate: "PASS"
+status_reason: "Un panneau range ses enfants, une taille dit comment elle occupe l'espace, un style se nomme une fois. Les deux irritants de fond sont prouvés par test : insérer au milieu d'une colonne déplace les suivants sans qu'aucune coordonnée soit écrite, et le même écran tient à 320×180 comme à 960×540. Quatre défauts trouvés en revue ont été corrigés avant le gate, dont un qui rendait invisible tout élément au parent disparu et un contrôle qui ne faisait rien."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T21:46:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "LAYOUT-001"
+    severity: high
+    finding: "La passe descendante ne plaçait JAMAIS un élément dont le parent a disparu — supprimé, reçu du réseau, ou relu d'une sauvegarde antérieure. Il n'est l'enfant de personne dans l'arbre, donc il n'était visité par aucune branche. La remontée par élément, elle, le faisait retomber sur l'écran. Régression silencieuse : le validateur signale bien la référence morte, mais l'auteur l'aurait d'abord constatée par un menu amputé et aurait cherché la cause dans le dessin"
+    suggested_action: "Corrigé — childrenIn rattache les orphelins à la racine, exactement comme resolve le faisait. Test unOrphelinRetombeSurLEcranAuLieuDeDisparaitre"
+  - id: "LAYOUT-002"
+    severity: high
+    finding: "HUG était dans le modèle, dans le NBT, dans le BScript, dans la validation et dans le panneau de propriétés — et ne faisait RIEN dans la passe : un conteneur qui s'ajuste recevait la taille minimale. Un contrôle inopérant est précisément ce que cette story corrige ailleurs (les poignées grisées) ; le laisser aurait été incohérent avec son propre argumentaire"
+    suggested_action: "Corrigé — mesure ascendante measured/contentSize, bornée en profondeur pour les cycles. Quatre tests, dont l'imbrication dans une colonne étirée et le cycle de conteneurs qui s'ajustent"
+  - id: "LAYOUT-003"
+    severity: medium
+    finding: "Les six méthodes de copie de Screen construisaient l'écran sans sa table de styles : ajouter un élément à un écran stylé l'aurait dépouillé de tous ses styles d'un coup. Même classe de défaut que Blueprint.copy() perdant les écrans en 10.1"
+    suggested_action: "Corrigé avant l'exécution, et verrouillé par toutesLesCopiesDEcranEmportentLaTableDeStyles qui les exerce toutes les six"
+  - id: "LAYOUT-004"
+    severity: medium
+    finding: "Les deux bancs de rendu mesuraient encore la remontée par élément — le chemin d'avant les conteneurs. Ils tenaient leur budget, mais plus sur le code qui tourne : un banc qui mesure autre chose que la production ne garantit rien"
+    suggested_action: "Corrigé — les deux bancs appellent solve, comme ScreenPainter. Budgets tenus"
+  - id: "LAYOUT-005"
+    severity: medium
+    finding: "Un Extent FIXE borné perdait ses bornes à l'export BScript : renderExtent ne les émettait que pour un pourcentage. Défaut préexistant, du même genre que le filtre d'événement perdu en 7.x — invisible tant qu'un test ne compare que des comptes"
+    suggested_action: "Corrigé — les bornes sont émises pour tous les modes, et l'aller-retour compare le CONTENU (dispositionsEtStylesNommesReviennentIdentiques vérifie explicitement max=200 sur une taille fixe)"
+  - id: "LAYOUT-006"
+    severity: medium
+    finding: "nudgeSelection court-circuitait place() : ni grille ni confinement dans le parent, là où le glisser en imposait un. Une flèche maintenue faisait sortir un bouton de son cadre. Incohérence préexistante relevée à l'exploration"
+    suggested_action: "Corrigé — les deux gestes passent par le même chemin, et sur un enfant rangé la flèche change le RANG. Deux tests"
+  - id: "LAYOUT-007"
+    severity: low
+    finding: "en_us.json portait 86 séquences mojibake, du même perl sans couche UTF-8 qui avait abîmé fr_fr. Découvert en ajoutant les clés du panneau ; aucun test ne l'attrapait, le résultat étant de l'UTF-8 valide mais faux"
+    suggested_action: "Corrigé — 29 clés restaurées valeur par valeur depuis d616542, la dernière version saine, plutôt que par un décodage global (le fichier mêlait des chaînes mojibakées une fois, deux fois, et pas du tout : une passe uniforme produisait des caractères de contrôle)"
+  - id: "LAYOUT-008"
+    severity: low
+    finding: "La règle columns < 1 prévue au plan est inatteignable : le constructeur compact de LayoutSpec borne déjà columns à 1. Une règle de validation qui ne peut pas se déclencher donnerait un faux sentiment de couverture"
+    suggested_action: "Assumé — la contrainte est tenue par construction, ce qui vaut mieux qu'un diagnostic. Aucun code de diagnostic n'a été créé pour elle"
+  - id: "LAYOUT-009"
+    severity: low
+    finding: "HUG reste refusé sur un élément non conteneur : un texte ne peut pas s'ajuster à son contenu"
+    suggested_action: "Limite délibérée — mesurer une police n'existe que côté client, alors que la même passe tourne côté serveur pour la validation. Deux mesures divergentes reproduiraient le défaut que la passe existe pour empêcher. Erreur explicite ELEMENT_HUG_NOT_CONTAINER plutôt qu'un silence ; le dimensionnement au contenu d'un texte sera une story qui devra trancher la question de la mesure de face"
+  - id: "LAYOUT-010"
+    severity: low
+    finding: "Le glisser-réordonner ne traite que l'élément saisi : une sélection multiple dont plusieurs membres sont rangés ne les réordonne pas tous"
+    suggested_action: "Borné et documenté. Réordonner plusieurs frères à la fois n'a pas de geste évident (où va le groupe ?) ; le cas courant est un élément à la fois"
+  - id: "LAYOUT-011"
+    severity: low
+    finding: "Le panneau de styles et le rendu des contrôles ne sont vérifiés par aucun test — le dessin ne se teste pas headless"
+    suggested_action: "Borné : la table de rangées est partagée entre le rendu et le clic, ce qui supprime la classe de défaut visée (les deux se recalculaient chacun leurs ordonnées, et toute rangée insérée décalait les clics sans que rien ne le dise). L'état sous-jacent est testé (ElementPropertiesState, +5 tests), les actions de style aussi. Reste à voir de ses yeux : VERIFY-10.10"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 4, low: 5 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "La passe solve est le point unique de rupture : rendu, hit-test, validation et concepteur en dépendent tous. Elle a été écrite et rendue verte SEULE (25 tests) avant qu'aucun appelant ne bascule."
+      - "SetScreen ne rejoue toujours pas ScreenRules (décision assumée de la 10.1, pour ne pas casser l'annulation). Les nouvelles règles de disposition héritent de ce trou ; GraphGuard reste le filet côté réseau."
+evidence:
+  tests_reviewed: 922
+  gametests: 12
+  new_tests:
+    - "ScreenLayoutSolveTest (25) — la passe, testée seule avant toute bascule"
+    - "ScreenStyleTest (8) — styles nommés et règles de disposition"
+    - "ScriptRoundTripTest, ScreenNbtTest — aller-retour comparé sur le contenu"
+    - "ScreenCanvasControllerTest (+6), ElementPropertiesStateTest (+5), DesignerLocalizationTest (+1)"
+    - "Gametest aColumnLayoutScreenOpensAndTheRightButtonRuns — la chaîne complète"
+  risks_without_gate:
+    - "Un écran à disposition dont la validation serveur et le dessin client divergeraient s'afficherait correctement et se cliquerait à côté — la panne la plus pénible à diagnostiquer de l'épic, puisque tout a l'air juste. Le gametest la ferme."
+quality_score: 92
+expires: "2026-08-17T00:00:00Z"

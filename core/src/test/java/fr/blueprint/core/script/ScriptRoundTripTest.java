@@ -14,6 +14,7 @@ import fr.blueprint.core.graph.screen.Anchor;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
+import fr.blueprint.core.graph.screen.LayoutSpec;
 import fr.blueprint.core.graph.screen.ScreenElement;
 import fr.blueprint.core.graph.screen.ScreenText;
 import fr.blueprint.core.registry.PluginLoader;
@@ -318,8 +319,7 @@ class ScriptRoundTripTest {
                 Identifier.fromNamespaceAndPath("pack", "textures/gui/fond.png"),
                 new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
                         0xFF203040, 0xFF001020, 0x40101010, 4,
-                        ElementStyle.TextAlign.CENTER),
-                false, false);
+                        ElementStyle.TextAlign.CENTER), "", LayoutSpec.ABSOLUTE, false, false);
         var child = ScreenElement.of("ok", ElementKind.BUTTON, 5, 5, 60, 20)
                 .withParent("cadre")
                 .withText(ScreenText.literal("Valider \"maintenant\""));
@@ -350,6 +350,50 @@ class ScriptRoundTripTest {
             assertEquals(fraction, roundTrip(before).screen("menu").element("x").width().value(),
                     0.0, "fraction " + fraction);
         }
+    }
+
+    /**
+     * Dispositions, tailles {@code fill}/{@code hug} et styles nommés (story 10.10).
+     *
+     * <p>Le contenu est comparé, pas des comptes : c'est ce test-là qui a manqué au
+     * projet quand l'export perdait silencieusement le filtre d'un événement. Un écran
+     * dont la disposition ne survit pas au {@code .bp} se rouvre en tas d'éléments
+     * empilés en haut à gauche — et rien n'aurait dit d'où ça vient.
+     */
+    @Test
+    void dispositionsEtStylesNommesReviennentIdentiques() {
+        var style = new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
+                0xFF203040, 0xFF001020, 0x40101010, 4, ElementStyle.TextAlign.CENTER);
+        var colonne = ScreenElement.of("colonne", ElementKind.PANEL, 0, 0, 200, 160)
+                .withLayout(LayoutSpec.column(6).withMain(LayoutSpec.Distribute.SPACE_BETWEEN)
+                        .withCross(LayoutSpec.Cross.STRETCH));
+        var grille = ScreenElement.of("grille", ElementKind.PANEL, 0, 0, 200, 100)
+                .withLayout(LayoutSpec.grid(3, 4, 2))
+                .resized(Extent.fill(), Extent.hug())
+                .withParent("colonne");
+        var bouton = ScreenElement.of("acheter", ElementKind.BUTTON, 0, 0, 60, 20)
+                .withParent("colonne")
+                .resized(new Extent(Extent.Mode.FILL, 2.5, 20, 90), Extent.of(20))
+                .withStyleName("bouton");
+        var borne = ScreenElement.of("borne", ElementKind.LABEL, 0, 0, 40, 12)
+                .withParent("colonne")
+                .resized(new Extent(Extent.Mode.FIXED, 40, 10, 200), Extent.of(12));
+
+        Blueprint before = withScreens(new fr.blueprint.core.graph.screen.Screen(
+                "menu", false, List.of(colonne, grille, bouton, borne),
+                java.util.Map.of("bouton", style)));
+
+        Blueprint back = roundTrip(before);
+        assertTrue(before.contentEquals(back),
+                () -> "aller-retour non identique :\n"
+                        + ScriptGenerator.generate(before, LOADED.nodes()).text());
+
+        var relu = back.screen("menu");
+        assertEquals(style, relu.styleOf(relu.element("acheter")),
+                "l'élément suit toujours le style nommé, pas son style en ligne");
+        assertEquals(2.5, relu.element("acheter").width().value(), 1e-9, "le poids du fill");
+        assertEquals(200, relu.element("borne").width().max(), 1e-9,
+                "les bornes d'une taille FIXE survivent aussi");
     }
 
     /** L'ordre des éléments est l'ordre de dessin : le texte ne le trie jamais. */

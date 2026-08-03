@@ -262,6 +262,91 @@ public final class BlueprintGameTests {
     }
 
     /**
+     * VERIFY-10.10 automatisé : un écran dont les boutons sont <b>rangés par leur
+     * conteneur</b> s'ouvre, se valide et se clique — le bon.
+     *
+     * <p>Ce que ça prouve et que le modèle seul ne prouve pas : la place d'un enfant
+     * rangé n'est écrite nulle part. Elle se recalcule côté serveur pour la validation
+     * et côté client pour le dessin et le clic. Si ces deux passes divergeaient, le menu
+     * s'afficherait correctement et les clics tomberaient à côté — la panne la plus
+     * pénible à diagnostiquer de tout l'épic, puisque tout <i>a l'air</i> juste.
+     */
+    @GameTest(maxTicks = 200)
+    public void aColumnLayoutScreenOpensAndTheRightButtonRuns(GameTestHelper helper) {
+        Identifier blueprintId = id("gui_column_layout");
+        BlockPos target = helper.absolutePos(new BlockPos(3, 1, 1));
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        Blueprint bp = blockPlacer(blueprintId,
+                StandardEvents.GUI_ELEMENT_CLICKED.id(), target, "acheter", "element");
+
+        // Une colonne de trois boutons partageant la hauteur, avec un style nommé : rien
+        // ici ne porte de coordonnée, et les trois se ressemblent par construction.
+        var style = new fr.blueprint.core.graph.screen.ElementStyle(
+                0xFF1E2430, 0xFF3A4453, 1, 0xFFE6E6E6,
+                0xFF2A3242, 0xFF141922, 0x40303030, 3,
+                fr.blueprint.core.graph.screen.ElementStyle.TextAlign.CENTER);
+        var colonne = fr.blueprint.core.graph.screen.ScreenElement.of("colonne",
+                        fr.blueprint.core.graph.screen.ElementKind.PANEL, 0, 0, 160, 120)
+                .withLayout(fr.blueprint.core.graph.screen.LayoutSpec.column(4)
+                        .withCross(fr.blueprint.core.graph.screen.LayoutSpec.Cross.STRETCH));
+        var elements = new java.util.ArrayList<fr.blueprint.core.graph.screen.ScreenElement>();
+        elements.add(colonne);
+        for (String name : java.util.List.of("annuler", "acheter", "vendre")) {
+            elements.add(fr.blueprint.core.graph.screen.ScreenElement.of(name,
+                            fr.blueprint.core.graph.screen.ElementKind.BUTTON, 0, 0, 160, 24)
+                    .withParent("colonne")
+                    .resized(fr.blueprint.core.graph.screen.Extent.fill(),
+                            fr.blueprint.core.graph.screen.Extent.fill())
+                    .withStyleName("bouton"));
+        }
+        fr.blueprint.core.graph.GraphLoader.addScreen(bp,
+                new fr.blueprint.core.graph.screen.Screen("menu", false, elements,
+                        java.util.Map.of("bouton", style)));
+
+        // L'écran doit être ACCEPTÉ tel quel : une disposition n'est pas un défaut, et
+        // c'est la règle serveur — la même que le garde réseau rejoue — qui le dit.
+        for (var element : bp.screen("menu").elements().values()) {
+            var refusal = fr.blueprint.core.graph.ScreenRules.checkPlacement("menu",
+                    bp.screen("menu"), element, fr.blueprint.core.graph.GraphLimits.DEFAULT);
+            helper.assertTrue(refusal == null, Component.literal(
+                    "élément « " + element.name() + " » refusé : " + refusal));
+        }
+
+        manager.adopt(bp);
+        manager.setEnabled(blueprintId, true);
+
+        var player = helper.makeMockServerPlayerInLevel();
+        helper.assertTrue(
+                fr.blueprint.core.net.ServerBlueprintNet.openScreen(player, blueprintId, "menu"),
+                Component.literal("l'écran « menu » n'a pas pu être ouvert"));
+        var open = fr.blueprint.core.net.ServerBlueprintNet.screens().of(player.getUUID());
+        helper.assertTrue(open != null,
+                Component.literal("le serveur n'a pas noté l'écran ouvert"));
+
+        // Les trois boutons se ressemblent : celui qui déclenche est « acheter », et
+        // cliquer un frère ne doit rien faire.
+        fr.blueprint.core.net.ServerBlueprintNet.receiveClick(player,
+                new fr.blueprint.core.net.BlueprintPayloads.ScreenInteraction(
+                        blueprintId, "menu", "annuler", open.instance()));
+        helper.assertTrue(!helper.getLevel().getBlockState(target).is(Blocks.GOLD_BLOCK),
+                Component.literal("un clic sur le mauvais frère a déclenché le graphe"));
+
+        fr.blueprint.core.net.ServerBlueprintNet.receiveClick(player,
+                new fr.blueprint.core.net.BlueprintPayloads.ScreenInteraction(
+                        blueprintId, "menu", "acheter", open.instance()));
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(helper.getLevel().getBlockState(target).is(Blocks.GOLD_BLOCK),
+                    Component.literal("bloc attendu en " + target + ", trouvé "
+                            + helper.getLevel().getBlockState(target)));
+            cleanup(helper, blueprintId);
+        });
+    }
+
+    /**
      * La valeur par défaut d'une variable est LUE au premier accès, dans un vrai
      * serveur. Elle ne l'était pas : le graphe tombait en faute au lieu de tourner, et
      * le message accusait le câblage alors que le câblage était bon.

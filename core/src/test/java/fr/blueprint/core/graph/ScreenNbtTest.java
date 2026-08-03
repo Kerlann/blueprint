@@ -5,6 +5,7 @@ import fr.blueprint.core.graph.screen.Anchor;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
+import fr.blueprint.core.graph.screen.LayoutSpec;
 import fr.blueprint.core.graph.screen.Screen;
 import fr.blueprint.core.graph.screen.ScreenElement;
 import fr.blueprint.core.graph.screen.ScreenText;
@@ -58,7 +59,7 @@ class ScreenNbtTest {
                 Identifier.withDefaultNamespace("textures/gui/fond.png"),
                 new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
                         0xFF203040, 0xFF001020, 0x40101010, 4,
-                        ElementStyle.TextAlign.CENTER),
+                        ElementStyle.TextAlign.CENTER), "", LayoutSpec.ABSOLUTE,
                 true, false);
         ScreenElement child = ScreenElement.of("ok", ElementKind.BUTTON, 5, 5, 60, 20)
                 .withParent("cadre")
@@ -70,6 +71,62 @@ class ScreenNbtTest {
         assertEquals(before.screen("menu"), after.screen("menu"));
         assertEquals(panel, after.screen("menu").element("cadre"));
         assertEquals(child, after.screen("menu").element("ok"));
+    }
+
+    /**
+     * Dispositions, {@code fill}/{@code hug} et table de styles (story 10.10). Tout est
+     * additif : ce qui manque à la relecture reprend sa valeur d'avant.
+     */
+    @Test
+    void dispositionsEtStylesNommesSurviventAuRoundTrip() {
+        ElementStyle style = new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
+                0xFF203040, 0xFF001020, 0x40101010, 4, ElementStyle.TextAlign.CENTER);
+        ScreenElement colonne = ScreenElement.of("colonne", ElementKind.PANEL, 0, 0, 200, 160)
+                .withLayout(LayoutSpec.column(6)
+                        .withMain(LayoutSpec.Distribute.SPACE_BETWEEN)
+                        .withCross(LayoutSpec.Cross.STRETCH));
+        ScreenElement grille = ScreenElement.of("grille", ElementKind.PANEL, 0, 0, 200, 80)
+                .withParent("colonne")
+                .withLayout(LayoutSpec.grid(3, 4, 2))
+                .resized(Extent.fill(), Extent.hug());
+        ScreenElement bouton = ScreenElement.of("acheter", ElementKind.BUTTON, 0, 0, 60, 20)
+                .withParent("colonne")
+                .resized(new Extent(Extent.Mode.FILL, 2.5, 20, 90), Extent.of(20))
+                .withStyleName("bouton");
+
+        Screen before = new Screen("menu", false, List.of(colonne, grille, bouton),
+                java.util.Map.of("bouton", style));
+        Screen after = roundTrip(withScreens(before)).screen("menu");
+
+        assertEquals(before, after);
+        assertEquals(style, after.styleOf(after.element("acheter")));
+        assertEquals(LayoutSpec.Cross.STRETCH, after.element("colonne").layout().cross());
+        assertEquals(Extent.Mode.HUG, after.element("grille").height().mode());
+        assertEquals(2.5, after.element("acheter").width().value(), 1e-9);
+    }
+
+    /**
+     * Un écran écrit par une version antérieure n'avait pas de champ {@code mode} : le
+     * booléen {@code rel} décidait seul du fixe ou du pourcentage. Le relire comme un
+     * {@code FIXED} rendrait tout menu déjà enregistré minuscule — c'est le genre de
+     * régression qu'un joueur découvre en ouvrant un menu qui marchait hier.
+     */
+    @Test
+    void unEcranDAvantLesModesSeRelitCorrectement() {
+        CompoundTag ancien = new CompoundTag();
+        ancien.putDouble("v", 0.75);
+        ancien.putBoolean("rel", true);
+        ancien.putDouble("min", 100);
+        ancien.putDouble("max", 400);
+
+        Extent relu = ScreenNbt.decodeExtent(ancien);
+        assertEquals(Extent.Mode.PERCENT, relu.mode(), "rel=true sans mode : un pourcentage");
+        assertEquals(0.75, relu.value(), 1e-9);
+        assertEquals(100, relu.min(), 1e-9);
+
+        CompoundTag fixe = new CompoundTag();
+        fixe.putDouble("v", 80);
+        assertEquals(Extent.Mode.FIXED, ScreenNbt.decodeExtent(fixe).mode());
     }
 
     @Test

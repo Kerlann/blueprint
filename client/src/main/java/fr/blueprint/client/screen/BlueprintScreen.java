@@ -131,6 +131,10 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      * l'ordre de dessin : c'est celui du dessus qui reçoit le clic, comme partout.
      */
     private @Nullable String elementAt(double mouseX, double mouseY) {
+        // La MÊME passe que le dessin : un bouton rangé par son conteneur n'est pas là
+        // où sa position écrite le dirait, et un hit-test qui la lirait quand même
+        // donnerait un menu dont les boutons se cliquent à côté d'eux-mêmes.
+        var placed = fr.blueprint.core.graph.screen.ScreenLayout.solve(model, width, height);
         var elements = java.util.List.copyOf(model.elements().values());
         for (int i = elements.size() - 1; i >= 0; i--) {
             var element = elements.get(i);
@@ -138,8 +142,8 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                     || !ScreenPainter.visible(model, element, ScreenPainter.Visuals.NONE)) {
                 continue;
             }
-            if (fr.blueprint.core.graph.screen.ScreenLayout
-                    .resolve(model, element, width, height).contains(mouseX, mouseY)) {
+            var rect = placed.get(element.name());
+            if (rect != null && rect.contains(mouseX, mouseY)) {
                 return element.name();
             }
         }

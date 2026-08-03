@@ -80,12 +80,27 @@ public final class ScreenPainter {
     public static void paint(GuiGraphics g, Font font, Screen screen,
                              int originX, int originY, int scale,
                              double unitsW, double unitsH, Visuals visuals) {
+        // UNE passe de disposition pour tout l'écran, puis le dessin lit la table. La
+        // place d'un enfant rangé se décide entre frères : la calculer élément par
+        // élément ne pourrait pas la connaître (story 10.10). Au passage c'est moins
+        // cher — la chaîne de parenté n'est plus remontée une fois par élément.
+        paint(g, font, screen, ScreenLayout.solve(screen, unitsW, unitsH),
+                originX, originY, scale, visuals);
+    }
+
+    /** La même chose, quand l'appelant a déjà résolu l'écran (concepteur, hit-test). */
+    public static void paint(GuiGraphics g, Font font, Screen screen,
+                             java.util.Map<String, ScreenLayout.Rect> rects,
+                             int originX, int originY, int scale, Visuals visuals) {
         for (ScreenElement element : screen.elements().values()) {
             if (!visible(screen, element, visuals)) {
                 continue;
             }
-            ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element, unitsW, unitsH);
-            paintElement(g, font, element, rect, originX, originY, scale, visuals);
+            ScreenLayout.Rect rect = rects.get(element.name());
+            if (rect == null) {
+                continue;   // parenté cyclique : le validateur le dit, le dessin passe
+            }
+            paintElement(g, font, screen, element, rect, originX, originY, scale, visuals);
         }
     }
 
@@ -106,7 +121,8 @@ public final class ScreenPainter {
         return true;
     }
 
-    private static void paintElement(GuiGraphics g, Font font, ScreenElement element,
+    private static void paintElement(GuiGraphics g, Font font, Screen screen,
+                                     ScreenElement element,
                                      ScreenLayout.Rect rect, int originX, int originY,
                                      int scale, Visuals visuals) {
         int left = originX + (int) Math.round(rect.x() * scale);
@@ -116,7 +132,9 @@ public final class ScreenPainter {
         if (right <= left || bottom <= top) {
             return;
         }
-        ElementStyle style = element.style();
+        // Le style NOMMÉ prend le pas sur celui porté par l'élément — c'est ce qui fait
+        // qu'en changer un repeint tous ceux qui le suivent.
+        ElementStyle style = screen.styleOf(element);
         int background = style.backgroundFor(visuals.hovered(element.name()),
                 visuals.pressed(element.name()), element.enabled());
 

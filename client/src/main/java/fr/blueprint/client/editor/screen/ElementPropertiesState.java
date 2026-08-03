@@ -28,7 +28,9 @@ public final class ElementPropertiesState {
     /** Les champs éditables, dans l'ordre du panneau. */
     public enum Field {
         NAME, X, Y, WIDTH, HEIGHT, TEXT, TEXTURE,
-        BACKGROUND, BORDER, TEXT_COLOR, HOVER, PADDING
+        BACKGROUND, BORDER, TEXT_COLOR, HOVER, PADDING,
+        /** Réglages de disposition d'un conteneur (story 10.10). */
+        GAP, CROSS_GAP, COLUMNS
     }
 
     private @Nullable ScreenElement element;
@@ -112,6 +114,9 @@ public final class ElementPropertiesState {
             case TEXT_COLOR -> hex(element.style().textColor());
             case HOVER -> hex(element.style().hoverBackground());
             case PADDING -> String.valueOf(element.style().padding());
+            case GAP -> number(element.layout().gap());
+            case CROSS_GAP -> number(element.layout().crossGap());
+            case COLUMNS -> String.valueOf(element.layout().columns());
         };
     }
 
@@ -128,7 +133,7 @@ public final class ElementPropertiesState {
         }
         return switch (editing) {
             case NAME -> nameAvailable.test(buffer.trim());
-            case X, Y, PADDING -> parseNumber(buffer) != null;
+            case X, Y, PADDING, GAP, CROSS_GAP, COLUMNS -> parseNumber(buffer) != null;
             case WIDTH, HEIGHT -> parseExtent(buffer, Extent.of(0)) != null;
             case TEXTURE -> buffer.isBlank() || Identifier.tryParse(buffer.trim()) != null;
             case BACKGROUND, BORDER, TEXT_COLOR, HOVER -> parseHex(buffer) != null;
@@ -160,9 +165,90 @@ public final class ElementPropertiesState {
             case HOVER -> element.styled(withHover(element.style(), parseHex(buffer)));
             case PADDING -> element.styled(withPadding(element.style(),
                     Math.max(0, (int) (double) parseNumber(buffer))));
+            case GAP -> element.withLayout(element.layout().withGap(parseNumber(buffer)));
+            case CROSS_GAP ->
+                    element.withLayout(element.layout().withCrossGap(parseNumber(buffer)));
+            case COLUMNS -> element.withLayout(
+                    element.layout().withColumns((int) (double) parseNumber(buffer)));
         };
         cancel();
         return out;
+    }
+
+    // ------------------------------------------------- manipulation directe (10.10)
+
+    /**
+     * Pose l'ancre par sa case dans la grille 3×3. Elle se faisait défiler d'un clic
+     * parmi neuf valeurs, à l'aveugle : il fallait jusqu'à huit clics pour atteindre
+     * celle qu'on voulait, sans jamais voir laquelle venait ensuite.
+     */
+    public @Nullable ScreenElement setAnchor(int column, int row) {
+        if (element == null || column < 0 || column > 2 || row < 0 || row > 2) {
+            return null;
+        }
+        return element.withAnchor(Anchor.values()[row * 3 + column]);
+    }
+
+    /** La case de la grille où l'ancre courante s'allume, {@code [colonne, ligne]}. */
+    public int[] anchorCell() {
+        int index = element == null ? 0 : List.of(Anchor.values()).indexOf(element.anchor());
+        return new int[]{index % 3, index / 3};
+    }
+
+    /**
+     * Change le <b>mode</b> d'une taille en gardant ses bornes. Les quatre modes se
+     * choisissent par quatre boutons : les taper en texte demandait de connaître une
+     * syntaxe qu'aucun panneau n'affiche.
+     */
+    public @Nullable ScreenElement setSizeMode(boolean horizontal, Extent.Mode mode) {
+        if (element == null) {
+            return null;
+        }
+        Extent current = horizontal ? element.width() : element.height();
+        // Une valeur qui n'a pas de sens dans le nouveau mode est remplacée par celle
+        // qui en a une : reprendre 80 comme fraction donnerait 8000 % de son parent.
+        double value = switch (mode) {
+            case FIXED -> current.mode() == Extent.Mode.FIXED ? current.value()
+                    : Math.max(ScreenElement.MIN_SIZE, current.min());
+            case PERCENT -> current.mode() == Extent.Mode.PERCENT ? current.value() : 1;
+            case FILL -> current.mode() == Extent.Mode.FILL ? current.value() : 1;
+            case HUG -> 0;
+        };
+        Extent next = new Extent(mode, value, current.min(), current.max());
+        return horizontal ? element.resized(next, element.height())
+                : element.resized(element.width(), next);
+    }
+
+    /** Un champ de valeur n'a de sens que si le mode en consomme une. */
+    public boolean sizeValueMatters(boolean horizontal) {
+        if (element == null) {
+            return false;
+        }
+        return (horizontal ? element.width() : element.height()).mode() != Extent.Mode.HUG;
+    }
+
+    public @Nullable ScreenElement setLayoutMode(
+            fr.blueprint.core.graph.screen.LayoutSpec.Mode mode) {
+        return element == null ? null : element.withLayout(element.layout().withMode(mode));
+    }
+
+    public @Nullable ScreenElement setLayoutMain(
+            fr.blueprint.core.graph.screen.LayoutSpec.Distribute main) {
+        return element == null ? null : element.withLayout(element.layout().withMain(main));
+    }
+
+    public @Nullable ScreenElement setLayoutCross(
+            fr.blueprint.core.graph.screen.LayoutSpec.Cross cross) {
+        return element == null ? null : element.withLayout(element.layout().withCross(cross));
+    }
+
+    /**
+     * Fait suivre un style nommé à l'élément, ou l'en détache par un nom vide. Détacher
+     * ne recopie <b>pas</b> le style nommé dans l'élément : celui-ci retrouve le sien,
+     * qui n'a jamais cessé d'être là.
+     */
+    public @Nullable ScreenElement useStyle(String styleName) {
+        return element == null ? null : element.withStyleName(styleName);
     }
 
     /** Le nom validé, quand c'est lui qu'on éditait — le renommage est une opération. */
@@ -177,10 +263,7 @@ public final class ElementPropertiesState {
         }
         List<Anchor> values = List.of(Anchor.values());
         int index = Math.floorMod(values.indexOf(element.anchor()) + delta, values.size());
-        return new ScreenElement(element.name(), element.kind(), element.parent(),
-                values.get(index), element.x(), element.y(), element.width(), element.height(),
-                element.text(), element.texture(), element.style(),
-                element.visible(), element.enabled());
+        return element.withAnchor(values.get(index));
     }
 
     // ------------------------------------------------------------------ formats
@@ -189,12 +272,15 @@ public final class ElementPropertiesState {
         return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
     }
 
-    /** {@code 80} ou {@code 50%} — la même écriture qu'en BScript, pas une seconde. */
+    /** {@code 80}, {@code 50%}, {@code fill}… — la même écriture qu'en BScript, pas une seconde. */
     private static String extent(Extent value) {
-        return value.relative()
-                ? number(java.math.BigDecimal.valueOf(value.value()).movePointRight(2)
-                .stripTrailingZeros().doubleValue()) + "%"
-                : number(value.value());
+        return switch (value.mode()) {
+            case FIXED -> number(value.value());
+            case PERCENT -> number(java.math.BigDecimal.valueOf(value.value()).movePointRight(2)
+                    .stripTrailingZeros().doubleValue()) + "%";
+            case FILL -> value.value() == 1 ? "fill" : "fill:" + number(value.value());
+            case HUG -> "hug";
+        };
     }
 
     private static String hex(int argb) {
@@ -209,18 +295,38 @@ public final class ElementPropertiesState {
         }
     }
 
+    /**
+     * La même écriture qu'en BScript : {@code 80}, {@code 50%}, {@code fill},
+     * {@code fill:2}, {@code hug}. Les bornes du modèle sont conservées — elles ne se
+     * tapent pas ici, et les perdre à chaque frappe rendrait tout menu borné intenable.
+     */
     private static @Nullable Extent parseExtent(String text, Extent template) {
-        String trimmed = text.trim();
-        boolean relative = trimmed.endsWith("%");
-        Double value = parseNumber(relative ? trimmed.substring(0, trimmed.length() - 1) : trimmed);
+        String trimmed = text.trim().toLowerCase(java.util.Locale.ROOT);
+        Extent.Mode mode;
+        Double value;
+        if (trimmed.equals("hug")) {
+            mode = Extent.Mode.HUG;
+            value = 0d;
+        } else if (trimmed.equals("fill")) {
+            mode = Extent.Mode.FILL;
+            value = 1d;
+        } else if (trimmed.startsWith("fill:")) {
+            mode = Extent.Mode.FILL;
+            value = parseNumber(trimmed.substring(5));
+        } else if (trimmed.endsWith("%")) {
+            mode = Extent.Mode.PERCENT;
+            Double percent = parseNumber(trimmed.substring(0, trimmed.length() - 1));
+            value = percent == null ? null
+                    : java.math.BigDecimal.valueOf(percent).movePointLeft(2).doubleValue();
+        } else {
+            mode = Extent.Mode.FIXED;
+            value = parseNumber(trimmed);
+        }
         if (value == null) {
             return null;
         }
         try {
-            return relative
-                    ? Extent.percent(java.math.BigDecimal.valueOf(value).movePointLeft(2)
-                    .doubleValue(), template.min(), template.max())
-                    : Extent.of(value);
+            return new Extent(mode, value, template.min(), template.max());
         } catch (IllegalArgumentException e) {
             return null;
         }

@@ -34,8 +34,23 @@ public final class Screen {
     private final String name;
     private final boolean hud;
     private final Map<String, ScreenElement> elements;
+    /**
+     * Les styles NOMMÉS de l'écran. Un élément les suit par leur nom plutôt que de
+     * porter neuf couleurs en propre : changer l'apparence d'un bouton changeait
+     * jusqu'ici tous les autres à la main, un par un.
+     *
+     * <p>Pas de fusion base + surcharge : un {@link ElementStyle} est neuf entiers, et
+     * rien n'y distingue « non défini » de « noir transparent ». Un élément suit un
+     * style, ou porte le sien.
+     */
+    private final Map<String, ElementStyle> styles;
 
     public Screen(String name, boolean hud, List<ScreenElement> elements) {
+        this(name, hud, elements, Map.of());
+    }
+
+    public Screen(String name, boolean hud, List<ScreenElement> elements,
+                  Map<String, ElementStyle> styles) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("un écran doit avoir un nom");
         }
@@ -46,6 +61,37 @@ public final class Screen {
             byName.put(element.name(), element);
         }
         this.elements = Collections.unmodifiableMap(byName);
+        this.styles = Collections.unmodifiableMap(new LinkedHashMap<>(styles));
+    }
+
+    /** Les styles nommés, par nom, dans l'ordre de création. */
+    public Map<String, ElementStyle> styles() {
+        return styles;
+    }
+
+    /**
+     * L'apparence EFFECTIVE d'un élément : son style nommé s'il en suit un et que
+     * l'écran le définit, sinon le sien.
+     *
+     * <p>Un nom introuvable retombe sur le style en ligne plutôt que de lever : un style
+     * renommé ne doit pas rendre l'écran illisible. Le validateur le signale.
+     */
+    public ElementStyle styleOf(ScreenElement element) {
+        ElementStyle named = element.followsNamedStyle()
+                ? styles.get(element.styleName()) : null;
+        return named != null ? named : element.style();
+    }
+
+    /** Le même écran avec cette table de styles. */
+    public Screen withStyles(Map<String, ElementStyle> newStyles) {
+        return new Screen(name, hud, List.copyOf(elements.values()), newStyles);
+    }
+
+    /** Ajoute ou remplace un style nommé. */
+    public Screen withStyle(String styleName, ElementStyle style) {
+        Map<String, ElementStyle> out = new LinkedHashMap<>(styles);
+        out.put(styleName, style);
+        return withStyles(out);
     }
 
     public static Screen empty(String name) {
@@ -115,7 +161,7 @@ public final class Screen {
         List<ScreenElement> out = new ArrayList<>(elements.values());
         out.removeIf(existing -> existing.name().equals(element.name()));
         out.add(element);
-        return new Screen(name, hud, out);
+        return new Screen(name, hud, out, styles);
     }
 
     /** Remplace un élément EN PLACE : l'ordre de dessin ne bouge pas. */
@@ -124,7 +170,7 @@ public final class Screen {
         for (ScreenElement existing : elements.values()) {
             out.add(existing.name().equals(elementName) ? replacement : existing);
         }
-        return new Screen(name, hud, out);
+        return new Screen(name, hud, out, styles);
     }
 
     /**
@@ -141,7 +187,7 @@ public final class Screen {
                 out.add(existing);
             }
         }
-        return new Screen(name, hud, out);
+        return new Screen(name, hud, out, styles);
     }
 
     private void collectSubtree(String root, java.util.Set<String> into) {
@@ -156,11 +202,11 @@ public final class Screen {
     }
 
     public Screen renamed(String newName) {
-        return new Screen(newName, hud, List.copyOf(elements.values()));
+        return new Screen(newName, hud, List.copyOf(elements.values()), styles);
     }
 
     public Screen withHud(boolean newHud) {
-        return new Screen(name, newHud, List.copyOf(elements.values()));
+        return new Screen(name, newHud, List.copyOf(elements.values()), styles);
     }
 
     /** Réordonne : {@code delta} positif remonte l'élément vers le premier plan. */
@@ -178,7 +224,7 @@ public final class Screen {
         }
         int to = Math.clamp(from + delta, 0, out.size() - 1);
         out.add(to, out.remove(from));
-        return new Screen(name, hud, out);
+        return new Screen(name, hud, out, styles);
     }
 
     @Override
@@ -186,12 +232,13 @@ public final class Screen {
         return other instanceof Screen screen
                 && name.equals(screen.name)
                 && hud == screen.hud
+                && styles.equals(screen.styles)
                 && List.copyOf(elements.values()).equals(List.copyOf(screen.elements.values()));
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(name, hud, List.copyOf(elements.values()));
+        return java.util.Objects.hash(name, hud, styles, List.copyOf(elements.values()));
     }
 
     @Override

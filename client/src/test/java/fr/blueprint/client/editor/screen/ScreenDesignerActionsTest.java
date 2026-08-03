@@ -5,6 +5,7 @@ import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.NodeTypeLookup;
 import fr.blueprint.core.graph.ScreenOps;
 import fr.blueprint.core.graph.screen.ElementKind;
+import fr.blueprint.core.graph.screen.LayoutSpec;
 import fr.blueprint.core.graph.screen.Screen;
 import fr.blueprint.core.graph.screen.ScreenElement;
 import fr.blueprint.core.graph.screen.ScreenLayout;
@@ -348,7 +349,7 @@ class ScreenDesignerActionsTest {
                 fr.blueprint.core.graph.screen.Extent.of(60),
                 fr.blueprint.core.graph.screen.Extent.of(10),
                 fr.blueprint.core.graph.screen.ScreenText.EMPTY, null,
-                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, true, true));
+                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, true, true));
 
         assertEquals(316, controller.rectOf("coin").right(), 1e-9, "320 − 4");
 
@@ -392,7 +393,7 @@ class ScreenDesignerActionsTest {
                 fr.blueprint.core.graph.screen.Extent.of(60),
                 fr.blueprint.core.graph.screen.Extent.of(20),
                 fr.blueprint.core.graph.screen.ScreenText.EMPTY, null,
-                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, true, true));
+                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, true, true));
         controller.setViewport(ScreenCanvasController.Viewport.LARGE);
 
         assertEquals("coin", controller.hitTest(600, 10));

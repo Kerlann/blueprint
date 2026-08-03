@@ -136,6 +136,14 @@ public final class ScriptGenerator {
         for (var screen : bp.screens().values()) {
             line("screen " + quote(screen.name()) + (screen.hud() ? " @hud" : "") + " {");
             indent++;
+            if (!screen.styles().isEmpty()) {
+                line("styles {");
+                indent++;
+                screen.styles().forEach((styleName, style) ->
+                        line(quote(styleName) + " = " + renderStyle(style)));
+                indent--;
+                line("}");
+            }
             for (var element : screen.elements().values()) {
                 line(renderElement(element));
             }
@@ -169,25 +177,67 @@ public final class ScriptGenerator {
         if (!element.enabled()) {
             sb.append(" @disabled");
         }
+        if (element.arranges()) {
+            sb.append(" @layout(").append(renderLayout(element.layout())).append(')');
+        }
+        // Le style NOMMÉ et le style EN LIGNE sont émis tous les deux quand ils
+        // coexistent. Le second est dormant tant que le premier existe — mais il
+        // redevient le style de l'élément dès qu'on le détache, et l'écraser ici
+        // ferait perdre à l'export ce que l'enregistrement, lui, conserve.
+        if (element.followsNamedStyle()) {
+            sb.append(" @uses(").append(quote(element.styleName())).append(')');
+        }
         sb.append(" @style(").append(renderStyle(element.style())).append(')');
         return sb.toString();
     }
 
-    /** {@code 80} pour une taille fixe, {@code 50%[100, 300]} pour une relative bornée. */
+    /**
+     * {@code 80} pour une taille fixe, {@code 50%[100, 300]} pour une relative bornée,
+     * {@code fill} / {@code fill:2} pour une part de la place restante, {@code hug} pour
+     * un conteneur qui s'ajuste à ses enfants.
+     */
     private String renderExtent(fr.blueprint.core.graph.screen.Extent extent) {
-        if (!extent.relative()) {
-            return num(extent.value());
-        }
-        // BigDecimal, et pas value * 100 : en virgule flottante 0.07 * 100 vaut
-        // 7.000000000000001, et le texte relu ne redonnerait plus la même fraction.
-        // Passer par la décimale courte rend l'aller-retour exact dans les deux sens.
-        StringBuilder sb = new StringBuilder(java.math.BigDecimal.valueOf(extent.value())
-                .movePointRight(2).stripTrailingZeros().toPlainString()).append('%');
+        String head = switch (extent.mode()) {
+            case FIXED -> num(extent.value());
+            // BigDecimal, et pas value * 100 : en virgule flottante 0.07 * 100 vaut
+            // 7.000000000000001, et le texte relu ne redonnerait plus la même fraction.
+            // Passer par la décimale courte rend l'aller-retour exact dans les deux sens.
+            case PERCENT -> java.math.BigDecimal.valueOf(extent.value())
+                    .movePointRight(2).stripTrailingZeros().toPlainString() + "%";
+            case FILL -> extent.value() == 1 ? "fill" : "fill:" + num(extent.value());
+            case HUG -> "hug";
+        };
+        // Les bornes valent pour TOUS les modes, y compris fixe : elles sont conservées
+        // à l'enregistrement, et les taire ici les perdrait au premier aller-retour.
         if (extent.min() > 0 || extent.max() > 0) {
-            sb.append('[').append(num(extent.min())).append(", ").append(num(extent.max()))
-                    .append(']');
+            head += "[" + num(extent.min()) + ", " + num(extent.max()) + "]";
+        }
+        return head;
+    }
+
+    /** {@code column, gap: 4, cross: stretch} — seul ce qui s'écarte du défaut est écrit. */
+    private String renderLayout(fr.blueprint.core.graph.screen.LayoutSpec layout) {
+        StringBuilder sb = new StringBuilder(lower(layout.mode().name()));
+        if (layout.gap() != 0) {
+            sb.append(", gap: ").append(num(layout.gap()));
+        }
+        if (layout.crossGap() != 0) {
+            sb.append(", crossGap: ").append(num(layout.crossGap()));
+        }
+        if (layout.columns() != 1) {
+            sb.append(", columns: ").append(layout.columns());
+        }
+        if (layout.main() != fr.blueprint.core.graph.screen.LayoutSpec.Distribute.START) {
+            sb.append(", main: ").append(lower(layout.main().name()));
+        }
+        if (layout.cross() != fr.blueprint.core.graph.screen.LayoutSpec.Cross.START) {
+            sb.append(", cross: ").append(lower(layout.cross().name()));
         }
         return sb.toString();
+    }
+
+    private static String lower(String name) {
+        return name.toLowerCase(java.util.Locale.ROOT);
     }
 
     private String renderStyle(fr.blueprint.core.graph.screen.ElementStyle style) {
