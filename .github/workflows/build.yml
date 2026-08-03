@@ -1,0 +1,75 @@
+name: build
+
+# Ce qui a été écrit cette nuit ne vaut que s'il tourne ailleurs que sur une machine.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Un push qui en remplace un autre annule la construction précédente : inutile de
+  # faire tourner un serveur Minecraft pour un commit déjà dépassé.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Tests headless
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # `build` enchaîne : compilation des 6 modules, isolation de l'api, ~250 tests
+      # headless, couverture ≥ 80 % sur core, référence des nœuds et surface d'API
+      # comparées à ce qui est commité.
+      - name: ./gradlew build
+        run: ./gradlew build --stacktrace
+
+      - name: Rapports de test
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports-tests
+          path: |
+            */build/reports/tests/test
+            */build/test-results/test
+          retention-days: 7
+
+  gametest:
+    name: Tests en jeu (serveur réel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Séparé du job précédent : il démarre un vrai serveur Minecraft, il est plus lent
+    # et il échoue pour d'autres raisons. Savoir lequel des deux est rouge compte.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: ./gradlew runGametest
+        run: ./gradlew runGametest --stacktrace
+
+      - name: Rapport des gametests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-gametest
+          path: build/gametest/report.xml
+          retention-days: 7
+          if-no-files-found: ignore
