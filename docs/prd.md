@@ -117,7 +117,8 @@ mappings Mojang). Tout le produit décrit ici est à construire par-dessus.
 - **FR46b** — Un écran s'**adapte** : ancres, tailles en pourcentage et bornes lui permettent de rester utilisable de 320×180 à 960×540 unités d'interface, c'est-à-dire à toutes les résolutions et tous les réglages de *GUI scale* courants.
 - **FR47** — Chaque élément porte un **nom** unique dans son écran ; c'est par ce nom que le graphe le désigne.
 - **FR48** — Un nœud ouvre un écran pour un joueur donné, un autre le ferme ; un événement se déclenche quand un élément est **cliqué**, quand l'écran s'ouvre et quand il se ferme.
-- **FR49** — Le graphe peut **modifier** un écran ouvert : texte d'une étiquette, image, visibilité, activation d'un bouton, valeur d'une barre.
+- **FR49** — Le graphe peut **modifier** un écran ouvert : texte d'une étiquette, image, visibilité, activation d'un bouton, valeur d'une barre. Les modifications d'un même tick partent groupées, seules celles qui ont changé sont transmises, et une mise à jour destinée à un écran refermé est ignorée.
+- **FR49b** — Un élément peut être **lié** à une variable du blueprint : l'écran suit sa valeur automatiquement, avec un format d'affichage, sans qu'aucun nœud d'affichage soit appelé.
 - **FR50** — L'apparence est **personnalisable** : couleurs, bordures, neuf-tranches, et images fournies par des **packs** — des dossiers de `config/blueprint/scripts/` qu'un joueur dépose chez lui et peut donner à un autre. Une texture absente affiche un remplaçant qui **nomme le pack manquant** et ne fait jamais planter le client.
 - **FR51** — Les écrans traversent la sauvegarde, la synchronisation réseau et BScript comme le reste du blueprint : même enregistrement, même permission, même verrou.
 - **FR52** — Le serveur ne fait **jamais** confiance à ce qu'un client déclare avoir cliqué : l'écran ouvert, l'existence de l'élément et la cadence sont vérifiés côté serveur.
@@ -476,12 +477,18 @@ demande de choisir plutôt que de subir — est hors de portée.*
 **Story 10.4 — Interactions câblées au graphe**
 - AC1 : événements `gui/opened`, `gui/closed`, `gui/element_clicked` — ce dernier filtré par nom d'élément, comme `command` et `signal`.
 - AC2 : nœuds `gui/open`, `gui/close`, et les modificateurs (texte, image, visibilité, activation, valeur).
+- AC2b : les modifications d'un tick partent en UN paquet, seules celles qui ont CHANGÉ sont envoyées, et chaque ouverture porte un numéro d'instance — une mise à jour en retard ne s'applique jamais à un écran rouvert.
 - AC3 : le serveur vérifie que l'écran est bien ouvert pour ce joueur et que l'élément existe ; la cadence des clics est limitée (FR52).
 
 **Story 10.5 — Packs : un dossier échangeable**
 - AC1 : un pack est un DOSSIER de `config/blueprint/scripts/` : `pack.json`, `textures/*.png`, et le `.bp` qui les utilise. On le donne, l'autre le dépose, `/blueprint-packs reload`.
 - AC2 : un pack invalide est nommé et ignoré, jamais bloquant ; une texture absente affiche un remplaçant qui NOMME le pack manquant, comme un nœud fantôme nomme son mod.
 - AC3 : bornes (2048×2048, PNG seul, nombre de textures) ; le style — couleurs, bordures, neuf-tranches — marche sans aucun pack installé.
+
+**Story 10.7 — Liaison de données**
+- AC1 : un élément se lie à une variable (étiquette → texte, barre → valeur) avec un format d'affichage ; l'écran suit sans qu'aucun nœud ne soit appelé.
+- AC2 : comparaison en fin de tick sur les seuls écrans OUVERTS — le coût suit le nombre d'écrans affichés, pas le nombre d'écritures de variables.
+- AC3 : une variable liée qui disparaît produit un diagnostic à l'édition, pas un écran vide en jeu.
 
 **Story 10.6 — Quotas, accessibilité et documentation**
 - AC1 : plafond d'éléments par écran et d'écrans par blueprint, configurables comme les quotas de graphe.

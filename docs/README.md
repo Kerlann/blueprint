@@ -10,7 +10,7 @@ Dossier de planification suivant la **méthode BMAD** (Analyst → PM → Archit
 | [`examples/`](examples/README.md) | — | **Six blueprints d'exemple** prêts à charger : `/blueprint examples` |
 | [`node-reference.md`](node-reference.md) | — | **Généré** depuis le registre : tous les nœuds, leurs pins, leur coût |
 | [`brief.md`](brief.md) | Analyst | Problème, personas, périmètre MVP, risques |
-| [`prd.md`](prd.md) | PM | 44 exigences fonctionnelles, 15 non fonctionnelles, 9 épics, stories |
+| [`prd.md`](prd.md) | PM | 52 exigences fonctionnelles, 15 non fonctionnelles, 10 épics, stories |
 | [`architecture.md`](architecture.md) | Architect | Modules, modèle, compilation, VM, réseau, décisions |
 | [`architecture/tech-stack.md`](architecture/tech-stack.md) | Architect | Versions, bibliothèques autorisées, **table Mojang/Yarn** |
 | [`architecture/coding-standards.md`](architecture/coding-standards.md) | Architect | Règles absolues du projet |
@@ -64,7 +64,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 8 | **Intégration des mods tiers** | 8.1 → 8.5 | **Complet** — 5 gates PASS (3 medium + 1 low corrigés en review dont une violation d'AC : un JSON au mauvais type emportait tout le rechargement) ; annotation `@BlueprintNode`, nœuds composites de datapack rechargeables, fantômes prouvés de bout en bout, couche de compatibilité et surface d'API verrouillée par un test |
 | 9 | **Débogage, performance, finition** | 9.1a, 9.1b, 9.2, 9.3, 9.4, 9.5 | **Complet** — 6 gates PASS (1 medium NFR11 + 3 medium débogueur corrigés en review) ; débogueur pas-à-pas visible dans l'éditeur, profileur par nœud, quotas configurables + audit ADMIN, i18n vérifiée par les sources, palette daltonienne à cinq formes, guide joueur et référence générée |
 | 4 | 4.2b (sucre BScript) | — | **Reste v1.1** — seul morceau du PRD non livré, consigné dans la story 4.1-4.3 |
-| 10 | **Interfaces graphiques** | 10.1 → 10.6 | **Rédigé, non commencé** — concepteur d'écrans à la souris, boutons câblés aux blueprints. Ouvert à la demande de l'utilisateur ; **10.1 (modèle) est la prochaine à prendre** |
+| 10 | **Interfaces graphiques** | 10.1 → 10.7 | **Rédigé, non commencé** — concepteur d'écrans à la souris, boutons câblés aux blueprints. Ouvert à la demande de l'utilisateur ; **10.1 (modèle) est la prochaine à prendre** |
 
 **Feuille de route éditeur (ordre recommandé)** :
 1. **5.2b** littéraux inline (éditer les valeurs sur le nœud) → 2. **5.6a** annuler/rétablir (avant les grosses features, tout naît annulable) → 3. **5.9** éditer/enregistrer/tester un VRAI blueprint en solo (`Ctrl+S`, la story qui rend l'éditeur utile) → 4. **5.6b** barre d'outils + compilation à la volée + diagnostics cliquables → 5. **5.5** panneau des variables + nœuds var/get-set (⚠ touche `core`) → 6. **5.8** copier/coller/dupliquer via BScript (⚠ touche `core/script`) → 7. **5.10** panneau de détails → 8. **5.4b** palette récents/favoris/catégories/Espace → 9. **5.2c** sélecteurs riches (item, bloc, position) → 10. **5.11** vue script → 11. **5.7** confort (commentaires, alignement, minimap, thème JSON).
@@ -74,9 +74,10 @@ ci-dessous et dans le v1.1 consigné story par story (sucre BScript 4.2b, patchs
 opération et multi-éditeur 6.3, processeur d'annotations 8.1, corps BScript de
 datapack 8.2).
 
-**L'épic 10 (interfaces graphiques) est rédigé et non commencé** : six stories, de la
-structure de données au concepteur à la souris. Il ouvre un second type de document
-éditable dans le produit — c'est un épic, pas une story, et il est découpé comme tel.
+**L'épic 10 (interfaces graphiques) est rédigé et non commencé** : **sept** stories, de la
+structure de données au concepteur à la souris, jusqu'à la liaison d'un élément à une
+variable. Il ouvre un second type de document éditable dans le produit — c'est un
+épic, pas une story, et il est découpé comme tel.
 
 > **Relecture finale** : [`rapport-de-fin.md`](rapport-de-fin.md) — l'état complet, ce
 > que la QA a réellement trouvé, ce qui reste, et ce que le harnais ne peut pas garantir.
