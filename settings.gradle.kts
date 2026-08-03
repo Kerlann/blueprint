@@ -19,4 +19,5 @@ rootProject.name = "blueprint"
 // client : éditeur visuel et réseau client
 // compat : intégrations conditionnelles avec des mods tiers
 // testmod: mod d'exemple validant l'api (exclu du JAR final)
-include("api", "core", "client", "compat", "testmod")
+// gametest: tests joués dans un VRAI serveur (story 1.6), jamais livrés
+include("api", "core", "client", "compat", "testmod", "gametest")

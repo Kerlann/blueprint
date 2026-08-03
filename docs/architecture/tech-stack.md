@@ -70,9 +70,26 @@ Le projet utilise les mappings officiels. Les noms Yarn ne compilent pas.
 | Interaction | `UseBlockCallback`, `UseItemCallback`, `AttackBlockCallback`, `PlayerBlockBreakEvents` |
 | Entités | `ServerLivingEntityEvents.AFTER_DEATH` |
 | Chat | `ServerMessageEvents.CHAT_MESSAGE` |
-| Datapacks | `ResourceManagerHelper` (`SimpleSynchronousResourceReloadListener`) |
+| Datapacks | `ResourceLoader` (v1) + `ResourceManagerReloadListener` (vanilla) |
 | Persistance | `SavedData` via `SavedDataType` + `Codec` sur `DimensionDataStorage` |
-| Tests | `fabric-gametest-api-v1` |
+| Tests en jeu | `fabric-gametest-api-v1` — voir ci-dessous |
+
+### Gametests (méthode vérifiée en 1.21.11, story 1.6)
+
+- Annotation **`net.fabricmc.fabric.api.gametest.v1.GameTest`** (pas celle de vanilla,
+  refondue en 1.21.5) sur des méthodes **publiques, non statiques**, un seul paramètre
+  `GameTestHelper`, retour `void`.
+- Découverte par l'entrypoint **`fabric-gametest`** du `fabric.mod.json` : la classe
+  listée est instanciée et ses méthodes annotées sont ramassées. Structure par défaut :
+  zone vide 8×8 fournie par Fabric, aucun fichier à écrire.
+- Lancement : `./gradlew runGametest` (run Loom `server()` +
+  `-Dfabric-api.gametest=true`), rapport JUnit dans `build/gametest/report.xml`, **code
+  de sortie non nul si un test échoue**. Hors de `build` : la tâche démarre un serveur.
+- **Monde neuf obligatoire** : la tâche efface `build/gametest/run/world` avant de
+  lancer. Sans ça, un blueprint laissé par un test en échec est restauré par la
+  persistance au démarrage suivant et fait échouer les runs d'après.
+- `helper.relativePos(helper.absolutePos(p))` **ne rend pas `p`** : assertions à faire
+  sur les positions absolues.
 
 ## Contraintes de build
 

@@ -169,9 +169,14 @@ public final class BlueprintEventBridge {
             // comprendre qu'il suffit de réinstaller un mod pour que tout reparte.
             var missing = fr.blueprint.core.graph.GhostNode.missingProviders(bp, nodes);
             if (missing.isEmpty()) {
+                // Nommer le PREMIER diagnostic : « 1 diagnostic(s) » n'a jamais aidé
+                // personne à comprendre pourquoi son graphe ne part pas.
+                String first = result.diagnostics().isEmpty() ? "?"
+                        : result.diagnostics().get(0).code() + " "
+                        + result.diagnostics().get(0).args();
                 BlueprintMod.LOGGER.warn(
-                        "Blueprint « {} » non exécutable ({} diagnostic(s)) — déclenchement ignoré",
-                        bp.id(), result.diagnostics().size());
+                        "Blueprint « {} » non exécutable ({} diagnostic(s), dont {}) — déclenchement ignoré",
+                        bp.id(), result.diagnostics().size(), first);
             } else {
                 BlueprintMod.LOGGER.warn("Blueprint « {} » non exécutable : mod(s) absent(s) — {}",
                         bp.id(), fr.blueprint.core.graph.GhostNode.describeMissing(missing));

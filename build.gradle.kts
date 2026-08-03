@@ -59,6 +59,8 @@ dependencies {
     implementation(project(path = ":compat", configuration = "namedElements"))
     // testmod : uniquement sur le classpath de dev, jamais dans le JAR final
     runtimeOnly(project(path = ":testmod", configuration = "namedElements"))
+    // gametest : idem — chargé par runGametest, absent du JAR livré (story 1.6)
+    runtimeOnly(project(path = ":gametest", configuration = "namedElements"))
 }
 
 // JAR unique : api + core + client + compat (testmod exclu). remapJar remappe le tout.
@@ -75,5 +77,29 @@ loom {
             vmArg("-Xmx4G")
             vmArg("-XX:+UseG1GC")
         }
+        // Story 1.6 : les tests joués dans un vrai serveur. Sans fenêtre, sans joueur,
+        // sans intervention — `./gradlew runGametest` rend un rapport JUnit et un code
+        // de sortie. C'est ce qui remplace une partie des vérifications manuelles.
+        create("gametest") {
+            server()
+            name("Game Test")
+            source("main")
+            vmArg("-Dfabric-api.gametest=true")
+            vmArg("-Dfabric-api.gametest.report-file=" +
+                    layout.buildDirectory.file("gametest/report.xml").get().asFile.absolutePath)
+            runDir("build/gametest/run")
+        }
+    }
+}
+
+// Monde neuf à chaque lancement. Sans ça, les blueprints qu'un test a laissés derrière
+// lui (échec, donc pas de nettoyage) sont RESTAURÉS par la persistance au démarrage
+// suivant et font échouer les runs d'après : les tests s'empoisonnent entre eux.
+tasks.named<Delete>("clean") {
+    delete(layout.buildDirectory.dir("gametest"))
+}
+tasks.named("runGametest") {
+    doFirst {
+        delete(layout.buildDirectory.dir("gametest/run/world"))
     }
 }
