@@ -87,6 +87,10 @@ public final class BlueprintCommand {
                 .then(literal("demo")
                         .requires(admin)
                         .executes(BlueprintCommand::demo))
+                // Les exemples : six graphes prêts à lire, désactivés à la création.
+                .then(literal("examples")
+                        .requires(admin)
+                        .executes(BlueprintCommand::examples))
                 // Signal (batch 1) : émettre depuis l'extérieur — une autre commande,
                 // un bloc de commande, un mod. Sans permission d'admin : un signal ne
                 // peut rien faire que le blueprint qui l'écoute n'ait déjà le droit
@@ -414,6 +418,35 @@ public final class BlueprintCommand {
         ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.imported",
                 bp.id().toString(), bp.nodes().size()), true);
         return 1;
+    }
+
+    /**
+     * Crée les blueprints d'exemple, <b>désactivés</b>. Un exemple qui se met à tourner
+     * dès sa création changerait le monde du joueur avant qu'il ait pu le lire — et
+     * l'un d'eux pose des blocs. Il les active quand il a compris ce qu'ils font.
+     */
+    private static int examples(CommandContext<CommandSourceStack> ctx) {
+        var registries = fr.blueprint.core.BlueprintMod.registries();
+        var manager = BlueprintManager.of(ctx.getSource().getServer());
+        int created = 0;
+        int existing = 0;
+        for (var blueprint : fr.blueprint.core.ExampleBlueprints.buildAll(registries.nodes())) {
+            if (manager.adopt(blueprint)) {
+                created++;
+            } else {
+                existing++;
+            }
+        }
+        final int made = created;
+        final int already = existing;
+        if (created == 0) {
+            ctx.getSource().sendFailure(Component.translatable(
+                    "blueprint.cmd.examples_exist", already));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable(
+                "blueprint.cmd.examples_created", made), true);
+        return created;
     }
 
     private static int signal(CommandContext<CommandSourceStack> ctx, String payload) {

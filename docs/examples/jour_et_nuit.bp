@@ -1,0 +1,13 @@
+blueprint blueprint:example/jour_et_nuit {
+  meta {
+    author "Blueprint"
+    description "Accueil selon l'heure du monde"
+    version "1.0.0"
+    permission GAMEPLAY
+  }
+  on blueprint:event/player_join(player) @id("ebf8ea01-bce0-379c-98af-df0c4c7a287c") @pos(-640, 0) {
+    blueprint:world/is_day() @id("a118d1c2-54df-3e4c-9a42-d0cc160549f3") @pos(-400, 0)
+    blueprint:player/title(player: $player, text: blueprint:flow/select(condition: $node("a118d1c2-54df-3e4c-9a42-d0cc160549f3").is_day, if_true: "Bonjour", if_false: "Bonne nuit") @id("7094be2e-a610-383c-b1ef-cd7bce656b29") @pos(-160, 180)) @id("18f57c63-c2c1-315c-80ea-19902c4fa34f") @pos(80, 0)
+    blueprint:player/subtitle(player: $player, text: "Bienvenue sur le serveur") @id("ffde0795-2db9-3222-aab3-adc5a4b2b602") @pos(320, 0)
+  }
+}

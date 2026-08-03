@@ -34,6 +34,7 @@ public final class RichTextNodes {
     }
 
     public static void register(NodeRegistry r) {
+        sinks(r);
         r.register(NodeType.builder(id("text/styled"))
                 .category(NodeCategories.TEXT).pure()
                 .in("text", PinTypes.TEXT)
@@ -102,6 +103,46 @@ public final class RichTextNodes {
                     ctx.out("text", arg.isEmpty()
                             ? Component.translatable(str(ctx.in("key")))
                             : Component.translatableEscape(str(ctx.in("key")), arg));
+                })
+                .build());
+    }
+
+    /**
+     * <b>Les sorties de la famille.</b> Sans elles, le texte riche était une boucle
+     * fermée : neuf nœuds savaient en produire et en composer, aucun nœud d'action ne
+     * savait l'accepter — {@code player/send_message} et les autres prennent une
+     * chaîne. On pouvait styler, survoler, rendre cliquable, et n'envoyer nulle part.
+     *
+     * <p>Deux surfaces seulement, parce que ce sont les deux qui rendent quelque
+     * chose : le <b>chat</b> (seul endroit où survol et clic fonctionnent) et le
+     * <b>titre</b> (où la mise en forme se voit). La barre d'action et le sous-titre
+     * gardent leur entrée chaîne — y porter un survol ne produirait rien.
+     */
+    private static void sinks(NodeRegistry r) {
+        r.register(NodeType.builder(id("player/send_text"))
+                .category(NodeCategories.PLAYER_FEEDBACK).exec()
+                .permission(Permission.GAMEPLAY)
+                .in("player", PinTypes.PLAYER)
+                .in("text", PinTypes.TEXT)
+                .action(ctx -> {
+                    if (ctx.in("player") instanceof net.minecraft.server.level.ServerPlayer p
+                            && !p.hasDisconnected()) {
+                        p.sendSystemMessage(component(ctx.in("text")));
+                    }
+                })
+                .build());
+
+        r.register(NodeType.builder(id("player/title_text"))
+                .category(NodeCategories.PLAYER_FEEDBACK).exec()
+                .permission(Permission.GAMEPLAY)
+                .in("player", PinTypes.PLAYER)
+                .in("text", PinTypes.TEXT)
+                .action(ctx -> {
+                    if (ctx.in("player") instanceof net.minecraft.server.level.ServerPlayer p
+                            && !p.hasDisconnected()) {
+                        p.connection.send(new net.minecraft.network.protocol.game
+                                .ClientboundSetTitleTextPacket(component(ctx.in("text"))));
+                    }
                 })
                 .build());
     }

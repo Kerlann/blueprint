@@ -7,6 +7,7 @@ Dossier de planification suivant la **méthode BMAD** (Analyst → PM → Archit
 | Document | Agent | Rôle |
 |---|---|---|
 | [`getting-started.md`](getting-started.md) | — | **Guide joueur** : premier blueprint en dix minutes, raccourcis, dépannage |
+| [`examples/`](examples/README.md) | — | **Six blueprints d'exemple** prêts à charger : `/blueprint examples` |
 | [`node-reference.md`](node-reference.md) | — | **Généré** depuis le registre : tous les nœuds, leurs pins, leur coût |
 | [`brief.md`](brief.md) | Analyst | Problème, personas, périmètre MVP, risques |
 | [`prd.md`](prd.md) | PM | 44 exigences fonctionnelles, 15 non fonctionnelles, 9 épics, stories |

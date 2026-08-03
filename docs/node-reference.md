@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-184 nœuds dans 34 catégories.
+187 nœuds dans 34 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -1752,6 +1752,20 @@ permission `GAMEPLAY` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 
+### `blueprint:player/send_text` — Send rich text
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `text` | `blueprint:text` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
 ### `blueprint:player/subtitle` — Subtitle
 
 permission `GAMEPLAY` · fuel 1
@@ -1775,6 +1789,20 @@ permission `GAMEPLAY` · fuel 1
 | `exec_in` | exec | — |
 | `player` | `blueprint:player` | — |
 | `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:player/title_text` — Rich text title
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `text` | `blueprint:text` | — |
 
 | Sorties | Type | Défaut |
 |---|---|---|
@@ -2276,6 +2304,21 @@ permission `SAFE` · fuel 1 · P
 
 
 ## world/block
+
+### `blueprint:world/block_state` — Block state
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `block` | `blueprint:resourcelocation` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `state` | `blueprint:blockstate` | — |
+| `valid` | `blueprint:bool` | — |
 
 ### `blueprint:world/get_block` — Get block
 

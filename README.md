@@ -108,6 +108,7 @@ stories et gates QA.
 | Pour | Lire |
 |---|---|
 | Jouer | [`docs/getting-started.md`](docs/getting-started.md) |
+| Copier un exemple qui marche | [`docs/examples/`](docs/examples/README.md) |
 | Chercher un nœud | [`docs/node-reference.md`](docs/node-reference.md) *(généré)* |
 | Écrire un mod compagnon | [`docs/extension-api.md`](docs/extension-api.md) |
 | Comprendre les choix | [`docs/architecture.md`](docs/architecture.md) |

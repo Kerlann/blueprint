@@ -74,6 +74,31 @@ final class WorldNodes {
                 })
                 .build());
 
+        /*
+         * L'état de bloc depuis son identifiant. Sans lui, un blockstate n'avait
+         * qu'UNE source — le bloc lu dans le monde — exactement comme vec3 n'avait
+         * que la position d'une entité avant le batch 2. On pouvait recopier un bloc,
+         * jamais en nommer un ; seul un littéral tapé dans l'éditeur y parvenait, et
+         * un graphe ne peut pas calculer un littéral.
+         */
+        r.register(NodeType.builder(id("world/block_state"))
+                .category(NodeCategories.WORLD_BLOCK).exec()
+                .in("block", PinTypes.RESOURCE_LOCATION)
+                .out("state", PinTypes.BLOCKSTATE)
+                .out("valid", PinTypes.BOOL)
+                .action(ctx -> {
+                    Identifier blockId = ctx.in("block");
+                    Optional<Block> block = blockId == null ? Optional.empty()
+                            : BuiltInRegistries.BLOCK.getOptional(blockId);
+                    // « valide » plutôt qu'une faute : un identifiant peut venir d'un
+                    // message de chat ou d'un mod absent, et le graphe doit pouvoir
+                    // répondre poliment plutôt que de s'arrêter.
+                    ctx.out("valid", block.isPresent());
+                    ctx.out("state", block.orElse(net.minecraft.world.level.block.Blocks.AIR)
+                            .defaultBlockState());
+                })
+                .build());
+
         r.register(NodeType.builder(id("world/spawn_entity"))
                 .category(NodeCategories.WORLD_STATE).exec().permission(Permission.WORLD)
                 .in("type", PinTypes.RESOURCE_LOCATION)
