@@ -57,6 +57,17 @@ public final class StandardEvents {
             .out("name", PinTypes.STRING)
             .dispatch(Dispatch.GLOBAL).build();
 
+    /**
+     * Commande déclarée par un blueprint (story 7.7) : le nœud d'événement porte le
+     * nom en littéral, /bpc &lt;nom&gt; [texte] la déclenche. Le nœud n'est PAS
+     * synthétisé (enregistré à la main avec son entrée « name »).
+     */
+    public static final EventType COMMAND = EventType.builder(id("command"))
+            .out("player", PinTypes.PLAYER)
+            .out("name", PinTypes.STRING)
+            .out("arg", PinTypes.STRING)
+            .dispatch(Dispatch.GLOBAL).build();
+
     private StandardEvents() {
     }
 
@@ -70,5 +81,6 @@ public final class StandardEvents {
         registry.register(ENTITY_DEATH);
         registry.register(PLAYER_CHAT);
         registry.register(SIGNAL);
+        registry.register(COMMAND);
     }
 }

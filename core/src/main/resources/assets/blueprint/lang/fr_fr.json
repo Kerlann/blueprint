@@ -137,6 +137,9 @@
   "blueprint.event.blueprint.event/entity_death.name": "Une entité meurt",
   "blueprint.event.blueprint.event/player_chat.name": "Un joueur écrit",
   "blueprint.event.blueprint.event/signal.name": "Signal",
+  "blueprint.event.blueprint.event/command.name": "Sur commande (/bpc)",
+  "blueprint.cmd.bpc_unknown": "Aucun blueprint actif ne déclare la commande « %s »",
+  "blueprint.cmd.bpc_launched": "Commande « %s » : %s blueprint(s) déclenché(s)",
 
   "blueprint.editor.title": "Éditeur de blueprint — %s",
   "blueprint.editor.ghost": "Fourni par « %s » — mod absent",

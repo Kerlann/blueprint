@@ -58,8 +58,31 @@ public class BlueprintMod implements ModInitializer {
                     BlueprintManager.of(server), registries.nodes(), schedulerOf(server),
                     envFactory(server));
             bridge.wire(dispatcher, registries.events().all());
+            BRIDGES.put(server, bridge);
             fr.blueprint.api.event.BlueprintEvents.install(dispatcher);
         });
+
+        // /bpc <nom> [texte] : déclenche les blueprints déclarant la commande (7.7).
+        // Un préfixe fixe plutôt que des racines dynamiques : Brigadier ne sait pas
+        // retirer proprement un nœud racine, /bpc suggère les noms VIVANTS.
+        net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register(
+                (dispatcher, access, environment) -> dispatcher.register(
+                        net.minecraft.commands.Commands.literal("bpc")
+                                .then(net.minecraft.commands.Commands.argument("name",
+                                                com.mojang.brigadier.arguments.StringArgumentType.word())
+                                        .suggests((context, builder) -> {
+                                            var bridge = BRIDGES.get(context.getSource().getServer());
+                                            if (bridge != null) {
+                                                bridge.commandNames().forEach(builder::suggest);
+                                            }
+                                            return builder.buildFuture();
+                                        })
+                                        .executes(context -> runBpc(context, ""))
+                                        .then(net.minecraft.commands.Commands.argument("arg",
+                                                        com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                                                .executes(context -> runBpc(context,
+                                                        com.mojang.brigadier.arguments.StringArgumentType
+                                                                .getString(context, "arg")))))));
 
         // Persistance (6.1) : chargement + rapport quand les mondes sont prêts, puis
         // liaison vivante — chaque sauvegarde du monde capture l'état courant.
@@ -75,8 +98,10 @@ public class BlueprintMod implements ModInitializer {
                     report.blueprintsLoaded(), report.blueprintsCorrupt(),
                     report.executionsResumed(), report.executionsCancelled());
         });
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server ->
-                fr.blueprint.api.event.BlueprintEvents.uninstall());
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            fr.blueprint.api.event.BlueprintEvents.uninstall();
+            BRIDGES.remove(server);
+        });
 
         // Fin de tick : émettre server_tick (coût nul sans abonné — paresse 2.5) puis
         // ordonnancer. Un blueprint glouton ou en faute est désactivé via le manager.
@@ -161,6 +186,40 @@ public class BlueprintMod implements ModInitializer {
                     }
                 },
                 trigger, varsOf(server), server, server.overworld(), LOGGER);
+    }
+
+    /** Pont événements par serveur — consulté par /bpc (7.7). */
+    private static final java.util.Map<net.minecraft.server.MinecraftServer,
+            fr.blueprint.core.event.BlueprintEventBridge> BRIDGES =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /** Exécute /bpc <nom> [texte] : lance les blueprints déclarant la commande. */
+    private static int runBpc(
+            com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> context,
+            String arg) {
+        var source = context.getSource();
+        var bridge = BRIDGES.get(source.getServer());
+        String name = com.mojang.brigadier.arguments.StringArgumentType.getString(context, "name");
+        if (bridge == null) {
+            return 0;
+        }
+        java.util.Map<String, Object> values = new java.util.HashMap<>();
+        values.put("name", name);
+        values.put("arg", arg);
+        if (source.getPlayer() != null) {
+            values.put("player", source.getPlayer());
+        }
+        int launched = bridge.launchCommand(name, new fr.blueprint.core.event.TriggerContextImpl(
+                fr.blueprint.core.event.StandardEvents.COMMAND, values));
+        if (launched == 0) {
+            source.sendFailure(net.minecraft.network.chat.Component.translatable(
+                    "blueprint.cmd.bpc_unknown", name));
+        } else {
+            final int count = launched;
+            source.sendSuccess(() -> net.minecraft.network.chat.Component.translatable(
+                    "blueprint.cmd.bpc_launched", name, count), false);
+        }
+        return launched;
     }
 
     private static final java.util.Map<net.minecraft.server.MinecraftServer,

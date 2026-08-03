@@ -317,6 +317,29 @@ public final class StandardNodes {
                 })
                 .build());
 
+        // ------------------------------------------------ événement command (7.7)
+        // Enregistré À LA MAIN (la synthèse le saute par collision) : c'est le seul
+        // nœud d'événement avec une ENTRÉE — le littéral « name » déclare la commande.
+        r.register(NodeType.builder(
+                        fr.blueprint.core.event.StandardEvents.COMMAND.id())
+                .category(NodeCategories.EVENT)
+                .entryPoint()
+                .titleKey(fr.blueprint.core.event.StandardEvents.COMMAND.titleKey())
+                .execOut("exec_out")
+                .in("name", PinTypes.STRING, "")
+                .out("player", PinTypes.PLAYER)
+                .out("name", PinTypes.STRING)
+                .out("arg", PinTypes.STRING)
+                .action(ctx -> {
+                    for (var out : fr.blueprint.core.event.StandardEvents.COMMAND.outputs()) {
+                        Object value = ctx.trigger().output(out.name());
+                        if (value != null) {
+                            ctx.out(out.name(), value);
+                        }
+                    }
+                })
+                .build());
+
         // ----------------------------------------- monde, entités, items (7.3-7.5)
         WorldNodes.register(r);
         EntityNodes.register(r);

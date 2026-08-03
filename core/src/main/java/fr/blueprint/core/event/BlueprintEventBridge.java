@@ -81,6 +81,56 @@ public final class BlueprintEventBridge {
         entryCache.keySet().removeIf(id -> manager.get(id).isEmpty());
     }
 
+    // ------------------------------------------------ événement command (7.7)
+
+    /** Les noms de commandes déclarés par les blueprints ACTIFS (suggestions /bpc). */
+    public java.util.Set<String> commandNames() {
+        java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        for (Blueprint bp : manager.all()) {
+            if (!bp.enabled()) {
+                continue; // désactivé = commande retirée (AC 7.7)
+            }
+            for (Node node : bp.nodes().values()) {
+                String name = commandNameOf(node);
+                if (name != null) {
+                    names.add(name);
+                }
+            }
+        }
+        return names;
+    }
+
+    /**
+     * Déclenche les blueprints actifs dont un nœud {@code event/command} porte ce
+     * nom en littéral ; retourne le nombre de lancements.
+     */
+    public int launchCommand(String name, TriggerContext trigger) {
+        int launched = 0;
+        for (Blueprint bp : manager.all()) {
+            if (!bp.enabled()) {
+                continue;
+            }
+            for (Node node : bp.nodes().values()) {
+                if (name.equals(commandNameOf(node))) {
+                    Ir ir = compiled(bp, node.uuid());
+                    if (ir != null) {
+                        scheduler.launch(bp.id(), ir, envFactory.create(bp, trigger));
+                        launched++;
+                    }
+                }
+            }
+        }
+        return launched;
+    }
+
+    private static @org.jetbrains.annotations.Nullable String commandNameOf(Node node) {
+        if (!StandardEvents.COMMAND.id().equals(node.typeId())) {
+            return null;
+        }
+        var literal = node.literal("name");
+        return literal != null && literal.value() instanceof String s && !s.isBlank() ? s : null;
+    }
+
     /** Recense les nœuds d'entrée d'un blueprint, groupés par événement. */
     private EntryIndex scan(Blueprint bp) {
         Map<Identifier, java.util.List<java.util.UUID>> byEvent = new HashMap<>();
