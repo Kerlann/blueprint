@@ -1,0 +1,34 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "8.2"
+story_title: "Nœuds définis en datapack"
+gate: "PASS"
+status_reason: "Composites interprétés, plafond GAMEPLAY tenu dans les deux sens, refus nommant l'étape fautive, couche rechargeable isolée du registre gelé. Deux défauts réels trouvés en revue — dont une violation directe de l'AC3 — corrigés avec régressions."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T07:25:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "DP-001"
+    severity: medium
+    finding: "CORRIGÉ — violation de l'AC3 : un champ au mauvais type (« fuelCost »: \"beaucoup\") levait une exception HORS de l'analyse et emportait tout le rechargement, au lieu de n'invalider que son fichier"
+    suggested_action: "Fait : chaque fichier est analysé et construit sous try/catch ; régression anUnexpectedExceptionInOneFileStaysInThatFile"
+  - id: "DP-002"
+    severity: medium
+    finding: "CORRIGÉ — un composite ne pouvait pas en appeler un autre du même lot (tous construits avant d'être enregistrés), et les étapes étaient résolues UNE FOIS à la construction : après un /reload, un appel visait encore l'ancienne définition"
+    suggested_action: "Fait : construction par vagues jusqu'à point fixe (les cycles sont refusés, sans boucle infinie) et résolution des étapes à l'exécution ; deux régressions"
+  - id: "DP-003"
+    severity: low
+    finding: "Le corps « bscript » annoncé dans extension-api.md n'est pas livré"
+    suggested_action: "Déviation consignée et argumentée dans la story (la grammaire ne sait pas déclarer une variable de type player) ; §6 de la doc réécrite d'après l'implémentation"
+  - id: "DP-004"
+    severity: low
+    finding: "Un composite ne peut ni brancher ni suspendre ; une tentative de suspend() met le blueprint en faute à l'exécution plutôt qu'au chargement"
+    suggested_action: "Assumé : le nœud appelé peut décider de suspendre selon ses entrées, ce n'est pas décidable au chargement — le message nomme le composite et l'étape"
+  - id: "DP-005"
+    severity: low
+    finding: "Le fuelCost déclaré n'est pas majoré par la somme des étapes : un composite peut annoncer 1 pour dix étapes"
+    suggested_action: "Le budget par tick de l'ordonnanceur reste la vraie protection ; à revoir avec les quotas configurables (9.3)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 2, low: 3 }
+  recommendations:
+    must_fix: []

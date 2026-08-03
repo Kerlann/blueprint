@@ -49,41 +49,66 @@ public final class DatapackNodes {
      */
     public static Report parseAll(Map<Identifier, String> files,
                                   PluginLoader.LoadedRegistries registries) {
-        List<NodeType> loaded = new ArrayList<>();
+        // Analyse : chaque fichier isolé de ses voisins, y compris contre une exception
+        // inattendue (un « fuelCost »: "beaucoup" ne doit pas emporter le rechargement).
+        Map<Identifier, CompositeDefinition> definitions = new LinkedHashMap<>();
         Map<Identifier, List<String>> rejected = new LinkedHashMap<>();
         files.forEach((file, text) -> {
             List<String> errors = new ArrayList<>();
-            JsonObject json = null;
             try {
                 JsonElement element = JsonParser.parseString(text);
-                if (element instanceof JsonObject object) {
-                    json = object;
-                } else {
+                if (!(element instanceof JsonObject json)) {
                     errors.add("objet JSON attendu");
-                }
-            } catch (RuntimeException e) {
-                errors.add("JSON illisible : " + e.getMessage());
-            }
-            if (json != null) {
-                CompositeDefinition.Result parsed = CompositeDefinition.parse(json,
-                        id -> registries.pinTypes().get(id).orElse(null));
-                if (!parsed.ok()) {
-                    errors.addAll(parsed.errors());
                 } else {
-                    CompositeNode.Built built = CompositeNode.build(parsed.definition(),
-                            registries.nodes());
-                    if (built.type() == null) {
-                        errors.addAll(built.errors());
+                    CompositeDefinition.Result parsed = CompositeDefinition.parse(json,
+                            id -> registries.pinTypes().get(id).orElse(null));
+                    if (parsed.ok()) {
+                        definitions.put(file, parsed.definition());
                     } else {
-                        loaded.add(built.type());
+                        errors.addAll(parsed.errors());
                     }
                 }
+            } catch (RuntimeException e) {
+                errors.add("fichier illisible : " + e);
             }
             if (!errors.isEmpty()) {
                 rejected.put(file, List.copyOf(errors));
             }
         });
-        return new Report(List.copyOf(loaded), Map.copyOf(rejected));
+
+        // Construction par vagues : un composite peut en appeler un autre du même lot,
+        // à condition qu'il finisse par se résoudre. Tant qu'une vague en construit au
+        // moins un, on recommence ; ce qui reste ne se résoudra jamais (référence
+        // absente ou cycle) et part au rapport avec sa raison.
+        Map<Identifier, NodeType> built = new LinkedHashMap<>();
+        CompositeNode.Resolver resolver = id -> {
+            NodeType fromLayer = built.get(id);
+            return fromLayer != null ? fromLayer : registries.nodes().get(id).orElse(null);
+        };
+        Map<Identifier, List<String>> pending = new LinkedHashMap<>();
+        boolean progress = true;
+        while (progress && !definitions.isEmpty()) {
+            progress = false;
+            pending.clear();
+            for (var iterator = definitions.entrySet().iterator(); iterator.hasNext(); ) {
+                var entry = iterator.next();
+                CompositeNode.Built attempt;
+                try {
+                    attempt = CompositeNode.build(entry.getValue(), resolver);
+                } catch (RuntimeException e) {
+                    attempt = new CompositeNode.Built(null, List.of("construction impossible : " + e));
+                }
+                if (attempt.type() != null) {
+                    built.put(entry.getValue().id(), attempt.type());
+                    iterator.remove();
+                    progress = true;
+                } else {
+                    pending.put(entry.getKey(), attempt.errors());
+                }
+            }
+        }
+        rejected.putAll(pending);
+        return new Report(List.copyOf(built.values()), Map.copyOf(rejected));
     }
 
     /** Lit les fichiers du gestionnaire de ressources, puis remplace la couche datapack. */

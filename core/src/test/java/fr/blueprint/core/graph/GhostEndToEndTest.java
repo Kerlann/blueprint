@@ -164,7 +164,7 @@ class GhostEndToEndTest {
         assertTrue(unknown.args().contains("manamod"),
                 "le diagnostic nomme le mod manquant : " + unknown.args());
         assertEquals(Map.of("manamod", 1), GhostNode.missingProviders(ghosted, removed.nodes()));
-        assertEquals("manamod (1 nœud)",
+        assertEquals("manamod ×1",
                 GhostNode.describeMissing(GhostNode.missingProviders(ghosted, removed.nodes())));
 
         UUID tick = UUID.nameUUIDFromBytes("tick".getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -204,8 +204,8 @@ class GhostEndToEndTest {
 
         assertEquals(Map.of("manamod", 2, "autremod", 1),
                 GhostNode.missingProviders(bp, registries.nodes()));
-        assertEquals("autremod (1 nœud), manamod (2 nœuds)",
+        assertEquals("autremod ×1, manamod ×2",
                 GhostNode.describeMissing(GhostNode.missingProviders(bp, registries.nodes())),
-                "ordre stable (alphabétique) et pluriel correct");
+                "ordre stable (alphabétique), sans mot de langue");
     }
 }

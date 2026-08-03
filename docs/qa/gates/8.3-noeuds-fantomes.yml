@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "8.3"
+story_title: "Nœuds fantômes de bout en bout"
+gate: "PASS"
+status_reason: "Le scénario complet est prouvé registres réels en main, y compris le ré-enregistrement PENDANT l'absence du mod — le moment où l'on perd des données. Le refus d'exécution nomme désormais le mod, au journal comme au joueur."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T07:25:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "GHOST-001"
+    severity: low
+    finding: "CORRIGÉ — la description des mods manquants contenait « nœud/nœuds » en dur, inséré dans un message par ailleurs traduit : du français au milieu d'un client anglais"
+    suggested_action: "Fait : forme neutre « manamod ×2 » ; la phrase reste entièrement dans les fichiers de langue"
+  - id: "GHOST-002"
+    severity: low
+    finding: "La forme déduite d'un fantôme ne connaît que les pins CÂBLÉS ou porteurs d'un littéral : un pin resté vide dans le graphe d'origine n'apparaît pas"
+    suggested_action: "Inhérent à la déduction (P4) : l'information n'existe nulle part quand le mod est absent ; rien n'est perdu, le pin réapparaît avec le mod"
+  - id: "GHOST-003"
+    severity: low
+    finding: "Le namespace du nœud sert de nom de mod (convention 2.2) : un mod qui enregistre sous un autre namespace serait mal nommé dans le message"
+    suggested_action: "Le registre avertit déjà à l'enregistrement quand la convention n'est pas suivie ; stocker le fournisseur dans le graphe coûterait plus qu'il ne rapporte"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 3 }
+  recommendations:
+    must_fix: []

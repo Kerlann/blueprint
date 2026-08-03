@@ -36,14 +36,28 @@ public final class CompositeNode {
     public record Built(@Nullable NodeType type, List<String> errors) {
     }
 
+    /**
+     * Résolution d'un nœud appelé. Volontairement une fonction et non un registre figé :
+     * un composite peut appeler un composite du même rechargement, et l'exécution doit
+     * voir la version COURANTE (QA DP-002) — sinon un {@code /reload} laisserait des
+     * appels vers l'ancienne définition.
+     */
+    @FunctionalInterface
+    public interface Resolver {
+        @Nullable NodeType resolve(Identifier id);
+    }
+
     public static Built build(CompositeDefinition definition, NodeRegistry registry) {
+        return build(definition, id -> registry.get(id).orElse(null));
+    }
+
+    public static Built build(CompositeDefinition definition, Resolver resolver) {
         List<String> errors = new ArrayList<>();
-        List<NodeType> steps = new ArrayList<>(definition.steps().size());
         Permission effective = definition.permission();
 
         for (int i = 0; i < definition.steps().size(); i++) {
             CompositeDefinition.Step step = definition.steps().get(i);
-            NodeType type = registry.get(step.node()).orElse(null);
+            NodeType type = resolver.resolve(step.node());
             if (type == null) {
                 errors.add("étape " + i + " : nœud « " + step.node() + " » inconnu");
                 continue;
@@ -77,7 +91,6 @@ public final class CompositeNode {
                             + argument + " »");
                 }
             }
-            steps.add(type);
         }
 
         if (!effective.allowedUnder(CompositeDefinition.MAX_PERMISSION)) {
@@ -121,31 +134,38 @@ public final class CompositeNode {
             builder.out(pin.name(), pin.type());
         }
 
-        List<NodeType> resolved = List.copyOf(steps);
         try {
-            return new Built(builder.action(ctx -> run(definition, resolved, ctx)).build(), List.of());
+            return new Built(builder.action(ctx -> run(definition, resolver, ctx)).build(), List.of());
         } catch (RuntimeException e) {
             return new Built(null, List.of(e.getMessage()));
         }
     }
 
-    private static void run(CompositeDefinition definition, List<NodeType> steps,
-                            NodeContext outer) throws Exception {
-        List<Map<String, Object>> stepOutputs = new ArrayList<>(steps.size());
-        for (int i = 0; i < steps.size(); i++) {
+    private static void run(CompositeDefinition definition, Resolver resolver, NodeContext outer)
+            throws Exception {
+        List<Map<String, Object>> stepOutputs = new ArrayList<>(definition.steps().size());
+        for (int i = 0; i < definition.steps().size(); i++) {
             CompositeDefinition.Step step = definition.steps().get(i);
+            // Résolu MAINTENANT : après un /reload, l'appel doit viser la version
+            // courante du nœud, pas celle capturée à la construction (QA DP-002).
+            NodeType called = resolver.resolve(step.node());
+            if (called == null) {
+                throw new IllegalStateException("Composite « " + definition.id()
+                        + " » : le nœud « " + step.node() + " » de l'étape " + i
+                        + " n'existe plus");
+            }
             Map<String, Object> inputs = new HashMap<>();
             for (Map.Entry<String, CompositeDefinition.Binding> entry : step.args().entrySet()) {
                 inputs.put(entry.getKey(), resolve(entry.getValue(), outer, stepOutputs));
             }
             // Les entrées non liées prennent le défaut déclaré par le nœud appelé.
-            for (NodeType.PinSpec pin : steps.get(i).inputs()) {
+            for (NodeType.PinSpec pin : called.inputs()) {
                 if (!inputs.containsKey(pin.name()) && pin.defaultValue() != null) {
                     inputs.put(pin.name(), pin.defaultValue().value());
                 }
             }
             StepContext context = new StepContext(outer, inputs, definition.id(), step.node());
-            steps.get(i).action().run(context);
+            called.action().run(context);
             stepOutputs.add(context.outputs);
         }
         for (Map.Entry<String, CompositeDefinition.Binding> entry : definition.returns().entrySet()) {

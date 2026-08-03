@@ -1,0 +1,30 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "8.1"
+story_title: "Annotation @BlueprintNode"
+gate: "PASS"
+status_reason: "Les pins se déduisent de la signature, le contexte s'injecte, les déclarations fautives sont refusées en nommant la méthode, et un mod peut n'avoir aucune classe de plugin. Un trou de déterminisme trouvé en revue (surcharges) et fermé. Le processeur d'annotations reste une déviation assumée et argumentée."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T07:25:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "ANN-001"
+    severity: medium
+    finding: "CORRIGÉ — les méthodes n'étaient triées que par nom : deux surcharges annotées se retrouvaient dans l'ordre non spécifié de getDeclaredMethods(), donc un ordre d'enregistrement variable d'un démarrage à l'autre (le hash de registre 6.2 doit être stable)"
+    suggested_action: "Fait : tri par nom PUIS signature — ordre total"
+  - id: "ANN-002"
+    severity: low
+    finding: "Une seule sortie par méthode annotée (la valeur de retour) ; les sorties multiples restent au builder"
+    suggested_action: "Assumé et documenté : les émuler demanderait des paramètres « boîte » moins lisibles que le builder qu'ils remplacent"
+  - id: "ANN-003"
+    severity: low
+    finding: "Sans le processeur d'annotations, les erreurs de déclaration apparaissent au démarrage du jeu, pas dans javac (AC3 lu au sens « signalées clairement »)"
+    suggested_action: "Déviation consignée dans la story ; le binder est conçu pour qu'un processeur v1.1 produise exactement les mêmes NodeType"
+  - id: "ANN-004"
+    severity: low
+    finding: "Le scan des classes déclarées passe par le classloader de Blueprint ; un mod chargé dans un classloader isolé ne serait pas trouvé"
+    suggested_action: "Sans objet sur Fabric (classloader partagé) ; l'échec est isolé et journalisé si le cas apparaît"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 3 }
+  recommendations:
+    must_fix: []

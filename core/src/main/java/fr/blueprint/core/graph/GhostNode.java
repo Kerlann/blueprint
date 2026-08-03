@@ -35,15 +35,18 @@ public final class GhostNode {
         return byMod;
     }
 
-    /** « manamod (2 nœuds), autremod (1 nœud) » — pour les journaux et le chat. */
+    /**
+     * « manamod ×2, autremod ×1 » — pour les journaux et pour un message traduit.
+     * Sans mot de langue : ce texte s'insère dans une phrase déjà traduite, un
+     * « nœuds » en dur y ressortirait en français au milieu d'un client anglais.
+     */
     public static String describeMissing(java.util.Map<String, Integer> missing) {
         StringBuilder text = new StringBuilder();
         missing.forEach((mod, count) -> {
             if (!text.isEmpty()) {
                 text.append(", ");
             }
-            text.append(mod).append(" (").append(count)
-                    .append(count > 1 ? " nœuds)" : " nœud)");
+            text.append(mod).append(" ×").append(count);
         });
         return text.toString();
     }

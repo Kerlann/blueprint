@@ -150,9 +150,55 @@ class DatapackNodesTest {
         assertEquals(1, report.loadedCount(), "le fichier valide charge quand même");
         assertEquals(2, report.rejected().size());
         assertTrue(report.rejected().values().stream()
-                .anyMatch(errors -> errors.toString().contains("JSON illisible")));
+                .anyMatch(errors -> errors.toString().contains("illisible")));
         assertTrue(report.rejected().values().stream()
                 .anyMatch(errors -> errors.toString().contains("vide")));
+    }
+
+    /**
+     * QA DP-001 : un champ au mauvais type levait une exception hors de l'analyse et
+     * emportait TOUT le rechargement — exactement ce que l'AC3 interdit.
+     */
+    @Test
+    void anUnexpectedExceptionInOneFileStaysInThatFile() {
+        DatapackNodes.Report report = load("""
+                { "id": "mypack:fuel_absurde", "fuelCost": "beaucoup",
+                  "body": { "steps": [ { "node": "host:count", "args": { "value": "x" } } ] } }
+                """, HEAL_AND_SHOUT);
+        assertEquals(1, report.loadedCount(), "le fichier sain charge quand même");
+        assertEquals(1, report.rejected().size());
+    }
+
+    /** QA DP-002 : un composite peut en appeler un autre du même lot, dans n'importe quel ordre. */
+    @Test
+    void aCompositeCanCallAnotherCompositeOfTheSameBatch() {
+        String base = """
+                { "id": "mypack:base",
+                  "pins": { "in": [ { "name": "texte", "type": "blueprint:string" } ],
+                            "out": [ { "name": "taille", "type": "blueprint:int" } ] },
+                  "body": { "steps": [ { "node": "host:count", "args": { "value": "$texte" } } ] },
+                  "returns": { "taille": "$0.length" } }
+                """;
+        String derived = """
+                { "id": "mypack:derive",
+                  "pins": { "out": [ { "name": "taille", "type": "blueprint:int" } ] },
+                  "body": { "steps": [ { "node": "mypack:base", "args": { "texte": "quatre" } } ] },
+                  "returns": { "taille": "$0.taille" } }
+                """;
+        // Le dépendant est lu EN PREMIER : la construction par vagues doit s'en sortir.
+        DatapackNodes.Report report = load(derived, base);
+        assertEquals(2, report.loadedCount(), report.rejected().toString());
+    }
+
+    @Test
+    void aCycleBetweenCompositesIsRefusedNotHung() {
+        DatapackNodes.Report report = load("""
+                { "id": "mypack:a", "body": { "steps": [ { "node": "mypack:b" } ] } }
+                """, """
+                { "id": "mypack:b", "body": { "steps": [ { "node": "mypack:a" } ] } }
+                """);
+        assertEquals(0, report.loadedCount());
+        assertEquals(2, report.rejected().size(), "les deux sont refusés, sans boucle infinie");
     }
 
     /** AC4 : un datapack ne dépasse pas GAMEPLAY, ni en le déclarant ni en composant. */

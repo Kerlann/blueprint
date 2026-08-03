@@ -81,12 +81,23 @@ public final class AnnotatedNodes {
                 methods.add(method);
             }
         }
-        methods.sort(Comparator.comparing(Method::getName));
+        // Nom PUIS signature : deux surcharges annotées portent le même nom, et
+        // getDeclaredMethods() ne garantit aucun ordre — sans départage, le hash de
+        // registre (6.2) pourrait changer d'un démarrage à l'autre (QA ANN-001).
+        methods.sort(Comparator.comparing(Method::getName).thenComparing(AnnotatedNodes::signature));
         List<NodeType> out = new ArrayList<>(methods.size());
         for (Method method : methods) {
             out.add(toNodeType(method, extra));
         }
         return out;
+    }
+
+    private static String signature(Method method) {
+        StringBuilder text = new StringBuilder();
+        for (Class<?> parameter : method.getParameterTypes()) {
+            text.append(parameter.getName()).append(',');
+        }
+        return text.toString();
     }
 
     // ------------------------------------------------------------------ dérivation
