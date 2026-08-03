@@ -115,6 +115,44 @@ public class BlueprintMod implements ModInitializer {
         registerWorldEventBridges();
         registerRegistrySync();
         fr.blueprint.core.net.ServerBlueprintNet.register(config);
+        registerDatapackNodes();
+    }
+
+    /**
+     * Nœuds composites des datapacks (8.2) : relus à chaque {@code /reload}. Le hash du
+     * registre change alors — les clients connectés doivent le réapprendre (6.2), sinon
+     * leur palette resterait sur l'ancien lot.
+     */
+    private static void registerDatapackNodes() {
+        net.fabricmc.fabric.api.resource.v1.ResourceLoader
+                .get(net.minecraft.server.packs.PackType.SERVER_DATA)
+                .registerReloader(
+                        net.minecraft.resources.Identifier.fromNamespaceAndPath(MOD_ID, "datapack_nodes"),
+                        (net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> {
+                            fr.blueprint.core.datapack.DatapackNodes.reload(manager, registries);
+                            registryHash = null;
+                            descriptorStream = null;
+                            announceRegistry();
+                        });
+    }
+
+    /** Réannonce le hash aux joueurs connectés (après un /reload). */
+    private static void announceRegistry() {
+        java.util.Set<net.minecraft.server.MinecraftServer> servers;
+        synchronized (BRIDGES) {
+            servers = new java.util.HashSet<>(BRIDGES.keySet());
+        }
+        for (net.minecraft.server.MinecraftServer server : servers) {
+            for (net.minecraft.server.level.ServerPlayer player
+                    : server.getPlayerList().getPlayers()) {
+                if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(player,
+                        fr.blueprint.core.net.BlueprintPayloads.RegistryHash.TYPE)) {
+                    SYNCED.remove(player.getUUID());
+                    net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
+                            new fr.blueprint.core.net.BlueprintPayloads.RegistryHash(registryHash()));
+                }
+            }
+        }
     }
 
     /** Hash du registre, calculé une fois (les registres sont gelés après l'init). */

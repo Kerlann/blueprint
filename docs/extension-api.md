@@ -308,19 +308,44 @@ elle n'isole que **votre** mod : les autres chargent normalement.
   "pins": {
     "in":  [ { "name": "player", "type": "blueprint:player" },
              { "name": "amount", "type": "blueprint:double", "default": 4.0 } ],
-    "out": [ { "name": "ok", "type": "blueprint:bool" } ]
+    "out": [ { "name": "soigne", "type": "blueprint:double" } ]
   },
   "body": {
-    "type": "bscript",
-    "source": "player.heal($player, $amount)\nplayer.feed($player, 4)\n$ok = true"
-  }
+    "steps": [
+      { "node": "blueprint:entity/heal",  "args": { "entity": "$player", "amount": "$amount" } },
+      { "node": "blueprint:player/feed",  "args": { "player": "$player", "points": 4 } }
+    ]
+  },
+  "returns": { "soigne": "$amount" }
 }
 ```
 
-- Rechargé à `/reload`. Un fichier invalide est signalé sans casser les autres.
-- Le corps ne peut appeler que des nœuds existants : la permission est bornée à `GAMEPLAY`.
-- Alternative au corps BScript : `"type": "graph"` avec une liste de nœuds et de liens,
-  ce qui permet d'exporter un blueprint existant comme nœud réutilisable.
+Le corps est une **suite d'appels de nœuds existants**. Chaque entrée d'une étape se lie à :
+
+| Écriture | Sens |
+|---|---|
+| `"$nom"` | un pin d'entrée du composite |
+| `"$0.result"` | la sortie `result` de l'étape 0 (obligatoirement **antérieure**) |
+| `4`, `true`, `"texte"` | une constante |
+
+Une entrée non liée prend la valeur par défaut du nœud appelé. `returns` alimente les
+pins de sortie déclarés — chaque sortie doit y figurer.
+
+- **Rechargé à `/reload`** : la couche des nœuds de datapack est remplacée en bloc, celle
+  des mods n'est jamais touchée. Les clients connectés réapprennent le registre (§ synchro).
+- **Un fichier invalide est signalé et ignoré**, les autres se chargent : le message
+  nomme le fichier et la raison exacte (étape, pin, permission…).
+- **Permission plafonnée à `GAMEPLAY`**, dans les deux sens : la déclarer plus haut est
+  refusé, et composer un nœud plus exigeant l'est aussi — la permission d'un composite
+  est celle de son étape la plus exigeante.
+- Un composite ne peut pas **brancher** (une étape à plusieurs sorties exec est refusée),
+  ni **suspendre** (`wait`), ni **s'appeler lui-même**. Ces cas-là veulent un vrai
+  blueprint, pas un nœud.
+
+> **État v1.0** : le corps `"type": "bscript"` n'est pas livré — un fragment BScript veut
+> des variables pour ses entrées, et la grammaire ne sait pas déclarer une variable de
+> type `player` (pas de littéral). La forme `steps` couvre le même besoin sans ce détour.
+> Consigné v1.1.
 
 ---
 

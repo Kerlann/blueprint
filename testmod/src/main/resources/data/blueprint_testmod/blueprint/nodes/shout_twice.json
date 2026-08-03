@@ -1,0 +1,23 @@
+{
+  "id": "blueprint_testmod:shout_twice",
+  "category": "string",
+  "translation": {
+    "name": "blueprint_testmod.node.shout_twice.name",
+    "desc": "blueprint_testmod.node.shout_twice.desc"
+  },
+  "pins": {
+    "in": [
+      { "name": "message", "type": "blueprint:string", "default": "salut" }
+    ],
+    "out": [
+      { "name": "longueur", "type": "blueprint:int" }
+    ]
+  },
+  "body": {
+    "steps": [
+      { "node": "blueprint_testmod:ping", "args": { "message": "$message" } },
+      { "node": "blueprint:string/length", "args": { "value": "$0.echo" } }
+    ]
+  },
+  "returns": { "longueur": "$1.result" }
+}

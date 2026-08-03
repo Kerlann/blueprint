@@ -77,6 +77,37 @@ public final class NodeRegistryImpl implements NodeRegistry, NodeTypeLookup {
         frozen = true;
     }
 
+    /** Fournisseur des nœuds venus des datapacks — la seule couche rechargeable. */
+    public static final String DATAPACK_PROVIDER = "datapack";
+
+    private int generation;
+
+    /**
+     * Remplace en bloc la couche des nœuds de datapack (story 8.2). C'est la SEULE
+     * mutation permise après le gel : un {@code /reload} rebâtit cette couche entière,
+     * jamais celle des mods. La génération change à chaque remplacement — le hash de
+     * registre (6.2) doit être réannoncé aux clients connectés.
+     */
+    public void replaceDatapackLayer(Collection<NodeType> types) {
+        removeAllFrom(DATAPACK_PROVIDER);
+        for (NodeType type : types) {
+            String existing = providerById.get(type.id());
+            if (existing != null) {
+                BlueprintMod.LOGGER.warn("Nœud de datapack « {} » ignoré : déjà fourni par « {} »",
+                        type.id(), existing);
+                continue;
+            }
+            byId.put(type.id(), type);
+            providerById.put(type.id(), DATAPACK_PROVIDER);
+        }
+        generation++;
+    }
+
+    /** Incrémentée à chaque rechargement de la couche datapack. */
+    public int generation() {
+        return generation;
+    }
+
     public boolean isFrozen() {
         return frozen;
     }
