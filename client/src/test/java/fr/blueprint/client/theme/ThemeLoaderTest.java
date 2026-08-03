@@ -14,7 +14,7 @@ class ThemeLoaderTest {
     @Test
     void fichierAbsentOuCorrompuDonneLeDefaut(@TempDir Path dir) throws Exception {
         assertEquals(Theme.DEFAULT, ThemeLoader.load(dir));
-        Path file = dir.resolve("blueprint").resolve("theme.json");
+        Path file = dir.resolve("theme.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, "{cassé");
         assertEquals(Theme.DEFAULT, ThemeLoader.load(dir));
@@ -22,7 +22,7 @@ class ThemeLoaderTest {
 
     @Test
     void surchargePartielleSurLaBase(@TempDir Path dir) throws Exception {
-        Path file = dir.resolve("blueprint").resolve("theme.json");
+        Path file = dir.resolve("theme.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, """
                 { "canvas": { "background": "#102030" },
@@ -38,7 +38,7 @@ class ThemeLoaderTest {
 
     @Test
     void baseContraste(@TempDir Path dir) throws Exception {
-        Path file = dir.resolve("blueprint").resolve("theme.json");
+        Path file = dir.resolve("theme.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, "{ \"contrast\": true }");
         assertEquals(Theme.HIGH_CONTRAST, ThemeLoader.load(dir));

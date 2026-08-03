@@ -119,7 +119,7 @@ mappings Mojang). Tout le produit décrit ici est à construire par-dessus.
 - **FR48** — Un nœud ouvre un écran pour un joueur donné, un autre le ferme ; un événement se déclenche quand un élément est **cliqué**, quand l'écran s'ouvre et quand il se ferme. `Échap` ferme toujours : aucun écran ne peut refuser de se fermer.
 - **FR49** — Le graphe peut **modifier** un écran ouvert : texte d'une étiquette, image, visibilité, activation d'un bouton, valeur d'une barre. Les modifications d'un même tick partent groupées, seules celles qui ont changé sont transmises, et une mise à jour destinée à un écran refermé est ignorée.
 - **FR49b** — Un élément peut être **lié** à une variable du blueprint, avec un format d'affichage. Un seul nœud `gui/refresh` met alors à jour tout l'écran ; rien ne circule tant qu'il n'est pas appelé.
-- **FR50** — L'apparence est **personnalisable** : couleurs, bordures, neuf-tranches, et images fournies par des **packs** — des dossiers de `config/blueprint/scripts/` qu'un joueur dépose chez lui et peut donner à un autre. Une texture absente affiche un remplaçant qui **nomme le pack manquant** et ne fait jamais planter le client.
+- **FR50** — L'apparence est **personnalisable** : couleurs, bordures, neuf-tranches, et images fournies par des **packs** — des dossiers de `blueprint/scripts/` qu'un joueur dépose chez lui et peut donner à un autre. Une texture absente affiche un remplaçant qui **nomme le pack manquant** et ne fait jamais planter le client.
 - **FR51** — Les écrans traversent la sauvegarde, la synchronisation réseau et BScript comme le reste du blueprint : même enregistrement, même permission, même verrou.
 - **FR52** — Le serveur ne fait **jamais** confiance à ce qu'un client déclare avoir cliqué : l'écran ouvert, l'existence de l'élément et la cadence sont vérifiés côté serveur.
 
@@ -308,7 +308,7 @@ En tant que développeuse de mod, je veux déclarer mes propres événements dé
 - AC4 : fuzzing : aucun crash sur entrée malformée.
 
 **Story 4.4 — Import/export et presse-papier**
-- AC1 : `/blueprint export <id>` écrit un `.bp` dans `config/blueprint/exports/`.
+- AC1 : `/blueprint export <id>` écrit un `.bp` dans `blueprint/exports/`.
 - AC2 : `/blueprint import <fichier>` valide, applique les permissions et refuse les nœuds au-dessus du plafond.
 - AC3 : Ctrl+C/Ctrl+V dans l'éditeur passe par le presse-papier système au format BScript (FR27).
 
@@ -494,7 +494,7 @@ ils restent la liste de contrôle avant de déclarer l'épic terminé.*
 - AC3 : le serveur vérifie que l'écran est bien ouvert pour ce joueur et que l'élément existe ; la cadence des clics est limitée (FR52).
 
 **Story 10.5 — Packs : un dossier échangeable**
-- AC1 : un pack est un DOSSIER de `config/blueprint/scripts/` : `pack.json`, `textures/*.png`, et le `.bp` qui les utilise. On le donne, l'autre le dépose, `/blueprint-packs reload`.
+- AC1 : un pack est un DOSSIER de `blueprint/scripts/` : `pack.json`, `textures/*.png`, et le `.bp` qui les utilise. On le donne, l'autre le dépose, `/blueprint-packs reload`.
 - AC2 : un pack invalide est nommé et ignoré, jamais bloquant ; une texture absente affiche un remplaçant qui NOMME le pack manquant, comme un nœud fantôme nomme son mod.
 - AC3 : bornes (2048×2048, PNG seul, nombre de textures) ; le style — couleurs, bordures, neuf-tranches — marche sans aucun pack installé.
 

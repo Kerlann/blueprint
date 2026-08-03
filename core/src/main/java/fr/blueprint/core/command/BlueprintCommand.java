@@ -15,6 +15,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.permissions.Permission;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Predicate;
 
 /**
@@ -64,13 +66,17 @@ public final class BlueprintCommand {
                         .then(idArgument()
                                 .suggests(EXISTING_IDS)
                                 .executes(BlueprintCommand::delete)))
+                // « all » AVANT l'argument identifiant : Brigadier essaie les littéraux
+                // d'abord, donc « all » ne peut pas être confondu avec un identifiant.
                 .then(literal("enable")
                         .requires(admin)
+                        .then(literal("all").executes(ctx -> setAllEnabled(ctx, true)))
                         .then(idArgument()
                                 .suggests(EXISTING_IDS)
                                 .executes(ctx -> setEnabled(ctx, true))))
                 .then(literal("disable")
                         .requires(admin)
+                        .then(literal("all").executes(ctx -> setAllEnabled(ctx, false)))
                         .then(idArgument()
                                 .suggests(EXISTING_IDS)
                                 .executes(ctx -> setEnabled(ctx, false))))
@@ -563,6 +569,31 @@ public final class BlueprintCommand {
         ctx.getSource().sendSuccess(() -> Component.translatable(
                 enabled ? "blueprint.cmd.enabled" : "blueprint.cmd.disabled", id.toString()), true);
         return 1;
+    }
+
+    /**
+     * {@code enable all} / {@code disable all}. Une commande par blueprint devient vite
+     * pénible dès qu'on en a une dizaine — et c'est le cas dès qu'on charge les
+     * exemples.
+     *
+     * <p>Le compte rendu dit combien ont <b>changé</b>, pas combien existent : relancer
+     * la commande doit répondre « 0 » plutôt que de laisser croire qu'elle a agi.
+     */
+    private static int setAllEnabled(CommandContext<CommandSourceStack> ctx, boolean enabled) {
+        BlueprintManager manager = BlueprintManager.of(ctx.getSource().getServer());
+        List<Identifier> changed = new ArrayList<>();
+        // Copie de la liste : setEnabled(false) referme des écrans, ce qui touche
+        // d'autres tables — on ne parcourt pas une collection qu'on fait bouger.
+        for (Blueprint bp : List.copyOf(manager.all())) {
+            if (bp.enabled() != enabled) {
+                manager.setEnabled(bp.id(), enabled);
+                changed.add(bp.id());
+            }
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable(
+                enabled ? "blueprint.cmd.enabled_all" : "blueprint.cmd.disabled_all",
+                changed.size()), true);
+        return changed.size();
     }
 
     private static Component state(Blueprint bp) {

@@ -25,7 +25,7 @@ class PalettePrefsTest {
         prefs.addRecent(id("flow/branch"));
         prefs.addRecent(id("debug/log"));
         prefs.save(dir);
-        assertTrue(Files.exists(dir.resolve("blueprint").resolve("editor-client.json")));
+        assertTrue(Files.exists(dir.resolve("editor-client.json")));
 
         PalettePrefs loaded = PalettePrefs.load(dir);
         assertTrue(loaded.isFavorite(id("math/add")));
@@ -52,7 +52,7 @@ class PalettePrefsTest {
 
     @Test
     void fichierCorrompuDonneDesPreferencesVides(@TempDir Path dir) throws Exception {
-        Path file = dir.resolve("blueprint").resolve("editor-client.json");
+        Path file = dir.resolve("editor-client.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, "{pas du json");
         PalettePrefs prefs = PalettePrefs.load(dir);

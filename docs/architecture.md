@@ -355,7 +355,7 @@ enregistrés via `PayloadTypeRegistry.playC2S()` / `playS2C()`.
 | Exécutions suspendues | idem | NBT |
 | Variables `WORLD` | idem | NBT |
 | Variables `PLAYER` | données persistantes du joueur, ≤ 64 Ko | NBT |
-| Bibliothèque partagée / exports | `config/blueprint/` | `.bp` (BScript) |
+| Bibliothèque partagée / exports | `blueprint/` | `.bp` (BScript) |
 | Nœuds datapack | `data/<modid>/blueprint/nodes/*.json` | JSON, rechargé à `/reload` |
 | Thème de l'éditeur | `assets/blueprint/theme/*.json` | JSON |
 

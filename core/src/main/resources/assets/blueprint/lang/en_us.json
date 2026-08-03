@@ -53,6 +53,8 @@
   "blueprint.cmd.exists": "A blueprint named %s already exists",
   "blueprint.cmd.deleted": "Blueprint %s deleted",
   "blueprint.cmd.not_found": "No blueprint named %s",
+  "blueprint.cmd.enabled_all": "%s blueprint(s) enabled",
+  "blueprint.cmd.disabled_all": "%s blueprint(s) disabled",
   "blueprint.cmd.enabled": "Blueprint %s enabled",
   "blueprint.cmd.disabled": "Blueprint %s disabled",
   "blueprint.cmd.list.empty": "No blueprints on this server",

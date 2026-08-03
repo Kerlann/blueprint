@@ -52,6 +52,7 @@ public final class BlueprintManager {
         }
         Blueprint bp = new Blueprint(id);
         blueprints.put(id, bp);
+        announceList();
         return Optional.of(bp);
     }
 
@@ -60,6 +61,7 @@ public final class BlueprintManager {
         boolean removed = blueprints.remove(id) != null;
         if (removed) {
             closeItsScreens(id);
+            announceList();
         }
         return removed;
     }
@@ -72,6 +74,19 @@ public final class BlueprintManager {
      * le joueur comprenne pourquoi — et il ne pourrait pas deviner que c'est un
      * administrateur qui vient de couper le graphe derrière lui.
      */
+    /**
+     * Prévient les clients que la liste a changé.
+     *
+     * <p>Sans cela, {@code /blueprint-edit} suggérait la liste reçue à la CONNEXION et
+     * rien d'autre : créer un blueprint ou charger les exemples ne se voyait pas côté
+     * client, et les deux commandes avaient l'air de parler de deux mondes différents.
+     */
+    private void announceList() {
+        if (server != null) {
+            fr.blueprint.core.net.ServerBlueprintNet.announceList(server);
+        }
+    }
+
     private void closeItsScreens(Identifier id) {
         if (server != null) {
             fr.blueprint.core.net.ServerBlueprintNet.closeScreensOf(server, id);
@@ -80,7 +95,11 @@ public final class BlueprintManager {
 
     /** Adopte un blueprint existant (import, démo) ; faux si l'identifiant est pris. */
     public boolean adopt(Blueprint blueprint) {
-        return blueprints.putIfAbsent(blueprint.id(), blueprint) == null;
+        boolean added = blueprints.putIfAbsent(blueprint.id(), blueprint) == null;
+        if (added) {
+            announceList();
+        }
+        return added;
     }
 
     public Optional<Blueprint> get(Identifier id) {

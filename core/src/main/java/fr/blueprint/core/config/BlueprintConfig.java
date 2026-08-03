@@ -13,7 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Configuration serveur ({@code config/blueprint/config.json}), créée avec ses
+ * Configuration serveur ({@code blueprint/config.json}), créée avec ses
  * valeurs par défaut au premier lancement. Volontairement plate et tolérante :
  * un fichier illisible vaut configuration par défaut, jamais un crash.
  */
@@ -72,9 +72,9 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
         };
     }
 
-    /** Charge depuis {@code <configDir>/blueprint/config.json}, en l'écrivant si absent. */
-    public static BlueprintConfig load(Path configDir) {
-        Path file = configDir.resolve("blueprint").resolve("config.json");
+    /** Charge depuis {@code <racine>/config.json}, en l'écrivant si absent. */
+    public static BlueprintConfig load(Path root) {
+        Path file = root.resolve("config.json");
         try {
             if (Files.notExists(file)) {
                 Files.createDirectories(file.getParent());

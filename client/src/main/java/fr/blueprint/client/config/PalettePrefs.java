@@ -21,7 +21,7 @@ import java.util.Set;
 /**
  * Préférences CLIENT de la palette (story 5.4b) : favoris et nœuds récents. Hors de
  * la sauvegarde monde — c'est une préférence utilisateur — dans
- * {@code config/blueprint/editor-client.json}, écrite atomiquement (même dossier et
+ * {@code blueprint/editor-client.json}, écrite atomiquement (même dossier et
  * même Gson que la config serveur, chemin injecté pour les tests).
  */
 public final class PalettePrefs {
@@ -94,8 +94,8 @@ public final class PalettePrefs {
         }
     }
 
-    private static Path file(Path configDir) {
-        return configDir.resolve("blueprint").resolve("editor-client.json");
+    private static Path file(Path root) {
+        return root.resolve("editor-client.json");
     }
 
     private static List<Identifier> readIds(JsonObject json, String key) {

@@ -120,7 +120,8 @@ public final class CanvasWidget {
                     I18n.get(d.descKey()), d.category()));
         }
         entries.sort(Comparator.comparing(NodeSearch.Entry::title));
-        this.configDir = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir();
+        // Le MÊME dossier que le serveur : blueprint/ à la racine du jeu.
+        this.configDir = fr.blueprint.core.BlueprintPaths.root();
         // Thème rechargé à chaque ouverture : modifiable sans recompiler (5.7).
         fr.blueprint.client.theme.Theme.set(
                 fr.blueprint.client.theme.ThemeLoader.load(configDir));

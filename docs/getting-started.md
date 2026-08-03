@@ -113,7 +113,7 @@ Pour regarder ce qui se passe vraiment, un administrateur dispose du **débogueu
 
 Tout graphe s'écrit en **BScript**, un texte lisible :
 
-- `/blueprint export <id>` écrit `config/blueprint/exports/<id>.bp` ;
+- `/blueprint export <id>` écrit `blueprint/exports/<id>.bp` (dossier `blueprint/` à la **racine du jeu**, à côté de `saves`) ;
 - `/blueprint import <fichier>` le relit ;
 - **Ctrl+C** dans l'éditeur copie la sélection en BScript — collable dans un message.
 

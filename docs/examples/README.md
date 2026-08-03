@@ -26,7 +26,7 @@ l'éditeur (`/blueprint-edit blueprint:example/<nom>`), lis-les, puis :
 /blueprint enable blueprint:example/jour_et_nuit
 ```
 
-**Depuis un fichier** : copie le `.bp` dans `config/blueprint/exports/`, puis
+**Depuis un fichier** : copie le `.bp` dans `blueprint/exports/`, puis
 `/blueprint import <nom>`. C'est du texte — tu peux aussi le coller dans la vue script
 de l'éditeur.
 

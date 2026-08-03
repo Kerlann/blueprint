@@ -8,7 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Charge {@code config/blueprint/theme.json} : base {@code "contrast": true|false}
+ * Charge {@code blueprint/theme.json} : base {@code "contrast": true|false}
  * puis jetons hex par groupe (UX §12). Clé absente → valeur de la base ; fichier
  * absent ou corrompu → thème par défaut, jamais de crash.
  *
@@ -23,8 +23,8 @@ public final class ThemeLoader {
     private ThemeLoader() {
     }
 
-    public static Theme load(Path configDir) {
-        Path file = configDir.resolve("blueprint").resolve("theme.json");
+    public static Theme load(Path root) {
+        Path file = root.resolve("theme.json");
         try {
             if (!Files.exists(file)) {
                 return Theme.DEFAULT;

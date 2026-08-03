@@ -16,13 +16,13 @@ class BlueprintConfigTest {
     void firstLaunchWritesDefaults(@TempDir Path configDir) {
         var config = BlueprintConfig.load(configDir);
         assertEquals(BlueprintConfig.DEFAULT, config);
-        assertTrue(Files.exists(configDir.resolve("blueprint/config.json")),
+        assertTrue(Files.exists(configDir.resolve("config.json")),
                 "le fichier de config doit être créé avec ses défauts");
     }
 
     @Test
     void existingFileIsRead(@TempDir Path configDir) throws Exception {
-        Path file = configDir.resolve("blueprint/config.json");
+        Path file = configDir.resolve("config.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, "{\"commandPermissionLevel\": 4}");
         assertEquals(4, BlueprintConfig.load(configDir).commandPermissionLevel());
@@ -30,7 +30,7 @@ class BlueprintConfigTest {
 
     @Test
     void malformedFileFallsBackToDefaults(@TempDir Path configDir) throws Exception {
-        Path file = configDir.resolve("blueprint/config.json");
+        Path file = configDir.resolve("config.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, "{ pas du json");
         assertEquals(BlueprintConfig.DEFAULT, BlueprintConfig.load(configDir));

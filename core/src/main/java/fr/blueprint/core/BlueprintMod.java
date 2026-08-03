@@ -28,7 +28,11 @@ public class BlueprintMod implements ModInitializer {
     public void onInitialize() {
         LOGGER.info("Blueprint initialisé");
 
-        config = BlueprintConfig.load(FabricLoader.getInstance().getConfigDir());
+        // Un seul dossier, à la racine du jeu. La reprise de l'ancien emplacement
+        // passe AVANT la lecture : sinon la config existante serait ignorée et
+        // réécrite aux valeurs par défaut.
+        BlueprintPaths.migrateLegacy();
+        config = BlueprintConfig.load(BlueprintPaths.root());
         BlueprintCommand.register(config);
         // NFR15 : l'audit des nœuds ADMIN se coupe depuis la configuration serveur.
         fr.blueprint.core.debug.AdminAudit.enabled(config.auditAdminNodes());

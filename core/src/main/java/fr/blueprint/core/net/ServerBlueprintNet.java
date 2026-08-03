@@ -30,6 +30,7 @@ public final class ServerBlueprintNet {
 
     public static void register(BlueprintConfig config) {
         // Quotas et bornes : ce que dit la configuration serveur (9.3), pas des constantes.
+        CONFIG = config;
         LIMITS = config.netLimits();
         SAVES = new RateLimiter(LIMITS.savesPerWindow(), LIMITS.windowMillis(),
                 System::currentTimeMillis);
@@ -491,14 +492,40 @@ public final class ServerBlueprintNet {
      * dans SON monde — la permission est là pour arbitrer entre joueurs d'un serveur,
      * pas pour se protéger de soi-même.
      */
+    /**
+     * Prévient tous les joueurs que la liste des blueprints a changé.
+     *
+     * <p>Sans cela, {@code /blueprint-edit} suggérait la liste reçue <b>à la
+     * connexion</b> et rien d'autre : créer un blueprint avec {@code /blueprint create}
+     * ou charger les exemples ne se voyait pas côté client, et les deux commandes
+     * avaient l'air de parler de deux mondes différents. Elles parlaient bien des mêmes
+     * blueprints — le client en avait simplement une photo périmée.
+     */
+    public static void announceList(net.minecraft.server.MinecraftServer server) {
+        List<Identifier> ids = new ArrayList<>();
+        BlueprintManager.of(server).all().forEach(bp -> ids.add(bp.id()));
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (ServerPlayNetworking.canSend(player, BlueprintPayloads.ListData.TYPE)) {
+                ServerPlayNetworking.send(player,
+                        new BlueprintPayloads.ListData(ids, mayEdit(CONFIG, player)));
+            }
+        }
+    }
+
+    /** La configuration en vigueur — mémorisée pour les envois hors requête. */
+    private static BlueprintConfig CONFIG = BlueprintConfig.DEFAULT;
+
     private static boolean mayEdit(BlueprintConfig config, ServerPlayNetworking.Context context) {
-        ServerPlayer player = context.player();
+        return mayEdit(config, context.player());
+    }
+
+    private static boolean mayEdit(BlueprintConfig config, ServerPlayer player) {
         var required = config.adminPermission();
         if (required == null || player.permissions().hasPermission(required)) {
             return true;
         }
-        var server = context.server();
-        return server.isSingleplayer() && server.isSingleplayerOwner(
+        var server = player.level().getServer();
+        return server != null && server.isSingleplayer() && server.isSingleplayerOwner(
                 new net.minecraft.server.players.NameAndId(player.getGameProfile()));
     }
 

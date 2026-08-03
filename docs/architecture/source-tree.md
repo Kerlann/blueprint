@@ -142,6 +142,6 @@ D:\Blueprint\
 |---|---|
 | `assets/blueprint/theme/default.json` | Jetons de style de l'éditeur |
 | `data/<modid>/blueprint/nodes/*.json` | Nœuds composites de datapack |
-| `config/blueprint/config.json` | Config serveur (fuel, permissions, limites) |
-| `config/blueprint/exports/*.bp` | Exports BScript |
+| `blueprint/config.json` | Config serveur (fuel, permissions, limites) |
+| `blueprint/exports/*.bp` | Exports BScript |
 | Sauvegarde du monde (`SavedData`) | Blueprints, exécutions suspendues, variables `WORLD` |
