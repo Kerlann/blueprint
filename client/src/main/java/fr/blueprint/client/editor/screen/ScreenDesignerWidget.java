@@ -470,6 +470,42 @@ public final class ScreenDesignerWidget {
             }
         }
 
+        // La liaison (10.7). La variable se CHOISIT : la taper laisserait passer une
+        // faute de frappe que seul le validateur signalerait, une fois le geste oublié.
+        y += 2;
+        rows.add(new Row(y, I18n.get("blueprint.designer.bind"), java.util.List.of(
+                new Chip(I18n.get("blueprint.designer.bind.none"), 52, 24,
+                        !element.isBound(), () -> apply(properties.bindTo("")))), null, null));
+        y += ROW;
+        for (String variable : session.blueprint().variables().keySet()) {
+            String bound = variable;
+            rows.add(new Row(y, "", java.util.List.of(
+                    new Chip(variable, 4, PROPERTIES_WIDTH - 8,
+                            variable.equals(element.binding().variable()),
+                            () -> apply(properties.bindTo(bound)))), null, null));
+            y += ROW;
+        }
+        if (element.isBound()) {
+            rows.add(new Row(y, I18n.get("blueprint.designer.bind.target"),
+                    enumChips(fr.blueprint.core.graph.screen.ElementBinding.Target.values(),
+                            element.binding().target(), "blueprint.designer.bind.",
+                            target -> apply(properties.bindTarget(target))), null, null));
+            y += ROW;
+            for (var field : java.util.List.of(
+                    ElementPropertiesState.Field.BIND_FORMAT,
+                    ElementPropertiesState.Field.BIND_DECIMALS,
+                    ElementPropertiesState.Field.BIND_MIN,
+                    ElementPropertiesState.Field.BIND_MAX)) {
+                if (!bindFieldApplies(element, field)) {
+                    continue;
+                }
+                rows.add(new Row(y, I18n.get(fieldKey(field)), java.util.List.of(), field,
+                        properties.isEditing(field) ? properties.buffer() + "_"
+                                : properties.valueOf(field)));
+                y += ROW;
+            }
+        }
+
         y += 2;
         rows.add(new Row(y, I18n.get("blueprint.designer.styles"), java.util.List.of(
                 new Chip(I18n.get("blueprint.designer.styles.create"), 4, PROPERTIES_WIDTH - 8,
@@ -530,6 +566,22 @@ public final class ScreenDesignerWidget {
             case GAP, CROSS_GAP -> element.arranges();
             case COLUMNS -> element.layout().mode()
                     == fr.blueprint.core.graph.screen.LayoutSpec.Mode.GRID;
+            default -> true;
+        };
+    }
+
+    /**
+     * Un réglage de liaison n'est montré que s'il agit : le format ne veut rien dire pour
+     * une case à cocher, les bornes n'existent que pour une barre.
+     */
+    private static boolean bindFieldApplies(ScreenElement element,
+                                            ElementPropertiesState.Field field) {
+        var target = element.binding().target();
+        return switch (field) {
+            case BIND_FORMAT, BIND_DECIMALS ->
+                    target == fr.blueprint.core.graph.screen.ElementBinding.Target.TEXT;
+            case BIND_MIN, BIND_MAX ->
+                    target == fr.blueprint.core.graph.screen.ElementBinding.Target.PROGRESS;
             default -> true;
         };
     }

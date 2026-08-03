@@ -298,7 +298,9 @@ class LocalizationTest {
                     || key.startsWith("blueprint.designer.size.")
                     || key.startsWith("blueprint.designer.layout.")
                     || key.startsWith("blueprint.designer.main.")
-                    || key.startsWith("blueprint.designer.cross.")) {
+                    || key.startsWith("blueprint.designer.cross.")
+                    // Cibles de liaison (10.7) : une clé par valeur d'énumération.
+                    || key.startsWith("blueprint.designer.bind.")) {
                 continue;
             }
             dead.add(key);

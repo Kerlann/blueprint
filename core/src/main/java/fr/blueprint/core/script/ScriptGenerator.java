@@ -182,6 +182,9 @@ public final class ScriptGenerator {
         if (!element.enabled()) {
             sb.append(" @disabled");
         }
+        if (element.isBound()) {
+            sb.append(" @bind(").append(renderBinding(element.binding())).append(')');
+        }
         if (element.arranges()) {
             sb.append(" @layout(").append(renderLayout(element.layout())).append(')');
         }
@@ -218,6 +221,25 @@ public final class ScriptGenerator {
             head += "[" + num(extent.min()) + ", " + num(extent.max()) + "]";
         }
         return head;
+    }
+
+    /** {@code "argent", text, format: "Or : %s"} — seuls les écarts au défaut sont écrits. */
+    private String renderBinding(fr.blueprint.core.graph.screen.ElementBinding binding) {
+        StringBuilder sb = new StringBuilder(quote(binding.variable()));
+        sb.append(", ").append(lower(binding.target().name()));
+        if (!binding.format().equals(fr.blueprint.core.graph.screen.ElementBinding.PLACEHOLDER)) {
+            sb.append(", format: ").append(quote(binding.format()));
+        }
+        if (binding.decimals() != 0) {
+            sb.append(", decimals: ").append(binding.decimals());
+        }
+        if (binding.min() != 0) {
+            sb.append(", min: ").append(num(binding.min()));
+        }
+        if (binding.max() != 1) {
+            sb.append(", max: ").append(num(binding.max()));
+        }
+        return sb.toString();
     }
 
     /** {@code column, gap: 4, cross: stretch} — seul ce qui s'écarte du défaut est écrit. */

@@ -38,6 +38,7 @@ public final class GuiNodes {
 
     public static void register(NodeRegistry r) {
         registerClickedEvent(r);
+        registerRefresh(r);
         registerOpenClose(r);
 
         // Les cinq modificateurs, chacun en deux variantes. La fabrique évite dix
@@ -113,6 +114,47 @@ public final class GuiNodes {
                 ctx.out(out.name(), value);
             }
         }
+    }
+
+    /**
+     * {@code gui/refresh} — relit les liaisons de l'écran et n'envoie que ce qui change
+     * (story 10.7).
+     *
+     * <p>Le rafraîchissement part quand le graphe le <b>demande</b>, jamais tout seul.
+     * Trois façons de savoir qu'une valeur liée a changé étaient possibles : sonder
+     * chaque tick — le serveur travaillerait vingt fois par seconde pour un écran qui ne
+     * bouge pas de la partie ; instrumenter chaque écriture de variable — donc alourdir
+     * le chemin chaud de <i>toute</i> exécution, y compris des graphes qui n'ouvrent
+     * jamais d'écran ; ou demander. C'est la troisième : coût <b>nul</b> au repos, aucun
+     * code ajouté dans la machine virtuelle, et l'auteur garde la main sur le moment.
+     *
+     * <p>La même logique que le débogueur et le profileur de l'épic 9 : ce qu'on ne fait
+     * pas ne peut pas être lent.
+     */
+    private static void registerRefresh(NodeRegistry r) {
+        r.register(NodeType.builder(id("gui/refresh"))
+                .category(NodeCategories.GUI_BIND).exec().permission(Permission.GAMEPLAY)
+                .in("player", PinTypes.PLAYER)
+                .in("screen", PinTypes.STRING, "")
+                .out("sent", PinTypes.INT)
+                .action(ctx -> {
+                    if (!(ctx.in("player") instanceof ServerPlayer player)) {
+                        ctx.fail(Component.translatable("blueprint.fault.gui_no_player"));
+                        return;
+                    }
+                    ctx.out("sent", ServerBlueprintNet.refreshBindings(
+                            player, ctx.blueprint().id(),
+                            String.valueOf(ctx.<Object>in("screen"))));
+                })
+                .build());
+
+        r.register(NodeType.builder(id("gui/refresh_all"))
+                .category(NodeCategories.GUI_BIND).exec().permission(Permission.GAMEPLAY)
+                .in("screen", PinTypes.STRING, "")
+                .out("sent", PinTypes.INT)
+                .action(ctx -> ctx.out("sent", ServerBlueprintNet.refreshBindingsForAll(
+                        ctx.server(), ctx.blueprint().id(), String.valueOf(ctx.<Object>in("screen")))))
+                .build());
     }
 
     private static void registerOpenClose(NodeRegistry r) {

@@ -1,6 +1,7 @@
 package fr.blueprint.core.net;
 
 import fr.blueprint.core.graph.screen.Anchor;
+import fr.blueprint.core.graph.screen.ElementBinding;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
@@ -34,7 +35,7 @@ class ScreenSyncTest {
                 Identifier.fromNamespaceAndPath("pack", "textures/gui/fond.png"),
                 new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
                         0xFF203040, 0xFF001020, 0x40101010, 4,
-                        ElementStyle.TextAlign.CENTER), "", LayoutSpec.ABSOLUTE,
+                        ElementStyle.TextAlign.CENTER), "", LayoutSpec.ABSOLUTE, ElementBinding.NONE,
                 false, false);
         ScreenElement child = ScreenElement.of("ok", ElementKind.BUTTON, 5, 5, 60, 20)
                 .withParent("cadre")

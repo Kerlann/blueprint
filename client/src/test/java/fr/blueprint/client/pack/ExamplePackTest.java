@@ -3,6 +3,7 @@ package fr.blueprint.client.pack;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.GraphLoader;
 import fr.blueprint.core.graph.screen.Anchor;
+import fr.blueprint.core.graph.screen.ElementBinding;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
@@ -85,7 +86,7 @@ class ExamplePackTest {
         List<ScreenElement> elements = new ArrayList<>();
         elements.add(new ScreenElement("fond", ElementKind.IMAGE, null, Anchor.CENTER,
                 0, 0, Extent.of(160), Extent.of(96), ScreenText.EMPTY, fond,
-                INVISIBLE, "", LayoutSpec.ABSOLUTE, true, true));
+                INVISIBLE, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, true, true));
         elements.add(ScreenElement.of("colonne", ElementKind.PANEL, 8, 8, 144, 80)
                 .withParent("fond")
                 .withLayout(LayoutSpec.column(4).withCross(LayoutSpec.Cross.STRETCH))

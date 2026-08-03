@@ -541,5 +541,21 @@
   "blueprint.pack.header": "%s pack(s) de script :",
   "blueprint.pack.rejected": "Écarté — %s : %s",
   "blueprint.pack.reloaded": "%s pack(s) chargé(s), %s écarté(s)",
-  "blueprint.designer.packs": "Exige : %s"
+  "blueprint.designer.packs": "Exige : %s",
+  "blueprint.diag.screen_binding_not_found": "« %s » est lié à la variable « %s », que ce blueprint ne déclare plus",
+  "blueprint.category.gui/bind": "GUI — liaisons",
+  "blueprint.node.blueprint.gui/refresh.name": "Rafraîchir les liaisons",
+  "blueprint.node.blueprint.gui/refresh_all.name": "Rafraîchir les liaisons (tous)",
+  "blueprint.designer.bind": "Montre",
+  "blueprint.designer.bind.none": "rien",
+  "blueprint.designer.bind.target": "En tant que",
+  "blueprint.designer.bind.text": "Texte",
+  "blueprint.designer.bind.progress": "Barre",
+  "blueprint.designer.bind.texture": "Image",
+  "blueprint.designer.bind.enabled": "Actif",
+  "blueprint.designer.bind.visible": "Visible",
+  "blueprint.designer.field.bind_format": "Format",
+  "blueprint.designer.field.bind_decimals": "Décimales",
+  "blueprint.designer.field.bind_min": "Mini",
+  "blueprint.designer.field.bind_max": "Maxi"
 }

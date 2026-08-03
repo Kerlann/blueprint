@@ -186,6 +186,16 @@ public final class GraphValidator {
                             Diagnostic.element(screen.name(), element.name()),
                             element.name(), element.styleName()));
                 }
+                // Une liaison morte est une ERREUR, pas un avertissement (10.7, AC4).
+                // Un élément lié à une variable renommée n'affichera jamais rien, et se
+                // taire ici reviendrait à laisser l'auteur découvrir en jeu un menu qui
+                // reste vide — la panne exacte que la liaison existe pour éviter.
+                if (element.isBound()
+                        && !bp.variables().containsKey(element.binding().variable())) {
+                    out.add(Diagnostic.error(DiagnosticCode.SCREEN_BINDING_NOT_FOUND,
+                            Diagnostic.element(screen.name(), element.name()),
+                            element.name(), element.binding().variable()));
+                }
             }
         }
         return out;

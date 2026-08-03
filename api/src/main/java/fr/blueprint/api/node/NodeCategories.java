@@ -96,6 +96,15 @@ public final class NodeCategories {
     public static final NodeCategory GUI = new NodeCategory("gui");
     /** Modifier ce qu'un écran DÉJÀ OUVERT affiche : texte, texture, visibilité, barre. */
     public static final NodeCategory GUI_UPDATE = new NodeCategory("gui/update");
+    /**
+     * Rafraîchir ce qu'un écran montre de ses VARIABLES (story 10.7).
+     *
+     * <p>Distinct des modificateurs : ceux-ci disent quoi afficher, celui-ci relit ce que
+     * les éléments ont déclaré montrer. Les mêler aurait porté « gui/update » à quatorze
+     * nœuds, et un auteur cherchant « comment forcer ce texte » aurait dû écarter des
+     * nœuds qui ne forcent rien.
+     */
+    public static final NodeCategory GUI_BIND = new NodeCategory("gui/bind");
 
     /** Tick, commande, signal : ce qui ne vient ni d'un joueur ni du monde. */
     public static final NodeCategory EVENT_SERVER = new NodeCategory("event/server");

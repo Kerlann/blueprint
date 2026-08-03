@@ -106,9 +106,43 @@ public final class ScreenNbt {
         if (element.layout().arranges()) {
             tag.put("layout", encodeLayout(element.layout()));
         }
+        // Écrite seulement quand elle existe : un écran sans liaison pèse exactement ce
+        // qu'il pesait, et un mod antérieur le relit sans rien voir de nouveau.
+        if (element.isBound()) {
+            tag.put("bind", encodeBinding(element.binding()));
+        }
         tag.putBoolean("visible", element.visible());
         tag.putBoolean("enabled", element.enabled());
         return tag;
+    }
+
+    private static CompoundTag encodeBinding(fr.blueprint.core.graph.screen.ElementBinding b) {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("var", b.variable());
+        tag.putString("target", b.target().name().toLowerCase(java.util.Locale.ROOT));
+        tag.putString("format", b.format());
+        tag.putDouble("min", b.min());
+        tag.putDouble("max", b.max());
+        tag.putInt("decimals", b.decimals());
+        return tag;
+    }
+
+    /**
+     * La liaison (10.7). Absente — tout écran d'avant — vaut « aucune liaison » : c'est
+     * ce qui fait qu'un fichier enregistré ne change pas de sens en changeant de version.
+     */
+    private static fr.blueprint.core.graph.screen.ElementBinding decodeBinding(CompoundTag tag) {
+        if (tag.isEmpty()) {
+            return fr.blueprint.core.graph.screen.ElementBinding.NONE;
+        }
+        return new fr.blueprint.core.graph.screen.ElementBinding(
+                tag.getStringOr("var", ""),
+                enumOr(fr.blueprint.core.graph.screen.ElementBinding.Target.class,
+                        tag.getStringOr("target", ""),
+                        fr.blueprint.core.graph.screen.ElementBinding.Target.TEXT),
+                tag.getStringOr("format", fr.blueprint.core.graph.screen.ElementBinding.PLACEHOLDER),
+                tag.getDoubleOr("min", 0), tag.getDoubleOr("max", 1),
+                tag.getIntOr("decimals", 0));
     }
 
     private static CompoundTag encodeLayout(LayoutSpec layout) {
@@ -219,6 +253,7 @@ public final class ScreenNbt {
                 decodeStyle(tag.getCompoundOrEmpty("style")),
                 tag.getStringOr("styleName", ""),
                 decodeLayout(tag.getCompoundOrEmpty("layout")),
+                decodeBinding(tag.getCompoundOrEmpty("bind")),
                 tag.getBooleanOr("visible", true),
                 tag.getBooleanOr("enabled", true));
     }

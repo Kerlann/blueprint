@@ -4,6 +4,7 @@ import fr.blueprint.client.editor.history.UndoStack;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.NodeTypeLookup;
 import fr.blueprint.core.graph.ScreenOps;
+import fr.blueprint.core.graph.screen.ElementBinding;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.Extent;
 import fr.blueprint.core.graph.screen.LayoutSpec;
@@ -256,7 +257,7 @@ class ScreenCanvasControllerTest {
                 fr.blueprint.core.graph.screen.Anchor.TOP_LEFT, 0, 0,
                 Extent.percent(0.5, 0, 0), Extent.of(40),
                 fr.blueprint.core.graph.screen.ScreenText.EMPTY, null,
-                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, true, true));
+                fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, true, true));
         controller.press(80, 20, false);
         controller.release();
 

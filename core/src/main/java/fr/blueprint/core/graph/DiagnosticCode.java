@@ -46,5 +46,7 @@ public enum DiagnosticCode {
     // Dispositions et styles nommés (story 10.10)
     ELEMENT_HUG_NOT_CONTAINER,
     ELEMENT_SQUEEZED,
-    SCREEN_STYLE_NOT_FOUND
+    SCREEN_STYLE_NOT_FOUND,
+    // Liaisons de données (story 10.7)
+    SCREEN_BINDING_NOT_FOUND
 }

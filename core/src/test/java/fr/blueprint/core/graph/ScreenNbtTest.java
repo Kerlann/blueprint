@@ -2,6 +2,7 @@ package fr.blueprint.core.graph;
 
 import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.core.graph.screen.Anchor;
+import fr.blueprint.core.graph.screen.ElementBinding;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
@@ -59,7 +60,7 @@ class ScreenNbtTest {
                 Identifier.withDefaultNamespace("textures/gui/fond.png"),
                 new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
                         0xFF203040, 0xFF001020, 0x40101010, 4,
-                        ElementStyle.TextAlign.CENTER), "", LayoutSpec.ABSOLUTE,
+                        ElementStyle.TextAlign.CENTER), "", LayoutSpec.ABSOLUTE, ElementBinding.NONE,
                 true, false);
         ScreenElement child = ScreenElement.of("ok", ElementKind.BUTTON, 5, 5, 60, 20)
                 .withParent("cadre")
@@ -127,6 +128,22 @@ class ScreenNbtTest {
         CompoundTag fixe = new CompoundTag();
         fixe.putDouble("v", 80);
         assertEquals(Extent.Mode.FIXED, ScreenNbt.decodeExtent(fixe).mode());
+    }
+
+    /** Une liaison survit à la sauvegarde ; son absence reste l'absence de liaison. */
+    @Test
+    void lesLiaisonsSurviventAuRoundTrip() {
+        ScreenElement or = ScreenElement.of("or", ElementKind.LABEL, 0, 0, 80, 12)
+                .withBinding(ElementBinding.text("argent", "Or : %s").withDecimals(2));
+        ScreenElement muet = ScreenElement.of("muet", ElementKind.LABEL, 0, 0, 80, 12);
+
+        Screen after = roundTrip(withScreens(
+                new Screen("menu", false, List.of(or, muet)))).screen("menu");
+
+        assertEquals(or, after.element("or"));
+        assertEquals("argent", after.element("or").binding().variable());
+        assertEquals(2, after.element("or").binding().decimals());
+        assertFalse(after.element("muet").isBound(), "pas de liaison inventée");
     }
 
     @Test

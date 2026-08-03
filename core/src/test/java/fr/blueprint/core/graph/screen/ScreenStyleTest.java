@@ -190,6 +190,33 @@ class ScreenStyleTest {
     }
 
     /**
+     * Une liaison morte est une ERREUR, pas un avertissement (10.7, AC4). Un élément lié
+     * à une variable renommée n'affichera jamais rien ; se taire ici reviendrait à
+     * laisser l'auteur découvrir en jeu un menu qui reste vide — la panne exacte que la
+     * liaison existe pour éviter.
+     */
+    @Test
+    void uneVariableLieeQuiDisparaitEstUneErreurALEdition() {
+        Screen screen = new Screen("menu", false, List.of(
+                ScreenElement.of("or", ElementKind.LABEL, 0, 0, 60, 20)
+                        .withBinding(ElementBinding.text("argent", "Or : %s"))));
+
+        Blueprint sans = blueprintOf(screen);
+        var result = GraphValidator.validate(sans, LOOKUP);
+        assertTrue(result.errors().stream()
+                        .anyMatch(d -> d.code() == DiagnosticCode.SCREEN_BINDING_NOT_FOUND),
+                "la variable n'existe pas : " + result.diagnostics());
+
+        // Déclarée, la même liaison ne produit plus rien.
+        Blueprint avec = blueprintOf(screen);
+        fr.blueprint.core.graph.GraphLoader.addVariable(avec,
+                new fr.blueprint.core.graph.Variable("argent",
+                        fr.blueprint.api.pin.PinTypes.INT, null,
+                        fr.blueprint.core.graph.VarScope.GRAPH, false));
+        assertFalse(codes(avec).contains(DiagnosticCode.SCREEN_BINDING_NOT_FOUND));
+    }
+
+    /**
      * La taille minimale d'un enfant RANGÉ se décide entre frères — la remontée par
      * élément, qui ne connaît que le parent, en donnerait une valeur fictive. La juger
      * là-dessus rendrait impossible de poser le deuxième enfant d'une colonne serrée.

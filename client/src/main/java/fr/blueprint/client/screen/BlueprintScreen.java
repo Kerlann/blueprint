@@ -90,6 +90,9 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 progress.put(update.element(), update.number());
             }
         }
+        // Le modèle a changé : la mise en page gardée ne vaut plus. C'est le SEUL autre
+        // événement que le redimensionnement qui puisse la rendre fausse.
+        layout = null;
     }
 
     /**
@@ -139,7 +142,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         // La MÊME passe que le dessin : un bouton rangé par son conteneur n'est pas là
         // où sa position écrite le dirait, et un hit-test qui la lirait quand même
         // donnerait un menu dont les boutons se cliquent à côté d'eux-mêmes.
-        var placed = fr.blueprint.core.graph.screen.ScreenLayout.solve(model, width, height);
+        var placed = layout();
         var elements = java.util.List.copyOf(model.elements().values());
         for (int i = elements.size() - 1; i >= 0; i--) {
             var element = elements.get(i);
@@ -187,9 +190,36 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         // width/height sont déjà en unités d'interface : c'est la place réelle, et
         // c'est contre elle que se résolvent les pourcentages et les ancres.
-        ScreenPainter.paint(graphics, font, model, 0, 0, 1, width, height,
+        ScreenPainter.paint(graphics, font, model, layout(), 0, 0, 1,
                 visuals(mouseX, mouseY));
     }
+
+    /**
+     * La mise en page résolue, <b>gardée entre deux images</b> (story 10.7, AC2b).
+     *
+     * <p>Redessiner est inévitable à chaque image ; <b>recalculer</b> ne l'est pas. Un
+     * menu ouvert et immobile refaisait la passe de disposition soixante fois par seconde
+     * pour un résultat identique. Deux choses seulement la rendent fausse : un paquet
+     * reçu, qui change le modèle, et un redimensionnement de la fenêtre — les deux
+     * invalident ici, et rien d'autre n'a besoin d'y penser.
+     *
+     * <p>Le même arbitrage que le cache d'infobulle de la 5.12, où recalculer le survol à
+     * chaque image coûtait des centaines de milliers de racines carrées par seconde pour
+     * un texte qui ne changeait pas.
+     */
+    private java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> layout() {
+        if (layout == null || layoutWidth != width || layoutHeight != height) {
+            layout = fr.blueprint.core.graph.screen.ScreenLayout.solve(model, width, height);
+            layoutWidth = width;
+            layoutHeight = height;
+        }
+        return layout;
+    }
+
+    private @Nullable java.util.Map<String,
+            fr.blueprint.core.graph.screen.ScreenLayout.Rect> layout;
+    private int layoutWidth = -1;
+    private int layoutHeight = -1;
 
     /**
      * Le jeu ne se met PAS en pause, comme devant un coffre : le graphe continue de

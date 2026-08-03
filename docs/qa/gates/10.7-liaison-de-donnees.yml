@@ -1,0 +1,57 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.7"
+story_title: "Liaison de données — l'écran suit la variable"
+gate: "PASS"
+status_reason: "Un élément déclare ce qu'il montre, un seul gui/refresh remplace cinq gui/set_text, et le format fait partie de la liaison. La promesse la plus difficile à observer — rien ne circule tant que rien ne change — est prouvée deux fois : headless sur la jonction diff/session, et en gametest où vingt rafraîchissements sur des valeurs inchangées ne produisent aucun paquet. Deux défauts trouvés en revue ont été corrigés, dont un qui aurait affiché « Or : » vide sur tout écran ouvert avant la première exécution du graphe."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T22:38:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "BIND-001"
+    severity: high
+    finding: "Une variable déclarée avec un défaut mais jamais écrite rendait null : le premier rafraîchissement affichait « Or :  » vide. Or un écran ouvert avant que le graphe n'ait tourné une seule fois est le cas NORMAL, pas l'exception — le joueur y aurait vu un défaut du menu, alors que la valeur attendue est écrite dans le blueprint. Même classe que le défaut de VarStore.seedDefaults en 10.4"
+    suggested_action: "Corrigé — readVariable retombe sur le défaut déclaré. Trouvé par le gametest, qui a échoué exactement là-dessus"
+  - id: "BIND-002"
+    severity: medium
+    finding: "La première version de ScreenBindings tenait sa PROPRE mémoire de ce qui avait été envoyé, par élément et par cible. ScreenSessions.queue en tenait déjà une (10.4, AC3c) : deux tables à garder d'accord, dont la première divergence se serait vue comme un écran figé sur une vieille valeur, sans que rien ne l'explique"
+    suggested_action: "Corrigé avant l'exécution — une seule mémoire. ScreenBindings produit ce que les liaisons demandent, queue décide de ce qui part. Le test deuxRafraichissementsIdentiquesNenvoientRienLaSecondeFois vérifie la JONCTION, qui est ce qui décide réellement du coût au repos"
+  - id: "BIND-003"
+    severity: medium
+    finding: "gui/refresh et gui/refresh_all portaient gui/update à quatorze nœuds. Le garde-fou de catégorie l'a refusé, et il avait raison sur le fond : rafraîchir n'est pas modifier — un auteur cherchant « comment forcer ce texte » aurait dû écarter des nœuds qui ne forcent rien"
+    suggested_action: "Corrigé — catégorie gui/bind, distincte et nommée d'après ce qu'elle fait"
+  - id: "BIND-004"
+    severity: low
+    finding: "Une liaison morte (variable renommée ou supprimée) est une ERREUR, pas un avertissement : le blueprint devient non exécutable. Un menu qui marchait cesse donc de tourner entièrement si l'auteur renomme une variable"
+    suggested_action: "Assumé, et conforme à l'AC4 (« même règle que pour un élément inexistant »). Un élément lié à une variable disparue n'affichera jamais rien ; se taire reviendrait à laisser l'auteur découvrir en jeu un menu qui reste vide — la panne exacte que la liaison existe pour éviter. Le concepteur fait CHOISIR la variable dans une liste, ce qui rend le cas rare"
+  - id: "BIND-005"
+    severity: low
+    finding: "Aucun plafond de liaisons par écran (AC6)"
+    suggested_action: "Volontaire. Une liaison vit sur un élément, et le nombre d'éléments par écran est déjà borné à 128. Une seconde limite serait redondante et donnerait l'illusion d'une protection supplémentaire là où c'est la première qui tient"
+  - id: "BIND-006"
+    severity: low
+    finding: "Une valeur de texture illisible ne produit aucune modification, donc n'efface pas la texture en place"
+    suggested_action: "Choix explicite : le joueur verrait son image disparaître sans rien pour l'expliquer, là où garder l'ancienne laisse l'écran cohérent. Testé"
+  - id: "BIND-007"
+    severity: low
+    finding: "Le cache de mise en page de BlueprintScreen (AC2b) n'est vérifié par aucun test — il vit dans une classe qui étend Screen de Minecraft, non instanciable headless"
+    suggested_action: "Borné : l'invalidation tient sur deux lignes et deux causes (un paquet appliqué, un changement de taille), toutes deux dans le même fichier. La passe de disposition qu'il évite est, elle, couverte par 25 tests et deux bancs. Reste à voir de ses yeux : VERIFY-10.7"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 2, low: 4 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le coût au repos dépend de la jonction entre ScreenBindings et ScreenSessions.queue, pas de l'un ou de l'autre. Les deux tests qui comptent l'exercent ensemble — un test qui ne verrait qu'une moitié passerait sans rien garantir."
+      - "gui/refresh est explicite : un auteur qui l'oublie a un écran qui ne bouge pas. C'est le prix assumé du coût nul au repos, et le guide doit le dire."
+evidence:
+  tests_reviewed: 948
+  gametests: 13
+  new_tests:
+    - "ScreenBindingsTest (9) — format, bornes, booléens, chaque cible, et surtout ce qui NE part pas"
+    - "ScreenStyleTest +1 — liaison morte = erreur à l'édition"
+    - "ScriptRoundTripTest +1, ScreenNbtTest +1 — aller-retour comparé sur le contenu"
+    - "Gametest aBoundLabelFollowsItsVariableOnlyWhenAsked — vingt rafraîchissements immobiles, zéro paquet"
+  risks_without_gate:
+    - "« Coût nul au repos » est invérifiable en jouant : un écran qui enverrait vingt paquets par seconde a exactement la même apparence qu'un écran qui n'envoie rien. Seule la table des envois en attente le dit, et le gametest est le seul endroit d'où elle est lisible dans un vrai serveur."
+quality_score: 91
+expires: "2026-08-17T00:00:00Z"

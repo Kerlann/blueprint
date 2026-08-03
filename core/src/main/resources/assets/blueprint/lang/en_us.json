@@ -541,5 +541,21 @@
   "blueprint.pack.header": "%s script pack(s):",
   "blueprint.pack.rejected": "Set aside — %s: %s",
   "blueprint.pack.reloaded": "%s pack(s) loaded, %s item(s) set aside",
-  "blueprint.designer.packs": "Needs: %s"
+  "blueprint.designer.packs": "Needs: %s",
+  "blueprint.diag.screen_binding_not_found": "\"%s\" is bound to the variable \"%s\", which this blueprint no longer declares",
+  "blueprint.category.gui/bind": "GUI — bindings",
+  "blueprint.node.blueprint.gui/refresh.name": "Refresh bindings",
+  "blueprint.node.blueprint.gui/refresh_all.name": "Refresh bindings (everyone)",
+  "blueprint.designer.bind": "Shows",
+  "blueprint.designer.bind.none": "nothing",
+  "blueprint.designer.bind.target": "As",
+  "blueprint.designer.bind.text": "Text",
+  "blueprint.designer.bind.progress": "Bar",
+  "blueprint.designer.bind.texture": "Image",
+  "blueprint.designer.bind.enabled": "Active",
+  "blueprint.designer.bind.visible": "Visible",
+  "blueprint.designer.field.bind_format": "Format",
+  "blueprint.designer.field.bind_decimals": "Decimals",
+  "blueprint.designer.field.bind_min": "Min",
+  "blueprint.designer.field.bind_max": "Max"
 }

@@ -381,6 +381,8 @@ public final class ScriptParser {
         ElementStyle style = ElementStyle.DEFAULT;
         String styleName = "";
         LayoutSpec layout = LayoutSpec.ABSOLUTE;
+        fr.blueprint.core.graph.screen.ElementBinding binding =
+                fr.blueprint.core.graph.screen.ElementBinding.NONE;
         boolean visible = true;
         boolean enabled = true;
 
@@ -440,6 +442,7 @@ public final class ScriptParser {
                 case "hidden" -> visible = false;
                 case "disabled" -> enabled = false;
                 case "layout" -> layout = parseLayout();
+                case "bind" -> binding = parseBinding();
                 case "uses" -> {
                     expect("sym", "(");
                     styleName = expect("string", null).text();
@@ -452,7 +455,7 @@ public final class ScriptParser {
         }
         try {
             return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                    text, texture, style, styleName, layout, visible, enabled);
+                    text, texture, style, styleName, layout, binding, visible, enabled);
         } catch (IllegalArgumentException e) {
             throw new ParseError(kindToken.line(), e.getMessage());
         }
@@ -504,6 +507,35 @@ public final class ScriptParser {
         double boundedMax = max;
         return wrapExtent(token,
                 () -> new Extent(builtMode, builtValue, boundedMin, boundedMax));
+    }
+
+    /**
+     * {@code @bind("argent", text, format: "Or : %s", decimals: 0, min: 0, max: 100)} —
+     * la variable et la cible sont obligatoires, le reste a des défauts.
+     */
+    private fr.blueprint.core.graph.screen.ElementBinding parseBinding() {
+        expect("sym", "(");
+        String variable = expect("string", null).text();
+        expect("sym", ",");
+        Token targetToken = expect("word", null);
+        var binding = fr.blueprint.core.graph.screen.ElementBinding.NONE
+                .withVariable(variable)
+                .withTarget(enumOf(fr.blueprint.core.graph.screen.ElementBinding.Target.class,
+                        targetToken, "cible de liaison"));
+        while (eat("sym", ",")) {
+            Token key = expect("word", null);
+            expect("sym", ":");
+            binding = switch (key.text()) {
+                case "format" -> binding.withFormat(expect("string", null).text());
+                case "decimals" -> binding.withDecimals((int) number(next()));
+                case "min" -> binding.withRange(number(next()), binding.max());
+                case "max" -> binding.withRange(binding.min(), number(next()));
+                default -> throw new ParseError(key.line(),
+                        "réglage de liaison inconnu « " + key.text() + " »");
+            };
+        }
+        expect("sym", ")");
+        return binding;
     }
 
     /** {@code @layout(column, gap: 4, cross: stretch)} — tout est optionnel sauf le mode. */

@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-207 nœuds dans 36 catégories.
+209 nœuds dans 37 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -751,6 +751,38 @@ permission `GAMEPLAY` · fuel 1
 | Sorties | Type | Défaut |
 |---|---|---|
 | `exec_out` | exec | — |
+
+
+## gui/bind
+
+### `blueprint:gui/refresh` — Refresh bindings
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `sent` | `blueprint:int` | — |
+
+### `blueprint:gui/refresh_all` — Refresh bindings (everyone)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `sent` | `blueprint:int` | — |
 
 
 ## gui/update

@@ -11,6 +11,7 @@ import fr.blueprint.core.graph.Variable;
 import fr.blueprint.core.graph.VarScope;
 import fr.blueprint.core.graph.Vec2d;
 import fr.blueprint.core.graph.screen.Anchor;
+import fr.blueprint.core.graph.screen.ElementBinding;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
@@ -319,7 +320,7 @@ class ScriptRoundTripTest {
                 Identifier.fromNamespaceAndPath("pack", "textures/gui/fond.png"),
                 new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
                         0xFF203040, 0xFF001020, 0x40101010, 4,
-                        ElementStyle.TextAlign.CENTER), "", LayoutSpec.ABSOLUTE, false, false);
+                        ElementStyle.TextAlign.CENTER), "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, false, false);
         var child = ScreenElement.of("ok", ElementKind.BUTTON, 5, 5, 60, 20)
                 .withParent("cadre")
                 .withText(ScreenText.literal("Valider \"maintenant\""));
@@ -394,6 +395,34 @@ class ScriptRoundTripTest {
         assertEquals(2.5, relu.element("acheter").width().value(), 1e-9, "le poids du fill");
         assertEquals(200, relu.element("borne").width().max(), 1e-9,
                 "les bornes d'une taille FIXE survivent aussi");
+    }
+
+    /**
+     * Les liaisons (story 10.7) survivent au texte, format et bornes compris. Le contenu
+     * est comparé, pas des comptes : un format perdu à l'export afficherait « 1234.0 » là
+     * où l'auteur avait écrit « Or : 1234 », sans que rien ne le signale.
+     */
+    @Test
+    void lesLiaisonsReviennentIdentiques() {
+        var or = ScreenElement.of("or", ElementKind.LABEL, 0, 0, 80, 12)
+                .withBinding(ElementBinding.text("argent", "Or : %s").withDecimals(2));
+        var vie = ScreenElement.of("vie", ElementKind.PROGRESS, 0, 0, 80, 8)
+                .withBinding(ElementBinding.progress("pv", 0, 20));
+        var bouton = ScreenElement.of("acheter", ElementKind.BUTTON, 0, 0, 60, 20)
+                .withBinding(ElementBinding.NONE.withVariable("riche")
+                        .withTarget(ElementBinding.Target.ENABLED));
+
+        Blueprint before = withScreens(new fr.blueprint.core.graph.screen.Screen(
+                "menu", false, List.of(or, vie, bouton)));
+        Blueprint back = roundTrip(before);
+
+        assertTrue(before.contentEquals(back),
+                () -> "aller-retour non identique :\n"
+                        + ScriptGenerator.generate(before, LOADED.nodes()).text());
+        var relu = back.screen("menu").element("or").binding();
+        assertEquals("Or : %s", relu.format());
+        assertEquals(2, relu.decimals());
+        assertEquals(20, back.screen("menu").element("vie").binding().max(), 1e-9);
     }
 
     /** L'ordre des éléments est l'ordre de dessin : le texte ne le trie jamais. */

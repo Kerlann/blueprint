@@ -347,6 +347,78 @@ public final class BlueprintGameTests {
     }
 
     /**
+     * VERIFY-10.7 automatisé : une étiquette liée à une variable suit sa valeur quand le
+     * graphe demande un rafraîchissement — et <b>rien ne circule</b> tant qu'il ne le
+     * demande pas.
+     *
+     * <p>La seconde moitié est celle qui compte. « Coût nul au repos » est une promesse
+     * qu'on ne peut pas observer en jouant : un écran immobile qui enverrait vingt paquets
+     * par seconde aurait exactement la même apparence qu'un écran qui n'envoie rien.
+     * Seule la table des envois en attente le dit, et elle n'est lisible que d'ici.
+     */
+    @GameTest(maxTicks = 200)
+    public void aBoundLabelFollowsItsVariableOnlyWhenAsked(GameTestHelper helper) {
+        Identifier blueprintId = id("gui_binding");
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        Blueprint bp = new Blueprint(blueprintId, new fr.blueprint.core.graph.BlueprintMeta(
+                "", "", "1.0.0", fr.blueprint.api.node.Permission.GAMEPLAY));
+        fr.blueprint.core.graph.GraphLoader.addVariable(bp,
+                new fr.blueprint.core.graph.Variable("argent", PinTypes.INT,
+                        LiteralValue.of(PinTypes.INT, 50),
+                        fr.blueprint.core.graph.VarScope.GRAPH, false));
+        fr.blueprint.core.graph.GraphLoader.addScreen(bp,
+                new fr.blueprint.core.graph.screen.Screen("bourse", false, java.util.List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of("or",
+                                        fr.blueprint.core.graph.screen.ElementKind.LABEL,
+                                        10, 10, 120, 12)
+                                .withBinding(fr.blueprint.core.graph.screen.ElementBinding
+                                        .text("argent", "Or : %s")))));
+        manager.adopt(bp);
+        manager.setEnabled(blueprintId, true);
+
+        var player = helper.makeMockServerPlayerInLevel();
+        helper.assertTrue(fr.blueprint.core.net.ServerBlueprintNet.openScreen(
+                        player, blueprintId, "bourse"),
+                Component.literal("l'écran « bourse » n'a pas pu être ouvert"));
+
+        // Premier rafraîchissement : la valeur part, formatée.
+        int first = fr.blueprint.core.net.ServerBlueprintNet.refreshBindings(
+                player, blueprintId, "bourse");
+        helper.assertTrue(first == 1,
+                Component.literal("attendu 1 modification, obtenu " + first));
+        var sent = fr.blueprint.core.net.ServerBlueprintNet.screens().drain(player.getUUID());
+        helper.assertTrue(sent.size() == 1 && sent.getFirst().text().equals("Or : 50"),
+                Component.literal("texte inattendu : " + sent));
+
+        // <b>Rien n'a changé</b> : rien ne part, si souvent qu'on le demande.
+        for (int i = 0; i < 20; i++) {
+            int again = fr.blueprint.core.net.ServerBlueprintNet.refreshBindings(
+                    player, blueprintId, "bourse");
+            helper.assertTrue(again == 0, Component.literal(
+                    "un écran immobile a produit " + again + " modification(s) au tour " + i));
+        }
+        helper.assertTrue(fr.blueprint.core.net.ServerBlueprintNet.screens()
+                        .drain(player.getUUID()).isEmpty(),
+                Component.literal("des modifications attendaient alors que rien n'a bougé"));
+
+        // La variable bouge : une seule modification, et la bonne.
+        fr.blueprint.core.BlueprintMod.varsOf(server)
+                .set(fr.blueprint.core.graph.VarScope.GRAPH, "argent", 51);
+        int third = fr.blueprint.core.net.ServerBlueprintNet.refreshBindings(
+                player, blueprintId, "bourse");
+        helper.assertTrue(third == 1,
+                Component.literal("attendu 1 modification après changement, obtenu " + third));
+        var after = fr.blueprint.core.net.ServerBlueprintNet.screens().drain(player.getUUID());
+        helper.assertTrue(after.size() == 1 && after.getFirst().text().equals("Or : 51"),
+                Component.literal("texte inattendu après changement : " + after));
+
+        helper.succeedWhen(() -> cleanup(helper, blueprintId));
+    }
+
+    /**
      * La valeur par défaut d'une variable est LUE au premier accès, dans un vrai
      * serveur. Elle ne l'était pas : le graphe tombait en faute au lieu de tourner, et
      * le message accusait le câblage alors que le câblage était bon.

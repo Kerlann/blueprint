@@ -1,6 +1,7 @@
 package fr.blueprint.core.graph;
 
 import fr.blueprint.core.graph.screen.Anchor;
+import fr.blueprint.core.graph.screen.ElementBinding;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.ElementStyle;
 import fr.blueprint.core.graph.screen.Extent;
@@ -379,7 +380,7 @@ class ScreenOpsTest {
         centered.putScreen(new Screen("menu", false, List.of(
                 new ScreenElement("cadre", ElementKind.PANEL, null, Anchor.CENTER,
                         -10, -5, Extent.of(200), Extent.of(120), ScreenText.EMPTY, null,
-                        ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, true, true))));
+                        ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, true, true))));
 
         assertTrue(GraphValidator.validate(centered, LOOKUP).diagnostics().stream()
                         .noneMatch(d -> d.code() == DiagnosticCode.ELEMENT_OUTSIDE_SAFE_AREA),
@@ -398,7 +399,7 @@ class ScreenOpsTest {
                 ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 40, 40),
                 new ScreenElement("miette", ElementKind.BUTTON, "cadre", Anchor.TOP_LEFT,
                         0, 0, Extent.percent(0.05, 0, 0), Extent.of(20),
-                        ScreenText.EMPTY, null, ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, true, true))));
+                        ScreenText.EMPTY, null, ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, true, true))));
 
         assertTrue(GraphValidator.validate(nested, LOOKUP).diagnostics().stream()
                         .anyMatch(d -> d.code() == DiagnosticCode.ELEMENT_TOO_SMALL),

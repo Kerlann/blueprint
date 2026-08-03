@@ -393,6 +393,97 @@ public final class ServerBlueprintNet {
     }
 
     /**
+     * Relit les liaisons d'un écran chez un joueur et empile ce qui change (story 10.7).
+     * Rend le nombre de modifications qui partiront réellement.
+     *
+     * <p>Un écran vide désigne le modal ouvert, comme pour les modificateurs. Un joueur
+     * qui ne regarde pas cet écran ne coûte rien : la boucle ne s'exécute même pas.
+     */
+    public static int refreshBindings(net.minecraft.server.level.ServerPlayer player,
+                                      Identifier blueprintId, String screenName) {
+        net.minecraft.server.MinecraftServer server = player.level().getServer();
+        if (server == null) {
+            return 0;
+        }
+        String target = screenName;
+        if (target.isEmpty()) {
+            var open = SCREENS.of(player.getUUID());
+            if (open == null) {
+                return 0;
+            }
+            target = open.screen();
+        }
+        if (!SCREENS.shows(player.getUUID(), target)) {
+            return 0;
+        }
+        fr.blueprint.core.graph.Blueprint bp =
+                BlueprintManager.of(server).get(blueprintId).orElse(null);
+        var screen = bp == null ? null : bp.screen(target);
+        if (screen == null) {
+            return 0;
+        }
+        var vars = fr.blueprint.core.BlueprintMod.varsOf(server);
+        int sent = 0;
+        for (var update : ScreenBindings.updates(screen, name -> readVariable(bp, vars, name))) {
+            if (SCREENS.queue(player.getUUID(), update)) {
+                sent++;
+            }
+        }
+        return sent;
+    }
+
+    /**
+     * Le même rafraîchissement, pour tous ceux qui regardent cet écran.
+     *
+     * <p>Le serveur en tient la table : sans cette variante, mettre à jour un tableau
+     * des scores chez vingt joueurs demanderait une boucle {@code for_each} dans le
+     * graphe et vingt appels — un coût de rédaction ET d'exécution pour un parcours que
+     * le serveur fait déjà.
+     */
+    public static int refreshBindingsForAll(net.minecraft.server.MinecraftServer server,
+                                            Identifier blueprintId, String screenName) {
+        if (server == null) {
+            return 0;
+        }
+        // Un nom vide vise TOUS les écrans de ce blueprint : la variante « pour tous »
+        // sert justement à ne pas savoir qui regarde quoi.
+        var viewers = screenName.isEmpty()
+                ? SCREENS.viewersOfBlueprint(blueprintId)
+                : SCREENS.viewersOf(blueprintId, screenName);
+        int sent = 0;
+        for (java.util.UUID uuid : viewers) {
+            var player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                sent += refreshBindings(player, blueprintId, screenName);
+            }
+        }
+        return sent;
+    }
+
+    /**
+     * La valeur d'une variable liée. Le <b>scope</b> vient de la déclaration du
+     * blueprint, jamais de la liaison : l'auteur écrit un nom, et déplacer une variable
+     * de {@code GRAPH} à {@code PLAYER} ne doit pas l'obliger à revenir sur ses écrans.
+     */
+    private static @org.jetbrains.annotations.Nullable Object readVariable(
+            fr.blueprint.core.graph.Blueprint bp,
+            fr.blueprint.core.vm.VarStore vars, String name) {
+        var variable = bp.variables().get(name);
+        if (variable == null) {
+            return null;
+        }
+        Object stored = vars.get(variable.scope(), variable.name());
+        if (stored != null) {
+            return stored;
+        }
+        // Jamais écrite, mais DÉCLARÉE avec un défaut : c'est lui qu'il faut montrer.
+        // Sans cela, un écran ouvert avant que le graphe n'ait tourné une seule fois
+        // afficherait « Or :  » — et le joueur y verrait un défaut du menu, alors que
+        // la valeur qu'il attend est écrite noir sur blanc dans le blueprint.
+        return variable.defaultValue() == null ? null : variable.defaultValue().value();
+    }
+
+    /**
      * Un écran vide désigne le <b>modal ouvert</b>. Le résoudre ici plutôt que côté
      * client : le serveur sait ce qu'il a envoyé, le client ne fait qu'appliquer.
      */

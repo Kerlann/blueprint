@@ -30,7 +30,9 @@ public final class ElementPropertiesState {
         NAME, X, Y, WIDTH, HEIGHT, TEXT, TEXTURE,
         BACKGROUND, BORDER, TEXT_COLOR, HOVER, PADDING,
         /** Réglages de disposition d'un conteneur (story 10.10). */
-        GAP, CROSS_GAP, COLUMNS
+        GAP, CROSS_GAP, COLUMNS,
+        /** Liaison de données (story 10.7). */
+        BIND_FORMAT, BIND_DECIMALS, BIND_MIN, BIND_MAX
     }
 
     private @Nullable ScreenElement element;
@@ -120,6 +122,10 @@ public final class ElementPropertiesState {
             case GAP -> number(element.layout().gap());
             case CROSS_GAP -> number(element.layout().crossGap());
             case COLUMNS -> String.valueOf(element.layout().columns());
+            case BIND_FORMAT -> element.binding().format();
+            case BIND_DECIMALS -> String.valueOf(element.binding().decimals());
+            case BIND_MIN -> number(element.binding().min());
+            case BIND_MAX -> number(element.binding().max());
         };
     }
 
@@ -136,12 +142,13 @@ public final class ElementPropertiesState {
         }
         return switch (editing) {
             case NAME -> nameAvailable.test(buffer.trim());
-            case X, Y, PADDING, GAP, CROSS_GAP, COLUMNS -> parseNumber(buffer) != null;
+            case X, Y, PADDING, GAP, CROSS_GAP, COLUMNS,
+                 BIND_DECIMALS, BIND_MIN, BIND_MAX -> parseNumber(buffer) != null;
             case WIDTH, HEIGHT -> parseExtent(buffer, Extent.of(0)) != null;
             case TEXTURE -> buffer.isBlank()
                     || fr.blueprint.core.graph.screen.PackRef.texture(buffer) != null;
             case BACKGROUND, BORDER, TEXT_COLOR, HOVER -> parseHex(buffer) != null;
-            case TEXT -> true;
+            case TEXT, BIND_FORMAT -> true;
         };
     }
 
@@ -174,6 +181,13 @@ public final class ElementPropertiesState {
                     element.withLayout(element.layout().withCrossGap(parseNumber(buffer)));
             case COLUMNS -> element.withLayout(
                     element.layout().withColumns((int) (double) parseNumber(buffer)));
+            case BIND_FORMAT -> element.withBinding(element.binding().withFormat(buffer));
+            case BIND_DECIMALS -> element.withBinding(
+                    element.binding().withDecimals((int) (double) parseNumber(buffer)));
+            case BIND_MIN -> element.withBinding(element.binding()
+                    .withRange(parseNumber(buffer), element.binding().max()));
+            case BIND_MAX -> element.withBinding(element.binding()
+                    .withRange(element.binding().min(), parseNumber(buffer)));
         };
         cancel();
         return out;
@@ -244,6 +258,26 @@ public final class ElementPropertiesState {
     public @Nullable ScreenElement setLayoutCross(
             fr.blueprint.core.graph.screen.LayoutSpec.Cross cross) {
         return element == null ? null : element.withLayout(element.layout().withCross(cross));
+    }
+
+    /**
+     * Lie l'élément à une variable, ou l'en détache par un nom vide. La variable se
+     * <b>choisit</b> dans la liste du blueprint : la taper laisserait passer une faute de
+     * frappe que seul le validateur signalerait, une fois le geste oublié.
+     */
+    public @Nullable ScreenElement bindTo(String variable) {
+        if (element == null) {
+            return null;
+        }
+        return element.withBinding(variable.isEmpty()
+                ? fr.blueprint.core.graph.screen.ElementBinding.NONE
+                : element.binding().withVariable(variable));
+    }
+
+    public @Nullable ScreenElement bindTarget(
+            fr.blueprint.core.graph.screen.ElementBinding.Target target) {
+        return element == null ? null
+                : element.withBinding(element.binding().withTarget(target));
     }
 
     /**
