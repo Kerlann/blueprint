@@ -67,9 +67,8 @@ public final class CanvasWidget {
     private int minimapLeft;
     private int minimapTop;
     private final PickerState picker = new PickerState();
-    private final java.util.Map<Identifier, ItemStack> iconCache = new java.util.HashMap<>();
-    private @Nullable List<PickerState.Entry> itemEntries;
-    private @Nullable List<PickerState.Entry> blockEntries;
+    /** Items et blocs du jeu pour les sélecteurs riches — construits à la demande. */
+    private final RegistryCatalog catalog = new RegistryCatalog();
 
     private int width;
     private int height;
@@ -153,7 +152,7 @@ public final class CanvasWidget {
                     .validate(controller.blueprint(), lookup).diagnostics());
         }
         g.fill(0, 0, width, height, fr.blueprint.client.theme.Theme.current().canvasBackground());
-        renderGrid(g);
+        GridLayer.render(g, camera, width, height);
         renderComments(g, font);
         WireLayer.renderLinks(g, camera, controller, width, height);
         renderNodes(g, font);
@@ -270,29 +269,6 @@ public final class CanvasWidget {
             return -1;
         }
         return (int) ((my - y) / 12);
-    }
-
-    private void renderGrid(GuiGraphics g) {
-        var theme = fr.blueprint.client.theme.Theme.current();
-        // Les mineures s'effacent sous 0,5× ; les majeures restent (UX §3).
-        if (camera.zoom() >= Camera.GRID_FADE_ZOOM) {
-            renderGridLines(g, Camera.GRID_STEP, theme.grid());
-        }
-        renderGridLines(g, Camera.GRID_MAJOR_STEP, theme.gridMajor());
-    }
-
-    private void renderGridLines(GuiGraphics g, double step, int color) {
-        Camera.Rect r = camera.visibleRect(width, height);
-        // Partir du premier multiple du pas ≤ bord gauche : aucune ligne manquante ni
-        // dédoublée aux bords, quel que soit le cran de zoom.
-        for (double x = Math.floor(r.left() / step) * step; x <= r.right(); x += step) {
-            int sx = (int) Math.round(camera.toScreenX(x));
-            g.fill(sx, 0, sx + 1, height, color);
-        }
-        for (double y = Math.floor(r.top() / step) * step; y <= r.bottom(); y += step) {
-            int sy = (int) Math.round(camera.toScreenY(y));
-            g.fill(0, sy, width, sy + 1, color);
-        }
     }
 
     private void renderNodes(GuiGraphics g, Font font) {
@@ -432,32 +408,25 @@ public final class CanvasWidget {
 
     // -------------------------------------------------------------------- entrées
 
+    /**
+     * Routage de la souris, du plus modal au plus général : un sélecteur ouvert prime
+     * sur la palette, qui prime sur le chrome (barre d'outils, diagnostics), qui prime
+     * sur les panneaux, qui priment sur le canevas. Cet ordre EST la règle — le reste
+     * n'est que la mise en œuvre de chaque zone.
+     */
     public boolean mouseClicked(MouseButtonEvent e, boolean doubled) {
         if (picker.isOpen()) {
-            if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-                int cell = RegistryPickerPopup.cellAt(picker, e.x(), e.y(), width, height);
-                if (cell >= 0 && picker.at(cell) != null) {
-                    pickFromRegistry(picker.at(cell));
-                } else if (!RegistryPickerPopup.contains(e.x(), e.y(), width, height)) {
-                    picker.close();
-                }
-            } else {
-                picker.close();
-            }
-            return true;
+            return clickInPicker(e);
         }
         if (gotoState.isOpen()) {
             gotoState.close();
             return true;
         }
-        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-                && Minimap.contains(e.x(), e.y(), minimapLeft, minimapTop)
-                && !controller.boxes().isEmpty()) {
-            double[] world = Minimap.toWorld(NodeGeometry.boundsOf(controller.boxes()),
-                    e.x() - minimapLeft, e.y() - minimapTop);
-            camera.centerOn(world[0], world[1], canvasWidth(), height);
+        if (clickOnMinimap(e)) {
             return true;
         }
+        // Une liste déroulante d'énumération avale le clic qui la vise ; sinon on
+        // retombe sur le cas général « clic ailleurs = valider ».
         if (literalEdit.isOpen() && literalEdit.mode() == LiteralEditState.Mode.ENUM) {
             int option = enumOptionAt(e.x(), e.y());
             if (option >= 0) {
@@ -466,8 +435,30 @@ public final class CanvasWidget {
                 return true;
             }
         }
+        commitPendingEdits();
+        if (palette.isOpen()) {
+            return clickInPalette(e);
+        }
+        if (clickOnChrome(e)) {
+            return true;
+        }
+        if (clickOnPanels(e, doubled)) {
+            return true;
+        }
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            palette.open(e.x(), e.y(), camera.toWorldX(e.x()), camera.toWorldY(e.y()), null);
+            return true;
+        }
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return clickOnCanvas(e, doubled);
+        }
+        return false;
+    }
+
+    /** Toute édition en cours se valide dès qu'on clique ailleurs (AC2, 5.2b/5.5/5.10). */
+    private void commitPendingEdits() {
         if (literalEdit.isOpen()) {
-            // Clic ailleurs = valider (AC2) ; saisie invalide = abandonner (AC3).
+            // Saisie invalide = abandonner plutôt que garder un champ rouge (AC3).
             commitLiteral(false);
         }
         if (varPanel.isRenaming()) {
@@ -476,45 +467,78 @@ public final class CanvasWidget {
         if (details.isEditingMeta()) {
             details.commitMetaEdit();
         }
-        if (palette.isOpen()) {
-            if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-                int itemIndex = PalettePopup.rowAt(palette, e.x(), e.y(), width, height);
-                if (itemIndex >= 0) {
-                    switch (palette.items().get(itemIndex)) {
-                        case PaletteState.Item.Category(String name, int c, boolean ex) ->
-                                palette.toggleCategory(name);
-                        case PaletteState.Item.EntryItem(var entry, boolean fav, boolean blocked) -> {
-                            if (PalettePopup.starAt(palette, e.x(), width)) {
-                                palette.toggleFavorite(entry.id());
-                                palette.prefs().save(configDir);
-                            } else {
-                                palette.select(palette.entryIndexOf(itemIndex));
-                                insertFromPalette(!e.hasControlDown());
-                            }
-                        }
-                        default -> {
-                        }
-                    }
-                    return true;
-                }
-                if (!PalettePopup.contains(palette, e.x(), e.y(), width, height)) {
-                    palette.close();
-                }
-                return true;
+    }
+
+    private boolean clickInPicker(MouseButtonEvent e) {
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            int cell = RegistryPickerPopup.cellAt(picker, e.x(), e.y(), width, height);
+            if (cell >= 0 && picker.at(cell) != null) {
+                pickFromRegistry(picker.at(cell));
+            } else if (!RegistryPickerPopup.contains(e.x(), e.y(), width, height)) {
+                picker.close();
             }
+        } else {
+            picker.close();
+        }
+        return true;
+    }
+
+    private boolean clickOnMinimap(MouseButtonEvent e) {
+        if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT
+                || !Minimap.contains(e.x(), e.y(), minimapLeft, minimapTop)
+                || controller.boxes().isEmpty()) {
+            return false;
+        }
+        double[] world = Minimap.toWorld(NodeGeometry.boundsOf(controller.boxes()),
+                e.x() - minimapLeft, e.y() - minimapTop);
+        camera.centerOn(world[0], world[1], canvasWidth(), height);
+        return true;
+    }
+
+    private boolean clickInPalette(MouseButtonEvent e) {
+        if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             palette.close();
             return true;
         }
-        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && e.y() < ToolbarWidget.HEIGHT) {
+        int itemIndex = PalettePopup.rowAt(palette, e.x(), e.y(), width, height);
+        if (itemIndex >= 0) {
+            switch (palette.items().get(itemIndex)) {
+                case PaletteState.Item.Category(String name, int c, boolean ex) ->
+                        palette.toggleCategory(name);
+                case PaletteState.Item.EntryItem(var entry, boolean fav, boolean blocked) -> {
+                    if (PalettePopup.starAt(palette, e.x(), width)) {
+                        palette.toggleFavorite(entry.id());
+                        palette.prefs().save(configDir);
+                    } else {
+                        palette.select(palette.entryIndexOf(itemIndex));
+                        insertFromPalette(!e.hasControlDown());
+                    }
+                }
+                default -> {
+                }
+            }
+            return true;
+        }
+        if (!PalettePopup.contains(palette, e.x(), e.y(), width, height)) {
+            palette.close();
+        }
+        return true;
+    }
+
+    /** Barre d'outils et barre de diagnostics : le chrome au-dessus du canevas. */
+    private boolean clickOnChrome(MouseButtonEvent e) {
+        if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return false;
+        }
+        if (e.y() < ToolbarWidget.HEIGHT) {
             handleToolbar(ToolbarWidget.actionAt(minecraftFont(), e.x(), e.y(), width));
             return true;
         }
-        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-                && DiagnosticsPanel.barContains(e.y(), height)) {
+        if (DiagnosticsPanel.barContains(e.y(), height)) {
             diagnostics.toggleExpanded();
             return true;
         }
-        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && diagnostics.expanded()) {
+        if (diagnostics.expanded()) {
             int row = DiagnosticsPanel.rowAt(diagnostics, e.y(), height);
             if (row >= 0) {
                 var node = DiagnosticsState.nodeOf(diagnostics.report().get(row));
@@ -525,52 +549,56 @@ public final class CanvasWidget {
                 return true;
             }
         }
+        return false;
+    }
+
+    /** Pan, panneau des variables, vue script, panneau de détails. */
+    private boolean clickOnPanels(MouseButtonEvent e, boolean doubled) {
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
                 || (spaceTap.isDown() && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
             spaceTap.use(); // Espace sert au pan : ce n'était pas un tap-palette
             panning = true;
             return true;
         }
-        if (panelVisible && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-                && VariablePanel.contains(e.x(), e.y(), height)) {
+        if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return false;
+        }
+        if (panelVisible && VariablePanel.contains(e.x(), e.y(), height)) {
             handleVariablePanelClick(e, doubled);
             return true;
         }
-        if (scriptView.visible() && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-                && ScriptView.contains(e.x(), e.y(), width, height)) {
+        if (scriptView.visible() && ScriptView.contains(e.x(), e.y(), width, height)) {
             handleScriptViewClick(e);
             return true;
         }
-        if (panelVisible && !scriptView.visible() && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+        if (panelVisible && !scriptView.visible()
                 && DetailsPanel.contains(e.x(), e.y(), width, height)) {
             handleDetailsPanelClick(e);
             return true;
         }
-        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            palette.open(e.x(), e.y(), camera.toWorldX(e.x()), camera.toWorldY(e.y()), null);
-            return true;
+        return false;
+    }
+
+    /** Le canevas lui-même : renommage d'un commentaire, littéral, puis geste. */
+    private boolean clickOnCanvas(MouseButtonEvent e, boolean doubled) {
+        double wx = camera.toWorldX(e.x());
+        double wy = camera.toWorldY(e.y());
+        if (commentRenaming != null) {
+            commitCommentRename();
         }
-        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            double wx = camera.toWorldX(e.x());
-            double wy = camera.toWorldY(e.y());
-            if (commentRenaming != null) {
-                commitCommentRename();
-            }
-            if (doubled && controller.hitTest(wx, wy) == null) {
-                var title = controller.commentTitleAt(wx, wy);
-                if (title != null) {
-                    commentRenaming = title.uuid();
-                    commentBuffer = title.text();
-                    return true;
-                }
-            }
-            if (openLiteralEdit(wx, wy)) {
+        if (doubled && controller.hitTest(wx, wy) == null) {
+            var title = controller.commentTitleAt(wx, wy);
+            if (title != null) {
+                commentRenaming = title.uuid();
+                commentBuffer = title.text();
                 return true;
             }
-            controller.press(wx, wy, e.hasShiftDown(), e.hasAltDown());
+        }
+        if (openLiteralEdit(wx, wy)) {
             return true;
         }
-        return false;
+        controller.press(wx, wy, e.hasShiftDown(), e.hasAltDown());
+        return true;
     }
 
     private void commitCommentRename() {
@@ -675,35 +703,15 @@ public final class CanvasWidget {
     // ------------------------------------------------- sélecteur item/bloc (5.2c)
 
     private List<PickerState.Entry> itemEntries() {
-        if (itemEntries == null) {
-            List<PickerState.Entry> out = new ArrayList<>();
-            for (Item item : BuiltInRegistries.ITEM) {
-                Identifier id = BuiltInRegistries.ITEM.getKey(item);
-                out.add(new PickerState.Entry(id, new ItemStack(item).getHoverName().getString()));
-            }
-            out.sort(Comparator.comparing(PickerState.Entry::title));
-            itemEntries = out;
-        }
-        return itemEntries;
+        return catalog.items();
     }
 
     private List<PickerState.Entry> blockEntries() {
-        if (blockEntries == null) {
-            List<PickerState.Entry> out = new ArrayList<>();
-            for (Block block : BuiltInRegistries.BLOCK) {
-                out.add(new PickerState.Entry(BuiltInRegistries.BLOCK.getKey(block),
-                        block.getName().getString()));
-            }
-            out.sort(Comparator.comparing(PickerState.Entry::title));
-            blockEntries = out;
-        }
-        return blockEntries;
+        return catalog.blocks();
     }
 
     private ItemStack iconOf(Identifier id) {
-        return iconCache.computeIfAbsent(id, key -> picker.isBlock()
-                ? new ItemStack(BuiltInRegistries.BLOCK.getValue(key).asItem())
-                : new ItemStack(BuiltInRegistries.ITEM.getValue(key)));
+        return catalog.icon(id, picker.isBlock());
     }
 
     private void pickFromRegistry(PickerState.Entry entry) {
@@ -1003,115 +1011,155 @@ public final class CanvasWidget {
         return true;
     }
 
+    /**
+     * Routage du clavier. Chaque mode ouvert (renommage, sélecteur, palette…) capte
+     * TOUT le clavier tant qu'il est ouvert — sinon un « d » tapé dans un champ de
+     * recherche dupliquerait la sélection. L'ordre des modes ci-dessous est leur ordre
+     * de priorité, et c'est la seule chose que cette méthode décide.
+     */
     public boolean keyPressed(KeyEvent e) {
         if (e.key() == GLFW.GLFW_KEY_LEFT_SHIFT || e.key() == GLFW.GLFW_KEY_RIGHT_SHIFT) {
             shiftDown = true;
         }
         if (varPanel.isRenaming()) {
-            switch (e.key()) {
-                case GLFW.GLFW_KEY_ESCAPE -> varPanel.cancelRename();
-                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> varPanel.commitRename();
-                case GLFW.GLFW_KEY_BACKSPACE -> varPanel.backspace();
-                default -> {
-                }
-            }
-            return true;
+            return keyInVariableRename(e);
         }
         if (details.isEditingMeta()) {
-            switch (e.key()) {
-                case GLFW.GLFW_KEY_ESCAPE -> details.cancelMetaEdit();
-                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> details.commitMetaEdit();
-                case GLFW.GLFW_KEY_BACKSPACE -> details.backspace();
-                default -> {
-                }
-            }
-            return true;
+            return keyInMetaEdit(e);
         }
         if (gotoState.isOpen()) {
-            switch (e.key()) {
-                case GLFW.GLFW_KEY_ESCAPE -> gotoState.close();
-                case GLFW.GLFW_KEY_UP -> gotoState.moveSelection(-1);
-                case GLFW.GLFW_KEY_DOWN -> gotoState.moveSelection(1);
-                case GLFW.GLFW_KEY_BACKSPACE -> gotoState.backspace();
-                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
-                    GotoState.Target target = gotoState.selectedTarget();
-                    if (target != null) {
-                        controller.focusNode(target.node(), canvasWidth(), height);
-                    }
-                    gotoState.close();
-                }
-                default -> {
-                }
-            }
-            return true;
+            return keyInGoto(e);
         }
         if (commentRenaming != null) {
-            switch (e.key()) {
-                case GLFW.GLFW_KEY_ESCAPE -> {
-                    commentRenaming = null;
-                    commentBuffer = "";
-                }
-                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> commitCommentRename();
-                case GLFW.GLFW_KEY_BACKSPACE -> {
-                    if (!commentBuffer.isEmpty()) {
-                        commentBuffer = commentBuffer.substring(0, commentBuffer.length() - 1);
-                    }
-                }
-                default -> {
-                }
-            }
-            return true;
+            return keyInCommentRename(e);
         }
         if (picker.isOpen()) {
-            switch (e.key()) {
-                case GLFW.GLFW_KEY_ESCAPE -> picker.close();
-                case GLFW.GLFW_KEY_BACKSPACE -> picker.backspace();
-                case GLFW.GLFW_KEY_PAGE_UP -> picker.scrollBy(-PickerState.ROWS);
-                case GLFW.GLFW_KEY_PAGE_DOWN -> picker.scrollBy(PickerState.ROWS);
-                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
-                    if (!picker.filtered().isEmpty()) {
-                        pickFromRegistry(picker.filtered().get(0));
-                    }
-                }
-                default -> {
-                }
-            }
-            return true;
+            return keyInPicker(e);
         }
         if (literalEdit.isOpen()) {
-            switch (e.key()) {
-                case GLFW.GLFW_KEY_ESCAPE -> literalEdit.close();
-                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> commitLiteral(true);
-                case GLFW.GLFW_KEY_BACKSPACE -> literalEdit.backspace();
-                case GLFW.GLFW_KEY_UP -> literalEdit.moveOption(-1);
-                case GLFW.GLFW_KEY_DOWN -> literalEdit.moveOption(1);
-                // Ctrl+P : « position du joueur » dans un champ vec3/blockpos (5.2c).
-                case GLFW.GLFW_KEY_P -> {
-                    if (e.hasControlDown()) {
-                        fillPlayerPosition();
-                    }
-                }
-                default -> {
-                }
-            }
-            return true; // le clavier de l'éditeur est suspendu pendant l'édition (AC4)
+            return keyInLiteralEdit(e);
         }
         if (palette.isOpen()) {
-            switch (e.key()) {
-                case GLFW.GLFW_KEY_ESCAPE -> palette.close();
-                case GLFW.GLFW_KEY_UP -> palette.moveSelection(-1);
-                case GLFW.GLFW_KEY_DOWN -> palette.moveSelection(1);
-                case GLFW.GLFW_KEY_PAGE_UP -> palette.scrollBy(-PaletteState.VISIBLE_ROWS);
-                case GLFW.GLFW_KEY_PAGE_DOWN -> palette.scrollBy(PaletteState.VISIBLE_ROWS);
-                // Ctrl+Entrée insère sans connecter (UX §6).
-                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER ->
-                        insertFromPalette(!e.hasControlDown());
-                case GLFW.GLFW_KEY_BACKSPACE -> palette.backspace();
-                default -> {
+            return keyInPalette(e);
+        }
+        return keyOnCanvas(e);
+    }
+
+    private boolean keyInVariableRename(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> varPanel.cancelRename();
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> varPanel.commitRename();
+            case GLFW.GLFW_KEY_BACKSPACE -> varPanel.backspace();
+            default -> {
+            }
+        }
+        return true;
+    }
+
+    private boolean keyInMetaEdit(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> details.cancelMetaEdit();
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> details.commitMetaEdit();
+            case GLFW.GLFW_KEY_BACKSPACE -> details.backspace();
+            default -> {
+            }
+        }
+        return true;
+    }
+
+    private boolean keyInGoto(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> gotoState.close();
+            case GLFW.GLFW_KEY_UP -> gotoState.moveSelection(-1);
+            case GLFW.GLFW_KEY_DOWN -> gotoState.moveSelection(1);
+            case GLFW.GLFW_KEY_BACKSPACE -> gotoState.backspace();
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+                GotoState.Target target = gotoState.selectedTarget();
+                if (target != null) {
+                    controller.focusNode(target.node(), canvasWidth(), height);
+                }
+                gotoState.close();
+            }
+            default -> {
+            }
+        }
+        return true;
+    }
+
+    private boolean keyInCommentRename(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> {
+                commentRenaming = null;
+                commentBuffer = "";
+            }
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> commitCommentRename();
+            case GLFW.GLFW_KEY_BACKSPACE -> {
+                if (!commentBuffer.isEmpty()) {
+                    commentBuffer = commentBuffer.substring(0, commentBuffer.length() - 1);
                 }
             }
-            return true; // la palette capte tout le clavier tant qu'elle est ouverte
+            default -> {
+            }
         }
+        return true;
+    }
+
+    private boolean keyInPicker(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> picker.close();
+            case GLFW.GLFW_KEY_BACKSPACE -> picker.backspace();
+            case GLFW.GLFW_KEY_PAGE_UP -> picker.scrollBy(-PickerState.ROWS);
+            case GLFW.GLFW_KEY_PAGE_DOWN -> picker.scrollBy(PickerState.ROWS);
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+                if (!picker.filtered().isEmpty()) {
+                    pickFromRegistry(picker.filtered().get(0));
+                }
+            }
+            default -> {
+            }
+        }
+        return true;
+    }
+
+    /** Le clavier de l'éditeur est suspendu pendant l'édition d'un littéral (AC4, 5.2b). */
+    private boolean keyInLiteralEdit(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> literalEdit.close();
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> commitLiteral(true);
+            case GLFW.GLFW_KEY_BACKSPACE -> literalEdit.backspace();
+            case GLFW.GLFW_KEY_UP -> literalEdit.moveOption(-1);
+            case GLFW.GLFW_KEY_DOWN -> literalEdit.moveOption(1);
+            // Ctrl+P : « position du joueur » dans un champ vec3/blockpos (5.2c).
+            case GLFW.GLFW_KEY_P -> {
+                if (e.hasControlDown()) {
+                    fillPlayerPosition();
+                }
+            }
+            default -> {
+            }
+        }
+        return true;
+    }
+
+    private boolean keyInPalette(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> palette.close();
+            case GLFW.GLFW_KEY_UP -> palette.moveSelection(-1);
+            case GLFW.GLFW_KEY_DOWN -> palette.moveSelection(1);
+            case GLFW.GLFW_KEY_PAGE_UP -> palette.scrollBy(-PaletteState.VISIBLE_ROWS);
+            case GLFW.GLFW_KEY_PAGE_DOWN -> palette.scrollBy(PaletteState.VISIBLE_ROWS);
+            // Ctrl+Entrée insère sans connecter (UX §6).
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER ->
+                    insertFromPalette(!e.hasControlDown());
+            case GLFW.GLFW_KEY_BACKSPACE -> palette.backspace();
+            default -> {
+            }
+        }
+        return true;
+    }
+
+    /** Raccourcis du canevas lui-même (UX §11) : aucun mode n'est ouvert. */
+    private boolean keyOnCanvas(KeyEvent e) {
         switch (e.key()) {
             case GLFW.GLFW_KEY_SPACE -> {
                 spaceTap.press();
