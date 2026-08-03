@@ -1,0 +1,44 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "7.9"
+story_title: "Couverture de la bibliothèque — 89 → 161 nœuds, 10 → 18 événements"
+gate: "PASS"
+status_reason: "L'audit s'est justifié dès sa première ligne : il a trouvé un point d'entrée MORT que plusieurs stories de tests n'avaient pas vu, parce que chaque test déclenchait lui-même l'événement qu'il vérifiait. Le lot qui le corrige introduisait à son tour un risque de récursion non bornée, identifié et borné avant écriture. Toutes les recherches et productions de valeur sont plafonnées — un nœud vit dans une boucle chaude."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T15:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "SIGNAL-001"
+    severity: high
+    finding: "CORRIGÉ — event/signal était un point d'entrée MORT : il apparaissait dans la palette, se posait, se câblait, se sauvegardait, et rien au monde ne le déclenchait. Ni nœud, ni commande, ni API. C'était précisément la primitive « un blueprint en appelle un autre », et un joueur pouvait construire un graphe entier autour d'un événement qui ne viendrait jamais."
+    suggested_action: "Fait : nœud signal/emit, commande /blueprint signal, filtre par nom (même forme que command). Et EventCoverageTest, qui lit les sources et exige que tout événement déclaré soit mentionné dans un pont — vérifié en introduisant un événement mort exprès."
+  - id: "SIGNAL-002"
+    severity: high
+    finding: "ÉVITÉ À L'ÉCRITURE — un signal peut en émettre un autre. Sans borne, un blueprint qui s'auto-signale remplit la file d'exécution sans jamais la vider : le carburant se partage entre exécutions, donc chacune avance moins vite à mesure qu'il y en a plus, et la mémoire monte jusqu'au crash du serveur. L'ordonnanceur n'a aucun plafond de file."
+    suggested_action: "Fait : 64 signaux par tick, remis à zéro en fin de tick. Le refus se DIT (code −1, distinct de « personne n'écoute ») — c'est le symptôme d'une boucle, l'auteur doit l'apprendre."
+  - id: "COVER-001"
+    severity: low
+    finding: "EventCoverageTest vérifie qu'un événement est MENTIONNÉ dans un fichier de pont, pas qu'il est réellement déclenché : un pont commenté ou dans une branche morte passerait"
+    suggested_action: "Assumé : c'est grossier et c'est ce qu'il faut. Un événement qu'on ne mentionne nulle part ne peut PAS se déclencher ; l'inverse (mentionné mais mort) demanderait de l'analyse de flot pour un cas bien moins probable."
+  - id: "QUERY-001"
+    severity: low
+    finding: "Les recherches d'entités bornent le rayon à 128 blocs et les résultats à 256 sans le dire au joueur : un graphe qui demande 1000 en obtient 128 silencieusement"
+    suggested_action: "Assumé : ramener plutôt que refuser est le bon comportement (qui écrit 1000 veut dire « loin »), mais la borne mériterait d'apparaître dans l'infobulle du pin. Consigné."
+  - id: "FLOW-002"
+    severity: low
+    finding: "Les nœuds de requête sont EXEC, pas purs, alors qu'ils ne modifient rien. C'est volontaire — leur résultat change à chaque tick et la mémoïsation des nœuds purs le figerait, comme la condition de boucle en 7.1b — mais ils ne peuvent donc pas alimenter un pin de nœud pur sans passer par une variable."
+    suggested_action: "Assumé et motivé par un défaut réel déjà rencontré (BOUCLE-001, story 7.1b). Un « pur non mémoïsable » serait le vrai remède ; il touche le compilateur."
+  - id: "PARTICLE-001"
+    severity: low
+    finding: "player/particles n'accepte que les particules SANS paramètre : dust, block et item exigent une donnée qu'un pin « identifiant » ne peut pas porter, et le nœud faute sur elles"
+    suggested_action: "La faute est nommée plutôt que silencieuse. Un type de pin « particule » paramétrable serait le vrai remède ; il élargit la surface d'API pour un usage encore hypothétique."
+  - id: "GAP-001"
+    severity: low
+    finding: "Restent hors couverture : inventaire en lecture (a l'objet, compter, retirer), scoreboard et équipes, texte riche avancé (survol, clic, traduction), raycast, barre de boss"
+    suggested_action: "Consignés plutôt que bâclés. Aucun ne bloque un script complet aujourd'hui — contrairement aux vecteurs, qui rendaient « deux blocs au-dessus du joueur » inexprimable."
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 0, low: 5 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "VERIFY-7.9 : les nouveaux nœuds en jeu — signal entre deux blueprints, particules privées, requêtes d'entités"

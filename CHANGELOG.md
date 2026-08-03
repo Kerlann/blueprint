@@ -25,6 +25,29 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 - **Sous-catégories** de nœuds (`math/arithmetic`, `event/player`…) : la palette les
   affiche en arbre repliable, les six catégories qui dépassaient la dizaine de nœuds
   sont rangées, et un mod tiers peut déclarer les siennes.
+- **La bibliothèque passe de 89 à 161 nœuds et de 10 à 18 événements** (audit de
+  couverture) :
+  - **Vecteurs et positions** (17) — `vec3` était consommé par sept pins et produit
+    par un seul : « des particules deux blocs au-dessus du joueur » était inexprimable.
+  - **Interroger le monde** (14) — joueurs connectés, entités alentour, le plus
+    proche, heure, météo, dimension, lumière, surface. Un graphe ne voyait rien
+    au-delà de ce que son événement lui donnait.
+  - **Retours ciblés vers un joueur** (5) — sous-titre, barre d'action, durées du
+    titre, son et particules **privés** : ils partaient à tout le monde.
+  - **Dictionnaires** (9) — le type existait depuis la 1.2 sans qu'aucun nœud ne
+    l'utilise.
+  - **Chaînes et maths** (18) — découper, remplacer, extraire, texte → nombre,
+    racine, puissance, borner, interpoler, trigonométrie.
+  - **Huit événements** que Fabric exposait : dégâts subis, qui a tué qui,
+    réapparition, changement de dimension, frapper, interagir, dormir, se lever.
+
+### Corrigé
+
+- **`event/signal` ne se déclenchait jamais.** Il apparaissait dans la palette, se
+  posait, se câblait, se sauvegardait — et rien au monde ne l'émettait. C'était la
+  primitive « un blueprint en appelle un autre ». Il a désormais son nœud
+  `signal/emit`, sa commande `/blueprint signal`, un filtre par nom et une borne
+  anti-récursion.
 
 ### Modifié
 
@@ -53,7 +76,7 @@ son modèle de graphe, son compilateur, sa machine virtuelle bornée en carburan
 - **89 nœuds** standard dans 13 catégories : flux (branchement, séquence, boucles,
   portail, pour-chaque), maths, logique, chaînes, listes génériques, joueur, monde,
   entités, temps — voir `docs/node-reference.md`, généré depuis le registre.
-- 12 événements enregistrables (connexion, tick, chat, clic, mort, …).
+- 10 événements enregistrables (connexion, tick, chat, clic, casse, mort, commande…).
 
 ### Ajouté — éditeur visuel
 

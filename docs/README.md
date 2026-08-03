@@ -54,7 +54,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 2 | Registre de nœuds et API d'extension | 2.1 → 2.5 | **Complet** — 5 gates PASS |
 | 3 | Compilateur et VM | 3.1+3.2+3.3, 3.4+3.5 | **Complet** — 2 gates PASS (3 corrections en review dont un high sémantique) |
 | 7 | Événements et bibliothèque | 7.1a+7.2+7.6 (groupées) | **Complet** — gate PASS, démo ping/pong vérifiée en jeu (VERIFY-004) |
-| 7 | **Bibliothèque complète** | 7.1b, 7.3-7.5, 7.7 | **Complet** — 3 gates PASS (1 high corrigé : condition de boucle figée par la mémoïsation) ; ~65 nœuds, boucles/frames, /bpc ; restes v1.1 : gate, for_each |
+| 7 | **Bibliothèque complète** | 7.1b, 7.3-7.5, 7.7, **7.9** | **Complet** — 4 gates PASS ; audit de couverture 7.9 : 89 → **161 nœuds**, 10 → **18 événements** (1 high : `event/signal` était un point d'entrée MORT depuis plusieurs stories — il se posait, se câblait, et rien ne le déclenchait) |
 | 4 | Démo, export/import | 4.4a | **Complet** — gate PASS |
 | 4 | BScript v1 | 4.1+4.2+4.3 (groupées) | **Complet** — gate PASS (4 corrections en review dont un high de fidélité) ; round-trip exact, `.bp` = texte |
 | 6 | Persistance monde | 6.1 | **Complet** — gate PASS (VERIFY-005 : redémarrage à confirmer en jeu) |
@@ -104,6 +104,7 @@ l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | V20 | Gestes d'Unreal (5.13) | clic droit sur un nœud, un pin, un fil, le vide : quatre menus différents ; promouvoir un pin en variable ; **lâcher un nœud sur un fil** → halo vert puis insertion, `Ctrl+Z` défait tout d'un coup |
 | V21 | Aspect d'Unreal (5.13) | coins arrondis, ombre portée, dégradé d'en-tête, pictogramme de catégorie, halo de sélection ; en débogage, les billes coulent sur les fils exec parcourus |
 | V22 | Sous-catégories (5.14) | clic droit à vide : Événements ▸ Joueur/Monde/Serveur, Variables, Contrôle du flux ▸ Branchements/Boucles… ; replier une parente replie ses enfants, les comptes incluent la descendance |
+| V23 | Bibliothèque élargie (7.9) | signal entre deux blueprints, particules privées à un seul joueur, requêtes d'entités et lecture de l'heure, dégâts subis en combat |
 
 **Déjà clos** : VERIFY-001/002/003 (session du 2026-08-02, épic 1) et VERIFY-004
 (démo ping/pong). **Rien à voir en jeu** pour VERIFY-8.5 : la garde de surface d'API
