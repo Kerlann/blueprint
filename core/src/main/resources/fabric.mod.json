@@ -5,9 +5,9 @@
   "name": "Blueprint",
   "description": "Mod Fabric Blueprint",
   "authors": [
-    "Hakan"
+    "Kerlann"
   ],
-  "license": "All Rights Reserved",
+  "license": "MIT",
   "environment": "*",
   "entrypoints": {
     "main": [

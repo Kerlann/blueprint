@@ -57,16 +57,13 @@ persistées, causée par des gametests tournant en parallèle.
 
 ## 3. Ce qui reste
 
-### 3.1 Une décision qui n'est pas la mienne : la licence
+### 3.1 La licence — tranchée
 
-**Il n'y a pas de fichier `LICENSE`.** Tant qu'il n'y en a pas, le dépôt est sous
-droit d'auteur par défaut : personne ne peut légalement le forker ni le
-redistribuer — l'exact contraire de ce que cherche un mod doté d'une API
-d'extension. C'est à trancher avant toute publication. Les deux choix usuels :
-
-- **MIT** — permissif, de loin le plus répandu chez les mods Fabric.
-- **LGPL-3.0** — les modifications du mod restent libres, mais un mod compagnon qui
-  n'utilise que l'API garde sa propre licence.
+**MIT**, © 2026 Kerlann ([`LICENSE`](../LICENSE)). Le dépôt était jusque-là sous droit
+d'auteur par défaut, ce qui interdisait à quiconque de le forker ou de le
+redistribuer — l'exact contraire de ce que cherche un mod doté d'une API d'extension.
+Le champ `license` des trois `fabric.mod.json` disait aussi « All Rights Reserved » :
+c'est ce que le lanceur affiche aux joueurs, il est corrigé.
 
 ### 3.2 La session en jeu
 

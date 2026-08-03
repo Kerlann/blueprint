@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "name": "Blueprint Testmod",
   "description": "Mod d'exemple validant l'API Blueprint (dev uniquement, jamais livré)",
-  "license": "All Rights Reserved",
+  "license": "MIT",
   "environment": "*",
   "entrypoints": {
     "blueprint": [

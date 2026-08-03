@@ -116,9 +116,8 @@ stories et gates QA.
 
 ## Licence
 
-**Pas encore choisie.** Tant qu'aucun fichier `LICENSE` n'est présent, le dépôt reste
-sous droit d'auteur par défaut : personne d'autre ne peut légalement le redistribuer
-ni le forker. C'est une décision à prendre avant toute publication — pour un mod
-Minecraft avec une API d'extension, les choix courants sont MIT (permissif, le plus
-répandu chez les mods Fabric) ou LGPL-3.0 (les modifications du mod restent libres,
-les mods compagnons qui n'utilisent que l'API restent libres de leur licence).
+[MIT](LICENSE) — © 2026 Kerlann.
+
+Tu peux l'utiliser, le modifier, le redistribuer et le vendre, y compris dans un
+projet fermé ; la seule obligation est de conserver l'avis de copyright. Un mod
+compagnon qui s'appuie sur `blueprint-api` choisit librement sa propre licence.

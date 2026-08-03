@@ -100,9 +100,9 @@ class DetailsPanelStateTest {
     @Test
     void editionDesMetadonnees() {
         state.openMetaEdit(DetailsPanelState.MetaField.AUTHOR);
-        state.type("Hakan");
+        state.type("Kerlann");
         assertTrue(state.commitMetaEdit());
-        assertEquals("Hakan", bp.meta().author());
+        assertEquals("Kerlann", bp.meta().author());
         assertFalse(state.isEditingMeta());
 
         state.openMetaEdit(DetailsPanelState.MetaField.DESCRIPTION);

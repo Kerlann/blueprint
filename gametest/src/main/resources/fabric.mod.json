@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "name": "Blueprint Game Tests",
   "description": "Tests joués dans un vrai serveur (story 1.6) — dev uniquement, jamais livré",
-  "license": "All Rights Reserved",
+  "license": "MIT",
   "environment": "*",
   "entrypoints": {
     "fabric-gametest": [

@@ -8,7 +8,12 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
-Rien depuis la 0.1.0.
+### Ajouté
+
+- Licence **MIT** (© 2026 Kerlann). Le dépôt n'en avait aucune, donc restait sous
+  droit d'auteur par défaut : ni fork ni redistribution possibles. Le champ
+  `license` des `fabric.mod.json` — celui que le lanceur montre aux joueurs —
+  annonçait lui aussi « All Rights Reserved ».
 
 ## [0.1.0] — 2026-08-03
 
