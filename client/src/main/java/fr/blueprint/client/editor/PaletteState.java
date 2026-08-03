@@ -1,42 +1,79 @@
 package fr.blueprint.client.editor;
 
+import fr.blueprint.api.node.Permission;
 import fr.blueprint.api.pin.PinKind;
+import fr.blueprint.client.config.PalettePrefs;
 import fr.blueprint.core.registry.NodeDescriptor;
 import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
- * État de la palette : requête, résultats, sélection clavier, et filtre de
- * compatibilité quand elle s'ouvre depuis un lien relâché dans le vide. Pur — le
- * rendu et les entrées vivent dans {@link PalettePopup} et {@code CanvasWidget}.
+ * État de la palette (5.4a + 5.4b) : requête et résultats classés, ou — sans
+ * requête — navigation ★ favoris / récents / catégories repliables. Les nœuds
+ * au-dessus du plafond de permission restent visibles mais marqués bloqués (U2).
+ * Pur — le rendu et les entrées vivent dans {@link PalettePopup} et
+ * {@code CanvasWidget}.
  *
- * <p>Le filtre est structurel (kind + assignabilité sur les descripteurs) : le nœud
- * n'existe pas encore, {@code canLink} ne peut pas trancher. L'auto-connexion après
- * insertion, elle, repasse par {@code canLink} (source de vérité).
+ * <p>Le filtre de compatibilité est structurel (kind + assignabilité sur les
+ * descripteurs) : le nœud n'existe pas encore, {@code canLink} ne peut pas
+ * trancher. L'auto-connexion après insertion, elle, repasse par {@code canLink}.
  */
 public final class PaletteState {
 
-    public static final int MAX_RESULTS = 8;
+    /** Lignes visibles simultanément (le reste défile). */
+    public static final int VISIBLE_ROWS = 10;
+    private static final int SEARCH_LIMIT = 200;
+
+    /** Une ligne de la palette : section, catégorie repliable, ou entrée insérable. */
+    public sealed interface Item {
+        record Section(String labelKey) implements Item {
+        }
+
+        record Category(String name, int count, boolean expanded) implements Item {
+        }
+
+        record EntryItem(NodeSearch.Entry entry, boolean favorite, boolean blocked) implements Item {
+        }
+    }
 
     private final NodeSearch search;
     private final Function<Identifier, NodeDescriptor> descriptors;
+    private final PalettePrefs prefs;
+    private final Supplier<Permission> permissionCap;
 
     private boolean open;
     private String query = "";
-    private List<NodeSearch.Entry> results = List.of();
+    private List<NodeSearch.Entry> entries = List.of();
+    private List<Item> items = List.of();
     private int selected;
+    private int scroll;
+    private final Set<String> collapsed = new LinkedHashSet<>();
     private double anchorX;
     private double anchorY;
     private double worldX;
     private double worldY;
     private @Nullable CanvasController.PinRef wireFrom;
 
-    public PaletteState(NodeSearch search, Function<Identifier, NodeDescriptor> descriptors) {
+    public PaletteState(NodeSearch search, Function<Identifier, NodeDescriptor> descriptors,
+                        PalettePrefs prefs, Supplier<Permission> permissionCap) {
         this.search = search;
         this.descriptors = descriptors;
+        this.prefs = prefs;
+        this.permissionCap = permissionCap;
+    }
+
+    public PalettePrefs prefs() {
+        return prefs;
     }
 
     /** Ouvre à l'ancre écran donnée ; {@code wireFrom} non nul = filtre par type. */
@@ -49,7 +86,6 @@ public final class PaletteState {
         this.worldY = worldY;
         this.wireFrom = wireFrom;
         this.query = "";
-        this.selected = 0;
         refresh();
     }
 
@@ -66,8 +102,22 @@ public final class PaletteState {
         return query;
     }
 
+    /** Les entrées insérables, dans l'ordre d'affichage (la sélection les parcourt). */
     public List<NodeSearch.Entry> results() {
-        return results;
+        return entries;
+    }
+
+    /** Les lignes affichées (sections, catégories, entrées). */
+    public List<Item> items() {
+        return items;
+    }
+
+    public int scroll() {
+        return scroll;
+    }
+
+    public void scrollBy(int delta) {
+        scroll = Math.clamp(scroll + delta, 0, Math.max(0, items.size() - VISIBLE_ROWS));
     }
 
     public int selectedIndex() {
@@ -75,7 +125,7 @@ public final class PaletteState {
     }
 
     public @Nullable NodeSearch.Entry selectedEntry() {
-        return selected >= 0 && selected < results.size() ? results.get(selected) : null;
+        return selected >= 0 && selected < entries.size() ? entries.get(selected) : null;
     }
 
     public double anchorX() {
@@ -100,33 +150,131 @@ public final class PaletteState {
 
     public void type(String text) {
         query += text;
-        selected = 0;
         refresh();
     }
 
     public void backspace() {
         if (!query.isEmpty()) {
             query = query.substring(0, query.length() - 1);
-            selected = 0;
             refresh();
         }
     }
 
     public void moveSelection(int delta) {
-        if (!results.isEmpty()) {
-            selected = Math.clamp(selected + delta, 0, results.size() - 1);
+        if (!entries.isEmpty()) {
+            selected = Math.clamp(selected + delta, 0, entries.size() - 1);
+            ensureSelectedVisible();
         }
     }
 
-    public void select(int index) {
-        if (index >= 0 && index < results.size()) {
-            selected = index;
+    public void select(int entryIndex) {
+        if (entryIndex >= 0 && entryIndex < entries.size()) {
+            selected = entryIndex;
         }
     }
+
+    /** L'indice d'entrée correspondant à une ligne, ou −1 (section, catégorie). */
+    public int entryIndexOf(int itemIndex) {
+        if (itemIndex < 0 || itemIndex >= items.size()
+                || !(items.get(itemIndex) instanceof Item.EntryItem target)) {
+            return -1;
+        }
+        return entries.indexOf(target.entry());
+    }
+
+    public void toggleCategory(String name) {
+        if (!collapsed.remove(name)) {
+            collapsed.add(name);
+        }
+        refresh();
+    }
+
+    /** Bascule le favori d'une entrée ; l'appelant persiste les préférences. */
+    public void toggleFavorite(Identifier id) {
+        prefs.toggleFavorite(id);
+        refresh();
+    }
+
+    public void noteInserted(Identifier id) {
+        prefs.addRecent(id);
+    }
+
+    // -------------------------------------------------------------------- contenu
 
     private void refresh() {
-        results = search.search(query, this::compatible, MAX_RESULTS);
         selected = 0;
+        scroll = 0;
+        List<Item> out = new ArrayList<>();
+        List<NodeSearch.Entry> flat = new ArrayList<>();
+        if (!query.isBlank()) {
+            for (NodeSearch.Entry entry : search.search(query, this::compatible, SEARCH_LIMIT)) {
+                out.add(wrap(entry));
+                flat.add(entry);
+            }
+        } else {
+            List<NodeSearch.Entry> all = search.search("", this::compatible, SEARCH_LIMIT);
+            Map<Identifier, NodeSearch.Entry> byId = new LinkedHashMap<>();
+            all.forEach(e -> byId.put(e.id(), e));
+
+            section(out, flat, "blueprint.editor.palette.favorites",
+                    prefs.favorites().stream().map(byId::get).filter(e -> e != null).toList());
+            section(out, flat, "blueprint.editor.palette.recents",
+                    prefs.recents().stream().map(byId::get).filter(e -> e != null).toList());
+
+            Map<String, List<NodeSearch.Entry>> byCategory = new LinkedHashMap<>();
+            all.forEach(e -> byCategory.computeIfAbsent(e.category(), k -> new ArrayList<>()).add(e));
+            byCategory.keySet().stream().sorted(Comparator.naturalOrder()).forEach(category -> {
+                List<NodeSearch.Entry> members = byCategory.get(category);
+                boolean expanded = !collapsed.contains(category);
+                out.add(new Item.Category(category, members.size(), expanded));
+                if (expanded) {
+                    for (NodeSearch.Entry entry : members) {
+                        out.add(wrap(entry));
+                        flat.add(entry);
+                    }
+                }
+            });
+        }
+        items = List.copyOf(out);
+        entries = List.copyOf(flat);
+    }
+
+    private void section(List<Item> out, List<NodeSearch.Entry> flat, String labelKey,
+                         List<NodeSearch.Entry> members) {
+        if (members.isEmpty()) {
+            return;
+        }
+        out.add(new Item.Section(labelKey));
+        for (NodeSearch.Entry entry : members) {
+            out.add(wrap(entry));
+            flat.add(entry);
+        }
+    }
+
+    private Item.EntryItem wrap(NodeSearch.Entry entry) {
+        return new Item.EntryItem(entry, prefs.isFavorite(entry.id()), blocked(entry));
+    }
+
+    /** Au-dessus du plafond de permission : visible mais marqué (jamais masqué, U2). */
+    public boolean blocked(NodeSearch.Entry entry) {
+        NodeDescriptor desc = descriptors.apply(entry.id());
+        return desc != null && !desc.permission().allowedUnder(permissionCap.get());
+    }
+
+    private void ensureSelectedVisible() {
+        NodeSearch.Entry entry = selectedEntry();
+        if (entry == null) {
+            return;
+        }
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i) instanceof Item.EntryItem e && e.entry() == entry) {
+                int maxScroll = Math.max(0, items.size() - VISIBLE_ROWS);
+                scroll = Math.clamp(scroll,
+                        Math.min(Math.max(0, i - VISIBLE_ROWS + 1), maxScroll),
+                        Math.min(i, maxScroll));
+                return;
+            }
+        }
     }
 
     /** Sans lien source : tout passe. Sinon : au moins un pin compatible. */

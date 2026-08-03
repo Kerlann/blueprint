@@ -108,7 +108,8 @@ class PaletteTest {
         NodeSearch search = new NodeSearch(List.of(
                 new NodeSearch.Entry(EXEC_NODE.id(), "Exec node", "d", "flow"),
                 new NodeSearch.Entry(PURE_NODE.id(), "Pure node", "d", "math")));
-        return new PaletteState(search, descs::get);
+        return new PaletteState(search, descs::get,
+                new fr.blueprint.client.config.PalettePrefs(), () -> Permission.GAMEPLAY);
     }
 
     @Test
@@ -139,6 +140,63 @@ class PaletteTest {
         p.open(10, 10, 100, 100, from);
         assertEquals(1, p.results().size());
         assertEquals(PURE_NODE.id(), p.results().get(0).id());
+    }
+
+    // -------------------------------------------------------- navigation (5.4b)
+
+    @Test
+    void sansRequeteFavorisPuisRecentsPuisCategories() {
+        PaletteState p = palette();
+        p.open(0, 0, 0, 0, null);
+        // Sans favoris ni récents : catégories triées, dépliées par défaut.
+        assertTrue(p.items().get(0) instanceof PaletteState.Item.Category(String n, int c, boolean x)
+                && n.equals("flow"));
+        assertEquals(2, p.results().size());
+
+        p.toggleFavorite(PURE_NODE.id());
+        p.noteInserted(EXEC_NODE.id());
+        p.open(0, 0, 0, 0, null);
+        // ★ Favoris d'abord, puis Récents, puis les catégories.
+        assertTrue(p.items().get(0) instanceof PaletteState.Item.Section(String key)
+                && key.contains("favorites"));
+        assertTrue(p.items().get(1) instanceof PaletteState.Item.EntryItem(var e, boolean fav, boolean b)
+                && fav && e.id().equals(PURE_NODE.id()));
+        assertTrue(p.items().get(2) instanceof PaletteState.Item.Section(String key)
+                && key.contains("recents"));
+    }
+
+    @Test
+    void categorieRepliableEtDefilement() {
+        PaletteState p = palette();
+        p.open(0, 0, 0, 0, null);
+        int before = p.results().size();
+        p.toggleCategory("flow");
+        assertEquals(before - 1, p.results().size());
+        p.toggleCategory("flow");
+        assertEquals(before, p.results().size());
+
+        p.scrollBy(100);
+        assertEquals(Math.max(0, p.items().size() - PaletteState.VISIBLE_ROWS), p.scroll());
+        p.scrollBy(-100);
+        assertEquals(0, p.scroll());
+    }
+
+    @Test
+    void plafondDePermissionGriseSansMasquer() {
+        NodeDescriptor admin = new NodeDescriptor(
+                Identifier.fromNamespaceAndPath("blueprint", "admin_node"), "world",
+                "t.admin", "d.admin", List.of(), List.of(pin("exec_out", PinKind.EXEC)),
+                false, Permission.ADMIN, 1, true);
+        Map<Identifier, NodeDescriptor> descs = new HashMap<>();
+        descs.put(admin.id(), admin);
+        PaletteState p = new PaletteState(
+                new NodeSearch(List.of(new NodeSearch.Entry(admin.id(), "Admin", "d", "world"))),
+                descs::get, new fr.blueprint.client.config.PalettePrefs(),
+                () -> Permission.GAMEPLAY);
+        p.open(0, 0, 0, 0, null);
+        // Visible (jamais masqué, U2) mais marqué bloqué.
+        assertEquals(1, p.results().size());
+        assertTrue(p.blocked(p.results().get(0)));
     }
 
     @Test

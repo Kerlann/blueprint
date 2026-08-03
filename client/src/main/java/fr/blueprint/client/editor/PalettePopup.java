@@ -7,8 +7,9 @@ import net.minecraft.client.resources.language.I18n;
 import java.util.List;
 
 /**
- * Rendu écran de la palette et correspondance clic→ligne. La logique (requête,
- * filtre, sélection) vit dans {@link PaletteState}.
+ * Rendu écran de la palette (5.4a + 5.4b) : recherche, ou navigation favoris /
+ * récents / catégories ; ★ cliquable, défilement, nœuds bloqués grisés avec raison.
+ * La logique vit dans {@link PaletteState}.
  */
 public final class PalettePopup {
 
@@ -16,6 +17,8 @@ public final class PalettePopup {
     public static final int ROW_HEIGHT = 13;
     /** En-tête : titre + champ de recherche (et rappel du filtre au besoin). */
     private static final int HEADER_HEIGHT = 28;
+    /** Zone ★ au bord gauche d'une ligne d'entrée. */
+    public static final int STAR_WIDTH = 12;
 
     private static final int BACKGROUND = 0xF01A1B1E;
     private static final int BORDER = 0xFF3A3D42;
@@ -23,14 +26,22 @@ public final class PalettePopup {
     private static final int TITLE_COLOR = 0xFF8A8F98;
     private static final int QUERY_COLOR = 0xFFE6E6E6;
     private static final int ENTRY_COLOR = 0xFFD5D8DC;
+    private static final int BLOCKED_COLOR = 0xFF5A5F68;
     private static final int META_COLOR = 0xFF7A7F88;
     private static final int FILTER_COLOR = 0xFF7DCFFF;
+    private static final int STAR_ON = 0xFFE5C07B;
+    private static final int STAR_OFF = 0xFF4A4F58;
+    private static final int SECTION_COLOR = 0xFF7DCFFF;
 
     private PalettePopup() {
     }
 
+    private static int visibleRows(PaletteState state) {
+        return Math.min(state.items().size(), PaletteState.VISIBLE_ROWS);
+    }
+
     public static int height(PaletteState state) {
-        return HEADER_HEIGHT + Math.max(1, state.results().size()) * ROW_HEIGHT + 4;
+        return HEADER_HEIGHT + Math.max(1, visibleRows(state)) * ROW_HEIGHT + 4;
     }
 
     /** Coin haut-gauche effectif, ancré au curseur mais maintenu dans l'écran. */
@@ -60,29 +71,56 @@ public final class PalettePopup {
         }
         g.drawString(font, font.plainSubstrByWidth(header, WIDTH - 8), x + 4, y + 3,
                 state.wireFrom() != null ? FILTER_COLOR : TITLE_COLOR, false);
-        g.drawString(font, "🔍 " + state.query() + "_", x + 4, y + 15, QUERY_COLOR, false);
+        g.drawString(font, "> " + state.query() + "_", x + 4, y + 15, QUERY_COLOR, false);
 
-        List<NodeSearch.Entry> results = state.results();
-        if (results.isEmpty()) {
+        List<PaletteState.Item> items = state.items();
+        if (items.isEmpty()) {
             g.drawString(font, I18n.get("blueprint.editor.palette.empty"),
                     x + 4, y + HEADER_HEIGHT + 3, META_COLOR, false);
             return;
         }
-        for (int i = 0; i < results.size(); i++) {
-            int rowY = y + HEADER_HEIGHT + i * ROW_HEIGHT;
-            if (i == state.selectedIndex()) {
-                g.fill(x + 1, rowY, x + WIDTH - 1, rowY + ROW_HEIGHT, ROW_SELECTED);
+        int rows = visibleRows(state);
+        for (int r = 0; r < rows; r++) {
+            int index = state.scroll() + r;
+            if (index >= items.size()) {
+                break;
             }
-            NodeSearch.Entry e = results.get(i);
-            String meta = e.category();
-            int metaW = font.width(meta);
-            g.drawString(font, font.plainSubstrByWidth(e.title(), WIDTH - 12 - metaW),
-                    x + 4, rowY + 3, ENTRY_COLOR, false);
-            g.drawString(font, meta, x + WIDTH - 6 - metaW, rowY + 3, META_COLOR, false);
+            int rowY = y + HEADER_HEIGHT + r * ROW_HEIGHT;
+            switch (items.get(index)) {
+                case PaletteState.Item.Section(String labelKey) ->
+                        g.drawString(font, I18n.get(labelKey), x + 4, rowY + 3, SECTION_COLOR, false);
+                case PaletteState.Item.Category(String name, int count, boolean expanded) ->
+                        g.drawString(font, (expanded ? "▾ " : "▸ ") + name + " (" + count + ")",
+                                x + 4, rowY + 3, TITLE_COLOR, false);
+                case PaletteState.Item.EntryItem(var entry, boolean favorite, boolean blocked) -> {
+                    if (state.entryIndexOf(index) == state.selectedIndex()) {
+                        g.fill(x + 1, rowY, x + WIDTH - 1, rowY + ROW_HEIGHT, ROW_SELECTED);
+                    }
+                    g.drawString(font, "★", x + 3, rowY + 3, favorite ? STAR_ON : STAR_OFF, false);
+                    String meta = blocked
+                            ? I18n.get("blueprint.editor.palette.blocked")
+                            : entry.category();
+                    int metaW = font.width(meta);
+                    g.drawString(font, font.plainSubstrByWidth(entry.title(),
+                                    WIDTH - 20 - STAR_WIDTH - metaW),
+                            x + 4 + STAR_WIDTH, rowY + 3,
+                            blocked ? BLOCKED_COLOR : ENTRY_COLOR, false);
+                    g.drawString(font, meta, x + WIDTH - 6 - metaW, rowY + 3,
+                            blocked ? BLOCKED_COLOR : META_COLOR, false);
+                }
+            }
+        }
+        // Témoin de défilement : position dans la liste.
+        if (items.size() > rows) {
+            int track = rows * ROW_HEIGHT;
+            int thumb = Math.max(6, track * rows / items.size());
+            int offset = (track - thumb) * state.scroll() / Math.max(1, items.size() - rows);
+            g.fill(x + WIDTH - 2, y + HEADER_HEIGHT + offset,
+                    x + WIDTH - 1, y + HEADER_HEIGHT + offset + thumb, TITLE_COLOR);
         }
     }
 
-    /** Indice de la ligne sous la souris, ou −1 (aussi −1 hors du popup). */
+    /** Indice de LIGNE (dans items) sous la souris, ou −1 (aussi −1 hors du popup). */
     public static int rowAt(PaletteState state, double mx, double my, int screenW, int screenH) {
         int x = left(state, screenW);
         int y = top(state, screenH);
@@ -90,7 +128,14 @@ public final class PalettePopup {
             return -1;
         }
         int row = (int) ((my - y - HEADER_HEIGHT) / ROW_HEIGHT);
-        return row < state.results().size() ? row : -1;
+        int index = state.scroll() + row;
+        return index < state.items().size() ? index : -1;
+    }
+
+    /** Le clic est-il dans la zone ★ d'une ligne ? */
+    public static boolean starAt(PaletteState state, double mx, int screenW) {
+        int x = left(state, screenW);
+        return mx >= x && mx < x + 4 + STAR_WIDTH;
     }
 
     /** Le point est-il dans le popup (pour ne pas fermer sur un clic dedans) ? */

@@ -103,6 +103,7 @@ D:\Blueprint\
 │  │  ├─ ScriptView.java  Minimap.java
 │  │  └─ history/ UndoStack.java
 │  ├─ debug/  DebugOverlay.java  WatchValues.java
+│  ├─ config/ PalettePrefs.java             préférences client (5.4b)
 │  ├─ theme/  Theme.java  ThemeLoader.java
 │  ├─ registry/ ClientNodeRegistry.java   descripteurs reçus du serveur
 │  └─ net/                          handlers client

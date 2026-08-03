@@ -53,9 +53,11 @@ public final class CanvasWidget {
     private final VariablePanelState varPanel;
     private final DetailsPanelState details;
 
+    private final TapTracker spaceTap = new TapTracker();
+    private final java.nio.file.Path configDir;
+
     private int width;
     private int height;
-    private boolean spaceDown;
     private boolean shiftDown;
     private boolean panning;
     private boolean panelVisible = true;
@@ -84,7 +86,10 @@ public final class CanvasWidget {
                     I18n.get(d.descKey()), d.category()));
         }
         entries.sort(Comparator.comparing(NodeSearch.Entry::title));
-        this.palette = new PaletteState(new NodeSearch(entries), descriptors::descriptor);
+        this.configDir = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir();
+        this.palette = new PaletteState(new NodeSearch(entries), descriptors::descriptor,
+                fr.blueprint.client.config.PalettePrefs.load(configDir),
+                () -> session.blueprint().meta().permissionCap());
         this.varPanel = new VariablePanelState(session.blueprint(), lookup, controller::applyOp);
         this.details = new DetailsPanelState(session.blueprint(), descriptors::descriptor,
                 controller::applyOp, I18n::get);
@@ -246,10 +251,23 @@ public final class CanvasWidget {
         }
         if (palette.isOpen()) {
             if (e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-                int row = PalettePopup.rowAt(palette, e.x(), e.y(), width, height);
-                if (row >= 0) {
-                    palette.select(row);
-                    insertFromPalette();
+                int itemIndex = PalettePopup.rowAt(palette, e.x(), e.y(), width, height);
+                if (itemIndex >= 0) {
+                    switch (palette.items().get(itemIndex)) {
+                        case PaletteState.Item.Category(String name, int c, boolean ex) ->
+                                palette.toggleCategory(name);
+                        case PaletteState.Item.EntryItem(var entry, boolean fav, boolean blocked) -> {
+                            if (PalettePopup.starAt(palette, e.x(), width)) {
+                                palette.toggleFavorite(entry.id());
+                                palette.prefs().save(configDir);
+                            } else {
+                                palette.select(palette.entryIndexOf(itemIndex));
+                                insertFromPalette(!e.hasControlDown());
+                            }
+                        }
+                        default -> {
+                        }
+                    }
                     return true;
                 }
                 if (!PalettePopup.contains(palette, e.x(), e.y(), width, height)) {
@@ -280,7 +298,8 @@ public final class CanvasWidget {
             }
         }
         if (e.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
-                || (spaceDown && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
+                || (spaceTap.isDown() && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
+            spaceTap.use(); // Espace sert au pan : ce n'était pas un tap-palette
             panning = true;
             return true;
         }
@@ -532,6 +551,10 @@ public final class CanvasWidget {
         if (vAmount == 0) {
             return false;
         }
+        if (palette.isOpen()) {
+            palette.scrollBy(vAmount > 0 ? -1 : 1);
+            return true;
+        }
         if (literalEdit.isOpen()) {
             // Molette : ±1 sur un champ numérique (Shift = ±10), cycle sur une énum.
             if (literalEdit.mode() == LiteralEditState.Mode.ENUM) {
@@ -586,7 +609,11 @@ public final class CanvasWidget {
                 case GLFW.GLFW_KEY_ESCAPE -> palette.close();
                 case GLFW.GLFW_KEY_UP -> palette.moveSelection(-1);
                 case GLFW.GLFW_KEY_DOWN -> palette.moveSelection(1);
-                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> insertFromPalette();
+                case GLFW.GLFW_KEY_PAGE_UP -> palette.scrollBy(-PaletteState.VISIBLE_ROWS);
+                case GLFW.GLFW_KEY_PAGE_DOWN -> palette.scrollBy(PaletteState.VISIBLE_ROWS);
+                // Ctrl+Entrée insère sans connecter (UX §6).
+                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER ->
+                        insertFromPalette(!e.hasControlDown());
                 case GLFW.GLFW_KEY_BACKSPACE -> palette.backspace();
                 default -> {
                 }
@@ -595,7 +622,7 @@ public final class CanvasWidget {
         }
         switch (e.key()) {
             case GLFW.GLFW_KEY_SPACE -> {
-                spaceDown = true;
+                spaceTap.press();
                 return true;
             }
             case GLFW.GLFW_KEY_F -> {
@@ -679,7 +706,12 @@ public final class CanvasWidget {
             shiftDown = false;
         }
         if (e.key() == GLFW.GLFW_KEY_SPACE) {
-            spaceDown = false;
+            // Tap propre (pas servi au pan) → la palette s'ouvre au curseur (UX §6).
+            if (spaceTap.release() && !palette.isOpen() && !literalEdit.isOpen()
+                    && !varPanel.isRenaming() && !details.isEditingMeta()) {
+                palette.open(lastMouseX, lastMouseY,
+                        camera.toWorldX(lastMouseX), camera.toWorldY(lastMouseY), null);
+            }
             return true;
         }
         return false;
@@ -705,11 +737,13 @@ public final class CanvasWidget {
         return false;
     }
 
-    private void insertFromPalette() {
+    private void insertFromPalette(boolean connect) {
         NodeSearch.Entry entry = palette.selectedEntry();
         if (entry != null) {
             controller.insertNode(entry.id(), palette.worldX(), palette.worldY(),
-                    palette.wireFrom());
+                    connect ? palette.wireFrom() : null);
+            palette.noteInserted(entry.id());
+            palette.prefs().save(configDir);
         }
         palette.close();
     }
