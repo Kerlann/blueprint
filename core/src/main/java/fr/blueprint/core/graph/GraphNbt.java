@@ -84,6 +84,7 @@ public final class GraphNbt {
             c.putInt("color", box.color());
             comments.add(c);
         }
+        root.put("screens", ScreenNbt.encode(bp));
         root.put("comments", comments);
         return root;
     }
@@ -173,6 +174,10 @@ public final class GraphNbt {
             }
         }
         bp.setPreservedVariables(preservedVariables);
+
+        net.minecraft.nbt.ListTag preservedScreens = new net.minecraft.nbt.ListTag();
+        ScreenNbt.decode(bp, list(root, "screens"), preservedScreens);
+        bp.setPreservedScreens(preservedScreens);
 
         for (Tag tag : list(root, "comments")) {
             if (tag instanceof CompoundTag c) {

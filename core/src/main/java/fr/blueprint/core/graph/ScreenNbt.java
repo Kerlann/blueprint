@@ -1,0 +1,237 @@
+package fr.blueprint.core.graph;
+
+import fr.blueprint.core.graph.screen.Anchor;
+import fr.blueprint.core.graph.screen.ElementKind;
+import fr.blueprint.core.graph.screen.ElementStyle;
+import fr.blueprint.core.graph.screen.Extent;
+import fr.blueprint.core.graph.screen.Screen;
+import fr.blueprint.core.graph.screen.ScreenElement;
+import fr.blueprint.core.graph.screen.ScreenText;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.Identifier;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * Sérialisation NBT des écrans (story 10.1, AC3).
+ *
+ * <p><b>Préservation intégrale.</b> Un élément d'un type que ce serveur ne connaît pas
+ * — parce qu'un mod a été retiré, ou parce que le monde vient d'une version plus
+ * récente — traverse sauvegarde et chargement <b>sans rien perdre</b>. C'est la même
+ * promesse que les nœuds fantômes (FR40), et c'est ce qui a sauvé les graphes en 8.3.
+ *
+ * <p>Elle se paie au moment de concevoir le format, pas après : un élément inconnu
+ * est mis de côté tel quel et ré-émis à l'identique, à sa place dans l'ordre de
+ * dessin. Sans cela, ouvrir un monde avec une version antérieure du mod effacerait
+ * silencieusement la moitié d'un menu.
+ */
+public final class ScreenNbt {
+
+    private ScreenNbt() {
+    }
+
+    // ------------------------------------------------------------------ écriture
+
+    public static ListTag encode(Blueprint bp) {
+        ListTag screens = new ListTag();
+        for (Screen screen : bp.screens().values()) {
+            screens.add(encodeScreen(screen));
+        }
+        for (Tag preserved : bp.preservedScreens()) {
+            screens.add(preserved.copy());
+        }
+        return screens;
+    }
+
+    private static CompoundTag encodeScreen(Screen screen) {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("name", screen.name());
+        tag.putBoolean("hud", screen.hud());
+        ListTag elements = new ListTag();
+        for (ScreenElement element : screen.elements().values()) {
+            elements.add(encodeElement(element));
+        }
+        tag.put("elements", elements);
+        return tag;
+    }
+
+    private static CompoundTag encodeElement(ScreenElement element) {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("name", element.name());
+        tag.putString("kind", element.kind().name().toLowerCase(Locale.ROOT));
+        if (element.parent() != null) {
+            tag.putString("parent", element.parent());
+        }
+        tag.putString("anchor", element.anchor().name().toLowerCase(Locale.ROOT));
+        tag.putDouble("x", element.x());
+        tag.putDouble("y", element.y());
+        tag.put("w", encodeExtent(element.width()));
+        tag.put("h", encodeExtent(element.height()));
+        if (!element.text().isEmpty()) {
+            tag.putString("text", element.text().value());
+            tag.putBoolean("translate", element.text().translate());
+        }
+        if (element.texture() != null) {
+            tag.putString("texture", element.texture().toString());
+        }
+        tag.put("style", encodeStyle(element.style()));
+        tag.putBoolean("visible", element.visible());
+        tag.putBoolean("enabled", element.enabled());
+        return tag;
+    }
+
+    private static CompoundTag encodeExtent(Extent extent) {
+        CompoundTag tag = new CompoundTag();
+        tag.putDouble("v", extent.value());
+        tag.putBoolean("rel", extent.relative());
+        tag.putDouble("min", extent.min());
+        tag.putDouble("max", extent.max());
+        return tag;
+    }
+
+    private static CompoundTag encodeStyle(ElementStyle style) {
+        CompoundTag tag = new CompoundTag();
+        tag.putInt("bg", style.background());
+        tag.putInt("border", style.border());
+        tag.putInt("borderWidth", style.borderWidth());
+        tag.putInt("text", style.textColor());
+        tag.putInt("hover", style.hoverBackground());
+        tag.putInt("pressed", style.pressedBackground());
+        tag.putInt("disabled", style.disabledBackground());
+        tag.putInt("padding", style.padding());
+        tag.putString("align", style.align().name().toLowerCase(Locale.ROOT));
+        return tag;
+    }
+
+    // ------------------------------------------------------------------ lecture
+
+    /**
+     * Relit les écrans. Ce qui ne se comprend pas est <b>mis de côté</b> dans
+     * {@code preserved} et ré-émis tel quel à la prochaine écriture.
+     */
+    public static void decode(Blueprint bp, ListTag screens, ListTag preserved) {
+        for (Tag tag : screens) {
+            if (!(tag instanceof CompoundTag screenTag)) {
+                continue;
+            }
+            Screen screen = decodeScreen(screenTag);
+            if (screen == null) {
+                preserved.add(screenTag.copy());
+            } else {
+                bp.putScreen(screen);
+            }
+        }
+    }
+
+    private static @Nullable Screen decodeScreen(CompoundTag tag) {
+        String name = tag.getStringOr("name", "");
+        if (name.isBlank()) {
+            return null; // un écran sans nom n'est pas adressable : préservé brut
+        }
+        List<ScreenElement> elements = new ArrayList<>();
+        for (Tag child : tag.getListOrEmpty("elements")) {
+            if (!(child instanceof CompoundTag elementTag)) {
+                return null;
+            }
+            ScreenElement element = decodeElement(elementTag);
+            if (element == null) {
+                // UN SEUL élément illisible et l'écran ENTIER est préservé brut.
+                // Le charger amputé serait pire que ne pas le charger : l'auteur
+                // enregistrerait par-dessus sans voir ce qui manque, et la perte
+                // deviendrait définitive. Le mod revenu, l'écran est intact.
+                return null;
+            }
+            elements.add(element);
+        }
+        return new Screen(name, tag.getBooleanOr("hud", false), elements);
+    }
+
+    private static @Nullable ScreenElement decodeElement(CompoundTag tag) {
+        String name = tag.getStringOr("name", "");
+        ElementKind kind = kindOf(tag.getStringOr("kind", ""));
+        if (name.isBlank() || kind == null) {
+            return null;
+        }
+        String parent = tag.getStringOr("parent", "");
+        ScreenText text = tag.getStringOr("text", "").isEmpty()
+                ? ScreenText.EMPTY
+                : new ScreenText(tag.getStringOr("text", ""),
+                        tag.getBooleanOr("translate", false));
+        Identifier texture = tag.getStringOr("texture", "").isEmpty()
+                ? null : Identifier.tryParse(tag.getStringOr("texture", ""));
+        return new ScreenElement(name, kind,
+                parent.isEmpty() ? null : parent,
+                anchorOf(tag.getStringOr("anchor", "")),
+                tag.getDoubleOr("x", 0), tag.getDoubleOr("y", 0),
+                decodeExtent(tag.getCompoundOrEmpty("w")),
+                decodeExtent(tag.getCompoundOrEmpty("h")),
+                text, texture,
+                decodeStyle(tag.getCompoundOrEmpty("style")),
+                tag.getBooleanOr("visible", true),
+                tag.getBooleanOr("enabled", true));
+    }
+
+    /**
+     * Une longueur illisible retombe sur une taille minimale plutôt que de lever : un
+     * écran à moitié lu vaut mieux qu'un monde qui refuse de charger.
+     */
+    private static Extent decodeExtent(CompoundTag tag) {
+        double min = Math.max(0, tag.getDoubleOr("min", 0));
+        double max = Math.max(0, tag.getDoubleOr("max", 0));
+        if (max > 0 && max < min) {
+            max = min; // bornes croisées à l'écriture : on répare plutôt que de lever
+        }
+        double value = tag.getDoubleOr("v", ScreenElement.MIN_SIZE);
+        if (!Double.isFinite(value)) {
+            value = ScreenElement.MIN_SIZE;
+        }
+        return new Extent(value, tag.getBooleanOr("rel", false), min, max);
+    }
+
+    private static ElementStyle decodeStyle(CompoundTag tag) {
+        if (tag.isEmpty()) {
+            return ElementStyle.DEFAULT;
+        }
+        return new ElementStyle(
+                tag.getIntOr("bg", ElementStyle.DEFAULT.background()),
+                tag.getIntOr("border", ElementStyle.DEFAULT.border()),
+                Math.max(0, tag.getIntOr("borderWidth", ElementStyle.DEFAULT.borderWidth())),
+                tag.getIntOr("text", ElementStyle.DEFAULT.textColor()),
+                tag.getIntOr("hover", 0), tag.getIntOr("pressed", 0),
+                tag.getIntOr("disabled", 0),
+                Math.max(0, tag.getIntOr("padding", ElementStyle.DEFAULT.padding())),
+                alignOf(tag.getStringOr("align", "")));
+    }
+
+    private static @Nullable ElementKind kindOf(String raw) {
+        for (ElementKind kind : ElementKind.values()) {
+            if (kind.name().equalsIgnoreCase(raw)) {
+                return kind;
+            }
+        }
+        return null;
+    }
+
+    private static Anchor anchorOf(String raw) {
+        for (Anchor anchor : Anchor.values()) {
+            if (anchor.name().equalsIgnoreCase(raw)) {
+                return anchor;
+            }
+        }
+        return Anchor.TOP_LEFT;
+    }
+
+    private static ElementStyle.TextAlign alignOf(String raw) {
+        for (ElementStyle.TextAlign align : ElementStyle.TextAlign.values()) {
+            if (align.name().equalsIgnoreCase(raw)) {
+                return align;
+            }
+        }
+        return ElementStyle.TextAlign.LEFT;
+    }
+}

@@ -308,4 +308,57 @@ class ScreenOpsTest {
         new ScreenOps.AddElement("menu", button("autre")).apply(copy, LOOKUP);
         assertFalse(bp.contentEquals(copy), "une différence d'écran se voit");
     }
+
+    // ---------------------------------------------- validation d'un graphe reçu
+
+    /**
+     * Un écran malformé venu de l'EXTÉRIEUR — sauvegarde, réseau, import — n'est
+     * jamais passé par les opérations d'édition. Sans passe de validation, personne
+     * ne le verrait.
+     */
+    @Test
+    void leValidateurRevoitLesEcransDunGrapheDejaConstitue() {
+        // Construit à la main, sans passer par les EditOperation.
+        Blueprint external = new Blueprint(Identifier.fromNamespaceAndPath("test", "recu"));
+        external.putScreen(new Screen("menu", false, List.of(
+                ScreenElement.of("minuscule", ElementKind.BUTTON, 0, 0, 1, 1),
+                ScreenElement.of("perdu", ElementKind.LABEL, 0, 0, 40, 10)
+                        .withParent("inexistant"))));
+
+        var codes = GraphValidator.validate(external, LOOKUP).diagnostics().stream()
+                .map(Diagnostic::code).toList();
+        assertTrue(codes.contains(DiagnosticCode.ELEMENT_TOO_SMALL));
+        assertTrue(codes.contains(DiagnosticCode.ELEMENT_PARENT_NOT_FOUND));
+    }
+
+    /**
+     * Sortir de la zone garantie est un AVERTISSEMENT : le menu reste valide et
+     * exécutable, mais son auteur l'apprend à la conception plutôt que par un
+     * rapport de bug.
+     */
+    @Test
+    void sortirDeLaZoneGarantieAvertitSansBloquer() {
+        Blueprint wide = new Blueprint(Identifier.fromNamespaceAndPath("test", "large"));
+        wide.putScreen(new Screen("menu", false, List.of(
+                ScreenElement.of("large", ElementKind.LABEL, 0, 0, 400, 20))));
+
+        var result = GraphValidator.validate(wide, LOOKUP);
+        assertTrue(result.diagnostics().stream()
+                        .anyMatch(d -> d.code() == DiagnosticCode.ELEMENT_OUTSIDE_SAFE_AREA
+                                && d.severity() == Diagnostic.Severity.WARNING),
+                "un avertissement, pas une erreur");
+        assertTrue(result.errors().isEmpty(), "et rien qui bloque");
+    }
+
+    @Test
+    void unEcranBienFormeNeProduitAucunDiagnostic() {
+        applyOk(new ScreenOps.AddElement("menu", panel("page")));
+        applyOk(new ScreenOps.AddElement("menu",
+                ScreenElement.of("titre", ElementKind.LABEL, 4, 4, 100, 12)
+                        .withParent("page")));
+
+        assertTrue(GraphValidator.validate(bp, LOOKUP).diagnostics().stream()
+                        .noneMatch(d -> d.target() instanceof Diagnostic.Target.ElementTarget),
+                "aucun diagnostic d'élément sur un écran correct");
+    }
 }

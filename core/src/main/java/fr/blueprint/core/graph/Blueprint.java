@@ -179,6 +179,27 @@ public final class Blueprint {
         this.revision = revision;
     }
 
+    /**
+     * Écrans illisibles — type d'élément inconnu, format d'une version postérieure :
+     * NBT brut, ré-émis tel quel. Même promesse que les nœuds fantômes (FR40), et
+     * même raison : ouvrir un monde avec une version antérieure du mod ne doit pas
+     * effacer silencieusement la moitié d'un menu.
+     */
+    private net.minecraft.nbt.ListTag preservedScreens = new net.minecraft.nbt.ListTag();
+
+    net.minecraft.nbt.ListTag preservedScreens() {
+        return preservedScreens;
+    }
+
+    /** Vrai si des écrans sont préservés en brut — l'export texte doit le signaler. */
+    public boolean hasPreservedScreens() {
+        return !preservedScreens.isEmpty();
+    }
+
+    void setPreservedScreens(net.minecraft.nbt.ListTag preserved) {
+        this.preservedScreens = preserved;
+    }
+
     // Variables au type irrésoluble (mod retiré) : NBT brut, ré-émis tel quel (P4).
     private net.minecraft.nbt.ListTag preservedVariables = new net.minecraft.nbt.ListTag();
 
@@ -208,6 +229,7 @@ public final class Blueprint {
         // perdre ses menus à tout blueprint copié — instantané réseau compris.
         c.screens.putAll(screens);
         c.preservedVariables = preservedVariables.copy();
+        c.preservedScreens = preservedScreens.copy();
         return c;
     }
 
@@ -218,6 +240,7 @@ public final class Blueprint {
                 || !comments.equals(other.comments)
                 || !screens.equals(other.screens)
                 || !preservedVariables.equals(other.preservedVariables)
+                || !preservedScreens.equals(other.preservedScreens)
                 || !nodes.keySet().equals(other.nodes.keySet())) {
             return false;
         }

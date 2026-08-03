@@ -123,8 +123,52 @@ public final class GraphValidator {
         // Cycles de données (FR7) : DFS tricolore sur les liens DATA uniquement.
         out.addAll(findDataCycles(bp, shapes, ghosts));
 
+        // Écrans (épic 10) : les mêmes règles que celles appliquées à l'édition,
+        // rejouées ici — un graphe reçu du réseau ou relu d'une sauvegarde n'est
+        // jamais passé par les EditOperation.
+        out.addAll(validateScreens(bp, limits));
+
         boolean executable = out.stream().noneMatch(d -> d.severity() == Diagnostic.Severity.ERROR);
         return new ValidationResult(List.copyOf(out), executable);
+    }
+
+    /**
+     * Contrôle des écrans (story 10.1, AC5).
+     *
+     * <p>Les mêmes règles que {@link ScreenRules}, appliquées à un graphe <b>déjà
+     * constitué</b> : relu d'une sauvegarde, reçu du réseau, ou importé d'un fichier.
+     * Aucun de ces chemins ne passe par les {@code EditOperation} — sans cette passe,
+     * un écran malformé venu de l'extérieur ne serait vu par personne.
+     */
+    private static List<Diagnostic> validateScreens(Blueprint bp, GraphLimits limits) {
+        List<Diagnostic> out = new ArrayList<>();
+        if (bp.screens().size() > limits.maxScreens()) {
+            out.add(Diagnostic.error(DiagnosticCode.SCREEN_LIMIT_EXCEEDED,
+                    Diagnostic.graph(), bp.screens().size(), limits.maxScreens()));
+        }
+        for (var screen : bp.screens().values()) {
+            if (screen.size() > limits.maxElementsPerScreen()) {
+                out.add(Diagnostic.error(DiagnosticCode.ELEMENT_LIMIT_EXCEEDED,
+                        Diagnostic.screen(screen.name()),
+                        screen.size(), limits.maxElementsPerScreen()));
+            }
+            for (var element : screen.elements().values()) {
+                Diagnostic refusal =
+                        ScreenRules.checkPlacement(screen.name(), screen, element, limits);
+                if (refusal != null) {
+                    out.add(refusal);
+                }
+                // Déborder de la zone garantie n'est qu'un AVERTISSEMENT : le menu
+                // reste valide, mais son auteur doit apprendre à la conception qu'une
+                // partie de ses joueurs ne le verra pas entier.
+                if (ScreenRules.outsideSafeArea(element)) {
+                    out.add(Diagnostic.warning(DiagnosticCode.ELEMENT_OUTSIDE_SAFE_AREA,
+                            Diagnostic.element(screen.name(), element.name()),
+                            element.name()));
+                }
+            }
+        }
+        return out;
     }
 
     /**
