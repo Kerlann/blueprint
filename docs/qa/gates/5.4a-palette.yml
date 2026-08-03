@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.4a"
+story_title: "Palette — recherche et insertion"
+gate: "PASS"
+status_reason: "L'interaction centrale U1 tient : lien lâché dans le vide → palette filtrée par le type transporté → insertion auto-connectée re-validée par canLink. Recherche pure sous 5 ms pour 2 000 types (banc en CI, durci à la meilleure de 5 mesures après un flake machine documenté)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:45:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "PAL-001"
+    severity: low
+    finding: "Le filtre structurel de compatibilité (kind + assignabilité) approxime les jokers génériques : un nœud 100 % générique apparaît compatible avec tout — l'auto-connexion, elle, repasse par canLink donc jamais de lien invalide"
+    suggested_action: "Assumé dès la story ; affiner si la bibliothèque générique grossit"
+  - id: "PAL-002"
+    severity: low
+    finding: "Le banc de recherche mesure la meilleure de 5 exécutions — la latence P99 sous charge n'est pas bornée par la CI"
+    suggested_action: "Acceptable : l'AC vise la capacité de l'algorithme ; re-mesurer avec 2 000 vrais types tiers (épic 8)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []

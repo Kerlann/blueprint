@@ -242,6 +242,28 @@ class CanvasControllerTest {
     }
 
     @Test
+    void leDetachementEstSaPropreEntreeDAnnulation() {
+        // Régression QA 5.3 : le geste ouvert à la presse Alt doit se refermer —
+        // sans ça, le détachement fusionnait avec le geste SUIVANT dans le undo.
+        assertTrue(new EditOperation.AddLink(new Link(n1, "exec_out", n2, "exec_in"))
+                .apply(bp, LOOKUP).applied());
+        Vec2d pin = in2(0);
+        controller.press(pin.x(), pin.y(), false, true); // détache (pas de release)
+        assertEquals(1, controller.history().undoDepth());
+
+        controller.press(10, 10, false); // geste suivant : déplacer n1
+        controller.drag(60, 35);
+        controller.release(false);
+        assertEquals(2, controller.history().undoDepth());
+
+        // Annuler le déplacement ne restaure PAS le lien ; l'annulation suivante si.
+        assertTrue(controller.undo());
+        assertTrue(bp.links().isEmpty());
+        assertTrue(controller.undo());
+        assertEquals(1, bp.links().size());
+    }
+
+    @Test
     void compatibiliteViaCanLink() {
         CanvasController.PinRef from = controller.pinAt(out1().x(), out1().y());
         assertNotNull(from);

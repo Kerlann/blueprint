@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.3"
+story_title: "Liens — rendu et câblage"
+gate: "PASS"
+status_reason: "Une seule source de vérité : le grisage pendant le tracé ET la validation au relâchement passent par GraphValidator.canLink — cardinalité exec et types compatibles couverts sans duplication client. La review a trouvé et corrigé un défaut de granularité d'annulation (UNDO-001)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:45:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "UNDO-001"
+    severity: medium
+    finding: "RÉSOLU EN REVIEW — Alt+clic (détacher) ouvrait un geste d'annulation à la presse sans jamais le refermer (le widget ne rappelle pas release() quand le geste retombe à NONE) : le détachement fusionnait silencieusement avec le geste SUIVANT dans une seule entrée Ctrl+Z"
+    suggested_action: "Corrigé : endGesture() explicite dans la branche Alt ; régression testée (détacher puis déplacer = deux entrées, annulations dans le bon ordre)"
+  - id: "WIRE-001"
+    severity: low
+    finding: "Un lien refusé par canLink au relâchement (ex. second lien sur un exec_out) est un no-op silencieux — le diagnostic du refus est perdu"
+    suggested_action: "Acceptable : les cibles incompatibles sont déjà grisées PENDANT le tracé (UX §5) ; surfacer le refus en barre d'action si les retours utilisateurs le réclament"
+  - id: "WIRE-002"
+    severity: low
+    finding: "Les pins déduits des liens sur un nœud fantôme ne se dessinent pas encore (ligne de secours au bord de boîte)"
+    suggested_action: "À faire avec le rendu fantôme complet (FR40, épic 8)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 2 }
+  recommendations:
+    must_fix: []

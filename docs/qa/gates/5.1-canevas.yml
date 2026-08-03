@@ -1,0 +1,23 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.1"
+story_title: "Canevas de l'éditeur"
+gate: "PASS"
+status_reason: "Caméra 100 % pure (transformations, crans, pivot, accroche) sous 10 tests ; culling avant tout calcul ; banc NFR1 headless en CI (passe CPU 500 nœuds ≪ 2 ms). Les APIs 1.21.11 (pose 2D, KeyEvent/MouseButtonEvent, KeyMapping.Category) ont été vérifiées au javap avant écriture — zéro correction de mapping ensuite."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:45:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "CANVAS-001"
+    severity: low
+    finding: "Le banc mesure la passe CPU seulement — les 60 fps réels (GPU compris) restent non mesurés en CI"
+    suggested_action: "VERIFY-5.1 consigné pour la session en jeu finale (F3, graphe 500 nœuds) ; assumé dès la story"
+  - id: "CANVAS-002"
+    severity: low
+    finding: "Le zoom molette reste actif quand le curseur survole la barre d'outils ou les panneaux (5.6b+) — surprise mineure d'UX"
+    suggested_action: "Borner le zoom à la zone canevas lors du polissage épic 9"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor: ["VERIFY-5.1 (fps en jeu)"]

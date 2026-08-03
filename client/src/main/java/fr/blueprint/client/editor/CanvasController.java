@@ -270,6 +270,9 @@ public final class CanvasController {
             if (alt) {
                 detach(pin);
                 gesture = Gesture.NONE;
+                // Le widget ne rappellera pas release() (geste NONE) : fermer ici,
+                // sinon le détachement fusionnerait avec le geste suivant (QA 5.3).
+                history.endGesture();
                 return;
             }
             wireFrom = pin;

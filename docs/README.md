@@ -56,8 +56,8 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 4 | Démo, export/import | 4.4a | **Complet** — gate PASS |
 | 4 | BScript v1 | 4.1+4.2+4.3 (groupées) | **Complet** — gate PASS (4 corrections en review dont un high de fidélité) ; round-trip exact, `.bp` = texte |
 | 6 | Persistance monde | 6.1 | **Complet** — gate PASS (VERIFY-005 : redémarrage à confirmer en jeu) |
-| 5 | Éditeur visuel | 5.1, 5.2a, 5.3, 5.4a | **Ready for Review** — canevas, rendu descripteur, sélection/déplacement, liens Bézier + câblage validé `canLink`, palette (recherche ≤ 5 ms, filtre par type, auto-connexion) ; F6 ou `/blueprint-edit` |
-| 5 | Éditeur complet (backlog UE) | 5.2b, 5.2c, 5.4b, 5.5, 5.6a, 5.6b, 5.7, 5.8, 5.9, 5.10, 5.11 | **Draft** — 11 stories rédigées ; ordre recommandé ci-dessous |
+| 5 | Éditeur visuel (socle) | 5.1, 5.2a, 5.3, 5.4a | **Complet** — 4 gates PASS (1 medium corrigé en review : granularité d'annulation du détachement) |
+| 5 | Éditeur complet (backlog UE) | 5.2b, 5.2c, 5.4b, 5.5, 5.6a, 5.6b, 5.7, 5.8, 5.9, 5.10, 5.11 | **Ready for Review** — 11 stories livrées (114 tests client), QA en cours par lots |
 | 4 (4.2b), 6 (reste), 8, 9 | — | — | Spécifiés dans le PRD, à découper par le SM |
 
 **Feuille de route éditeur (ordre recommandé)** :

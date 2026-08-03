@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.2a"
+story_title: "Rendu des nœuds et manipulation"
+gate: "PASS"
+status_reason: "P1 tenu à la lettre : NodeWidget ne voit que NodeDescriptor. Interaction entièrement dans CanvasController pur (déplacement accroché sans dérive d'arrondi — cible = accroche(saisie+offset), suppression avec liens via RemoveNode/RestoreNode testés, hit-test au-dessus). Pas d'allocation dans la passe de rendu (isWired sans linksInto)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:45:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "SEL-001"
+    severity: low
+    finding: "pinAt parcourt tous les nœuds sans s'arrêter au premier qui contient le point : un pin d'un nœud RECOUVERT peut être saisi à travers le nœud du dessus (chevauchement quasi total requis)"
+    suggested_action: "Borner pinAt à la boîte du dessus si le cas se matérialise en jeu ; improbable avec l'accroche"
+  - id: "SEL-002"
+    severity: low
+    finding: "Noms de pins affichés bruts (exec_in, a…) — les PinSpec n'ont pas de clé de traduction"
+    suggested_action: "Décision PRD à prendre avec la référence des nœuds (9.5) ; consigné dès la story"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []
