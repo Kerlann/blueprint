@@ -110,6 +110,17 @@ mappings Mojang). Tout le produit décrit ici est à construire par-dessus.
 - **FR43** — Les traductions des nœuds tiers utilisent les clés de langue du mod fournisseur.
 - **FR44** — Les intégrations avec des mods spécifiques sont chargées conditionnellement et n'empêchent jamais le démarrage si le mod est absent.
 
+#### Interfaces graphiques (épic 10)
+
+- **FR45** — Un blueprint peut posséder un ou plusieurs **écrans**, composés d'éléments (panneau, étiquette, bouton, image, barre de progression) positionnés librement.
+- **FR46** — Les écrans se conçoivent **à la souris** : poser, déplacer, redimensionner, sélectionner, aligner — sans écrire une ligne.
+- **FR47** — Chaque élément porte un **nom** unique dans son écran ; c'est par ce nom que le graphe le désigne.
+- **FR48** — Un nœud ouvre un écran pour un joueur donné, un autre le ferme ; un événement se déclenche quand un élément est **cliqué**, quand l'écran s'ouvre et quand il se ferme.
+- **FR49** — Le graphe peut **modifier** un écran ouvert : texte d'une étiquette, image, visibilité, activation d'un bouton, valeur d'une barre.
+- **FR50** — L'apparence est **personnalisable** : couleurs, bordures, et images désignées par identifiant de texture. Une texture absente affiche un remplaçant visible et ne fait **jamais** planter le client.
+- **FR51** — Les écrans traversent la sauvegarde, la synchronisation réseau et BScript comme le reste du blueprint : même enregistrement, même permission, même verrou.
+- **FR52** — Le serveur ne fait **jamais** confiance à ce qu'un client déclare avoir cliqué : l'écran ouvert, l'existence de l'élément et la cadence sont vérifiés côté serveur.
+
 ### 2.2 Non fonctionnelles
 
 - **NFR1** — L'éditeur maintient ≥ 60 fps avec 500 nœuds et 800 liens visibles sur un GPU intégré récent.
@@ -143,6 +154,7 @@ mappings Mojang). Tout le produit décrit ici est à construire par-dessus.
 | 7 | Événements et bibliothèque standard | Déclencheurs monde + 80 nœuds | 2, 3 |
 | 8 | Intégration mods tiers | Annotation, JSON datapack, compat, nœuds fantômes | 2 |
 | 9 | Débogage, perf et finition | Débogueur live, profileur, permissions, i18n, docs | 3, 5, 7 |
+| 10 | Interfaces graphiques | Concepteur d'écrans, rendu en jeu, boutons câblés aux blueprints | 5, 6, 7 |
 
 ---
 
@@ -432,6 +444,48 @@ En tant que développeuse de mod, je veux déclarer mes propres événements dé
 **Story 9.4 — Localisation et accessibilité** — `en_us` et `fr_fr` complets, palette daltonien-compatible avec code de forme (NFR10, NFR11), navigation clavier de l'éditeur.
 
 **Story 9.5 — Documentation utilisateur** — guide de prise en main, référence des nœuds générée depuis le registre, guide d'intégration pour les mods tiers.
+
+---
+
+### Épic 10 — Interfaces graphiques
+
+*Objectif : qu'un blueprint puisse MONTRER quelque chose et RÉAGIR à ce qu'on y clique.*
+
+*Aujourd'hui un graphe ne parle au joueur que par du texte : chat, titre, barre
+d'action. Un menu de boutique, un choix de camp, un tableau de scores — tout ce qui
+demande de choisir plutôt que de subir — est hors de portée.*
+
+**Story 10.1 — Modèle d'écran** *(cœur)*
+- AC1 : un `Screen` porte des éléments typés (panneau, étiquette, bouton, image, barre) ; chacun a un nom unique, une position, une taille, une ancre et un style.
+- AC2 : les écrans appartiennent au blueprint — même sérialisation NBT, même préservation intégrale, même révision.
+- AC3 : opérations d'édition réversibles (ajouter, déplacer, redimensionner, renommer, styliser, supprimer), comme les nœuds.
+- AC4 : validation : noms uniques, tailles minimales, plafond d'éléments, référence à un élément inexistant signalée par un diagnostic.
+
+**Story 10.2 — Concepteur visuel** *(client)*
+- AC1 : un second onglet de l'éditeur ; poser un élément depuis une palette, le déplacer, le redimensionner par ses poignées.
+- AC2 : sélection, multi-sélection, alignement, annuler/rétablir — la même infrastructure que le canevas de nœuds.
+- AC3 : panneau de propriétés pour l'élément sélectionné (nom, position, taille, ancre, couleurs, texture).
+- AC4 : aperçu fidèle : ce que montre le concepteur est ce que verra le joueur.
+
+**Story 10.3 — Ouverture et rendu en jeu**
+- AC1 : paquets d'ouverture et de fermeture ; l'écran se rend côté client depuis sa description, sans code par écran.
+- AC2 : ancrage et mise à l'échelle corrects de 1× à 4× de GUI scale et sur toutes les résolutions.
+- AC3 : une texture absente affiche un remplaçant visible ; jamais de plantage, jamais d'écran vide sans explication.
+
+**Story 10.4 — Interactions câblées au graphe**
+- AC1 : événements `gui/opened`, `gui/closed`, `gui/element_clicked` — ce dernier filtré par nom d'élément, comme `command` et `signal`.
+- AC2 : nœuds `gui/open`, `gui/close`, et les modificateurs (texte, image, visibilité, activation, valeur).
+- AC3 : le serveur vérifie que l'écran est bien ouvert pour ce joueur et que l'élément existe ; la cadence des clics est limitée (FR52).
+
+**Story 10.5 — Apparence et images**
+- AC1 : couleurs, bordures, marges, alignement du texte, neuf-tranches pour les fonds.
+- AC2 : images par identifiant de texture ; les textures du jeu et les icônes d'objets marchent sans rien installer.
+- AC3 : ajouter ses propres images passe par un **pack de ressources** — documenté, avec un exemple complet.
+
+**Story 10.6 — Quotas, accessibilité et documentation**
+- AC1 : plafond d'éléments par écran et d'écrans par blueprint, configurables comme les quotas de graphe.
+- AC2 : navigation clavier dans un écran ouvert, contraste vérifié comme NFR11.
+- AC3 : un exemple d'écran complet rejoint `docs/examples/`, validé par le même test.
 
 ---
 
