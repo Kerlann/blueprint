@@ -454,12 +454,12 @@ public final class CanvasController {
             }
             return null;
         }
-        if (gesture == Gesture.MOVE && spliceCandidate != null) {
+        if (gesture == Gesture.MOVE && spliceCandidate != null && selection.size() == 1) {
             // Toujours dans le geste du déplacement : couper le fil et se recâbler
             // font partie du même Ctrl+Z que le déplacement qui l'a provoqué.
             spliceOn(spliceCandidate, selection.ids().iterator().next());
-            spliceCandidate = null;
         }
+        spliceCandidate = null;
         if (gesture == Gesture.RUBBER) {
             Camera.Rect rect = rubberRect();
             List<UUID> hits = new ArrayList<>();
@@ -660,16 +660,21 @@ public final class CanvasController {
         if (pins == null || !applyTracked(new EditOperation.RemoveLink(link))) {
             return false;
         }
-        boolean upstream = applyTracked(new EditOperation.AddLink(
-                new Link(link.fromNode(), link.fromPin(), node, pins[0])));
-        boolean downstream = applyTracked(new EditOperation.AddLink(
-                new Link(node, pins[1], link.toNode(), link.toPin())));
-        if (upstream && downstream) {
+        Link upstream = new Link(link.fromNode(), link.fromPin(), node, pins[0]);
+        Link downstream = new Link(node, pins[1], link.toNode(), link.toPin());
+        boolean up = applyTracked(new EditOperation.AddLink(upstream));
+        boolean down = applyTracked(new EditOperation.AddLink(downstream));
+        if (up && down) {
             return true;
         }
-        if (upstream) {
-            applyTracked(new EditOperation.RemoveLink(
-                    new Link(link.fromNode(), link.fromPin(), node, pins[0])));
+        // Défaire les DEUX moitiés avant de remettre le fil : n'en retirer qu'une
+        // laisserait l'autre occuper le pin d'arrivée, et le fil d'origine serait
+        // alors refusé pour cardinalité — le graphe resterait cassé.
+        if (up) {
+            applyTracked(new EditOperation.RemoveLink(upstream));
+        }
+        if (down) {
+            applyTracked(new EditOperation.RemoveLink(downstream));
         }
         applyTracked(new EditOperation.AddLink(link));
         return false;

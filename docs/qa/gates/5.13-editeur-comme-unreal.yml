@@ -1,0 +1,40 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.13"
+story_title: "Rapprocher l'éditeur de celui d'Unreal — menu contextuel, insertion sur un fil, aspect"
+gate: "PASS"
+status_reason: "Story d'écart, pas de souhaits : chaque point vient d'une comparaison au véritable éditeur d'Unreal. La revue a trouvé deux vrais défauts, tous deux dans la mécanique d'annulation ou de câblage — un geste scindé en deux par imbrication, et un retour arrière partiel capable de laisser le graphe cassé. Le seuil de couverture posé en 5.12 a par ailleurs refusé la construction tant que le nouvel état n'était pas testé."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T13:05:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "UNDO-002"
+    severity: high
+    finding: "CORRIGÉ — history.beginGesture() est IDEMPOTENT. La promotion en variable appelait insertVariableNode, dont le endGesture refermait le geste au milieu : les quatre opérations d'une intention unique se scindaient en deux annulations, et un Ctrl+Z laissait un nœud Get orphelin, câblé à une variable qui venait de disparaître."
+    suggested_action: "Fait : le corps est extrait en addVariableNode, sans gestion de geste, et documenté comme tel. Le test promouvoirUnPinCreeLaVariableEtLaCable exige UNE annulation."
+  - id: "SPLICE-001"
+    severity: high
+    finding: "CORRIGÉ — le retour arrière de spliceOn ne défaisait que la moitié amont. Si c'était l'amont qui échouait et l'aval qui passait, le lien aval occupait le pin d'arrivée : le fil d'origine était alors refusé pour cardinalité et ne revenait pas. Le joueur perdait un lien en déplaçant un nœud."
+    suggested_action: "Fait : les deux moitiés sont défaites avant de remettre le fil. Test unNoeudDontLaSortieEstPriseNeCoupeRien sur le chemin de refus."
+  - id: "SPLICE-002"
+    severity: low
+    finding: "La présélection des pins d'insertion est structurelle (genre + assignabilité) et non un appel à canLink — la moitié aval serait refusée pour cardinalité tant que le fil d'origine existe. Deux règles de câblage coexistent donc le temps du glissement."
+    suggested_action: "Assumé et documenté : spliceOn repasse par canLink, qui reste la source de vérité ; la présélection ne fait que décider du halo vert, et un refus tardif est désormais annoncé en barre d'action."
+  - id: "FLOW-001"
+    severity: low
+    finding: "Les billes allument un fil dès que ses DEUX extrémités ont tourné. Sur un branchement dont les deux sorties ont été prises lors d'exécutions différentes, les deux fils s'allument — le chemin montré n'est pas forcément celui de la dernière exécution."
+    suggested_action: "Consigné : un vrai suivi demanderait que le débogueur transmette la trace des ARÊTES, pas des nœuds. C'est un changement de protocole, reporté."
+  - id: "ICON-001"
+    severity: low
+    finding: "Le pictogramme vient de la CATÉGORIE, pas du nœud : deux nœuds de la même catégorie portent le même signe, là où Unreal donne une icône par nœud"
+    suggested_action: "Choix assumé : une icône par nœud demanderait un champ de plus dans NodeDescriptor, donc dans la surface d'API verrouillée et dans la synchro réseau. La catégorie se reconnaît de plus loin qu'un nom."
+  - id: "MENU-001"
+    severity: low
+    finding: "Le routage du clic droit et l'exécution des actions vivent dans CanvasWidget, qui exige Minecraft : seul l'ÉTAT du menu est couvert headless"
+    suggested_action: "VERIFY-5.13 en session finale ; la géométrie des lignes et des séparateurs, elle, est entièrement testée — c'est là que se logent les décalages."
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 0, low: 4 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "VERIFY-5.13 : menu contextuel, insertion sur un fil, châssis des nœuds et billes de flux, à l'œil en jeu"

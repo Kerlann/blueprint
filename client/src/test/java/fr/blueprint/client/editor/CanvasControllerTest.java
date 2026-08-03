@@ -615,6 +615,30 @@ class CanvasControllerTest {
         assertEquals(1, bp.links().size());
     }
 
+    /**
+     * Un nœud dont la sortie exec est DÉJÀ prise ne peut pas relayer le fil : il ne
+     * doit ni être proposé, ni couper quoi que ce soit. Sans cette garde, le fil
+     * d'origine partirait et rien ne le remplacerait.
+     */
+    @Test
+    void unNoeudDontLaSortieEstPriseNeCoupeRien() {
+        wireUpAndPickMiddle();
+        Link original = bp.links().iterator().next();
+
+        // n3 a déjà sa sortie exec câblée vers n4 : elle ne peut plus relayer.
+        UUID n3 = addNode(1000, 1000);
+        UUID n4 = addNode(1200, 1000);
+        assertTrue(controller.applyOp(new EditOperation.AddLink(
+                new Link(n3, "exec_out", n4, "exec_in"))));
+
+        dragOnto(n3, original);
+        assertNull(controller.spliceCandidate(), "rien n'est promis au joueur");
+        controller.release(false);
+
+        assertTrue(bp.links().contains(original), "et le fil d'origine est intact");
+        assertEquals(2, bp.links().size());
+    }
+
     /** Déplacer plusieurs nœuds à la fois n'insère rien : quel nœud passerait ? */
     @Test
     void uneSelectionMultipleNeSInserePas() {

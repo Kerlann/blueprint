@@ -14,6 +14,14 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
   droit d'auteur par défaut : ni fork ni redistribution possibles. Le champ
   `license` des `fabric.mod.json` — celui que le lanceur montre aux joueurs —
   annonçait lui aussi « All Rights Reserved ».
+- **Menus contextuels** au clic droit, distincts par cible : nœud (dupliquer,
+  supprimer, casser les liens, commenter, aligner), pin (casser ses liens, valeur
+  par défaut, **promouvoir en variable**), fil (le supprimer), canevas (la palette).
+- **Insertion d'un nœud sur un fil** en le lâchant dessus, le fil se recâblant de
+  part et d'autre — halo vert pendant le glissement.
+- **Aspect** rapproché de l'éditeur d'Unreal : coins arrondis, ombre portée, en-tête
+  en dégradé, pictogramme de catégorie, halo de sélection.
+- **Billes de flux** sur les fils d'exécution parcourus, en débogage.
 
 ## [0.1.0] — 2026-08-03
 
