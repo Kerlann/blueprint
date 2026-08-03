@@ -46,6 +46,7 @@
   "blueprint.cmd.list.header": "%s blueprint(s):",
   "blueprint.cmd.list.entry": "- %s (%s)",
   "blueprint.cmd.info": "Blueprint %s (%s): %s nodes, %s links, %s variables — version %s",
+  "blueprint.cmd.info_ghosts": "Will not run: missing mod(s) — %s. Reinstalling restores the nodes as they were.",
   "blueprint.cmd.state.on": "enabled",
   "blueprint.cmd.state.off": "disabled",
   "blueprint.cmd.exported": "Blueprint %s exported to %s",

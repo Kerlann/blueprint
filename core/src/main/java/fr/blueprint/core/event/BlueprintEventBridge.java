@@ -165,8 +165,17 @@ public final class BlueprintEventBridge {
         }
         Compiler.CompileResult result = Compiler.compile(bp, nodes, entry);
         if (!result.success()) {
-            BlueprintMod.LOGGER.warn("Blueprint « {} » non exécutable ({} diagnostic(s)) — déclenchement ignoré",
-                    bp.id(), result.diagnostics().size());
+            // FR41 : nommer le mod manquant. « 3 diagnostics » n'aide personne à
+            // comprendre qu'il suffit de réinstaller un mod pour que tout reparte.
+            var missing = fr.blueprint.core.graph.GhostNode.missingProviders(bp, nodes);
+            if (missing.isEmpty()) {
+                BlueprintMod.LOGGER.warn(
+                        "Blueprint « {} » non exécutable ({} diagnostic(s)) — déclenchement ignoré",
+                        bp.id(), result.diagnostics().size());
+            } else {
+                BlueprintMod.LOGGER.warn("Blueprint « {} » non exécutable : mod(s) absent(s) — {}",
+                        bp.id(), fr.blueprint.core.graph.GhostNode.describeMissing(missing));
+            }
             irCache.remove(key);
             return null;
         }

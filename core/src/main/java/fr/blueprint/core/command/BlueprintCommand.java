@@ -178,6 +178,14 @@ public final class BlueprintCommand {
                 bp.id().toString(), state(bp),
                 bp.nodes().size(), bp.links().size(), bp.variables().size(),
                 bp.meta().version()), false);
+        // FR41 : dire tout de suite POURQUOI un blueprint ne tourne pas, et quoi
+        // réinstaller — c'est la première question posée quand un mod disparaît.
+        var missing = fr.blueprint.core.graph.GhostNode.missingProviders(
+                bp, fr.blueprint.core.BlueprintMod.registries().nodes());
+        if (!missing.isEmpty()) {
+            ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.info_ghosts",
+                    fr.blueprint.core.graph.GhostNode.describeMissing(missing)), false);
+        }
         return 1;
     }
 

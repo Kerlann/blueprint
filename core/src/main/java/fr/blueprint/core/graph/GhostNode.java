@@ -20,6 +20,35 @@ public final class GhostNode {
     }
 
     /**
+     * Mods absents et nombre de nœuds qu'ils devraient fournir (FR41), triés par
+     * identifiant : un refus d'exécution doit <b>nommer</b> ce qui manque, pas dire
+     * « N diagnostics ». Le namespace du nœud est le modid par convention (2.2).
+     */
+    public static java.util.Map<String, Integer> missingProviders(Blueprint blueprint,
+                                                                  NodeTypeLookup lookup) {
+        java.util.Map<String, Integer> byMod = new java.util.TreeMap<>();
+        for (Node node : blueprint.nodes().values()) {
+            if (lookup.shape(node.typeId()) == null) {
+                byMod.merge(node.typeId().getNamespace(), 1, Integer::sum);
+            }
+        }
+        return byMod;
+    }
+
+    /** « manamod (2 nœuds), autremod (1 nœud) » — pour les journaux et le chat. */
+    public static String describeMissing(java.util.Map<String, Integer> missing) {
+        StringBuilder text = new StringBuilder();
+        missing.forEach((mod, count) -> {
+            if (!text.isEmpty()) {
+                text.append(", ");
+            }
+            text.append(mod).append(" (").append(count)
+                    .append(count > 1 ? " nœuds)" : " nœud)");
+        });
+        return text.toString();
+    }
+
+    /**
      * Forme déduite : un pin par nom de pin référencé par un lien, typé {@code any}
      * (ou {@code exec} si le pin d'en face est un pin d'exécution connu).
      */

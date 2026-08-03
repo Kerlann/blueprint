@@ -46,6 +46,7 @@
   "blueprint.cmd.list.header": "%s blueprint(s) :",
   "blueprint.cmd.list.entry": "- %s (%s)",
   "blueprint.cmd.info": "Blueprint %s (%s) : %s nœuds, %s liens, %s variables — version %s",
+  "blueprint.cmd.info_ghosts": "Ne s'exécutera pas : mod(s) absent(s) — %s. Les réinstaller restaure les nœuds tels quels.",
   "blueprint.cmd.state.on": "activé",
   "blueprint.cmd.state.off": "désactivé",
   "blueprint.cmd.exported": "Blueprint %s exporté vers %s",
