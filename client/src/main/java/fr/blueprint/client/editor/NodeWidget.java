@@ -41,6 +41,18 @@ public final class NodeWidget {
         return fr.blueprint.client.theme.Theme.current().ghost();
     }
 
+    /**
+     * Pastille de permission, ou 0 pour les niveaux ordinaires. SAFE et GAMEPLAY sont
+     * l'immense majorité des nœuds : les marquer serait du bruit sur tout le graphe.
+     */
+    static int permissionBadge(fr.blueprint.api.node.Permission permission) {
+        return switch (permission) {
+            case WORLD -> 0xFFE0AF68;
+            case ADMIN -> 0xFFF7768E;
+            default -> 0;
+        };
+    }
+
     /** Alpha appliqué à la couleur de catégorie sur l'en-tête. */
     private static final int HEADER_ALPHA = 0x59000000;
 
@@ -114,8 +126,16 @@ public final class NodeWidget {
         if (zoom < TITLE_FADE_ZOOM) {
             return;
         }
-        String title = font.plainSubstrByWidth(I18n.get(desc.titleKey()), w - 12);
+        int badge = permissionBadge(desc.permission());
+        // Le titre laisse la place au badge, sinon il passe dessous.
+        String title = font.plainSubstrByWidth(I18n.get(desc.titleKey()),
+                w - 12 - (badge == 0 ? 0 : 8));
         g.drawString(font, title, 6, 5, TITLE_COLOR, false);
+        if (badge != 0) {
+            // Un nœud qui modifie le monde ou exige l'op doit se repérer sans survol :
+            // c'est ce qui décide si un blueprint est refusé par le plafond du serveur.
+            g.fill(w - 10, 4, w - 4, 10, badge);
+        }
 
         if (zoom < DETAIL_FADE_ZOOM) {
             return;

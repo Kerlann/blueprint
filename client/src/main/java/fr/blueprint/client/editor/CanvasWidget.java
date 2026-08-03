@@ -268,6 +268,17 @@ public final class CanvasWidget {
         if (!description.equals(desc.descKey()) && !description.isBlank()) {
             lines.add(description);
         }
+        // La pastille de l'en-tête n'a de sens que si son niveau se lit quelque part.
+        if (NodeWidget.permissionBadge(desc.permission()) != 0) {
+            lines.add(I18n.get("blueprint.editor.tip.permission",
+                    I18n.get("blueprint.permission." + desc.permission().name().toLowerCase())));
+        }
+        // Quel mod fournit ce nœud : invisible autrement, et c'est ce qui explique
+        // qu'il devienne un fantôme sur un autre serveur.
+        if (!"blueprint".equals(box.node().typeId().getNamespace())) {
+            lines.add(I18n.get("blueprint.editor.tip.provider",
+                    box.node().typeId().getNamespace()));
+        }
         // L'erreur du nœud prime sur sa description : c'est ce qu'on cherche quand on
         // survole un nœud entouré de rouge.
         for (var diagnostic : diagnostics.report()) {

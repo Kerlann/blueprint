@@ -2,6 +2,7 @@ package fr.blueprint.core.i18n;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import fr.blueprint.api.node.Permission;
 import fr.blueprint.core.graph.DiagnosticCode;
 import org.junit.jupiter.api.Test;
 
@@ -187,6 +188,29 @@ class LocalizationTest {
         assertTrue(missing.isEmpty(), "diagnostics non traduits : " + missing);
     }
 
+    /**
+     * La famille {@code blueprint.permission.*} est construite à l'exécution depuis le
+     * nom de l'enum (infobulle d'un nœud, éditeur). Sans ce test, ajouter un niveau
+     * afficherait la clé brute au joueur.
+     */
+    @Test
+    void everyPermissionLevelIsTranslated() {
+        // Volontairement pas nommées « fr » : ce nom masque le paquet fr.blueprint.
+        JsonObject english = lang("en_us");
+        JsonObject french = lang("fr_fr");
+        List<String> missing = new ArrayList<>();
+        for (Permission permission : Permission.values()) {
+            String key = "blueprint.permission." + permission.name().toLowerCase(Locale.ROOT);
+            if (!english.has(key)) {
+                missing.add(key + " (en_us)");
+            }
+            if (!french.has(key)) {
+                missing.add(key + " (fr_fr)");
+            }
+        }
+        assertTrue(missing.isEmpty(), "niveaux de permission non traduits : " + missing);
+    }
+
     /** Aucune clé morte : ce qui est traduit doit servir (ou être une clé dérivée connue). */
     @Test
     void noDeadKeysBeyondTheDerivedFamilies() {
@@ -201,7 +225,8 @@ class LocalizationTest {
             if (key.startsWith("blueprint.node.") || key.startsWith("blueprint.pin.")
                     || key.startsWith("blueprint.event.") || key.startsWith("blueprint.category.")
                     || key.startsWith("blueprint.diag.") || key.startsWith("key.")
-                    || key.startsWith("blueprint.fault.")) {
+                    || key.startsWith("blueprint.fault.")
+                    || key.startsWith("blueprint.permission.")) {
                 continue;
             }
             dead.add(key);

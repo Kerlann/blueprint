@@ -21,6 +21,10 @@ public final class WireLayer {
         return fr.blueprint.client.theme.Theme.current().execWire();
     }
     private static final int SELECTED_HALO = 0xFFFFFFFF;
+    /** Demi-diagonale du losange de conversion, en pixels écran. */
+    private static final int COERCION_RADIUS = 3;
+    /** En dessous, le losange serait un pixel isolé et ne dirait plus rien. */
+    private static final double COERCION_MIN_ZOOM = 0.55;
     private static final int DATA_WIDTH = 2;
     private static final int EXEC_WIDTH = 3;
     /** Marge monde ajoutée au champ visible pour le culling des liens. */
@@ -58,6 +62,16 @@ public final class WireLayer {
             }
             drawCurve(g, camera, from.x(), from.y(), 1, to.x(), to.y(), -1,
                     color, worldWidth);
+
+            // Losange de conversion : un lien int → double change la valeur qui passe.
+            // Rien ne le disait, et une division entière qui devient flottante (ou
+            // l'inverse) se cherche longtemps.
+            NodeShape.PinDef target = controller.pinDef(link.toNode(), link.toPin());
+            if (isCoerced(def, target) && camera.zoom() >= COERCION_MIN_ZOOM) {
+                double[] mid = curvePoint(camera.toScreenX(from.x()), camera.toScreenY(from.y()), 1,
+                        camera.toScreenX(to.x()), camera.toScreenY(to.y()), -1, 0.5);
+                drawDiamond(g, mid[0], mid[1], target.type().color());
+            }
         }
     }
 
@@ -76,6 +90,38 @@ public final class WireLayer {
         drawCurve(g, camera, start.x(), start.y(), dir,
                 controller.wireCursorX(), controller.wireCursorY(), -dir,
                 exec ? execColor() : from.type().color(), exec ? EXEC_WIDTH : DATA_WIDTH);
+    }
+
+    /**
+     * Vrai si la valeur est convertie en passant par ce lien. Le typage l'autorise
+     * (canLink), mais ce n'est pas la même valeur qui sort et qui entre.
+     */
+    public static boolean isCoerced(NodeShape.@Nullable PinDef from,
+                                    NodeShape.@Nullable PinDef to) {
+        return from != null && to != null
+                && !from.type().equals(to.type())
+                && to.type().coercionFor(from.type()) != null;
+    }
+
+    /** Point de la courbe au paramètre {@code t}, en pixels écran. */
+    public static double[] curvePoint(double x0, double y0, int dir0,
+                                      double x3, double y3, int dir3, double t) {
+        double d = controlOffset(x0, x3);
+        double x1 = x0 + dir0 * d;
+        double x2 = x3 + dir3 * d;
+        double u = 1 - t;
+        return new double[]{
+                u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3,
+                u * u * u * y0 + 3 * u * u * t * y0 + 3 * u * t * t * y3 + t * t * t * y3};
+    }
+
+    private static void drawDiamond(GuiGraphics g, double cx, double cy, int color) {
+        int x = (int) Math.round(cx);
+        int y = (int) Math.round(cy);
+        for (int dy = -COERCION_RADIUS; dy <= COERCION_RADIUS; dy++) {
+            int half = COERCION_RADIUS - Math.abs(dy);
+            g.fill(x - half, y + dy, x + half + 1, y + dy + 1, color);
+        }
     }
 
     /**
