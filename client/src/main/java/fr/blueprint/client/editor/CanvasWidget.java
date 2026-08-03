@@ -112,7 +112,8 @@ public final class CanvasWidget {
         this.palette = new PaletteState(new NodeSearch(entries), descriptors::descriptor,
                 fr.blueprint.client.config.PalettePrefs.load(configDir),
                 () -> session.blueprint().meta().permissionCap());
-        this.varPanel = new VariablePanelState(session.blueprint(), lookup, controller::applyOp);
+        this.varPanel = new VariablePanelState(session.blueprint(), lookup, controller::applyOp,
+                controller::beginGesture, controller::endGesture);
         this.details = new DetailsPanelState(session.blueprint(), descriptors::descriptor,
                 controller::applyOp, I18n::get);
     }
@@ -478,7 +479,8 @@ public final class CanvasWidget {
             if (row >= 0) {
                 var node = DiagnosticsState.nodeOf(diagnostics.report().get(row));
                 if (node != null) {
-                    controller.focusNode(node, width, height);
+                    // Recentrer dans la zone canevas réelle (vue script comprise, QA 5.6b).
+                    controller.focusNode(node, canvasWidth(), height);
                 }
                 return true;
             }

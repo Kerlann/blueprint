@@ -106,6 +106,30 @@ class VariablePanelStateTest {
     }
 
     @Test
+    void renommageEstUnSeulGesteDAnnulation() {
+        // Régression QA 5.5 : RenameVariable + repointage des nœuds = UNE entrée —
+        // sans geste, un seul Ctrl+Z laissait un nœud pointant l'ancien nom.
+        CanvasController controller = new CanvasController(bp, LOOKUP, new Camera());
+        VariablePanelState panel = new VariablePanelState(bp, LOOKUP, controller::applyOp,
+                controller::beginGesture, controller::endGesture);
+        panel.create();
+        UUID get = UUID.randomUUID();
+        apply(new EditOperation.AddNode(get, VarNodes.GET, new Vec2d(0, 0)));
+        apply(new EditOperation.SetLiteral(get, "var",
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.STRING, "var1")));
+
+        int before = controller.history().undoDepth();
+        panel.openRename("var1");
+        panel.type("bis");
+        assertTrue(panel.commitRename());
+        assertEquals(before + 1, controller.history().undoDepth());
+
+        assertTrue(controller.undo());
+        assertNotNull(bp.variables().get("var1"));
+        assertEquals("var1", VarNodes.boundName(bp.node(get)));
+    }
+
+    @Test
     void cycleDeTypeSansLienPasseDirect() {
         state.create(); // var1 double
         assertTrue(state.cycleType("var1"));

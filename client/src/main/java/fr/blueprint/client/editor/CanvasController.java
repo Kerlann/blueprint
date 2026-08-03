@@ -630,6 +630,15 @@ public final class CanvasController {
         return applyTracked(op);
     }
 
+    /** Bornes de geste exposées aux panneaux (renommage de variable = un undo, QA 5.5). */
+    public void beginGesture() {
+        history.beginGesture();
+    }
+
+    public void endGesture() {
+        history.endGesture();
+    }
+
     /**
      * Colle un fragment (5.8) : variables manquantes créées, nœuds remappés vers des
      * UUID neufs, positions décalées en bloc (coin haut-gauche sous le curseur,

@@ -37,6 +37,8 @@ public final class VariablePanelState {
     private final Blueprint bp;
     private final NodeTypeLookup lookup;
     private final Function<EditOperation, Boolean> applier;
+    private final Runnable beginGesture;
+    private final Runnable endGesture;
 
     private @Nullable String selected;
     private @Nullable String renaming;
@@ -48,9 +50,17 @@ public final class VariablePanelState {
 
     public VariablePanelState(Blueprint bp, NodeTypeLookup lookup,
                               Function<EditOperation, Boolean> applier) {
+        this(bp, lookup, applier, () -> { }, () -> { });
+    }
+
+    public VariablePanelState(Blueprint bp, NodeTypeLookup lookup,
+                              Function<EditOperation, Boolean> applier,
+                              Runnable beginGesture, Runnable endGesture) {
         this.bp = bp;
         this.lookup = lookup;
         this.applier = applier;
+        this.beginGesture = beginGesture;
+        this.endGesture = endGesture;
     }
 
     /** Les variables, portée puis nom — l'ordre d'affichage du panneau. */
@@ -134,7 +144,7 @@ public final class VariablePanelState {
         renameBuffer = "";
     }
 
-    /** Applique le renommage ; les nœuds Get/Set liés suivent (même geste). */
+    /** Applique le renommage ; les nœuds Get/Set liés suivent — UN SEUL geste d'annulation (QA 5.5). */
     public boolean commitRename() {
         if (renaming == null || renameBuffer.isBlank() || renameBuffer.equals(renaming)) {
             cancelRename();
@@ -142,15 +152,20 @@ public final class VariablePanelState {
         }
         String from = renaming;
         String to = renameBuffer.trim();
-        if (!applier.apply(new EditOperation.RenameVariable(from, to))) {
-            return false; // doublon : le champ reste ouvert
-        }
-        // Reponter les nœuds liés — sans ça ils pointeraient un nom mort (FR10 esprit).
-        for (Node node : List.copyOf(bp.nodes().values())) {
-            if (VarNodes.isVarNode(node.typeId()) && from.equals(VarNodes.boundName(node))) {
-                applier.apply(new EditOperation.SetLiteral(node.uuid(), VarNodes.VAR_PIN,
-                        LiteralValue.of(PinTypes.STRING, to)));
+        beginGesture.run();
+        try {
+            if (!applier.apply(new EditOperation.RenameVariable(from, to))) {
+                return false; // doublon : le champ reste ouvert
             }
+            // Reponter les nœuds liés — sans ça ils pointeraient un nom mort (FR10).
+            for (Node node : List.copyOf(bp.nodes().values())) {
+                if (VarNodes.isVarNode(node.typeId()) && from.equals(VarNodes.boundName(node))) {
+                    applier.apply(new EditOperation.SetLiteral(node.uuid(), VarNodes.VAR_PIN,
+                            LiteralValue.of(PinTypes.STRING, to)));
+                }
+            }
+        } finally {
+            endGesture.run();
         }
         if (from.equals(selected)) {
             selected = to;

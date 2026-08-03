@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.8"
+story_title: "Copier / couper / coller / dupliquer via BScript"
+gate: "PASS"
+status_reason: "Le presse-papier EST du BScript standard (U6) : round-trip testé avec UUID neufs, variables déclarées en tête et recréées, un geste d'annulation par collage, texte invalide = état inchangé. L'astuce des événements synthétiques à position sentinelle (le générateur n'émet que des blocs on <event>) est propre : @pos survit au round-trip et sert de marqueur."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:57:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "CLIP-001"
+    severity: medium
+    finding: "Un nœud PUR copié sans son consommateur est inliné/perdu par le générateur (copier un math/add seul ne survit pas au round-trip) — limitation du générateur, pas du presse-papier"
+    suggested_action: "Consigné dès la story ; à lever si le générateur apprend les purs orphelins (4.2b) — le presse-papier en profitera sans changement"
+  - id: "CLIP-002"
+    severity: low
+    finding: "Un nœud utilisateur posé à x ≤ −500 000 serait pris pour un événement synthétique au collage"
+    suggested_action: "Position absurde (31 000 écrans) ; resserrer le marqueur si un cas réel apparaît"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 1 }
+  recommendations:
+    must_fix: []

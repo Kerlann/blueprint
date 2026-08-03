@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.6b"
+story_title: "Barre d'outils, validation à la volée et diagnostics"
+gate: "PASS"
+status_reason: "Débouncé pur à horloge injectée (testé sans attendre), hook de mutation couvrant undo/redo, messages 100 % blueprint.diag.* du modèle, Tester grisé sur erreur bloquante. La review a corrigé DIAG-001 (recentrage sous la vue script)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:57:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "DIAG-001"
+    severity: low
+    finding: "RÉSOLU EN REVIEW — cliquer un diagnostic avec la vue script ouverte recentrait le nœud au centre de l'écran ENTIER : il atterrissait sous le panneau de droite"
+    suggested_action: "Corrigé : recentrage dans canvasWidth() (moitié canevas quand le script est ouvert)"
+  - id: "DIAG-002"
+    severity: low
+    finding: "La liste dépliée plafonne à 8 diagnostics sans défilement — les suivants sont dans le compteur mais pas cliquables"
+    suggested_action: "Ascenseur avec celui des panneaux (polissage épic 9)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []

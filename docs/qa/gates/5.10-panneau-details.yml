@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.10"
+story_title: "Panneau de détails"
+gate: "PASS"
+status_reason: "Lignes typées pures testées pour les quatre modes (blueprint/nœud/multi/fantôme), UNE seule implémentation de saisie de littéraux partagée avec le canevas (beginLiteralEdit), SetMeta avec inverse testé, plafond de permission cyclable qui revalide tout."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T03:57:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "DET-001"
+    severity: low
+    finding: "rows() reconstruit la liste de lignes à chaque frame quand le panneau est visible — allocations hors passe canevas, panneau court"
+    suggested_action: "Mettre en cache par (révision, sélection) si le profileur (9.x) le pointe"
+  - id: "DET-002"
+    severity: low
+    finding: "Pas d'ascenseur : un nœud à très nombreux pins tronque la liste ; superposition < 800 px non faite"
+    suggested_action: "Consigné dès la story ; avec l'ascenseur commun (épic 9)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []
