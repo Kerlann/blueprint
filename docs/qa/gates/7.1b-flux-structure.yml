@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "7.1b"
+story_title: "Flux structuré — frames minimales + lowering"
+gate: "PASS"
+status_reason: "Architecture sobre : une pile d'adresses de retour persistée + 3 primitives (CallSub/JmpIf/Yield) + Calls purs synthétisés — zéro opcode métier. 7 tests bout-en-bout. La review a trouvé et corrigé FLOW-001, un défaut sémantique de la famille VM-COMP-001."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T04:38:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "FLOW-001"
+    severity: high
+    finding: "RÉSOLU EN REVIEW — un pur partagé entre l'extérieur et la CONDITION d'un while/wait_until était mémoïsé hors de la plage rejouée par l'arête arrière : condition figée, boucle infinie jusqu'au fuel (valeurs justes, terminaison fausse — même famille que VM-COMP-001)"
+    suggested_action: "Corrigé : la préparation des conditions de boucle ouvre une portée de purs FRAÎCHE (ré-émission dans la plage rejouée) ; régression avec le même var/get partagé avant/dans la boucle"
+  - id: "FLOW-002"
+    severity: low
+    finding: "Le drapeau do_once (__once:<uuid> en GRAPH) survit à la suppression du nœud — variable orpheline dans le VarStore"
+    suggested_action: "Nettoyage des __once orphelins à la sauvegarde (épic 9) ; inoffensif d'ici là"
+  - id: "FLOW-003"
+    severity: low
+    finding: "gate (entrées exec multiples) et for_each (listes) consignés v1.1 — le linearizer n'a pas de points d'entrée par pin"
+    suggested_action: "Backlog assumé dès la story"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []

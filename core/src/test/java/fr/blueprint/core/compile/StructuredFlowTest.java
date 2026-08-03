@@ -239,6 +239,45 @@ class StructuredFlowTest {
     }
 
     @Test
+    void unPurPartageAvantLaBoucleSeReEvalueDansLaCondition() {
+        // Régression QA 7.1b (famille VM-COMP-001) : le MÊME var/get alimente un set
+        // AVANT la boucle ET la condition du while — mémoïsé hors boucle, la
+        // condition ne changerait jamais (OUT_OF_FUEL au lieu de Done).
+        declareVar("c");
+        declareVar("copie");
+        UUID tick = add(StandardEvents.SERVER_TICK.id().toString());
+        UUID seq = add("flow/sequence");
+        UUID getC = add("var/get");
+        apply(new EditOperation.SetLiteral(getC, "var", LiteralValue.of(PinTypes.STRING, "c")));
+        // then_1 : copie = get c (émet le pur AVANT la boucle)
+        UUID setCopy = add("var/set");
+        apply(new EditOperation.SetLiteral(setCopy, "var", LiteralValue.of(PinTypes.STRING, "copie")));
+        // then_2 : while (get c < 3) { c = get c + 1 }
+        UUID loop = add("flow/while");
+        UUID less = add("logic/less");
+        apply(new EditOperation.SetLiteral(less, "b", LiteralValue.of(PinTypes.DOUBLE, 3.0)));
+        UUID get2 = add("var/get");
+        apply(new EditOperation.SetLiteral(get2, "var", LiteralValue.of(PinTypes.STRING, "c")));
+        UUID sum = add("math/add");
+        apply(new EditOperation.SetLiteral(sum, "b", LiteralValue.of(PinTypes.DOUBLE, 1.0)));
+        UUID setC = add("var/set");
+        apply(new EditOperation.SetLiteral(setC, "var", LiteralValue.of(PinTypes.STRING, "c")));
+        apply(new EditOperation.AddLink(new Link(tick, "exec_out", seq, "exec_in")));
+        apply(new EditOperation.AddLink(new Link(seq, "then_1", setCopy, "exec_in")));
+        apply(new EditOperation.AddLink(new Link(getC, "value", setCopy, "value")));
+        apply(new EditOperation.AddLink(new Link(seq, "then_2", loop, "exec_in")));
+        apply(new EditOperation.AddLink(new Link(getC, "value", less, "a"))); // MÊME pur
+        apply(new EditOperation.AddLink(new Link(less, "result", loop, "condition")));
+        apply(new EditOperation.AddLink(new Link(loop, "body", setC, "exec_in")));
+        apply(new EditOperation.AddLink(new Link(get2, "value", sum, "a")));
+        apply(new EditOperation.AddLink(new Link(sum, "result", setC, "value")));
+
+        VarStore vars = VarStore.inMemory();
+        assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
+        assertEquals(3.0, vars.get(VarScope.GRAPH, "c"));
+    }
+
+    @Test
     void switchAiguilleVersLaBonneBranche() {
         declareVar("chemin");
         UUID tick = add(StandardEvents.SERVER_TICK.id().toString());

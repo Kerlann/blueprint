@@ -52,7 +52,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 2 | Registre de nœuds et API d'extension | 2.1 → 2.5 | **Complet** — 5 gates PASS |
 | 3 | Compilateur et VM | 3.1+3.2+3.3, 3.4+3.5 | **Complet** — 2 gates PASS (3 corrections en review dont un high sémantique) |
 | 7 | Événements et bibliothèque | 7.1a+7.2+7.6 (groupées) | **Complet** — gate PASS, démo ping/pong vérifiée en jeu (VERIFY-004) |
-| 7 | (restes) | 7.1b, 7.3-7.5, 7.7 | À rédiger (flux structuré + frames VM ; nœuds monde en gametest ; commande) |
+| 7 | **Bibliothèque complète** | 7.1b, 7.3-7.5, 7.7 | **Complet** — 3 gates PASS (1 high corrigé : condition de boucle figée par la mémoïsation) ; ~65 nœuds, boucles/frames, /bpc ; restes v1.1 : gate, for_each |
 | 4 | Démo, export/import | 4.4a | **Complet** — gate PASS |
 | 4 | BScript v1 | 4.1+4.2+4.3 (groupées) | **Complet** — gate PASS (4 corrections en review dont un high de fidélité) ; round-trip exact, `.bp` = texte |
 | 6 | Persistance monde | 6.1 | **Complet** — gate PASS (VERIFY-005 : redémarrage à confirmer en jeu) |

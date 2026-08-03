@@ -354,10 +354,25 @@ public final class Compiler {
         emitNext(node, "exec_out");
     }
 
+    /**
+     * Prépare une entrée de CONDITION DE BOUCLE dans une portée de purs fraîche :
+     * un pur déjà mémoïsé hors de la boucle serait sinon lu depuis un slot figé et
+     * la condition ne changerait jamais (QA 7.1b, famille VM-COMP-001). Les purs se
+     * ré-émettent DANS la plage rejouée par l'arête arrière.
+     */
+    private Instruction.@Nullable PinBinding prepareLoopCondition(Node node, NodeType.PinSpec spec) {
+        pureScopes.push(new HashSet<>());
+        try {
+            return prepareInput(node, spec);
+        } finally {
+            pureScopes.pop();
+        }
+    }
+
     /** while : [start: prep cond][JmpIf→completed][CallSub corps][Jmp start]. */
     private void emitWhile(Node node, NodeType type, int startIndex) {
         UUID id = node.uuid();
-        Instruction.PinBinding cond = prepareInput(node, specOf(type, "condition"));
+        Instruction.PinBinding cond = prepareLoopCondition(node, specOf(type, "condition"));
         int condSlot = cond != null ? cond.slot() : slotFor(id, "literal:condition");
         int jmpIf = out.size();
         out.add(new Instruction.JmpIf(condSlot, -1, id));
@@ -415,7 +430,7 @@ public final class Compiler {
     /** wait_until : re-teste la condition chaque tick (Yield 1 + boucle). */
     private void emitWaitUntil(Node node, NodeType type, int startIndex) {
         UUID id = node.uuid();
-        Instruction.PinBinding cond = prepareInput(node, specOf(type, "condition"));
+        Instruction.PinBinding cond = prepareLoopCondition(node, specOf(type, "condition"));
         int condSlot = cond != null ? cond.slot() : slotFor(id, "literal:condition");
         int jmpIf = out.size();
         out.add(new Instruction.JmpIf(condSlot, -1, id)); // vrai → successeur (pc+1)

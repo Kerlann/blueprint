@@ -1,0 +1,23 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "7.3-7.5"
+story_title: "Nœuds monde, entité/joueur, item/texte"
+gate: "PASS"
+status_reason: "27 nœuds, permissions étagées (SAFE lectures / GAMEPLAY effets / WORLD mutations / ADMIN explosion+gamemode), garde-fous entité systématiques en fautes traduites, APIs 1.21.11 vérifiées au javap. Le test de symétrie des langues verrouille TOUTE la bibliothèque (clé réelle titleKey)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T04:38:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "LIB-001"
+    severity: medium
+    finding: "Le COMPORTEMENT des actions monde/entité n'est couvert par aucun test automatique (ServerLevel intestable headless) — formes/permissions/pureté seulement"
+    suggested_action: "VERIFY-7.3/7.4/7.5 en session finale PUIS gametests (spike 1.6) — c'est le prochain gros investissement de test du projet"
+  - id: "LIB-002"
+    severity: low
+    finding: "world/get_block et entity/position en EXEC (contrat de mémoïsation) : les graphes purs ne peuvent pas lire le monde — choix assumé, à documenter pour les auteurs"
+    suggested_action: "Page de référence des nœuds (9.5)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor: ["gametests 1.6 à prioriser en épic 9"]

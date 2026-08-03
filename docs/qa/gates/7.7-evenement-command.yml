@@ -1,0 +1,22 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "7.7"
+story_title: "Événement command — /bpc"
+gate: "PASS"
+status_reason: "Le seul nœud d'événement à entrée (déclaration par littéral), suggestions vivantes, désactivation = retrait, argument testé jusqu'au graphe. Déviation /bpc (préfixe fixe) propre et argumentée : Brigadier ne sait pas retirer une racine."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T04:38:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "CMD-001"
+    severity: low
+    finding: "commandNames() peut être appelé depuis le thread de suggestions (Netty) : lecture concurrente du manager non synchronisée"
+    suggested_action: "Même famille que la lecture des suggestions 5.9 — synchroniser avec la synchro réseau (épic 6)"
+  - id: "CMD-002"
+    severity: low
+    finding: "Arguments typés limités à UN texte libre (pas de déclaration d'arguments multiples typés)"
+    suggested_action: "Suffisant pour le PRD MVP ; étendre si la demande existe (arg2 int…)"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 2 }
+  recommendations:
+    must_fix: []
