@@ -100,7 +100,18 @@ public final class PersistenceHooks {
             return false;                                    // fantômes apparus entre-temps
         }
         var trigger = new TriggerContextImpl(event, suspended.triggerValues());
-        scheduler.resume(suspended, result.ir(), envFactory.create(bp, trigger));
+        var env = envFactory.create(bp, trigger);
+        if (env == null) {
+            // Une fabrique qui ne sait pas fabriquer d'environnement pour ce blueprint :
+            // on abandonne CETTE reprise. Ordonnancer une exécution sans environnement
+            // ferait tomber la boucle de tick du serveur au tick suivant, loin d'ici —
+            // trouvé par la CI sur un harnais de test qui rendait null.
+            BlueprintMod.LOGGER.warn(
+                    "Reprise de « {} » abandonnée : aucun environnement d'exécution",
+                    bp.id());
+            return false;
+        }
+        scheduler.resume(suspended, result.ir(), env);
         return true;
     }
 }

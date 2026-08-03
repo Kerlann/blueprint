@@ -165,9 +165,22 @@ public final class BlueprintGameTests {
                 .parse(net.minecraft.nbt.NbtOps.INSTANCE, tag)
                 .getOrThrow(message -> new IllegalStateException(message));
 
+        // Ordonnanceur JETABLE, pas celui du serveur : les tests tournent en parallèle,
+        // et l'instantané peut capturer une exécution vivante d'un test voisin. La
+        // rendre à l'ordonnanceur réel la ferait tourner deux fois (trouvé par la CI).
         BlueprintManager fresh = new BlueprintManager();
+        var throwaway = new fr.blueprint.core.vm.BlueprintScheduler(100,
+                new fr.blueprint.core.vm.BlueprintScheduler.Listener() {
+                    @Override
+                    public void disabled(Identifier blueprintId, int streakTicks) {
+                    }
+
+                    @Override
+                    public void faulted(Identifier blueprintId, UUID node, String message) {
+                    }
+                });
         var report = fr.blueprint.core.storage.PersistenceHooks.restore(reloaded, fresh,
-                BlueprintMod.schedulerOf(server), BlueprintMod.registries(),
+                throwaway, BlueprintMod.registries(),
                 new fr.blueprint.core.storage.ServerRefResolver(server),
                 (blueprint, trigger) -> null);
 
