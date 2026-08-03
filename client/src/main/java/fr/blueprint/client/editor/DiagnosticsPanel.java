@@ -30,6 +30,21 @@ public final class DiagnosticsPanel {
 
     public static void render(GuiGraphics g, Font font, DiagnosticsState state,
                               int width, int height) {
+        render(g, font, state, width, height, 0);
+    }
+
+    /** Nombre de lignes visibles quand la liste est dépliée. */
+    public static final int VISIBLE_ROWS = MAX_ROWS;
+
+    /** Hauteur de la liste dépliée, pour savoir si la molette la survole. */
+    public static int expandedHeight(DiagnosticsState state) {
+        return !state.expanded() ? 0
+                : Math.min(state.report().size(), MAX_ROWS) * ROW_HEIGHT;
+    }
+
+    /** {@code scroll} : premier diagnostic affiché (la liste défile depuis la 5.12). */
+    public static void render(GuiGraphics g, Font font, DiagnosticsState state,
+                              int width, int height, int scroll) {
         int barTop = height - BAR_HEIGHT;
         g.fill(0, barTop, width, height, BACKGROUND);
         g.fill(0, barTop, width, barTop + 1, BORDER);
@@ -45,11 +60,12 @@ public final class DiagnosticsPanel {
         }
         List<Diagnostic> report = state.report();
         int rows = Math.min(report.size(), MAX_ROWS);
+        int first = PanelScroll.clamp(scroll, report.size(), rows);
         int top = barTop - rows * ROW_HEIGHT;
         g.fill(0, top - 1, width, barTop, BACKGROUND);
         g.fill(0, top - 1, width, top, BORDER);
         for (int i = 0; i < rows; i++) {
-            Diagnostic d = report.get(i);
+            Diagnostic d = report.get(first + i);
             boolean error = d.severity() == Diagnostic.Severity.ERROR;
             int y = top + i * ROW_HEIGHT + 2;
             g.drawString(font, error ? "[E]" : "[W]", 6, y,
@@ -70,11 +86,19 @@ public final class DiagnosticsPanel {
         if (!state.expanded() || state.report().isEmpty()) {
             return -1;
         }
+        return rowAt(state, my, height, 0);
+    }
+
+    /** Variante défilée : le décalage se rajoute ici aussi (rendu et clic partagés). */
+    public static int rowAt(DiagnosticsState state, double my, int height, int scroll) {
+        if (!state.expanded() || state.report().isEmpty()) {
+            return -1;
+        }
         int rows = Math.min(state.report().size(), MAX_ROWS);
         int top = height - BAR_HEIGHT - rows * ROW_HEIGHT;
         if (my < top || my >= height - BAR_HEIGHT) {
             return -1;
         }
-        return (int) ((my - top) / ROW_HEIGHT);
+        return (int) ((my - top) / ROW_HEIGHT) + PanelScroll.clamp(scroll, state.report().size(), rows);
     }
 }

@@ -47,17 +47,23 @@ public final class DetailsPanel {
     public static void render(GuiGraphics g, Font font, List<DetailsPanelState.Row> rows,
                               int width, int height, @org.jetbrains.annotations.Nullable
                               LiteralEditState edit) {
+        render(g, font, rows, width, height, edit, 0);
+    }
+
+    /** {@code scroll} : première ligne affichée (le panneau défile depuis la 5.12). */
+    public static void render(GuiGraphics g, Font font, List<DetailsPanelState.Row> rows,
+                              int width, int height, @org.jetbrains.annotations.Nullable
+                              LiteralEditState edit, int scroll) {
         int left = width - WIDTH;
         int top = ToolbarWidget.HEIGHT;
         int bottom = height - DiagnosticsPanel.BAR_HEIGHT;
         g.fill(left, top, width, bottom, BACKGROUND);
         g.fill(left, top, left + 1, bottom, BORDER);
 
-        for (int i = 0; i < rows.size(); i++) {
-            int y = top + 3 + i * ROW_HEIGHT;
-            if (y + ROW_HEIGHT > bottom) {
-                break;
-            }
+        int visible = visibleRows(height);
+        int firstRow = PanelScroll.clamp(scroll, rows.size(), visible);
+        for (int i = firstRow; i < rows.size() && i < firstRow + visible; i++) {
+            int y = top + 3 + (i - firstRow) * ROW_HEIGHT;
             DetailsPanelState.Row row = rows.get(i);
             switch (row.kind()) {
                 case HEADER -> {
@@ -87,6 +93,20 @@ public final class DetailsPanel {
                 }
             }
         }
+
+        // Curseur de défilement : sans lui, rien ne dit qu'il reste des lignes.
+        if (PanelScroll.overflows(rows.size(), visible)) {
+            int trackHeight = visible * ROW_HEIGHT;
+            int[] thumb = PanelScroll.thumb(firstRow, rows.size(), visible, trackHeight);
+            g.fill(width - 3, top + 3 + thumb[0], width - 1,
+                    top + 3 + thumb[0] + thumb[1], LABEL_COLOR);
+        }
+    }
+
+    /** Nombre de lignes qui tiennent dans le panneau. */
+    public static int visibleRows(int height) {
+        int usable = height - DiagnosticsPanel.BAR_HEIGHT - ToolbarWidget.HEIGHT - 3;
+        return Math.max(1, usable / ROW_HEIGHT);
     }
 
     /** Une ligne éditable : libellé à gauche, champ à droite — en cours d'édition ou non. */
@@ -132,11 +152,25 @@ public final class DetailsPanel {
 
     /** Indice de la ligne sous la souris, ou −1. */
     public static int rowAt(List<DetailsPanelState.Row> rows, double my) {
+        return rowAt(rows, my, 0, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Variante défilée. Le décalage se rajoute ICI aussi : rendu et zone cliquable
+     * doivent partager la même arithmétique, sinon on clique une ligne et on en édite
+     * une autre — le genre de bug qu'on met une heure à croire.
+     */
+    public static int rowAt(List<DetailsPanelState.Row> rows, double my, int scroll, int height) {
         int first = ToolbarWidget.HEIGHT + 3;
         if (my < first) {
             return -1;
         }
-        int row = (int) ((my - first) / ROW_HEIGHT);
+        int visible = height == Integer.MAX_VALUE ? rows.size() : visibleRows(height);
+        int shown = (int) ((my - first) / ROW_HEIGHT);
+        if (shown >= visible) {
+            return -1;
+        }
+        int row = shown + PanelScroll.clamp(scroll, rows.size(), visible);
         return row < rows.size() ? row : -1;
     }
 }

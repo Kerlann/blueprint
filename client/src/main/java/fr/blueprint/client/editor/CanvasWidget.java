@@ -85,6 +85,12 @@ public final class CanvasWidget {
     /** Débogueur (9.1b) : ce que le serveur pousse, ce que le canevas dessine. */
     private final DebugView debug;
 
+    // Défilement des trois panneaux (5.12) : au-delà d'une trentaine de lignes, le
+    // contenu était purement inatteignable.
+    private final PanelScroll varScroll = new PanelScroll();
+    private final PanelScroll detailsScroll = new PanelScroll();
+    private final PanelScroll diagScroll = new PanelScroll();
+
     public DebugView debug() {
         return debug;
     }
@@ -161,7 +167,8 @@ public final class CanvasWidget {
         ToolbarWidget.render(g, font, controller.blueprint().id().toString(),
                 session.dirty(), session.savable(),
                 session.savable() && !diagnostics.blocking(), width);
-        DiagnosticsPanel.render(g, font, diagnostics, width, height);
+        DiagnosticsPanel.render(g, font, diagnostics, width, height,
+                diagScroll.offset(diagnostics.report().size(), DiagnosticsPanel.VISIBLE_ROWS));
         if (scriptView.shouldRegenerate()) {
             scriptView.regenerate(controller.blueprint(), lookup);
         }
@@ -171,10 +178,12 @@ public final class CanvasWidget {
             scriptView.syncSelection(first, ScriptView.visibleLines(height));
         }
         if (panelVisible) {
-            VariablePanel.render(g, font, varPanel, height);
+            VariablePanel.render(g, font, varPanel, height,
+                    varScroll.offset(varPanel.rows().size(), VariablePanel.visibleRows(height)));
             if (!scriptView.visible()) {
-                DetailsPanel.render(g, font, details.rows(controller.selection().ids()),
-                        width, height, literalEdit);
+                var detailRows = details.rows(controller.selection().ids());
+                DetailsPanel.render(g, font, detailRows, width, height, literalEdit,
+                        detailsScroll.offset(detailRows.size(), DetailsPanel.visibleRows(height)));
             }
         }
         ScriptView.render(g, font, scriptView, width, height);
@@ -539,7 +548,8 @@ public final class CanvasWidget {
             return true;
         }
         if (diagnostics.expanded()) {
-            int row = DiagnosticsPanel.rowAt(diagnostics, e.y(), height);
+            int row = DiagnosticsPanel.rowAt(diagnostics, e.y(), height,
+                    diagScroll.offset(diagnostics.report().size(), DiagnosticsPanel.VISIBLE_ROWS));
             if (row >= 0) {
                 var node = DiagnosticsState.nodeOf(diagnostics.report().get(row));
                 if (node != null) {
@@ -727,7 +737,8 @@ public final class CanvasWidget {
 
     private void handleDetailsPanelClick(MouseButtonEvent e) {
         var rows = details.rows(controller.selection().ids());
-        int index = DetailsPanel.rowAt(rows, e.y());
+        int index = DetailsPanel.rowAt(rows, e.y(),
+                detailsScroll.offset(rows.size(), DetailsPanel.visibleRows(height)), height);
         if (index < 0) {
             return;
         }
@@ -916,7 +927,8 @@ public final class CanvasWidget {
             varPanel.create();
             return;
         }
-        int row = VariablePanel.rowAt(varPanel, e.x(), e.y());
+        int row = VariablePanel.rowAt(varPanel, e.x(), e.y(),
+                varScroll.offset(varPanel.rows().size(), VariablePanel.visibleRows(height)), height);
         if (row < 0) {
             varPanel.select(null);
             return;
@@ -1005,6 +1017,24 @@ public final class CanvasWidget {
             } else {
                 literalEdit.adjustNumber((vAmount > 0 ? 1 : -1) * (shiftDown ? 10L : 1L));
             }
+            return true;
+        }
+        // Molette AU-DESSUS d'un panneau : elle le fait défiler, elle ne zoome pas.
+        int step = vAmount > 0 ? -1 : 1;
+        if (panelVisible && VariablePanel.contains(mouseX, mouseY, height)) {
+            varScroll.scrollBy(step, varPanel.rows().size(), VariablePanel.visibleRows(height));
+            return true;
+        }
+        if (panelVisible && !scriptView.visible()
+                && DetailsPanel.contains(mouseX, mouseY, width, height)) {
+            detailsScroll.scrollBy(step, details.rows(controller.selection().ids()).size(),
+                    DetailsPanel.visibleRows(height));
+            return true;
+        }
+        if (diagnostics.expanded() && mouseY >= height - DiagnosticsPanel.BAR_HEIGHT
+                - DiagnosticsPanel.expandedHeight(diagnostics)) {
+            diagScroll.scrollBy(step, diagnostics.report().size(),
+                    DiagnosticsPanel.VISIBLE_ROWS);
             return true;
         }
         camera.zoomBy(vAmount > 0 ? 1 : -1, mouseX, mouseY);

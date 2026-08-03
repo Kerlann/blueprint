@@ -35,6 +35,12 @@ public final class VariablePanel {
 
     public static void render(GuiGraphics g, Font font, VariablePanelState state,
                               int height) {
+        render(g, font, state, height, 0);
+    }
+
+    /** {@code scroll} : première ligne affichée (le panneau défile depuis la 5.12). */
+    public static void render(GuiGraphics g, Font font, VariablePanelState state,
+                              int height, int scroll) {
         int top = ToolbarWidget.HEIGHT;
         int bottom = height - DiagnosticsPanel.BAR_HEIGHT;
         g.fill(0, top, WIDTH, bottom, BACKGROUND);
@@ -43,12 +49,11 @@ public final class VariablePanel {
         g.drawString(font, "+", WIDTH - 10, top + 3, ACTION_COLOR, false);
 
         List<Variable> rows = state.rows();
-        for (int i = 0; i < rows.size(); i++) {
+        int visible = visibleRows(height);
+        int first = PanelScroll.clamp(scroll, rows.size(), visible);
+        for (int i = first; i < rows.size() && i < first + visible; i++) {
             Variable v = rows.get(i);
-            int y = top + HEADER_HEIGHT + i * ROW_HEIGHT;
-            if (y + ROW_HEIGHT > bottom - 12) {
-                break; // au-delà, ascenseur en 5.10 — consigné
-            }
+            int y = top + HEADER_HEIGHT + (i - first) * ROW_HEIGHT;
             boolean isSelected = v.name().equals(state.selected());
             if (isSelected) {
                 g.fill(0, y, WIDTH - 1, y + ROW_HEIGHT, SELECTED_BG);
@@ -67,6 +72,16 @@ public final class VariablePanel {
             } else {
                 g.drawString(font, scopeTag(v), WIDTH - 12, y + 2, TITLE_COLOR, false);
             }
+        }
+
+        // Curseur de défilement : sans lui, rien ne dit qu'il y a d'autres variables.
+        if (PanelScroll.overflows(rows.size(), visible)) {
+            int trackTop = top + HEADER_HEIGHT;
+            int trackHeight = visible * ROW_HEIGHT;
+            int[] thumb = PanelScroll.thumb(first, rows.size(), visible, trackHeight);
+            g.fill(WIDTH - 3, trackTop, WIDTH - 1, trackTop + trackHeight, BACKGROUND);
+            g.fill(WIDTH - 3, trackTop + thumb[0], WIDTH - 1, trackTop + thumb[0] + thumb[1],
+                    ACTION_COLOR);
         }
 
         if (state.pendingBreaks() > 0) {
@@ -90,8 +105,19 @@ public final class VariablePanel {
                 && my < ToolbarWidget.HEIGHT + HEADER_HEIGHT;
     }
 
+    /** Nombre de lignes qui tiennent dans le panneau. */
+    public static int visibleRows(int height) {
+        int usable = height - DiagnosticsPanel.BAR_HEIGHT - 12 - ToolbarWidget.HEIGHT - HEADER_HEIGHT;
+        return Math.max(1, usable / ROW_HEIGHT);
+    }
+
     /** Indice de la ligne sous la souris, ou −1. */
     public static int rowAt(VariablePanelState state, double mx, double my) {
+        return rowAt(state, mx, my, 0, Integer.MAX_VALUE);
+    }
+
+    /** Variante défilée : {@code scroll} lignes masquées en haut. */
+    public static int rowAt(VariablePanelState state, double mx, double my, int scroll, int height) {
         if (mx >= WIDTH) {
             return -1;
         }
@@ -99,7 +125,13 @@ public final class VariablePanel {
         if (my < first) {
             return -1;
         }
-        int row = (int) ((my - first) / ROW_HEIGHT);
+        int visible = height == Integer.MAX_VALUE ? Integer.MAX_VALUE : visibleRows(height);
+        int shown = (int) ((my - first) / ROW_HEIGHT);
+        if (visible != Integer.MAX_VALUE && shown >= visible) {
+            return -1;
+        }
+        int row = shown + PanelScroll.clamp(scroll, state.rows().size(),
+                visible == Integer.MAX_VALUE ? state.rows().size() : visible);
         return row < state.rows().size() ? row : -1;
     }
 
