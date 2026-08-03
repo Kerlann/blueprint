@@ -54,9 +54,7 @@ public final class BlueprintEditorScreen extends Screen {
                 session, lookup, canvas.controller().history());
     }
 
-    private int tabsTop() {
-        return ToolbarWidget.HEIGHT;
-    }
+
 
     @Override
     public void mouseMoved(double mouseX, double mouseY) {
@@ -99,15 +97,16 @@ public final class BlueprintEditorScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // La barre d'outils (5.6b) porte le titre et l'indicateur ● non-enregistré.
         if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.GRAPH) {
+            // Le canevas dessine sa propre barre d'outils (il y met « Tester » selon
+            // l'état de compilation) : il reçoit le mode pour y placer les onglets.
+            canvas.setMode(mode);
             canvas.render(graphics, font, mouseX, mouseY);
         } else {
-            designer.setBounds(tabsTop() + fr.blueprint.client.editor.screen.ModeTabs.HEIGHT,
-                    width, height);
+            designer.setBounds(ToolbarWidget.HEIGHT, width, height);
             designer.render(graphics, font, mouseX, mouseY);
             ToolbarWidget.render(graphics, font, session.blueprint().id().toString(),
-                    session.dirty(), session.savable(), false, width);
+                    session.dirty(), session.savable(), false, width, mode);
         }
-        fr.blueprint.client.editor.screen.ModeTabs.render(graphics, font, mode, tabsTop());
     }
 
     @Override
@@ -120,7 +119,7 @@ public final class BlueprintEditorScreen extends Screen {
         // Les onglets d'abord : ils flottent au-dessus des deux modes, et un clic dessus
         // ne doit jamais poser un élément ni désélectionner un nœud au passage.
         var clicked = fr.blueprint.client.editor.screen.ModeTabs.modeAt(
-                font, event.x(), event.y(), tabsTop());
+                font, event.x(), event.y(), ToolbarWidget.tabsX(width), ToolbarWidget.HEIGHT);
         if (clicked != null) {
             mode = clicked;
             return true;

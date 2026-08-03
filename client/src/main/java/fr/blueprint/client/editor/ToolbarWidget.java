@@ -61,13 +61,47 @@ public final class ToolbarWidget {
         return label(action);
     }
 
+    /**
+     * Largeur réservée au titre, avant les onglets.
+     *
+     * <p><b>Fixe</b>, et non déduite de la longueur du titre : le titre gagne un « ● »
+     * dès la première modification, ce qui aurait décalé les onglets de huit pixels au
+     * premier geste — on aurait cliqué à côté de l'onglet qu'on visait, et seulement
+     * après avoir touché à quelque chose.
+     */
+    private static final int TITLE_ZONE = 160;
+
+    /** Où commencent les onglets ; borné pour tenir dans une fenêtre étroite. */
+    public static int tabsX(int width) {
+        return Math.max(60, Math.min(TITLE_ZONE, width / 3));
+    }
+
     public static void render(GuiGraphics g, Font font, String title, boolean dirty,
                               boolean canSave, boolean canTest, int width) {
+        render(g, font, title, dirty, canSave, canTest, width, null);
+    }
+
+    /**
+     * La barre complète, onglets compris (story 10.2 → refondue ici).
+     *
+     * <p>Les onglets « Graphe » / « Écrans » occupaient une <b>seconde bande</b> de treize
+     * pixels sous celle-ci, sur toute la hauteur de l'éditeur. Or cette barre-ci est
+     * vide entre le titre et les boutons : deux bandes pour ce qui tient dans une seule
+     * coûtaient treize pixels de canevas à chaque image, sans rien apporter.
+     */
+    public static void render(GuiGraphics g, Font font, String title, boolean dirty,
+                              boolean canSave, boolean canTest, int width,
+                              fr.blueprint.client.editor.screen.ModeTabs.@Nullable Mode mode) {
         g.fill(0, 0, width, HEIGHT, BACKGROUND);
         g.fill(0, HEIGHT - 1, width, HEIGHT, BORDER);
         String head = (dirty ? "● " : "") + title;
-        g.drawString(font, font.plainSubstrByWidth(head, width / 2), 6, 4,
+        // Le titre s'arrête AVANT les onglets : il était borné à la moitié de la barre,
+        // ce qui le laissait passer dessous dès qu'un identifiant était long.
+        g.drawString(font, font.plainSubstrByWidth(head, tabsX(width) - 12), 6, 4,
                 dirty ? DIRTY_COLOR : TITLE_COLOR, false);
+        if (mode != null) {
+            fr.blueprint.client.editor.screen.ModeTabs.render(g, font, mode, tabsX(width), HEIGHT);
+        }
 
         int x = width - 4;
         for (Action action : ORDER) {

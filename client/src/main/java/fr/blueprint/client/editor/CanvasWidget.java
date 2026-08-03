@@ -155,6 +155,18 @@ public final class CanvasWidget {
 
     // ---------------------------------------------------------------------- rendu
 
+    /**
+     * Le mode courant, pour dessiner les onglets dans la barre. Posé par l'écran parent :
+     * le canevas ne décide pas du mode, il se contente de l'afficher là où il y a la
+     * place — la barre d'outils, plutôt qu'une seconde bande sous elle.
+     */
+    private fr.blueprint.client.editor.screen.ModeTabs.Mode mode =
+            fr.blueprint.client.editor.screen.ModeTabs.Mode.GRAPH;
+
+    public void setMode(fr.blueprint.client.editor.screen.ModeTabs.Mode mode) {
+        this.mode = mode;
+    }
+
     public void render(GuiGraphics g, Font font, int mouseX, int mouseY) {
         // Validation débouncée (5.6b) : jamais dans la frame d'une frappe.
         if (diagnostics.shouldValidate()) {
@@ -175,7 +187,7 @@ public final class CanvasWidget {
         WireLayer.renderPreview(g, camera, controller);
         ToolbarWidget.render(g, font, controller.blueprint().id().toString(),
                 session.dirty(), session.savable(),
-                session.savable() && !diagnostics.blocking(), width);
+                session.savable() && !diagnostics.blocking(), width, mode);
         DiagnosticsPanel.render(g, font, diagnostics, width, height,
                 diagScroll.offset(diagnostics.report().size(), DiagnosticsPanel.VISIBLE_ROWS));
         if (scriptView.shouldRegenerate()) {
