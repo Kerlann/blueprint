@@ -51,8 +51,19 @@ public final class BlueprintFiles {
     /** Lit {@code <nom>.bp} (BScript ou NBT hérité) ; null si absent ou indécodable. */
     public static @Nullable Blueprint importFile(Path exportsDir, String name,
                                                  PluginLoader.LoadedRegistries registries) {
-        Path file = exportsDir.resolve(name + ".bp");
+        // L'extension est tolérée : le joueur voit « demo_boutique.bp » dans son
+        // dossier, et la recopier telle quelle cherchait « demo_boutique.bp.bp ».
+        String bare = name.endsWith(".bp") ? name.substring(0, name.length() - 3) : name;
+        // Un nom de fichier, pas un chemin. Sans ce refus, « ../../../quelque_chose »
+        // ferait lire et analyser un fichier arbitraire du disque — la commande est
+        // réservée aux administrateurs, ce qui n'est pas une raison de l'ouvrir.
+        if (bare.isBlank() || bare.contains("/") || bare.contains("\\") || bare.contains("..")) {
+            BlueprintMod.LOGGER.warn("Import refusé : « {} » n'est pas un nom de fichier", name);
+            return null;
+        }
+        Path file = exportsDir.resolve(bare + ".bp");
         if (!Files.isRegularFile(file)) {
+            BlueprintMod.LOGGER.warn("Import de « {} » : fichier introuvable ({})", name, file);
             return null;
         }
         try {

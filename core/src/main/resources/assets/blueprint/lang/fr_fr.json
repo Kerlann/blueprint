@@ -67,7 +67,7 @@
   "blueprint.cmd.exported": "Blueprint %s exporté vers %s",
   "blueprint.cmd.export_failed": "Export de %s impossible (voir le log serveur)",
   "blueprint.cmd.imported": "Blueprint %s importé (%s nœuds)",
-  "blueprint.cmd.import_failed": "Import de « %s » impossible (fichier absent ou illisible)",
+  "blueprint.cmd.import_failed": "Import de « %s » impossible — aucun fichier lisible de ce nom dans %s",
   "blueprint.cmd.signal_sent": "Signal « %s » émis vers %s nœud(s)",
   "blueprint.cmd.signal_unheard": "Aucun blueprint actif n'écoute le signal « %s »",
   "blueprint.cmd.signal_budget": "Trop de signaux dans ce tick — un blueprint boucle probablement sur lui-même",

@@ -77,6 +77,37 @@ class DemoBlueprintTest {
         assertNull(BlueprintFiles.importFile(dir, "corrompu", LOADED));
     }
 
+    /**
+     * Le joueur voit « demo_boutique.bp » dans son dossier ; recopier ce nom tel quel
+     * cherchait « demo_boutique.bp.bp » et rendait « fichier introuvable ».
+     */
+    @Test
+    void lExtensionEcriteParLeJoueurEstToleree(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("menu.bp"),
+                fr.blueprint.core.script.ScriptGenerator.generate(DemoBlueprint.build(LOADED.nodes()), LOADED.nodes()).text());
+
+        assertNotNull(BlueprintFiles.importFile(dir, "menu", LOADED));
+        assertNotNull(BlueprintFiles.importFile(dir, "menu.bp", LOADED),
+                "avec l'extension aussi");
+    }
+
+    /**
+     * Un nom de fichier, jamais un chemin. La commande est réservée aux
+     * administrateurs, ce qui n'est pas une raison de leur laisser lire et analyser
+     * n'importe quel fichier du disque.
+     */
+    @Test
+    void unCheminNEstPasUnNomDeFichier(@TempDir Path dir) throws Exception {
+        Files.createDirectories(dir.resolve("sous"));
+        Files.writeString(dir.resolve("sous").resolve("cache.bp"),
+                fr.blueprint.core.script.ScriptGenerator.generate(DemoBlueprint.build(LOADED.nodes()), LOADED.nodes()).text());
+
+        assertNull(BlueprintFiles.importFile(dir, "sous/cache", LOADED));
+        assertNull(BlueprintFiles.importFile(dir, "sous\\cache", LOADED));
+        assertNull(BlueprintFiles.importFile(dir, "../secret", LOADED));
+        assertNull(BlueprintFiles.importFile(dir, "  ", LOADED));
+    }
+
     @Test
     void adoptRefusesDuplicates() {
         var manager = new BlueprintManager();

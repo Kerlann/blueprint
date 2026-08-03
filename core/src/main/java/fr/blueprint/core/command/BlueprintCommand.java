@@ -29,6 +29,28 @@ public final class BlueprintCommand {
     private BlueprintCommand() {
     }
 
+    /**
+     * Suggestions d'import : les {@code .bp} réellement présents dans le dossier.
+     *
+     * <p>Sans elles, l'auteur devait deviner le nom exact d'un fichier qu'il ne voit
+     * pas depuis le jeu — et se tromper ne rendait qu'un « fichier introuvable » qui ne
+     * disait même pas où l'on avait cherché.
+     */
+    private static final SuggestionProvider<CommandSourceStack> EXPORT_FILES = (ctx, builder) -> {
+        try (var files = java.nio.file.Files.list(exportsDir())) {
+            files.map(path -> path.getFileName().toString())
+                    .filter(fileName -> fileName.endsWith(".bp"))
+                    .map(fileName -> fileName.substring(0, fileName.length() - 3))
+                    .sorted()
+                    .forEach(builder::suggest);
+        } catch (java.io.IOException e) {
+            // Un dossier illisible ne doit pas casser l'autocomplétion : aucune
+            // suggestion vaut mieux qu'une commande qui refuse de s'écrire.
+            fr.blueprint.core.BlueprintMod.LOGGER.debug("Dossier d'exports illisible", e);
+        }
+        return builder.buildFuture();
+    };
+
     /** Suggestions : les identifiants des blueprints existants du serveur (AC1). */
     private static final SuggestionProvider<CommandSourceStack> EXISTING_IDS = (ctx, builder) ->
             SharedSuggestionProvider.suggestResource(
@@ -89,6 +111,7 @@ public final class BlueprintCommand {
                         .requires(admin)
                         .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("file",
                                         com.mojang.brigadier.arguments.StringArgumentType.word())
+                                .suggests(EXPORT_FILES)
                                 .executes(BlueprintCommand::importFile)))
                 .then(literal("demo")
                         .requires(admin)
@@ -414,7 +437,10 @@ public final class BlueprintCommand {
         var bp = fr.blueprint.core.BlueprintFiles.importFile(exportsDir(), name,
                 fr.blueprint.core.BlueprintMod.registries());
         if (bp == null) {
-            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.import_failed", name));
+            // Dire OÙ l'on a cherché : « fichier introuvable » sans chemin laisse le
+            // joueur deviner entre le dossier du jeu, celui du monde et celui du mod.
+            ctx.getSource().sendFailure(Component.translatable(
+                    "blueprint.cmd.import_failed", name, exportsDir().toString()));
             return 0;
         }
         if (!BlueprintManager.of(ctx.getSource().getServer()).adopt(bp)) {

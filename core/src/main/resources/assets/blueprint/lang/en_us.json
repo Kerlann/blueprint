@@ -67,7 +67,7 @@
   "blueprint.cmd.exported": "Blueprint %s exported to %s",
   "blueprint.cmd.export_failed": "Could not export %s (see server log)",
   "blueprint.cmd.imported": "Blueprint %s imported (%s nodes)",
-  "blueprint.cmd.import_failed": "Could not import \"%s\" (missing or unreadable file)",
+  "blueprint.cmd.import_failed": "Could not import \"%s\" — no readable file of that name in %s",
   "blueprint.cmd.signal_sent": "Signal \"%s\" sent to %s node(s)",
   "blueprint.cmd.signal_unheard": "No enabled blueprint listens for the signal \"%s\"",
   "blueprint.cmd.signal_budget": "Too many signals in this tick Ã¢ÂÂ a blueprint is probably looping on itself",
@@ -312,7 +312,6 @@
   "blueprint.event.blueprint.event/command.name": "On command (/bpc)",
   "blueprint.cmd.bpc_unknown": "No enabled blueprint declares the command \"%s\"",
   "blueprint.cmd.bpc_launched": "Command \"%s\" triggered %s blueprint(s)",
-
   "blueprint.editor.title": "Blueprint editor Ã¢ÂÂ %s",
   "blueprint.editor.ghost": "Provided by \"%s\" Ã¢ÂÂ mod missing",
   "blueprint.editor.palette.title": "Add a node",
