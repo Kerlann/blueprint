@@ -35,12 +35,32 @@ public final class ScreenClient {
                     // déjà noté le nouveau. D'où la fermeture SILENCIEUSE ici : prévenir
                     // le serveur effacerait l'écran qu'il vient tout juste d'ouvrir.
                     closeQuietly(context.client());
-                    context.client().setScreen(new BlueprintScreen(
-                            payload.blueprint(), model, ScreenClient::notifyClosed));
+                    var screen = new BlueprintScreen(payload.blueprint(), model,
+                            payload.instance(), ScreenClient::notifyClosed, element ->
+                            sendClick(payload.blueprint(), model.name(), element,
+                                    payload.instance()));
+                    context.client().setScreen(screen);
                 });
 
         ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenClose.TYPE,
                 (payload, context) -> closeQuietly(context.client()));
+
+        // Les modifications d'un tick arrivent ensemble ; l'écran les applique s'il est
+        // bien celui qu'elles visent, et les jette sinon.
+        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenUpdates.TYPE,
+                (payload, context) -> {
+                    if (context.client().screen instanceof BlueprintScreen open) {
+                        open.apply(payload.instance(), payload.updates());
+                    }
+                });
+    }
+
+    private static void sendClick(net.minecraft.resources.Identifier blueprint,
+                                  String screen, String element, int instance) {
+        if (ClientPlayNetworking.canSend(BlueprintPayloads.ScreenInteraction.TYPE)) {
+            ClientPlayNetworking.send(new BlueprintPayloads.ScreenInteraction(
+                    blueprint, screen, element, instance));
+        }
     }
 
     /**

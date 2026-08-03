@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-187 nœuds dans 34 catégories.
+204 nœuds dans 36 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -645,6 +645,254 @@ permission `SAFE` · fuel 1
 |---|---|---|
 | `body` | exec | — |
 | `completed` | exec | — |
+
+
+## gui
+
+### `blueprint:event/gui_clicked` — On element clicked
+
+permission `SAFE` · fuel 1 · E
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `element` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | — |
+| `element` | `blueprint:string` | — |
+
+### `blueprint:event/gui_closed` — On screen closed
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | — |
+
+### `blueprint:event/gui_opened` — On screen opened
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | — |
+
+### `blueprint:gui/close` — Close screen
+
+permission `SAFE` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/open` — Open screen
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+
+## gui/update
+
+### `blueprint:gui/set_enabled` — Set element enabled
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `element` | `blueprint:string` | `` |
+| `enabled` | `blueprint:bool` | `true` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_enabled_all` — Set element enabled (all viewers)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `enabled` | `blueprint:bool` | `true` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_progress` — Set bar value
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `element` | `blueprint:string` | `` |
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_progress_all` — Set bar value (all viewers)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `value` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_text` — Set element text
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `element` | `blueprint:string` | `` |
+| `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_text_all` — Set element text (all viewers)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `text` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_text_key` — Set element text (key)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `element` | `blueprint:string` | `` |
+| `key` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_text_key_all` — Set element text key (all viewers)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `key` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_texture` — Set element texture
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `element` | `blueprint:string` | `` |
+| `texture` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_texture_all` — Set element texture (all viewers)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `texture` | `blueprint:string` | `` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_visible` — Set element visible
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `element` | `blueprint:string` | `` |
+| `visible` | `blueprint:bool` | `true` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_visible_all` — Set element visible (all viewers)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `visible` | `blueprint:bool` | `true` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
 
 
 ## item

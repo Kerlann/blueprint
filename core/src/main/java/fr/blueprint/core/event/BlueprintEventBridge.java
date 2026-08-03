@@ -207,13 +207,50 @@ public final class BlueprintEventBridge {
         return literalName(node, StandardEvents.COMMAND.id());
     }
 
+    // ---------------------------------------------------- clics d'écran (10.4)
+
+    /**
+     * Lance les blueprints actifs dont un nœud {@code event/gui_clicked} écoute CET
+     * élément. Le troisième cas de la même règle après {@code command} et
+     * {@code signal} : le littéral filtre, sinon chaque clic réveillerait chaque
+     * écouteur de chaque écran, et l'auteur devrait comparer le nom à la main.
+     *
+     * <p>Le blueprint est <b>ciblé</b> : seul celui qui possède l'écran est consulté.
+     * Un autre blueprint ne doit pas pouvoir écouter les boutons d'un menu qui n'est
+     * pas le sien — un nom d'élément est court, les collisions seraient la règle.
+     */
+    public int launchGuiClick(Identifier blueprintId, String element, TriggerContext trigger) {
+        Blueprint bp = manager.get(blueprintId).orElse(null);
+        if (bp == null || !bp.enabled()) {
+            return 0;
+        }
+        int launched = 0;
+        for (Node node : bp.nodes().values()) {
+            if (element.equals(literalName(node, StandardEvents.GUI_ELEMENT_CLICKED.id(),
+                    "element"))) {
+                Ir ir = compiled(bp, node.uuid());
+                if (ir != null) {
+                    scheduler.launch(bp.id(), ir, envFactory.create(bp, trigger));
+                    launched++;
+                }
+            }
+        }
+        return launched;
+    }
+
     /** Le littéral « name » d'un nœud d'événement de ce type, s'il est renseigné. */
     private static @org.jetbrains.annotations.Nullable String literalName(
             Node node, Identifier eventId) {
+        return literalName(node, eventId, "name");
+    }
+
+    /** Le littéral filtrant d'un nœud d'événement de ce type, s'il est renseigné. */
+    private static @org.jetbrains.annotations.Nullable String literalName(
+            Node node, Identifier eventId, String pin) {
         if (!eventId.equals(node.typeId())) {
             return null;
         }
-        var literal = node.literal("name");
+        var literal = node.literal(pin);
         return literal != null && literal.value() instanceof String s && !s.isBlank() ? s : null;
     }
 

@@ -120,6 +120,13 @@ public final class BlueprintManager {
         snapshot.setEnabled(current.enabled());
         snapshot.adoptRevision(baseRevision + 1);
         blueprints.put(snapshot.id(), snapshot);
+        // Les écrans ouverts pointent maintenant une version qui n'existe plus telle
+        // quelle (10.4, AC5d) : leur renvoyer la description à jour, ou les fermer si
+        // l'écran a disparu. Un menu fantôme dont les clics visent des éléments
+        // supprimés serait refusé sans que le joueur comprenne pourquoi.
+        if (server != null) {
+            fr.blueprint.core.net.ServerBlueprintNet.refreshScreensOf(server, snapshot);
+        }
         return new SaveResult(SaveOutcome.SAVED, snapshot.revision());
     }
 

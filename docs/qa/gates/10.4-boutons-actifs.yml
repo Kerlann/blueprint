@@ -1,0 +1,44 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.4"
+story_title: "Les boutons font quelque chose"
+gate: "PASS"
+status_reason: "Le clic remonte au graphe et le graphe redescend modifier l'écran, avec les trois gardes qui rendent tenable un graphe écrit naïvement. Un gametest de bout en bout prouve la chaîne complète, y compris ses refus. Quatre défauts trouvés en revue ont été corrigés avant le gate."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T18:50:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "CLICK-001"
+    severity: high
+    finding: "L'événement gui/closed n'était émis que depuis le chemin « Échap ». Une fermeture décidée par le serveur, un blueprint désactivé ou une déconnexion ne le déclenchaient pas : un graphe qui prépare quelque chose à l'ouverture n'avait aucun endroit où le défaire, et la fuite était invisible"
+    suggested_action: "Corrigé — fireClosed centralisé, appelé depuis tous les chemins de fermeture"
+  - id: "CLICK-002"
+    severity: high
+    finding: "gui/open n'était borné par aucune cadence, contrairement à ce qu'exige AC5b. Un blueprint qui rouvre un menu plein écran à chaque tick sortait le joueur du jeu — il ne pouvait plus rien faire d'autre que refermer une fenêtre qui revient aussitôt"
+    suggested_action: "Corrigé — RateLimiter par joueur CIBLÉ (8 ouvertures / 10 s par défaut, configurable)"
+  - id: "CLICK-003"
+    severity: medium
+    finding: "AC5d n'était pas couvert : un blueprint réenregistré pendant qu'un écran est ouvert laissait le joueur devant une description périmée, dont les clics visaient des éléments peut-être supprimés"
+    suggested_action: "Corrigé — BlueprintManager.save renvoie la description à jour aux spectateurs, ou ferme si l'écran a disparu ; l'ouverture est renumérotée au passage, ce qui jette les mises à jour déjà en vol"
+  - id: "CLICK-004"
+    severity: medium
+    finding: "flushScreenUpdates vidait la file AVANT de vérifier que le joueur est encore là : les modifications étaient marquées « affichées » sans avoir été envoyées, et la comparaison croyait ensuite un client à jour qui n'avait rien reçu"
+    suggested_action: "Corrigé — le joueur est résolu d'abord, la file n'est vidée que si l'envoi peut aboutir"
+  - id: "CLICK-005"
+    severity: low
+    finding: "gui/set_texture prend une STRING et non une RESOURCE_LOCATION, ce qui prive l'auteur du sélecteur de ressources (5.2c)"
+    suggested_action: "Assumé — un identifiant n'a pas de valeur « aucune », et il FAUT pouvoir enlever une texture. La chaîne vide l'exprime ; un identifiant illisible n'enlève rien plutôt que de faire tomber le nœud"
+  - id: "CLICK-006"
+    severity: low
+    finding: "La valeur d'une barre vit côté client, hors du modèle d'écran"
+    suggested_action: "Délibéré — c'est une valeur d'exécution, propre à un joueur et à une ouverture. Dans ScreenElement, elle voyagerait dans la sauvegarde et l'export texte, où elle n'a rien à faire"
+  - id: "CLICK-007"
+    severity: low
+    finding: "receiveClick est public pour que le gametest l'appelle"
+    suggested_action: "Assumé et documenté — c'est le MÊME chemin que le récepteur de paquets. Un gametest qui imiterait la validation ne prouverait rien de ce qui compte"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 2, low: 3 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "CLICK-002 : la valeur de opensPerWindow (8 / 10 s) n'a pas été éprouvée en jeu — VERIFY-10.4"

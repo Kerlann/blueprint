@@ -121,6 +121,10 @@ public class BlueprintMod implements ModInitializer {
             if (bridge != null) {
                 bridge.endTick();
             }
+            // En DERNIER : les modifications d'écran demandées pendant ce tick partent
+            // ensemble (10.4, AC3b). Les envoyer plus tôt en laisserait passer une
+            // partie dans la trame suivante, et l'écran se rafraîchirait en deux fois.
+            fr.blueprint.core.net.ServerBlueprintNet.flushScreenUpdates(server);
         });
 
         registerWorldEventBridges();
@@ -434,6 +438,28 @@ public class BlueprintMod implements ModInitializer {
         values.put("payload", payload);
         return bridge.launchSignal(name, new fr.blueprint.core.event.TriggerContextImpl(
                 fr.blueprint.core.event.StandardEvents.SIGNAL, values)) >= 0;
+    }
+
+    /**
+     * Un clic d'écran devient une exécution (story 10.4). Ciblé sur le blueprint qui
+     * possède l'écran, et filtré par le littéral « element » du nœud : sans ce filtre,
+     * chaque clic réveillerait chaque écouteur de chaque écran.
+     */
+    public static int emitGuiClick(net.minecraft.server.MinecraftServer server,
+                                   net.minecraft.resources.Identifier blueprint,
+                                   net.minecraft.server.level.ServerPlayer player,
+                                   String screen, String element) {
+        var bridge = BRIDGES.get(server);
+        if (bridge == null) {
+            return 0;
+        }
+        java.util.Map<String, Object> values = new java.util.HashMap<>();
+        values.put("player", player);
+        values.put("screen", screen);
+        values.put("element", element);
+        return bridge.launchGuiClick(blueprint, element,
+                new fr.blueprint.core.event.TriggerContextImpl(
+                        fr.blueprint.core.event.StandardEvents.GUI_ELEMENT_CLICKED, values));
     }
 
     /** Le nombre de blueprints qui écoutent ce signal — pour le retour de la commande. */

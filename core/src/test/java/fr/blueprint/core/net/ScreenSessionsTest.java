@@ -40,7 +40,8 @@ class ScreenSessionsTest {
         sessions.opened(alice, BANQUE, "depot");
 
         assertEquals(1, sessions.size(), "le second remplace, il n'empile pas");
-        assertEquals(new ScreenSessions.Open(BANQUE, "depot"), sessions.of(alice));
+        assertEquals(BANQUE, sessions.of(alice).blueprint());
+        assertEquals("depot", sessions.of(alice).screen());
     }
 
     @Test
@@ -51,7 +52,7 @@ class ScreenSessionsTest {
         assertEquals(2, sessions.size());
         sessions.closed(alice);
         assertNull(sessions.of(alice));
-        assertEquals(new ScreenSessions.Open(BANQUE, "depot"), sessions.of(bob));
+        assertEquals("depot", sessions.of(bob).screen());
     }
 
     /**
@@ -96,7 +97,7 @@ class ScreenSessionsTest {
         assertTrue(affected.containsAll(List.of(alice, bob)));
         assertNull(sessions.of(alice));
         assertNull(sessions.of(bob));
-        assertEquals(new ScreenSessions.Open(BANQUE, "depot"), sessions.of(carol),
+        assertEquals("depot", sessions.of(carol).screen(),
                 "les autres blueprints ne sont pas touchés");
     }
 

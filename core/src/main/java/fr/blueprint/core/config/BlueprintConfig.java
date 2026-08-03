@@ -50,6 +50,7 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                 defaults.maxTextLength(), defaults.maxGhosts(),
                 defaults.maxScreens(), defaults.maxElementsPerScreen(),
                 Math.max(1, savesPerWindow), Math.max(1, requestsPerWindow),
+                defaults.clicksPerWindow(), defaults.opensPerWindow(),
                 defaults.windowMillis());
     }
 

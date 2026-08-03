@@ -132,6 +132,34 @@ public final class StandardEvents {
             .out("arg", PinTypes.STRING)
             .dispatch(Dispatch.GLOBAL).build();
 
+    /** Un écran de blueprint vient de s'ouvrir chez ce joueur (story 10.4). */
+    public static final EventType GUI_OPENED = EventType.builder(id("gui_opened"))
+            .out("player", PinTypes.PLAYER)
+            .out("screen", PinTypes.STRING)
+            .dispatch(Dispatch.PER_PLAYER).build();
+
+    /**
+     * L'écran s'est refermé — Échap, mort, déconnexion, ou un autre écran qui prend la
+     * place. C'est le pendant obligatoire de {@link #GUI_OPENED} : sans lui, un graphe
+     * qui prépare quelque chose à l'ouverture n'aurait aucun endroit où le défaire.
+     */
+    public static final EventType GUI_CLOSED = EventType.builder(id("gui_closed"))
+            .out("player", PinTypes.PLAYER)
+            .out("screen", PinTypes.STRING)
+            .dispatch(Dispatch.PER_PLAYER).build();
+
+    /**
+     * Un élément cliquable a été cliqué. Comme {@link #COMMAND} et {@link #SIGNAL}, le
+     * nœud porte le nom écouté en <b>littéral</b> et n'est donc PAS synthétisé : sans
+     * ce filtre, chaque clic réveillerait chaque écouteur de chaque écran, et l'auteur
+     * devrait comparer le nom à la main dans tous ses graphes.
+     */
+    public static final EventType GUI_ELEMENT_CLICKED = EventType.builder(id("gui_clicked"))
+            .out("player", PinTypes.PLAYER)
+            .out("screen", PinTypes.STRING)
+            .out("element", PinTypes.STRING)
+            .dispatch(Dispatch.GLOBAL).build();
+
     private StandardEvents() {
     }
 
@@ -154,5 +182,8 @@ public final class StandardEvents {
         registry.register(PLAYER_WAKE_UP);
         registry.register(SIGNAL);
         registry.register(COMMAND);
+        registry.register(GUI_OPENED);
+        registry.register(GUI_CLOSED);
+        registry.register(GUI_ELEMENT_CLICKED);
     }
 }

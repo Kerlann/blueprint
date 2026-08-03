@@ -170,10 +170,29 @@ public final class ServerBlueprintNet {
         s2c.register(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
         c2s.register(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
 
+        s2c.register(BlueprintPayloads.ScreenUpdates.TYPE, BlueprintPayloads.ScreenUpdates.CODEC);
+        c2s.register(BlueprintPayloads.ScreenInteraction.TYPE,
+                BlueprintPayloads.ScreenInteraction.CODEC);
+        CLICKS = new RateLimiter(LIMITS.clicksPerWindow(), LIMITS.windowMillis(),
+                System::currentTimeMillis);
+        OPENS = new RateLimiter(LIMITS.opensPerWindow(), LIMITS.windowMillis(),
+                System::currentTimeMillis);
+
         // Le joueur a fermé son écran (Échap). Sans ce message, le serveur croirait
         // l'écran encore ouvert et accepterait des clics dessus longtemps après.
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenClose.TYPE,
-                (payload, context) -> SCREENS.closed(context.player().getUUID()));
+                (payload, context) -> {
+                    var open = SCREENS.of(context.player().getUUID());
+                    if (SCREENS.closed(context.player().getUUID()) && open != null) {
+                        fr.blueprint.api.event.BlueprintEvents.fire(
+                                fr.blueprint.core.event.StandardEvents.GUI_CLOSED,
+                                payload2 -> payload2.set("player", context.player())
+                                        .set("screen", open.screen()));
+                    }
+                });
+
+        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenInteraction.TYPE,
+                (payload, context) -> receiveClick(context.player(), payload));
 
         // Un joueur parti ne garde ni quota ni écran fantôme (10.3, AC5).
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
@@ -187,6 +206,89 @@ public final class ServerBlueprintNet {
     /** Les écrans ouverts, par joueur (story 10.3) — un seul chacun. */
     private static final ScreenSessions SCREENS = new ScreenSessions();
 
+    /** Cadence des ouvertures, par joueur CIBLÉ (AC5b) — voir openScreen. */
+    private static RateLimiter OPENS = new RateLimiter(
+            NetLimits.DEFAULT.opensPerWindow(), NetLimits.DEFAULT.windowMillis(),
+            System::currentTimeMillis);
+
+    /** Cadence des clics, par joueur (AC5) : un clic est bon marché, mille non. */
+    private static RateLimiter CLICKS = new RateLimiter(
+            NetLimits.DEFAULT.clicksPerWindow(), NetLimits.DEFAULT.windowMillis(),
+            System::currentTimeMillis);
+
+    /**
+     * Un clic reçu — le MÊME chemin que celui du récepteur de paquets, exposé pour que
+     * le gametest exerce la vraie validation et non une imitation.
+     *
+     * <p><b>Rien de ce paquet n'est cru</b> (FR52) : le client annonce ce
+     * qu'il veut, et chacune des cinq vérifications suivantes existe parce qu'un client
+     * modifié peut mentir sur ce point précis.
+     *
+     * <p>Le contrôle de visibilité et d'activation n'est pas du zèle : un auteur qui
+     * masque le bouton « acheter » tant que le joueur n'a pas l'argent compte sur ce
+     * masquage comme sur une règle. Sans cette vérification, elle ne serait qu'un
+     * effet visuel contournable en une ligne de mod client.
+     */
+    public static void receiveClick(ServerPlayer player,
+                                    BlueprintPayloads.ScreenInteraction click) {
+        // 1. La cadence, avant tout le reste : le refus doit coûter moins que l'attaque.
+        if (!CLICKS.allow(player.getUUID())) {
+            BlueprintMod.LOGGER.warn("Clics d'écran de {} au-delà du quota — ignorés",
+                    player.getGameProfile().name());
+            return;
+        }
+        // 2. Cet écran est-il bien celui que LE SERVEUR a envoyé à ce joueur ?
+        var open = SCREENS.of(player.getUUID());
+        if (open == null || !open.blueprint().equals(click.blueprint())
+                || !open.screen().equals(click.screen())) {
+            return;
+        }
+        // 3. Est-ce la même OUVERTURE ? Un clic parti juste avant une fermeture ne doit
+        //    pas s'appliquer à l'écran suivant.
+        if (open.instance() != click.instance()) {
+            return;
+        }
+        net.minecraft.server.MinecraftServer server = player.level().getServer();
+        if (server == null) {
+            return;
+        }
+        Blueprint bp = BlueprintManager.of(server).get(click.blueprint()).orElse(null);
+        var screen = bp == null || !bp.enabled() ? null : bp.screen(click.screen());
+        if (screen == null) {
+            return;
+        }
+        // 4. L'élément existe-t-il, et est-il CLIQUABLE ?
+        var element = screen.element(click.element());
+        if (element == null || !element.kind().interactive()) {
+            return;
+        }
+        // 5. Est-il visible et activé — parent masqué compris ? Un menu à onglets
+        //    masque des pages entières ; cliquer au travers d'une page cachée
+        //    déclencherait un bouton que le joueur ne voit pas.
+        if (!element.enabled() || !visibleThroughParents(screen, element)) {
+            return;
+        }
+        // Ciblé et filtré : le nœud écoute UN élément d'UN blueprint. Passer par le
+        // répartiteur générique réveillerait tous les nœuds gui_clicked du serveur.
+        BlueprintMod.emitGuiClick(server, click.blueprint(), player,
+                click.screen(), click.element());
+    }
+
+    /** Visible, et tous ses ancêtres aussi. Résistant aux cycles d'une sauvegarde abîmée. */
+    private static boolean visibleThroughParents(
+            fr.blueprint.core.graph.screen.Screen screen,
+            fr.blueprint.core.graph.screen.ScreenElement element) {
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        var cursor = element;
+        while (cursor != null && seen.add(cursor.name())) {
+            if (!cursor.visible()) {
+                return false;
+            }
+            cursor = cursor.parent() == null ? null : screen.element(cursor.parent());
+        }
+        return true;
+    }
+
     public static ScreenSessions screens() {
         return SCREENS;
     }
@@ -197,21 +299,124 @@ public final class ServerBlueprintNet {
      * plutôt que d'échouer en silence.
      */
     public static boolean openScreen(net.minecraft.server.level.ServerPlayer player,
-                                     fr.blueprint.core.graph.Blueprint bp, String screenName) {
-        var screen = bp.screen(screenName);
+                                     Identifier blueprintId, String screenName) {
+        net.minecraft.server.MinecraftServer server = player.level().getServer();
+        if (server == null) {
+            return false;
+        }
+        var bp = fr.blueprint.core.BlueprintManager.of(server).get(blueprintId).orElse(null);
+        fr.blueprint.core.graph.screen.Screen screen =
+                bp == null ? null : bp.screen(screenName);
         if (screen == null) {
             return false;
         }
-        SCREENS.opened(player.getUUID(), bp.id(), screenName);
+        // Le numéro d'instance voyage avec l'ouverture : c'est lui qui permettra au
+        // client de jeter une mise à jour destinée à un écran déjà refermé.
+        // Cadence bornée PAR JOUEUR CIBLÉ (AC5b) : sans elle, un blueprint qui rouvre
+        // un menu plein écran à chaque tick sortirait le joueur du jeu — il ne pourrait
+        // plus rien faire d'autre que refermer une fenêtre qui revient aussitôt.
+        if (!OPENS.allow(player.getUUID())) {
+            return false;
+        }
+        int instance = SCREENS.opened(player.getUUID(), blueprintId, screenName);
         ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenOpen(
-                bp.id(), screenName, ScreenSync.toBytes(screen)));
+                blueprintId, screenName, instance, ScreenSync.toBytes(screen)));
+        fr.blueprint.api.event.BlueprintEvents.fire(
+                fr.blueprint.core.event.StandardEvents.GUI_OPENED,
+                payload -> payload.set("player", player).set("screen", screenName));
         return true;
+    }
+
+    /**
+     * Empile une modification pour ce joueur. Elle ne part pas tout de suite : les
+     * modifications d'un tick s'accumulent et sortent ensemble (AC3b), et ce qui est
+     * identique à ce que le client affiche déjà ne sort pas du tout (AC3c).
+     */
+    public static void queueUpdate(net.minecraft.server.level.ServerPlayer player,
+                                   fr.blueprint.core.graph.screen.ScreenUpdate update) {
+        SCREENS.queue(player.getUUID(), update);
+    }
+
+    /** La même chose pour tous ceux qui regardent cet écran (AC3d). */
+    public static void queueUpdateForAll(Identifier blueprintId, String screenName,
+                                         fr.blueprint.core.graph.screen.ScreenUpdate update) {
+        for (java.util.UUID uuid : SCREENS.viewersOf(blueprintId, screenName)) {
+            SCREENS.queue(uuid, update);
+        }
+    }
+
+    /**
+     * Envoie les modifications accumulées, une trame par joueur. Appelé en <b>fin de
+     * tick</b> : c'est ce regroupement qui fait qu'un panneau de cinq éléments coûte un
+     * paquet et non cinq.
+     */
+    public static void flushScreenUpdates(net.minecraft.server.MinecraftServer server) {
+        for (java.util.UUID uuid : SCREENS.pendingPlayers()) {
+            // Le joueur d'abord : vider la file marque les modifications comme
+            // AFFICHÉES. Le faire avant de savoir qu'on peut envoyer laisserait la
+            // comparaison croire à jour un client qui n'a jamais rien reçu.
+            var player = server.getPlayerList().getPlayer(uuid);
+            var open = SCREENS.of(uuid);
+            if (player == null || open == null) {
+                continue;
+            }
+            var updates = SCREENS.drain(uuid);
+            if (!updates.isEmpty()) {
+                ServerPlayNetworking.send(player,
+                        new BlueprintPayloads.ScreenUpdates(open.instance(), updates));
+            }
+        }
     }
 
     /** Referme l'écran d'un joueur et le lui dit. */
     public static void closeScreen(net.minecraft.server.level.ServerPlayer player) {
+        var open = SCREENS.of(player.getUUID());
         if (SCREENS.closed(player.getUUID())) {
             ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenClose());
+            fireClosed(player, open);
+        }
+    }
+
+    /**
+     * L'événement de fermeture, émis depuis <b>tous</b> les chemins : Échap, ordre du
+     * serveur, blueprint désactivé, déconnexion.
+     *
+     * <p>Un seul endroit, parce qu'un graphe qui prépare quelque chose à l'ouverture
+     * n'a que cet événement pour le défaire. Le déclencher depuis le seul chemin
+     * « Échap » le ferait fuir sur tous les autres — et la fuite serait invisible.
+     */
+    private static void fireClosed(net.minecraft.server.level.ServerPlayer player,
+                                   ScreenSessions.@org.jetbrains.annotations.Nullable Open open) {
+        if (open == null) {
+            return;
+        }
+        fr.blueprint.api.event.BlueprintEvents.fire(
+                fr.blueprint.core.event.StandardEvents.GUI_CLOSED,
+                payload -> payload.set("player", player).set("screen", open.screen()));
+    }
+
+    /**
+     * Le blueprint vient d'être réenregistré (AC5d) : ce que les joueurs regardent
+     * n'existe plus tel quel. On leur renvoie la description à jour, ou on ferme si
+     * l'écran a disparu de la nouvelle version.
+     *
+     * <p>L'ouverture est <b>renumérotée</b> au passage : les mises à jour déjà en vol,
+     * calculées pour l'ancienne description, seront jetées par le client.
+     */
+    public static void refreshScreensOf(net.minecraft.server.MinecraftServer server,
+                                        Blueprint updated) {
+        for (java.util.UUID uuid : List.copyOf(SCREENS.viewersOfBlueprint(updated.id()))) {
+            var player = server.getPlayerList().getPlayer(uuid);
+            var open = SCREENS.of(uuid);
+            if (player == null || open == null) {
+                continue;
+            }
+            var screen = updated.screen(open.screen());
+            if (screen == null) {
+                closeScreen(player);
+            } else {
+                openScreen(player, updated.id(), open.screen());
+            }
         }
     }
 

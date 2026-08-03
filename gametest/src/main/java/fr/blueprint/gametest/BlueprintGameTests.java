@@ -55,6 +55,13 @@ public final class BlueprintGameTests {
      */
     private static Blueprint blockPlacer(Identifier blueprintId, Identifier eventType,
                                          BlockPos target, String commandName) {
+        return blockPlacer(blueprintId, eventType, target, commandName, "name");
+    }
+
+    /** Le pin du littéral filtrant varie : « name » pour command/signal, « element » pour un clic. */
+    private static Blueprint blockPlacer(Identifier blueprintId, Identifier eventType,
+                                         BlockPos target, String commandName,
+                                         String filterPin) {
         // Plafond WORLD : poser un bloc dépasse GAMEPLAY, le graphe serait refusé à la
         // compilation (règle de permission, story 9.3) — un test doit dire ce qu'il veut.
         Blueprint bp = new Blueprint(blueprintId, new fr.blueprint.core.graph.BlueprintMeta(
@@ -70,7 +77,7 @@ public final class BlueprintGameTests {
                 Identifier.fromNamespaceAndPath("blueprint", "world/set_block"), new Vec2d(400, 0)));
 
         if (commandName != null) {
-            apply(bp, new EditOperation.SetLiteral(event, "name",
+            apply(bp, new EditOperation.SetLiteral(event, filterPin,
                     LiteralValue.of(PinTypes.STRING, commandName)));
         }
         apply(bp, new EditOperation.SetLiteral(place, "pos",
@@ -195,6 +202,63 @@ public final class BlueprintGameTests {
 
         cleanup(helper, blueprintId);
         helper.succeed();
+    }
+
+    /**
+     * VERIFY-10.4 automatisé : ouvrir un écran, cliquer un bouton, le graphe pose un
+     * bloc. Le chemin COMPLET — ouverture serveur, table des écrans ouverts, validation
+     * du clic, filtrage par le littéral, exécution — et non une imitation.
+     */
+    @GameTest(maxTicks = 200)
+    public void clickingAButtonRunsTheGraph(GameTestHelper helper) {
+        Identifier blueprintId = id("gui_places_block");
+        BlockPos target = helper.absolutePos(new BlockPos(3, 1, 1));
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        Blueprint bp = blockPlacer(blueprintId,
+                StandardEvents.GUI_ELEMENT_CLICKED.id(), target, "acheter", "element");
+        // Un écran d'un bouton, posé directement dans le modèle (le concepteur est
+        // testé ailleurs ; ici c'est le CHEMIN qui compte).
+        fr.blueprint.core.graph.GraphLoader.addScreen(bp,
+                new fr.blueprint.core.graph.screen.Screen("menu", false, java.util.List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of("acheter",
+                                fr.blueprint.core.graph.screen.ElementKind.BUTTON,
+                                10, 10, 80, 20))));
+        manager.adopt(bp);
+        manager.setEnabled(blueprintId, true);
+
+        var player = helper.makeMockServerPlayerInLevel();
+        helper.assertTrue(
+                fr.blueprint.core.net.ServerBlueprintNet.openScreen(player, blueprintId, "menu"),
+                Component.literal("l'écran « menu » n'a pas pu être ouvert"));
+
+        var open = fr.blueprint.core.net.ServerBlueprintNet.screens().of(player.getUUID());
+        helper.assertTrue(open != null,
+                Component.literal("le serveur n'a pas noté l'écran ouvert"));
+
+        // Un clic sur un bouton qui n'existe pas, et un autre au mauvais numéro
+        // d'instance : ni l'un ni l'autre ne doit rien déclencher.
+        fr.blueprint.core.net.ServerBlueprintNet.receiveClick(player,
+                new fr.blueprint.core.net.BlueprintPayloads.ScreenInteraction(
+                        blueprintId, "menu", "inexistant", open.instance()));
+        fr.blueprint.core.net.ServerBlueprintNet.receiveClick(player,
+                new fr.blueprint.core.net.BlueprintPayloads.ScreenInteraction(
+                        blueprintId, "menu", "acheter", open.instance() + 999));
+        helper.assertTrue(!helper.getLevel().getBlockState(target).is(Blocks.GOLD_BLOCK),
+                Component.literal("un clic invalide a déclenché le graphe"));
+
+        fr.blueprint.core.net.ServerBlueprintNet.receiveClick(player,
+                new fr.blueprint.core.net.BlueprintPayloads.ScreenInteraction(
+                        blueprintId, "menu", "acheter", open.instance()));
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(helper.getLevel().getBlockState(target).is(Blocks.GOLD_BLOCK),
+                    Component.literal("bloc attendu en " + target + ", trouvé "
+                            + helper.getLevel().getBlockState(target)));
+            cleanup(helper, blueprintId);
+        });
     }
 
     /**

@@ -92,6 +92,11 @@ public final class NodeCategories {
     /** Scores, objectifs et équipes : la mémoire partagée de Minecraft. */
     public static final NodeCategory SCOREBOARD = new NodeCategory("scoreboard");
 
+    /** Écrans de blueprint : ouvrir, fermer, modifier ce qui est affiché (épic 10). */
+    public static final NodeCategory GUI = new NodeCategory("gui");
+    /** Modifier ce qu'un écran DÉJÀ OUVERT affiche : texte, texture, visibilité, barre. */
+    public static final NodeCategory GUI_UPDATE = new NodeCategory("gui/update");
+
     /** Tick, commande, signal : ce qui ne vient ni d'un joueur ni du monde. */
     public static final NodeCategory EVENT_SERVER = new NodeCategory("event/server");
 

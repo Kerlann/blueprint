@@ -253,12 +253,13 @@ public final class BlueprintPayloads {
      * que le client renverra sur un clic (10.4), et c'est elle que le serveur vérifiera
      * plutôt que de croire ce que le client annonce (FR52).
      */
-    public record ScreenOpen(Identifier blueprint, String screen, byte[] data)
+    public record ScreenOpen(Identifier blueprint, String screen, int instance, byte[] data)
             implements CustomPacketPayload {
         public static final Type<ScreenOpen> TYPE = new Type<>(id("screen_open"));
         public static final StreamCodec<ByteBuf, ScreenOpen> CODEC = StreamCodec.composite(
                 Identifier.STREAM_CODEC, ScreenOpen::blueprint,
                 ByteBufCodecs.stringUtf8(MAX_NAME), ScreenOpen::screen,
+                ByteBufCodecs.VAR_INT, ScreenOpen::instance,
                 ByteBufCodecs.byteArray(fr.blueprint.core.net.ScreenSync.MAX_BYTES),
                 ScreenOpen::data,
                 ScreenOpen::new);
@@ -290,6 +291,78 @@ public final class BlueprintPayloads {
 
     /** Un nom d'écran ou d'élément reste court : le fil n'a pas à porter un roman. */
     public static final int MAX_NAME = 256;
+
+    /**
+     * C2S : « j'ai cliqué cet élément ». Le serveur ne croit <b>rien</b> de ce paquet
+     * (FR52) : il vérifie que cet écran est bien celui qu'il a envoyé à ce joueur, que
+     * l'élément existe, qu'il est visible et activé — et il borne la cadence.
+     *
+     * <p>{@code instance} évite qu'un clic parti juste avant une fermeture ne soit
+     * appliqué à l'écran suivant.
+     */
+    public record ScreenInteraction(Identifier blueprint, String screen, String element,
+                                    int instance) implements CustomPacketPayload {
+        public static final Type<ScreenInteraction> TYPE = new Type<>(id("screen_click"));
+        public static final StreamCodec<ByteBuf, ScreenInteraction> CODEC =
+                StreamCodec.composite(
+                        Identifier.STREAM_CODEC, ScreenInteraction::blueprint,
+                        ByteBufCodecs.stringUtf8(MAX_NAME), ScreenInteraction::screen,
+                        ByteBufCodecs.stringUtf8(MAX_NAME), ScreenInteraction::element,
+                        ByteBufCodecs.VAR_INT, ScreenInteraction::instance,
+                        ScreenInteraction::new);
+
+        @Override
+        public Type<ScreenInteraction> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * S2C : les modifications d'un tick, <b>en une seule trame</b> (AC3b). Un graphe qui
+     * rafraîchit l'or, le niveau et une barre produit un paquet, pas trois.
+     *
+     * <p>{@code instance} est jeté par le client s'il ne correspond pas à l'écran qu'il
+     * affiche : ce qui arrive en retard ne doit pas s'appliquer à autre chose.
+     */
+    public record ScreenUpdates(int instance,
+                                java.util.List<fr.blueprint.core.graph.screen.ScreenUpdate> updates)
+            implements CustomPacketPayload {
+        public static final Type<ScreenUpdates> TYPE = new Type<>(id("screen_updates"));
+
+        /** Une modification sur le fil. L'ordinal voyage, jamais un nom de classe. */
+        public static final StreamCodec<ByteBuf, fr.blueprint.core.graph.screen.ScreenUpdate>
+                UPDATE_CODEC = StreamCodec.composite(
+                ByteBufCodecs.stringUtf8(MAX_NAME),
+                fr.blueprint.core.graph.screen.ScreenUpdate::element,
+                ByteBufCodecs.idMapper(
+                        i -> fr.blueprint.core.graph.screen.ScreenUpdate.Kind.values()[i],
+                        fr.blueprint.core.graph.screen.ScreenUpdate.Kind::ordinal),
+                fr.blueprint.core.graph.screen.ScreenUpdate::kind,
+                ByteBufCodecs.stringUtf8(MAX_TEXT),
+                fr.blueprint.core.graph.screen.ScreenUpdate::text,
+                ByteBufCodecs.BOOL, fr.blueprint.core.graph.screen.ScreenUpdate::flag,
+                ByteBufCodecs.DOUBLE, fr.blueprint.core.graph.screen.ScreenUpdate::number,
+                fr.blueprint.core.graph.screen.ScreenUpdate::new);
+
+        public static final StreamCodec<ByteBuf, ScreenUpdates> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, ScreenUpdates::instance,
+                UPDATE_CODEC.apply(ByteBufCodecs.list(MAX_UPDATES)), ScreenUpdates::updates,
+                ScreenUpdates::new);
+
+        @Override
+        public Type<ScreenUpdates> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * Plafond de modifications par trame. Un écran plafonne à 128 éléments et cinq
+     * natures : au-delà, ce n'est plus un rafraîchissement, c'est une inondation.
+     */
+    public static final int MAX_UPDATES = 256;
+
+    /** Un libellé d'élément peut être une phrase, pas une page. */
+    public static final int MAX_TEXT = 1_024;
 
     /** S2C : un fragment du flux de descripteurs compressé. */
     public record DescriptorChunk(int index, int total, byte[] data)

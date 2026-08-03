@@ -35,7 +35,9 @@ class EventCoverageTest {
             "core/src/main/java/fr/blueprint/core/BlueprintMod.java",
             "core/src/main/java/fr/blueprint/core/event/BlueprintEventBridge.java",
             "core/src/main/java/fr/blueprint/core/nodes/StandardNodes.java",
-            "core/src/main/java/fr/blueprint/core/command/BlueprintCommand.java");
+            "core/src/main/java/fr/blueprint/core/command/BlueprintCommand.java",
+            // Les écrans (épic 10) : ouverture, fermeture et clics partent d'ici.
+            "core/src/main/java/fr/blueprint/core/net/ServerBlueprintNet.java");
 
     private static Path repoRoot() {
         Path path = Path.of("").toAbsolutePath();

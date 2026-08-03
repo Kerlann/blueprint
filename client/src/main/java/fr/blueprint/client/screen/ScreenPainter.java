@@ -36,6 +36,15 @@ public final class ScreenPainter {
             return false;
         }
 
+        /**
+         * Le remplissage d'une barre, de 0 à 1. C'est une valeur d'EXÉCUTION — propre à
+         * un joueur et à une ouverture — et non une propriété du blueprint : la mettre
+         * dans le modèle la ferait voyager dans la sauvegarde et l'export texte.
+         */
+        default double progress(String element) {
+            return 0;
+        }
+
         /** Un élément masqué par le graphe (10.4) ne se dessine pas… sauf en conception. */
         default boolean forceVisible(String element) {
             return false;
@@ -133,7 +142,8 @@ public final class ScreenPainter {
                 fillBox(g, left, top, right, bottom, background, style, scale);
                 // Le remplissage vient du graphe (10.4) ; sans lui, la barre se montre
                 // vide plutôt qu'à moitié pleine — un aperçu ne doit pas inventer.
-                int filled = left + (int) Math.round((right - left) * progressOf());
+                int filled = left + (int) Math.round(
+                        (right - left) * visuals.progress(element.name()));
                 if (filled > left) {
                     g.fill(left, top, filled, bottom, style.textColor());
                 }
@@ -144,14 +154,6 @@ public final class ScreenPainter {
         if (!element.text().isEmpty()) {
             paintText(g, font, element, left, top, right, bottom, scale);
         }
-    }
-
-    /**
-     * Le remplissage d'une barre. Zéro tant que le graphe ne l'a pas écrit (10.4) :
-     * cette story ne fait que dessiner.
-     */
-    private static double progressOf() {
-        return 0;
     }
 
     /**

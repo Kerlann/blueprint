@@ -4,6 +4,7 @@ import fr.blueprint.core.graph.screen.Screen;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * L'écran d'un blueprint, ouvert en jeu (story 10.3).
@@ -21,16 +22,29 @@ import net.minecraft.resources.Identifier;
 public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
 
     private final Identifier blueprint;
-    private final Screen model;
+    private final int instance;
     private final TextureCache textures = new TextureCache();
     private final Runnable onClosed;
+    private final java.util.function.Consumer<String> onClick;
 
-    public BlueprintScreen(Identifier blueprint, Screen model, Runnable onClosed) {
+    /**
+     * Le modèle courant. <b>Non final</b> : les modificateurs du graphe (10.4) le
+     * remplacent par une version modifiée. Un écran immuable qu'on reconstruit à chaque
+     * mise à jour, plutôt qu'un état mutable à côté — ainsi le rendu, le hit-test et le
+     * serveur parlent tous du même objet.
+     */
+    private Screen model;
+    private @Nullable String pressed;
+
+    public BlueprintScreen(Identifier blueprint, Screen model, int instance,
+                           Runnable onClosed, java.util.function.Consumer<String> onClick) {
         // Le titre du lecteur d'écran : sans lui, l'accessibilité annonce « écran ».
         super(Component.translatable("blueprint.screen.title", model.name()));
         this.blueprint = blueprint;
         this.model = model;
+        this.instance = instance;
         this.onClosed = onClosed;
+        this.onClick = onClick;
     }
 
     public Identifier blueprintId() {
@@ -41,14 +55,119 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         return model;
     }
 
-    /** Ce que le peintre a besoin de savoir ; les états de survol arrivent en 10.4. */
-    protected ScreenPainter.Visuals visuals() {
+    public int instance() {
+        return instance;
+    }
+
+    /**
+     * Applique les modifications reçues du serveur.
+     *
+     * <p>Celles qui portent un autre numéro d'instance sont <b>jetées</b> : entre
+     * l'envoi et l'arrivée, le joueur a pu refermer l'écran et en rouvrir un autre, et
+     * la mise à jour s'appliquerait alors au mauvais bouton, sans la moindre erreur.
+     */
+    public void apply(int fromInstance,
+                      java.util.List<fr.blueprint.core.graph.screen.ScreenUpdate> updates) {
+        if (fromInstance != instance) {
+            return;
+        }
+        for (var update : updates) {
+            var element = model.element(update.element());
+            if (element == null) {
+                continue; // l'écran a changé sous nos pieds : on ignore, on ne lève pas
+            }
+            model = model.replacing(update.element(), switch (update.kind()) {
+                case TEXT -> element.withText(update.screenText());
+                case TEXTURE -> element.withTexture(update.textureId());
+                case VISIBLE -> element.withVisible(update.flag());
+                case ENABLED -> element.withEnabled(update.flag());
+                case PROGRESS -> element;   // la valeur vit à part : voir progress()
+            });
+            if (update.kind() == fr.blueprint.core.graph.screen.ScreenUpdate.Kind.PROGRESS) {
+                progress.put(update.element(), update.number());
+            }
+        }
+    }
+
+    /**
+     * Le remplissage des barres, par élément. Hors du modèle à dessein : c'est une
+     * valeur d'exécution, propre à ce joueur et à cette ouverture, pas une propriété du
+     * blueprint. La mettre dans {@code ScreenElement} la ferait voyager dans la
+     * sauvegarde et l'export texte, où elle n'a rien à faire.
+     */
+    private final java.util.Map<String, Double> progress = new java.util.HashMap<>();
+
+    /** Ce que le peintre a besoin de savoir : textures absentes, survol, pression. */
+    protected ScreenPainter.Visuals visuals(int mouseX, int mouseY) {
+        String hovered = elementAt(mouseX, mouseY);
         return new ScreenPainter.Visuals() {
             @Override
             public boolean textureMissing(Identifier texture) {
                 return textures.missing(texture);
             }
+
+            @Override
+            public boolean hovered(String element) {
+                return element.equals(hovered);
+            }
+
+            @Override
+            public boolean pressed(String element) {
+                return element.equals(pressed);
+            }
+
+            @Override
+            public double progress(String element) {
+                return progress.getOrDefault(element, 0.0);
+            }
         };
+    }
+
+    /**
+     * L'élément cliquable sous le point, ou {@code null}. Parcourt à l'envers de
+     * l'ordre de dessin : c'est celui du dessus qui reçoit le clic, comme partout.
+     */
+    private @Nullable String elementAt(double mouseX, double mouseY) {
+        var elements = java.util.List.copyOf(model.elements().values());
+        for (int i = elements.size() - 1; i >= 0; i--) {
+            var element = elements.get(i);
+            if (!element.kind().interactive() || !element.enabled()
+                    || !ScreenPainter.visible(model, element, ScreenPainter.Visuals.NONE)) {
+                continue;
+            }
+            if (fr.blueprint.core.graph.screen.ScreenLayout
+                    .resolve(model, element, width, height).contains(mouseX, mouseY)) {
+                return element.name();
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event,
+                                boolean doubled) {
+        String element = elementAt(event.x(), event.y());
+        if (element == null) {
+            return super.mouseClicked(event, doubled);
+        }
+        pressed = element;
+        return true;
+    }
+
+    /**
+     * Le clic part au <b>relâchement</b>, et seulement si la souris est restée sur le
+     * même élément. C'est ce que fait tout bouton du jeu, et ce qui permet d'annuler un
+     * clic commencé par erreur en glissant à côté avant de lâcher.
+     */
+    @Override
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        String was = pressed;
+        pressed = null;
+        if (was != null && was.equals(elementAt(event.x(), event.y()))) {
+            onClick.accept(was);
+            return true;
+        }
+        return super.mouseReleased(event);
     }
 
     @Override
@@ -56,7 +175,8 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         // width/height sont déjà en unités d'interface : c'est la place réelle, et
         // c'est contre elle que se résolvent les pourcentages et les ancres.
-        ScreenPainter.paint(graphics, font, model, 0, 0, 1, width, height, visuals());
+        ScreenPainter.paint(graphics, font, model, 0, 0, 1, width, height,
+                visuals(mouseX, mouseY));
     }
 
     /**

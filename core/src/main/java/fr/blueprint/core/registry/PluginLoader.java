@@ -93,6 +93,7 @@ public final class PluginLoader {
             nodes.currentProvider("blueprint");
             events.currentProvider("blueprint");
             fr.blueprint.core.nodes.StandardNodes.register(nodes);
+            fr.blueprint.core.nodes.GuiNodes.register(nodes);
             fr.blueprint.core.event.StandardEvents.register(events);
         }
 
