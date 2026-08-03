@@ -17,7 +17,7 @@ class SelectionModelTest {
 
     @Test
     void clicSimpleSelectionneSeul() {
-        SelectionModel sel = new SelectionModel();
+        SelectionModel<UUID> sel = new SelectionModel<>();
         sel.click(a, false);
         sel.click(b, false);
         assertFalse(sel.isSelected(a));
@@ -27,7 +27,7 @@ class SelectionModelTest {
 
     @Test
     void shiftClicBascule() {
-        SelectionModel sel = new SelectionModel();
+        SelectionModel<UUID> sel = new SelectionModel<>();
         sel.click(a, false);
         sel.click(b, true);
         assertTrue(sel.isSelected(a));
@@ -40,7 +40,7 @@ class SelectionModelTest {
     @Test
     void clicSurUnNoeudDejaSelectionnePreserveLeGroupe() {
         // Sans ça, impossible de glisser une multi-sélection.
-        SelectionModel sel = new SelectionModel();
+        SelectionModel<UUID> sel = new SelectionModel<>();
         sel.selectAll(List.of(a, b, c), false);
         sel.click(b, false);
         assertEquals(3, sel.size());
@@ -48,7 +48,7 @@ class SelectionModelTest {
 
     @Test
     void clicDansLeVide() {
-        SelectionModel sel = new SelectionModel();
+        SelectionModel<UUID> sel = new SelectionModel<>();
         sel.selectAll(List.of(a, b), false);
         sel.click(null, true);
         assertEquals(2, sel.size());
@@ -58,7 +58,7 @@ class SelectionModelTest {
 
     @Test
     void rectangleRemplaceOuAjoute() {
-        SelectionModel sel = new SelectionModel();
+        SelectionModel<UUID> sel = new SelectionModel<>();
         sel.selectAll(List.of(a), false);
         sel.selectAll(List.of(b, c), true);
         assertEquals(3, sel.size());

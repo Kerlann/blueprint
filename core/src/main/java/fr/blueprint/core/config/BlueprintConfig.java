@@ -35,7 +35,9 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
 
     /** Bornes structurelles d'un graphe (validateur, opérations d'édition). */
     public fr.blueprint.core.graph.GraphLimits graphLimits() {
-        return new fr.blueprint.core.graph.GraphLimits(Math.max(1, maxNodes));
+        var defaults = fr.blueprint.core.graph.GraphLimits.DEFAULT;
+        return new fr.blueprint.core.graph.GraphLimits(Math.max(1, maxNodes),
+                defaults.maxScreens(), defaults.maxElementsPerScreen());
     }
 
     /** Bornes et quotas du réseau (story 6.4), dérivés de la configuration. */
@@ -46,6 +48,7 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                 Math.max(1, maxNodes),
                 defaults.maxLinks(), defaults.maxVariables(), defaults.maxComments(),
                 defaults.maxTextLength(), defaults.maxGhosts(),
+                defaults.maxScreens(), defaults.maxElementsPerScreen(),
                 Math.max(1, savesPerWindow), Math.max(1, requestsPerWindow),
                 defaults.windowMillis());
     }

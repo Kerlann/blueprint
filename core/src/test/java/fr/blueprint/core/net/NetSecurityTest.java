@@ -263,4 +263,94 @@ class NetSecurityTest {
         limiter.forget(bob);
         assertEquals(0, limiter.tracked(), "un joueur parti ne laisse pas de trace");
     }
+
+    // --------------------------------------------------------- écrans (épic 10)
+
+    private static Blueprint withScreens(fr.blueprint.core.graph.screen.Screen... screens) {
+        Blueprint bp = new Blueprint(ID);
+        for (var screen : screens) {
+            fr.blueprint.core.graph.GraphLoader.addScreen(bp, screen);
+        }
+        return bp;
+    }
+
+    private static fr.blueprint.core.graph.screen.Screen filled(String name, int count) {
+        List<fr.blueprint.core.graph.screen.ScreenElement> elements = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            elements.add(fr.blueprint.core.graph.screen.ScreenElement.of("e" + i,
+                    fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 40, 10));
+        }
+        return new fr.blueprint.core.graph.screen.Screen(name, false, elements);
+    }
+
+    /**
+     * Les écrans voyagent dans l'instantané comme le reste du graphe, et rien ne les
+     * regardait : un client pouvait remplir la sauvegarde du monde sans être arrêté.
+     */
+    @Test
+    void unDelugeDEcransEstRefuse() {
+        var screens = new fr.blueprint.core.graph.screen.Screen[NetLimits.DEFAULT.maxScreens() + 1];
+        for (int i = 0; i < screens.length; i++) {
+            screens[i] = fr.blueprint.core.graph.screen.Screen.empty("ecran" + i);
+        }
+        assertFalse(inspect(withScreens(screens)).accepted());
+    }
+
+    @Test
+    void unEcranSurchargeEstRefuse() {
+        assertTrue(inspect(withScreens(
+                filled("ok", NetLimits.DEFAULT.maxElementsPerScreen()))).accepted());
+        assertFalse(inspect(withScreens(
+                filled("trop", NetLimits.DEFAULT.maxElementsPerScreen() + 1))).accepted());
+    }
+
+    @Test
+    void unNomDElementDemesureEstRefuse() {
+        String huge = "a".repeat(NetLimits.DEFAULT.maxTextLength() + 1);
+        assertFalse(inspect(withScreens(new fr.blueprint.core.graph.screen.Screen(
+                "menu", false, List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of(huge,
+                                fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 40, 10)))))
+                .accepted());
+
+        assertFalse(inspect(withScreens(new fr.blueprint.core.graph.screen.Screen(
+                "menu", false, List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of("a",
+                                        fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 40, 10)
+                                .withText(fr.blueprint.core.graph.screen.ScreenText.literal(huge))))))
+                .accepted(), "et le libellé compte autant que le nom");
+    }
+
+    /**
+     * La MÊME règle que l'éditeur. Un bouton dans un HUD ne se pose pas dans le
+     * concepteur ; il ne doit pas davantage arriver par le réseau, sans quoi la règle
+     * ne protège que les auteurs honnêtes.
+     */
+    @Test
+    void unElementQueLEditeurRefuseNArrivePasParLeReseau() {
+        assertFalse(inspect(withScreens(new fr.blueprint.core.graph.screen.Screen(
+                "barre", true, List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of("piege",
+                                fr.blueprint.core.graph.screen.ElementKind.BUTTON, 0, 0, 40, 10)))))
+                .accepted(), "bouton interactif dans un HUD");
+
+        assertFalse(inspect(withScreens(new fr.blueprint.core.graph.screen.Screen(
+                "menu", false, List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of("orphelin",
+                                        fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 40, 10)
+                                .withParent("inexistant")))))
+                .accepted(), "parent qui n'existe pas");
+    }
+
+    @Test
+    void unEcranNormalPasse() {
+        assertTrue(inspect(withScreens(new fr.blueprint.core.graph.screen.Screen(
+                "menu", false, List.of(
+                        fr.blueprint.core.graph.screen.ScreenElement.of("cadre",
+                                fr.blueprint.core.graph.screen.ElementKind.PANEL, 10, 10, 200, 120),
+                        fr.blueprint.core.graph.screen.ScreenElement.of("ok",
+                                        fr.blueprint.core.graph.screen.ElementKind.BUTTON, 4, 4, 60, 20)
+                                .withParent("cadre")))))
+                .accepted());
+    }
 }

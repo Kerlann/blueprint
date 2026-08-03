@@ -57,7 +57,7 @@ public final class CanvasController {
     private final NodeTypeLookup lookup;
     private final Camera camera;
     private final NodeGeometry geometry = new NodeGeometry();
-    private final SelectionModel selection = new SelectionModel();
+    private final SelectionModel<UUID> selection = new SelectionModel<>();
     private final UndoStack history = new UndoStack();
     /** Offsets « position du nœud − point de saisie », figés à la presse. */
     private final Map<UUID, Vec2d> dragOffsets = new HashMap<>();
@@ -97,7 +97,7 @@ public final class CanvasController {
         return blueprint;
     }
 
-    public SelectionModel selection() {
+    public SelectionModel<UUID> selection() {
         return selection;
     }
 

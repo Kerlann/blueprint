@@ -67,6 +67,11 @@ public final class GraphGuard {
             return text;
         }
 
+        Verdict screens = checkScreens(bp, limits);
+        if (!screens.accepted()) {
+            return screens;
+        }
+
         int ghosts = 0;
         for (Node node : bp.nodes().values()) {
             if (lookup.shape(node.typeId()) == null) {
@@ -125,6 +130,49 @@ public final class GraphGuard {
                 Object value = ((fr.blueprint.api.pin.LiteralValue) literal.getValue()).value();
                 if (value instanceof String s && s.length() > max) {
                     return Verdict.no("littéral texte au-delà de " + max + " caractères");
+                }
+            }
+        }
+        return Verdict.OK;
+    }
+
+    /**
+     * Les écrans reçus (épic 10). Ils voyagent dans l'instantané comme le reste du
+     * graphe, et rien ne les regardait : un client pouvait envoyer dix mille écrans,
+     * des noms d'un mégaoctet, ou un bouton dans un HUD que l'éditeur refuse de poser.
+     *
+     * <p>Les plafonds d'abord — c'est ce qui protège la sauvegarde du monde — puis la
+     * <b>même</b> règle de placement que l'éditeur ({@code ScreenRules}), pour la même
+     * raison que les liens plus haut : ce qu'un auteur ne peut pas construire, un
+     * client ne doit pas pouvoir l'envoyer.
+     */
+    private static Verdict checkScreens(Blueprint bp, NetLimits limits) {
+        if (bp.screens().size() > limits.maxScreens()) {
+            return Verdict.no(bp.screens().size() + " écrans (max "
+                    + limits.maxScreens() + ")");
+        }
+        int max = limits.maxTextLength();
+        var screenLimits = new fr.blueprint.core.graph.GraphLimits(
+                limits.maxNodes(), limits.maxScreens(), limits.maxElementsPerScreen());
+        for (var screen : bp.screens().values()) {
+            if (screen.name().length() > max) {
+                return Verdict.no("nom d'écran au-delà de " + max + " caractères");
+            }
+            if (screen.size() > limits.maxElementsPerScreen()) {
+                return Verdict.no("écran « " + screen.name() + " » : " + screen.size()
+                        + " éléments (max " + limits.maxElementsPerScreen() + ")");
+            }
+            for (var element : screen.elements().values()) {
+                if (element.name().length() > max
+                        || (element.parent() != null && element.parent().length() > max)
+                        || element.text().value().length() > max) {
+                    return Verdict.no("texte d'élément au-delà de " + max + " caractères");
+                }
+                var refusal = fr.blueprint.core.graph.ScreenRules.checkPlacement(
+                        screen.name(), screen, element, screenLimits);
+                if (refusal != null) {
+                    return Verdict.no("élément refusé (" + refusal.code().name() + ") : "
+                            + screen.name() + "/" + element.name());
                 }
             }
         }

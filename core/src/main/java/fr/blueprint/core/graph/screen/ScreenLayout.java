@@ -66,6 +66,55 @@ public final class ScreenLayout {
         return rect;
     }
 
+    /** Le rectangle du parent de {@code element}, ou la fenêtre s'il est à la racine. */
+    public static Rect parentRect(Screen screen, ScreenElement element,
+                                  double viewportWidth, double viewportHeight) {
+        ScreenElement parent = element.parent() == null ? null : screen.element(element.parent());
+        return parent == null
+                ? new Rect(0, 0, viewportWidth, viewportHeight)
+                : resolve(screen, parent, viewportWidth, viewportHeight);
+    }
+
+    /**
+     * L'<b>inverse</b> de {@link #within} : l'élément à écrire pour qu'il occupe
+     * {@code target} dans ce parent. C'est ce que produit un glisser ou une poignée de
+     * redimensionnement — la souris donne un rectangle, le modèle veut un décalage
+     * depuis l'ancre.
+     *
+     * <p>Le couple aller/retour vit ici, dans le même fichier : séparés, l'un des deux
+     * finirait par oublier l'ancre, et l'élément sauterait au relâchement de la souris.
+     */
+    public static ScreenElement placedIn(Rect parent, ScreenElement element, Rect target) {
+        Extent width = fit(element.width(), target.width(), parent.width());
+        Extent height = fit(element.height(), target.height(), parent.height());
+        // Largeur EFFECTIVE après bornes : c'est elle qui décale le rectangle, pas
+        // celle qu'on visait. Utiliser la cible ferait dériver un élément borné à
+        // chaque glisser.
+        double effectiveW = width.resolve(parent.width());
+        double effectiveH = height.resolve(parent.height());
+        double x = target.x() - parent.x() - parent.width() * element.anchor().fractionX()
+                + effectiveW * element.anchor().fractionX();
+        double y = target.y() - parent.y() - parent.height() * element.anchor().fractionY()
+                + effectiveH * element.anchor().fractionY();
+        return element.movedTo(x, y).resized(width, height);
+    }
+
+    /**
+     * Une longueur qui vaut {@code resolved} en gardant la <b>nature</b> de
+     * {@code template}. Une taille exprimée en pourcentage le reste : la convertir en
+     * unités fixes au premier redimensionnement détruirait sans le dire l'adaptation
+     * que l'auteur avait choisie, et son menu cesserait de suivre la fenêtre.
+     */
+    public static Extent fit(Extent template, double resolved, double parentSize) {
+        if (!template.relative()) {
+            return Extent.of(resolved);
+        }
+        if (parentSize <= 0) {
+            return template;
+        }
+        return Extent.percent(resolved / parentSize, template.min(), template.max());
+    }
+
     /** Le rectangle de {@code element} dans celui de son parent. */
     public static Rect within(Rect parent, ScreenElement element) {
         double width = element.width().resolve(parent.width());
