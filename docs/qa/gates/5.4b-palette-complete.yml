@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.4b"
+story_title: "Palette complète — favoris, récents, catégories, Espace"
+gate: "PASS"
+status_reason: "Navigation testée pure (ordre favoris>récents>catégories, pliage), préférences persistées atomiquement (corrompu = vide sans crash), TapTracker résout proprement le conflit Espace-pan/palette. La review a bouché un trou du tap (PAL-003)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T04:02:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "PAL-003"
+    severity: medium
+    finding: "RÉSOLU EN REVIEW — taper Espace PENDANT un glisser en cours (déplacement, câblage, rectangle) ouvrait la palette au milieu du geste : deux modes d'entrée simultanés"
+    suggested_action: "Corrigé : le tap n'ouvre que si gesture == NONE et pas de pan en cours"
+  - id: "PAL-004"
+    severity: low
+    finding: "Une entrée présente en favoris ET dans sa catégorie partage l'indice de sélection (indexOf sur la première occurrence) : le surlignage clavier peut apparaître sur la copie favoris"
+    suggested_action: "Cosmétique ; indexer par ligne si un retour utilisateur s'en plaint"
+  - id: "PAL-005"
+    severity: low
+    finding: "prefs.save() à chaque étoile/insertion = IO synchrone sur le thread de rendu (fichier minuscule)"
+    suggested_action: "Différer en tâche si le profileur (9.x) le pointe"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 1, low: 2 }
+  recommendations:
+    must_fix: []

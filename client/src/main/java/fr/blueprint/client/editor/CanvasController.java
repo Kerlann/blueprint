@@ -710,6 +710,14 @@ public final class CanvasController {
             for (String name : List.copyOf(blueprint.variables().keySet())) {
                 applyTracked(new EditOperation.RemoveVariable(name));
             }
+            // Les commentaires suivent le même sort que le graphe (QA 5.11) : les
+            // anciens partent, ceux du script arrivent.
+            for (fr.blueprint.core.graph.CommentBox comment : List.copyOf(blueprint.comments())) {
+                applyTracked(new EditOperation.RemoveComment(comment.uuid()));
+            }
+            for (fr.blueprint.core.graph.CommentBox comment : fragment.comments()) {
+                applyTracked(new EditOperation.AddComment(comment));
+            }
             for (fr.blueprint.core.graph.Variable variable : fragment.variables().values()) {
                 applyTracked(new EditOperation.AddVariable(variable));
             }

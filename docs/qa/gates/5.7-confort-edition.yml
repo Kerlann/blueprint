@@ -1,0 +1,26 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "5.7"
+story_title: "Confort d'édition — commentaires, alignement, minimap, thème"
+gate: "PASS"
+status_reason: "Commentaires avec entraînement du contenu testé, alignement/distribution pur, AutoLayout core déterministe (réutilisable par l'import sans @pos), minimap à projection prouvée aller-retour, thème à surcharge partielle + base contraste (NFR11)."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T04:02:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "CONF-001"
+    severity: low
+    finding: "Thème dans config/blueprint/theme.json rechargé à l'ouverture de l'éditeur — pas de listener assets/ ni de rechargement à chaud F3+T"
+    suggested_action: "Déviation consignée dès la story ; listener de ressources avec l'épic 9"
+  - id: "CONF-002"
+    severity: low
+    finding: "Le menu d'alignement fin (gauche/droite/haut/bas au choix) n'existe pas — Q couvre l'axe dominant seulement"
+    suggested_action: "Consigné ; menu contextuel général à l'épic 9 si demandé"
+  - id: "CONF-003"
+    severity: low
+    finding: "AutoLayout place les chaînes exec parallèles dans les mêmes colonnes sans minimiser les croisements de liens"
+    suggested_action: "Suffisant pour l'import sans positions ; heuristique de croisements si les graphes réels le réclament"
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 3 }
+  recommendations:
+    must_fix: []

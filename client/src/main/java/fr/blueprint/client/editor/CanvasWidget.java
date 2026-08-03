@@ -1115,8 +1115,10 @@ public final class CanvasWidget {
         }
         if (e.key() == GLFW.GLFW_KEY_SPACE) {
             // Tap propre (pas servi au pan) → la palette s'ouvre au curseur (UX §6).
+            // Jamais pendant un geste en cours (glisser, câblage…) — QA 5.4b.
             if (spaceTap.release() && !palette.isOpen() && !literalEdit.isOpen()
-                    && !varPanel.isRenaming() && !details.isEditingMeta()) {
+                    && !varPanel.isRenaming() && !details.isEditingMeta() && !panning
+                    && controller.gesture() == CanvasController.Gesture.NONE) {
                 palette.open(lastMouseX, lastMouseY,
                         camera.toWorldX(lastMouseX), camera.toWorldY(lastMouseY), null);
             }

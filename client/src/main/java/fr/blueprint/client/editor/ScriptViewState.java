@@ -86,6 +86,10 @@ public final class ScriptViewState {
         }
         dirtySince = -1;
         scroll = Math.clamp(scroll, 0, Math.max(0, lines.size() - 1));
+        // Les indices de lignes viennent de changer : forcer la resynchronisation du
+        // surlignage au prochain rendu (QA 5.11 — surlignage périmé sinon).
+        lastSynced = null;
+        highlighted = -1;
     }
 
     public List<String> lines() {
