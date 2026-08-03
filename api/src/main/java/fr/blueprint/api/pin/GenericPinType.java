@@ -55,7 +55,9 @@ final class GenericPinType implements PinType {
 
     @Override
     public PinShape shape() {
-        return PinShape.CIRCLE;
+        // Anneau : le joker doit rester distinguable des types concrets même en
+        // deutéranopie, où son gris se rapproche du vert et du violet (NFR11, 9.4).
+        return PinShape.RING;
     }
 
     @Override

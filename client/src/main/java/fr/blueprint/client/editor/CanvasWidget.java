@@ -542,6 +542,47 @@ public final class CanvasWidget {
     }
 
     /** Clic sur une zone littérale : bascule le bool, ouvre le champ ou l'énum. */
+    /**
+     * Flèches : sélectionne le nœud suivant dans cette direction et le recentre — le
+     * recentrage compte autant que la sélection, un nœud choisi hors écran ne servirait
+     * à rien (U5, story 9.4).
+     */
+    private boolean navigate(int dx, int dy) {
+        java.util.UUID from = controller.selection().ids().size() == 1
+                ? controller.selection().ids().iterator().next() : null;
+        java.util.UUID target = KeyboardNav.next(controller.blueprint(), from, dx, dy);
+        if (target == null) {
+            return false;
+        }
+        controller.selection().click(target, false);
+        controller.focusNode(target, canvasWidth(), height);
+        return true;
+    }
+
+    /** Entrée : éditer le premier littéral du nœud sélectionné, sans souris (U5). */
+    private boolean editFirstLiteralOfSelection() {
+        if (controller.selection().ids().size() != 1) {
+            return false;
+        }
+        java.util.UUID nodeId = controller.selection().ids().iterator().next();
+        Node node = controller.blueprint().node(nodeId);
+        NodeDescriptor desc = node == null ? null : descriptors.descriptor(node.typeId());
+        if (desc == null) {
+            return false;
+        }
+        for (int i = 0; i < desc.inputs().size(); i++) {
+            NodeDescriptor.PinDescriptor pin = desc.inputs().get(i);
+            if (pin.kind() != fr.blueprint.api.pin.PinKind.DATA
+                    || !controller.blueprint().linksInto(nodeId, pin.name()).isEmpty()) {
+                continue;   // un pin câblé n'a pas de littéral à éditer
+            }
+            if (beginLiteralEdit(nodeId, pin.name(), pin.type(), i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean openLiteralEdit(double wx, double wy) {
         CanvasController.LiteralRef ref = controller.literalAt(wx, wy);
         return ref != null && beginLiteralEdit(ref.node(), ref.pin(), ref.type(), ref.row());
@@ -1038,6 +1079,22 @@ public final class CanvasWidget {
             case GLFW.GLFW_KEY_DELETE -> {
                 controller.deleteSelection();
                 return true;
+            }
+            // Flèches : navigation de nœud en nœud, sans souris (U5, story 9.4).
+            case GLFW.GLFW_KEY_LEFT -> {
+                return navigate(-1, 0);
+            }
+            case GLFW.GLFW_KEY_RIGHT -> {
+                return navigate(1, 0);
+            }
+            case GLFW.GLFW_KEY_UP -> {
+                return navigate(0, -1);
+            }
+            case GLFW.GLFW_KEY_DOWN -> {
+                return navigate(0, 1);
+            }
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+                return editFirstLiteralOfSelection();
             }
             case GLFW.GLFW_KEY_Z -> {
                 if (e.hasControlDown()) {

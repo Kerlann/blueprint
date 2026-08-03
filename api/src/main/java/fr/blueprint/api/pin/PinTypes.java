@@ -54,7 +54,7 @@ public final class PinTypes {
             .build();
 
     public static final PinType BOOL = PinType.builder(id("bool"))
-            .javaType(Boolean.class).color(0xFFE06C75)
+            .javaType(Boolean.class).color(0xFFE06C75).shape(PinShape.TRIANGLE)
             .codec(Codec.BOOL).streamCodec(ByteBufCodecs.BOOL)
             .defaultValue(() -> Boolean.FALSE)
             .build();
@@ -66,14 +66,14 @@ public final class PinTypes {
             .build();
 
     public static final PinType LONG = PinType.builder(id("long"))
-            .javaType(Long.class).color(0xFF4FA3AE)
+            .javaType(Long.class).color(0xFF4FA3AE).shape(PinShape.DIAMOND)
             .codec(Codec.LONG).streamCodec(ByteBufCodecs.VAR_LONG)
             .defaultValue(() -> 0L)
             .coerceFrom(INT, v -> ((Number) v).longValue())
             .build();
 
     public static final PinType DOUBLE = PinType.builder(id("double"))
-            .javaType(Double.class).color(0xFF98C379)
+            .javaType(Double.class).color(0xFF98C379).shape(PinShape.DIAMOND)
             .codec(Codec.DOUBLE).streamCodec(ByteBufCodecs.DOUBLE)
             .defaultValue(() -> 0.0)
             .coerceFrom(LONG, v -> ((Number) v).doubleValue())
@@ -86,13 +86,13 @@ public final class PinTypes {
             .build();
 
     public static final PinType VEC3 = PinType.builder(id("vec3"))
-            .javaType(Vec3.class).color(0xFFC678DD).shape(PinShape.DIAMOND)
+            .javaType(Vec3.class).color(0xFFC678DD).shape(PinShape.TRIANGLE)
             .codec(Vec3.CODEC).streamCodec(VEC3_STREAM)
             .defaultValue(() -> Vec3.ZERO)
             .build();
 
     public static final PinType BLOCKPOS = PinType.builder(id("blockpos"))
-            .javaType(BlockPos.class).color(0xFF61AFEF).shape(PinShape.DIAMOND)
+            .javaType(BlockPos.class).color(0xFF61AFEF).shape(PinShape.CROSS)
             .codec(BlockPos.CODEC).streamCodec(BlockPos.STREAM_CODEC)
             .defaultValue(() -> BlockPos.ZERO)
             .build();
@@ -104,7 +104,7 @@ public final class PinTypes {
             .build();
 
     public static final PinType ITEMSTACK = PinType.builder(id("itemstack"))
-            .javaType(ItemStack.class).color(0xFFD19A66).shape(PinShape.DIAMOND)
+            .javaType(ItemStack.class).color(0xFFD19A66).shape(PinShape.RING)
             .lazyCodec(() -> ItemStack.OPTIONAL_CODEC)
             .lazyStreamCodec(() -> ItemStack.OPTIONAL_STREAM_CODEC)
             .defaultValue(() -> ItemStack.EMPTY)
@@ -113,27 +113,27 @@ public final class PinTypes {
     /** Référence vivante : pas de littéral (une entité ne se sérialise pas dans un graphe). */
     public static final PinType PLAYER = PinType.builder(id("player"))
             .javaType(net.minecraft.server.level.ServerPlayer.class)
-            .color(0xFFBB9AF7).shape(PinShape.DIAMOND).noLiteral()
+            .color(0xFFBB9AF7).shape(PinShape.CIRCLE).noLiteral()
             .build();
 
     public static final PinType ENTITY = PinType.builder(id("entity"))
-            .javaType(Entity.class).color(0xFFE0AF68).shape(PinShape.DIAMOND).noLiteral()
+            .javaType(Entity.class).color(0xFFE0AF68).shape(PinShape.CROSS).noLiteral()
             .coerceFrom(PLAYER, v -> v)
             .build();
 
     public static final PinType BLOCKSTATE = PinType.builder(id("blockstate"))
-            .javaType(BlockState.class).color(0xFF9ECE6A).shape(PinShape.DIAMOND)
+            .javaType(BlockState.class).color(0xFF6B9E3F).shape(PinShape.CIRCLE)
             .lazyCodec(() -> BlockState.CODEC)
             .lazyStreamCodec(() -> ByteBufCodecs.fromCodec(BlockState.CODEC))
             .build();
 
     public static final PinType RESOURCE_LOCATION = PinType.builder(id("resourcelocation"))
-            .javaType(Identifier.class).color(0xFF8A8F98).shape(PinShape.DIAMOND)
+            .javaType(Identifier.class).color(0xFF5C6370).shape(PinShape.TRIANGLE)
             .codec(Identifier.CODEC).streamCodec(Identifier.STREAM_CODEC)
             .build();
 
     public static final PinType TEXT = PinType.builder(id("text"))
-            .javaType(Component.class).color(0xFFF7CE68).shape(PinShape.DIAMOND)
+            .javaType(Component.class).color(0xFFF7CE68).shape(PinShape.TRIANGLE)
             .lazyCodec(() -> net.minecraft.network.chat.ComponentSerialization.CODEC)
             .lazyStreamCodec(() -> net.minecraft.network.chat.ComponentSerialization.STREAM_CODEC)
             .defaultValue(Component::empty)

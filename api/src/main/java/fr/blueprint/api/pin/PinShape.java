@@ -8,6 +8,12 @@ public enum PinShape {
     EXEC,
     CIRCLE,
     DIAMOND,
+    /** Triangle plein — ajouté en 9.4 : deux formes ne suffisaient pas à séparer 16 types. */
+    TRIANGLE,
+    /** Anneau (cercle évidé), même raison. */
+    RING,
+    /** Croix — la cinquième forme, imposée par le graphe de confusion (9.4). */
+    CROSS,
     ARRAY,
     MAP
 }

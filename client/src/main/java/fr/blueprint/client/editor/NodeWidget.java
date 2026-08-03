@@ -240,6 +240,24 @@ public final class NodeWidget {
                     g.fill(cx - h, cy + dy, cx + h + 1, cy + dy + 1, color);
                 }
             }
+            case TRIANGLE -> {
+                for (int dy = -3; dy <= 3; dy++) {
+                    int h = (dy + 3) / 2;
+                    g.fill(cx - h, cy + dy, cx + h + 1, cy + dy + 1, color);
+                }
+            }
+            case RING -> {
+                int[] hw = {1, 2, 3, 3, 3, 2, 1};
+                for (int dy = -3; dy <= 3; dy++) {
+                    int h = hw[dy + 3];
+                    g.fill(cx - h, cy + dy, cx + h + 1, cy + dy + 1, color);
+                }
+                g.fill(cx - 1, cy - 1, cx + 2, cy + 2, nodeBackground());
+            }
+            case CROSS -> {
+                g.fill(cx - 3, cy - 1, cx + 4, cy + 2, color);
+                g.fill(cx - 1, cy - 3, cx + 2, cy + 4, color);
+            }
             case ARRAY -> g.fill(cx - 3, cy - 3, cx + 4, cy + 4, color);
             case MAP -> {
                 g.fill(cx - 3, cy - 3, cx + 4, cy + 4, color);
