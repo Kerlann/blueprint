@@ -121,7 +121,84 @@ La vue **Script** (bouton de la barre d'outils) montre le texte du graphe en dir
 
 ---
 
-## 8. Donner un menu avec ses images
+## 8. Faire un menu
+
+Un blueprint peut ouvrir un **écran** chez un joueur : une boutique, un distributeur, un
+tableau de scores. En dix minutes, de zéro à un guichet qui compte des jetons.
+
+### Dessiner l'écran
+
+Onglet **Écrans** dans la barre du haut. À gauche, la liste des écrans de ce blueprint et
+`+ nouvel écran`.
+
+1. Créez un écran, nommez-le `guichet`.
+2. Posez un **panneau** depuis la palette : c'est le cadre du menu.
+3. Dans le panneau de droite, passez sa **disposition** en `colonne`, écart `4`,
+   en travers `étiré`.
+4. Déposez dedans une **étiquette** et deux **boutons**. Ils se rangent tout seuls —
+   vous n'écrirez aucune coordonnée.
+5. Donnez à chacun une taille `remplir` en largeur.
+
+Nommez les boutons `prendre` et `fermer` : **c'est par ce nom que le graphe les
+désignera**, jamais par leur position.
+
+> La barre du bas simule la fenêtre du joueur. Basculez entre 320×180 et 960×540 : un
+> menu qui tient dans les deux tiendra chez tout le monde.
+
+### Un style pour les deux boutons
+
+Peignez un bouton comme il vous plaît, puis **Styles → depuis la sélection**. Appliquez
+le style à l'autre bouton. Désormais, en changer un les change tous les deux — c'est ce
+qui évite de retaper neuf couleurs par élément.
+
+### Afficher une variable
+
+Créez une variable `jetons` (entier, portée **joueur**). Sélectionnez l'étiquette, et
+dans **Montre**, choisissez `jetons` — la variable se choisit dans la liste, elle ne se
+tape pas. Format : `Jetons : %s`.
+
+L'étiquette **déclare** ce qu'elle affiche. Un seul nœud la mettra à jour, au lieu d'un
+`gui/set_text` à chaque endroit du graphe où la valeur bouge.
+
+### Câbler
+
+Retour à l'onglet **Graphe**. Trois morceaux :
+
+| Ce qu'on veut | Les nœuds |
+|---|---|
+| Ouvrir le menu | `event/command` → `gui/open(screen: "guichet")` → `gui/refresh` |
+| Le bouton compte | `event/gui_clicked(element: "prendre")` → `var/set` → `gui/refresh` |
+| Le bouton ferme | `event/gui_clicked(element: "fermer")` → `gui/close` |
+
+Le littéral `element` sur l'événement de clic est **ce qui filtre** : sans lui, les deux
+boutons réveilleraient les deux branches.
+
+**`gui/refresh` n'est pas optionnel.** Rien ne part tant que le graphe ne le demande pas
+— c'est ce qui fait qu'un écran ouvert et immobile ne coûte rien, ni au serveur ni au
+réseau. En contrepartie, un écran qui ne se met pas à jour est presque toujours un
+`gui/refresh` oublié après le `var/set`.
+
+### Essayer
+
+`Ctrl+S`, puis en jeu la commande que vous avez câblée. `Échap` ferme. `Tab` parcourt les
+boutons et `Entrée` active : un joueur qui ne vise pas bien à la souris doit pouvoir s'en
+servir.
+
+L'exemple complet est livré : [`examples/guichet.bp`](examples/guichet.bp), ou
+`/blueprint examples` pour le créer directement en jeu.
+
+### Un HUD plutôt qu'un menu
+
+Un écran marqué **HUD** s'affiche par-dessus le jeu sans rien capter : on continue de
+marcher et de frapper. Pas d'`Échap` — **F7** les masque tous, et c'est la seule sortie de
+secours si un graphe en affiche un opaque.
+
+Un HUD n'accepte pas de bouton, et l'éditeur le refuse : il ne capte pas la souris, un
+bouton y serait un leurre.
+
+---
+
+## 9. Donner un menu avec ses images
 
 Un menu se dessine **chez le joueur**. Le serveur envoie la description de l'écran — les
 positions, les couleurs, les textes — mais il ne peut pas pousser de fichiers sur la
@@ -171,7 +248,7 @@ n'empêche jamais les autres de fonctionner, ni le jeu de démarrer.
 
 ---
 
-## 9. Pour aller plus loin
+## 10. Pour aller plus loin
 
 - [`node-reference.md`](node-reference.md) — tous les nœuds livrés, leurs pins et leur coût.
 - [`bscript-spec.md`](bscript-spec.md) — la grammaire du texte généré.

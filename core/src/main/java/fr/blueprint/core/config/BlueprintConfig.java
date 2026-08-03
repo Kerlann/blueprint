@@ -19,7 +19,9 @@ import java.nio.file.Path;
  */
 public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int maxOverBudgetTicks,
                               int maxNodes, int maxGraphKilobytes, int savesPerWindow,
-                              int requestsPerWindow, boolean auditAdminNodes) {
+                              int requestsPerWindow, boolean auditAdminNodes,
+                              int maxScreens, int maxElementsPerScreen,
+                              int clicksPerWindow, int opensPerWindow) {
 
     public static final BlueprintConfig DEFAULT = new BlueprintConfig(2);
 
@@ -33,11 +35,26 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
         this(commandPermissionLevel, fuelPerTick, maxOverBudgetTicks, 1_000, 256, 10, 60, true);
     }
 
+    /**
+     * Compatibilité : la configuration d'avant les écrans (story 10.6). Un fichier
+     * enregistré par une version antérieure n'a aucun de ces quatre champs — il reprend
+     * donc les défauts du modèle, exactement comme avant qu'ils ne soient réglables.
+     */
+    public BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int maxOverBudgetTicks,
+                           int maxNodes, int maxGraphKilobytes, int savesPerWindow,
+                           int requestsPerWindow, boolean auditAdminNodes) {
+        this(commandPermissionLevel, fuelPerTick, maxOverBudgetTicks, maxNodes,
+                maxGraphKilobytes, savesPerWindow, requestsPerWindow, auditAdminNodes,
+                fr.blueprint.core.graph.GraphLimits.DEFAULT.maxScreens(),
+                fr.blueprint.core.graph.GraphLimits.DEFAULT.maxElementsPerScreen(),
+                fr.blueprint.core.net.NetLimits.DEFAULT.clicksPerWindow(),
+                fr.blueprint.core.net.NetLimits.DEFAULT.opensPerWindow());
+    }
+
     /** Bornes structurelles d'un graphe (validateur, opérations d'édition). */
     public fr.blueprint.core.graph.GraphLimits graphLimits() {
-        var defaults = fr.blueprint.core.graph.GraphLimits.DEFAULT;
         return new fr.blueprint.core.graph.GraphLimits(Math.max(1, maxNodes),
-                defaults.maxScreens(), defaults.maxElementsPerScreen());
+                Math.max(1, maxScreens), Math.max(1, maxElementsPerScreen));
     }
 
     /** Bornes et quotas du réseau (story 6.4), dérivés de la configuration. */
@@ -48,9 +65,13 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                 Math.max(1, maxNodes),
                 defaults.maxLinks(), defaults.maxVariables(), defaults.maxComments(),
                 defaults.maxTextLength(), defaults.maxGhosts(),
-                defaults.maxScreens(), defaults.maxElementsPerScreen(),
+                // Les MÊMES plafonds que le modèle : ce qu'un auteur ne peut pas
+                // construire localement, un client ne doit pas pouvoir l'envoyer. Les
+                // laisser diverger rendrait le garde réseau plus permissif que
+                // l'éditeur, ce qui est exactement le sens à ne pas prendre.
+                Math.max(1, maxScreens), Math.max(1, maxElementsPerScreen),
                 Math.max(1, savesPerWindow), Math.max(1, requestsPerWindow),
-                defaults.clicksPerWindow(), defaults.opensPerWindow(),
+                Math.max(1, clicksPerWindow), Math.max(1, opensPerWindow),
                 defaults.windowMillis());
     }
 
@@ -87,6 +108,14 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                 defaults.addProperty("savesPerWindow", DEFAULT.savesPerWindow());
                 defaults.addProperty("requestsPerWindow", DEFAULT.requestsPerWindow());
                 defaults.addProperty("auditAdminNodes", DEFAULT.auditAdminNodes());
+                // Les quotas d'écrans (10.6). Ils bornent trois surfaces neuves : de la
+                // mémoire par joueur CONNECTÉ, des paquets à chaque clic, et un rendu
+                // dans la boucle d'affichage du client. C'est le premier état du produit
+                // qui grandit avec le nombre de joueurs plutôt qu'avec celui des graphes.
+                defaults.addProperty("maxScreens", DEFAULT.maxScreens());
+                defaults.addProperty("maxElementsPerScreen", DEFAULT.maxElementsPerScreen());
+                defaults.addProperty("clicksPerWindow", DEFAULT.clicksPerWindow());
+                defaults.addProperty("opensPerWindow", DEFAULT.opensPerWindow());
                 Files.writeString(file, GSON.toJson(defaults));
                 return DEFAULT;
             }
@@ -102,7 +131,11 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                     intOr(json, "maxGraphKilobytes", DEFAULT.maxGraphKilobytes()),
                     intOr(json, "savesPerWindow", DEFAULT.savesPerWindow()),
                     intOr(json, "requestsPerWindow", DEFAULT.requestsPerWindow()),
-                    boolOr(json, "auditAdminNodes", DEFAULT.auditAdminNodes()));
+                    boolOr(json, "auditAdminNodes", DEFAULT.auditAdminNodes()),
+                    intOr(json, "maxScreens", DEFAULT.maxScreens()),
+                    intOr(json, "maxElementsPerScreen", DEFAULT.maxElementsPerScreen()),
+                    intOr(json, "clicksPerWindow", DEFAULT.clicksPerWindow()),
+                    intOr(json, "opensPerWindow", DEFAULT.opensPerWindow()));
         } catch (IOException | RuntimeException e) {
             BlueprintMod.LOGGER.warn("Config illisible ({}), valeurs par défaut appliquées", file, e);
             return DEFAULT;

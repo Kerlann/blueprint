@@ -1,0 +1,57 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.6"
+story_title: "Quotas, accessibilité et documentation"
+gate: "PASS"
+status_reason: "Les quotas d'écrans se règlent et atteignent réellement les deux endroits qui décident. Un écran ouvert se parcourt au clavier, avec les trois cas limites que seul un test attrape. Le contraste est désormais mesuré — et il a trouvé une bordure par défaut invisible que personne n'avait vue. Un exemple d'écran complet rejoint les six autres, généré et validé comme eux."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-03T23:32:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "QUOTA-001"
+    severity: high
+    finding: "La bordure par défaut des éléments contrastait à 1,74:1 avec son propre fond — sous le seuil de 3:1, c'est-à-dire invisible. Or c'est elle qui dit où finit un élément quand le fond est translucide : un menu dont on ne voit pas les bords est un menu dont on ne sait pas où cliquer. Personne ne l'avait remarqué parce que rien ne le mesurait ; c'est le genre de défaut qu'une relecture ne trouve pas, chacun regardant une capture et la trouvant « correcte »"
+    suggested_action: "Corrigé — 0xFF3A3D42 → 0xFF6B7280, qui donne 3,9:1. ElementStyleContrastTest le mesure maintenant sur les quatre états, et vérifie sa propre formule sur deux cas connus pour ne pas tout valider en silence"
+  - id: "QUOTA-002"
+    severity: medium
+    finding: "Les quotas d'écrans existaient dans GraphLimits et NetLimits mais étaient pris aux DÉFAUTS en dur par BlueprintConfig : les modifier dans le fichier n'avait aucun effet. Un réglage décoratif que rien ne dénonce, puisque le défaut fonctionne"
+    suggested_action: "Corrigé — quatre champs configurables, et ScreenQuotasTest vérifie qu'ils ARRIVENT au validateur ET au garde réseau, pas seulement qu'ils se lisent"
+  - id: "QUOTA-003"
+    severity: medium
+    finding: "Le validateur client ne connaît pas la configuration du serveur : les quotas ne sont pas synchronisés au join, contrairement au registre de nœuds. Un auteur travaillant sur un serveur aux quotas resserrés voit son écran refusé à l'ENREGISTREMENT plutôt que signalé pendant qu'il le dessine"
+    suggested_action: "Assumé et documenté. Ce n'est pas la coupure à l'exécution que l'AC2 interdit — le refus arrive avant qu'un joueur ne voie quoi que ce soit, et il nomme la borne. Synchroniser NetLimits au join serait la solution complète : un paquet et un champ de synchro de plus, pour un cas qui ne se produit que sur un serveur ayant modifié ses quotas"
+  - id: "QUOTA-004"
+    severity: low
+    finding: "Un fichier de configuration écrit par une version antérieure n'a aucun des quatre champs neufs"
+    suggested_action: "Couvert — un constructeur de compatibilité leur donne les défauts du modèle, et un test l'exige. Sans lui, une mise à jour du mod aurait ramené les quotas à zéro sur les serveurs existants"
+  - id: "QUOTA-005"
+    severity: low
+    finding: "La navigation clavier vit dans ScreenFocus, hors de la classe d'écran de Minecraft"
+    suggested_action: "Volontaire : le parcours est exactement ce qui casse en silence, et c'est la seule façon de le vérifier sans client. Neuf tests, dont les trois cas limites qu'un essai à la main manque — bouton dans un onglet masqué, bouton désactivé entre la tabulation et la validation, et Maj+Tab en premier geste"
+  - id: "QUOTA-006"
+    severity: low
+    finding: "Le rendu du focus réutilise l'état de survol plutôt qu'un état visuel dédié"
+    suggested_action: "Choix explicite : inventer un second état pour dire la même chose — « c'est ici que ça va se passer » — aurait obligé chaque auteur à le styler séparément, et un style oublié aurait rendu la navigation clavier invisible"
+  - id: "QUOTA-007"
+    severity: low
+    finding: "L'exemple guichet.bp utilise event/command et non event/signal pour ouvrir l'écran"
+    suggested_action: "Nécessaire, et instructif : un signal peut venir de n'importe où — d'un autre blueprint, d'un bloc — et ne porte donc pas de joueur. Un écran s'ouvre CHEZ quelqu'un. Le validateur l'a refusé au premier essai, ce qui est le comportement attendu"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 2, low: 4 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le contraste ne se protège que par la mesure. Toute retouche de couleur par défaut « pour faire plus joli » doit repasser ElementStyleContrastTest — c'est le geste exact qui casse la lisibilité sans que personne ne s'en aperçoive avant qu'un joueur ne le signale."
+      - "Les écrans sont le premier état du produit qui grandit avec le nombre de joueurs CONNECTÉS plutôt qu'avec celui des blueprints. Les quotas sont la seule barrière."
+evidence:
+  tests_reviewed: 978
+  gametests: 13
+  new_tests:
+    - "ScreenQuotasTest (6) — la configuration arrive au validateur ET au garde ; compatibilité ascendante ; valeurs absurdes bornées"
+    - "ScreenFocusTest (9) — parcours, bouclage, éléments masqués ou désactivés, désactivation entre-temps"
+    - "ElementStyleContrastTest (4) — quatre états, bordure, distinction sans la couleur, et la formule elle-même"
+    - "ExampleBlueprintsTest — guichet.bp passe les neuf tests des six autres exemples"
+  risks_without_gate:
+    - "Un menu qu'on ne peut pas parcourir au clavier exclut des joueurs d'une fonctionnalité de JEU, pas d'un outil d'auteur. L'épic 9 avait pu remettre le clavier à plus tard ; ici l'excuse ne tenait pas."
+quality_score: 92
+expires: "2026-08-17T00:00:00Z"

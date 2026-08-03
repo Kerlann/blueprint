@@ -79,10 +79,126 @@ public final class ExampleBlueprints {
                         ExampleBlueprints::deathAnnouncer),
                 new Example(id("jour_et_nuit"),
                         "lecture du monde, comparaison, titre et sous-titre",
-                        ExampleBlueprints::dayAndNight));
+                        ExampleBlueprints::dayAndNight),
+                new Example(id("guichet"),
+                        "un écran complet : disposition en colonne, style nommé, "
+                                + "étiquette liée à une variable, boutons câblés",
+                        ExampleBlueprints::counter));
     }
 
     // ------------------------------------------------------------------ exemples
+
+    /**
+     * Un <b>écran</b> complet, de bout en bout (story 10.6, AC5) : un signal l'ouvre, une
+     * colonne range ses éléments, un style nommé habille les deux boutons, une étiquette
+     * montre une variable, et cliquer la change puis rafraîchit.
+     *
+     * <p>C'est le seul exemple qui montre l'épic 10 en entier. Les six autres enseignent
+     * le graphe ; celui-ci enseigne ce qu'on met devant le joueur.
+     *
+     * <p>Aucune coordonnée n'est écrite sur les enfants du cadre — c'est précisément ce
+     * qu'il doit enseigner : la colonne les range elle-même.
+     */
+    private static Blueprint counter(NodeTypeLookup lookup, Identifier blueprintId) {
+        Blueprint bp = start(blueprintId, "Un guichet : un écran, un compteur, deux boutons",
+                Permission.GAMEPLAY);
+
+        fr.blueprint.core.graph.GraphLoader.addVariable(bp,
+                new fr.blueprint.core.graph.Variable("jetons", PinTypes.INT,
+                        fr.blueprint.api.pin.LiteralValue.of(PinTypes.INT, 0),
+                        fr.blueprint.core.graph.VarScope.PLAYER, false));
+
+        var bouton = new fr.blueprint.core.graph.screen.ElementStyle(
+                0xC01F2735, 0xFF6B7280, 1, 0xFFE6E6E6,
+                0xC02F3A55, 0xC0141519, 0x60141519, 3,
+                fr.blueprint.core.graph.screen.ElementStyle.TextAlign.CENTER);
+
+        var elements = java.util.List.of(
+                fr.blueprint.core.graph.screen.ScreenElement.of("cadre",
+                                fr.blueprint.core.graph.screen.ElementKind.PANEL, 0, 0, 160, 90)
+                        .withAnchor(fr.blueprint.core.graph.screen.Anchor.CENTER)
+                        .withLayout(fr.blueprint.core.graph.screen.LayoutSpec.column(4)
+                                .withCross(fr.blueprint.core.graph.screen.LayoutSpec
+                                        .Cross.STRETCH)),
+                fr.blueprint.core.graph.screen.ScreenElement.of("titre",
+                                fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 160, 12)
+                        .withParent("cadre")
+                        .resized(fr.blueprint.core.graph.screen.Extent.fill(),
+                                fr.blueprint.core.graph.screen.Extent.of(12))
+                        .withText(fr.blueprint.core.graph.screen.ScreenText.literal("Guichet")),
+                // L'étiquette DÉCLARE ce qu'elle montre : un seul gui/refresh la met à
+                // jour, au lieu d'un gui/set_text à chaque endroit où la valeur bouge.
+                fr.blueprint.core.graph.screen.ScreenElement.of("solde",
+                                fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 160, 12)
+                        .withParent("cadre")
+                        .resized(fr.blueprint.core.graph.screen.Extent.fill(),
+                                fr.blueprint.core.graph.screen.Extent.of(12))
+                        .withBinding(fr.blueprint.core.graph.screen.ElementBinding
+                                .text("jetons", "Jetons : %s")),
+                fr.blueprint.core.graph.screen.ScreenElement.of("prendre",
+                                fr.blueprint.core.graph.screen.ElementKind.BUTTON, 0, 0, 160, 20)
+                        .withParent("cadre")
+                        .resized(fr.blueprint.core.graph.screen.Extent.fill(),
+                                fr.blueprint.core.graph.screen.Extent.of(20))
+                        .withText(fr.blueprint.core.graph.screen.ScreenText
+                                .literal("Prendre un jeton"))
+                        .withStyleName("bouton").styled(bouton),
+                fr.blueprint.core.graph.screen.ScreenElement.of("fermer",
+                                fr.blueprint.core.graph.screen.ElementKind.BUTTON, 0, 0, 160, 20)
+                        .withParent("cadre")
+                        .resized(fr.blueprint.core.graph.screen.Extent.fill(),
+                                fr.blueprint.core.graph.screen.Extent.of(20))
+                        .withText(fr.blueprint.core.graph.screen.ScreenText.literal("Fermer"))
+                        .withStyleName("bouton").styled(bouton));
+
+        fr.blueprint.core.graph.GraphLoader.addScreen(bp,
+                new fr.blueprint.core.graph.screen.Screen("guichet", false, elements,
+                        java.util.Map.of("bouton", bouton)));
+
+        // /blueprint run guichet : l'écran s'ouvre, puis on le remplit une fois.
+        //
+        // La COMMANDE et non le signal : un signal peut venir de n'importe où — d'un
+        // autre blueprint, d'un bloc — et ne porte donc pas de joueur. Un écran, si :
+        // il s'ouvre CHEZ quelqu'un.
+        UUID signal = add(bp, lookup, "signal", StandardEvents.COMMAND.id(), -640, 0);
+        literal(bp, lookup, signal, "name", PinTypes.STRING, "guichet");
+        UUID open = add(bp, lookup, "open", node("gui/open"), -400, 0);
+        literal(bp, lookup, open, "screen", PinTypes.STRING, "guichet");
+        UUID firstRefresh = add(bp, lookup, "first", node("gui/refresh"), -160, 0);
+        literal(bp, lookup, firstRefresh, "screen", PinTypes.STRING, "guichet");
+        link(bp, lookup, signal, "exec_out", open, "exec_in");
+        link(bp, lookup, signal, "player", open, "player");
+        link(bp, lookup, open, "exec_out", firstRefresh, "exec_in");
+        link(bp, lookup, signal, "player", firstRefresh, "player");
+
+        // Clic sur « prendre » : +1 jeton, puis on redemande le rafraîchissement. Sans
+        // ce dernier, l'écran garderait l'ancienne valeur — la liaison ne devine pas.
+        UUID clicked = add(bp, lookup, "clicked",
+                StandardEvents.GUI_ELEMENT_CLICKED.id(), -640, 260);
+        literal(bp, lookup, clicked, "element", PinTypes.STRING, "prendre");
+        UUID read = add(bp, lookup, "read", node("var/get"), -400, 460);
+        literal(bp, lookup, read, "var", PinTypes.STRING, "jetons");
+        UUID plus = add(bp, lookup, "plus", node("math/add"), -160, 460);
+        literal(bp, lookup, plus, "b", PinTypes.DOUBLE, 1.0);
+        UUID write = add(bp, lookup, "write", node("var/set"), -400, 260);
+        literal(bp, lookup, write, "var", PinTypes.STRING, "jetons");
+        UUID refresh = add(bp, lookup, "refresh", node("gui/refresh"), -160, 260);
+        literal(bp, lookup, refresh, "screen", PinTypes.STRING, "guichet");
+        link(bp, lookup, clicked, "exec_out", write, "exec_in");
+        link(bp, lookup, read, "value", plus, "a");
+        link(bp, lookup, plus, "result", write, "value");
+        link(bp, lookup, write, "exec_out", refresh, "exec_in");
+        link(bp, lookup, clicked, "player", refresh, "player");
+
+        // Clic sur « fermer » : l'écran se referme.
+        UUID closeClick = add(bp, lookup, "close_click",
+                StandardEvents.GUI_ELEMENT_CLICKED.id(), -640, 560);
+        literal(bp, lookup, closeClick, "element", PinTypes.STRING, "fermer");
+        UUID close = add(bp, lookup, "close", node("gui/close"), -400, 560);
+        link(bp, lookup, closeClick, "exec_out", close, "exec_in");
+        link(bp, lookup, closeClick, "player", close, "player");
+        return bp;
+    }
 
     /**
      * Clic droit sur un bloc d'or → la face cliquée devient de la pierre.

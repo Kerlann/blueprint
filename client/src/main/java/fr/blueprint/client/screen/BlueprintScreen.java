@@ -35,6 +35,8 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      */
     private Screen model;
     private @Nullable String pressed;
+    /** La navigation au clavier (10.6, AC3) : Tab parcourt, Entrée active. */
+    private final ScreenFocus focus = new ScreenFocus();
 
     public BlueprintScreen(Identifier blueprint, Screen model, int instance,
                            Runnable onClosed, java.util.function.Consumer<String> onClick) {
@@ -119,7 +121,10 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
 
             @Override
             public boolean hovered(String element) {
-                return element.equals(hovered);
+                // Le focus clavier se montre COMME un survol : le joueur qui tabule doit
+                // voir où il est, et inventer un second état visuel pour dire la même
+                // chose aurait demandé à l'auteur de le styler séparément.
+                return element.equals(hovered) || element.equals(focus.focused());
             }
 
             @Override
@@ -158,10 +163,38 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         return null;
     }
 
+    /**
+     * {@code Tab} parcourt les éléments cliquables, {@code Entrée} et {@code Espace}
+     * activent (10.6, AC3). {@code Échap} ferme, comme tout écran du jeu.
+     *
+     * <p>Rien n'est consommé quand l'écran n'a aucun élément atteignable : le joueur
+     * s'attend alors à ce que la touche fasse ce qu'elle fait partout ailleurs.
+     */
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int key = event.key();
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) {
+            return focus.move(model, event.hasShiftDown() ? -1 : 1) != null;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE) {
+            String element = focus.activate(model);
+            if (element != null) {
+                onClick.accept(element);
+                return true;
+            }
+        }
+        return super.keyPressed(event);
+    }
+
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event,
                                 boolean doubled) {
         String element = elementAt(event.x(), event.y());
+        // Cliquer déplace le focus : passer de la souris au clavier ne doit pas
+        // renvoyer au premier bouton du menu.
+        focus.focus(model, element);
         if (element == null) {
             return super.mouseClicked(event, doubled);
         }
