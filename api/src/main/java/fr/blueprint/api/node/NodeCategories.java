@@ -131,6 +131,17 @@ public final class NodeCategories {
     /** Tick, commande, signal : ce qui ne vient ni d'un joueur ni du monde. */
     public static final NodeCategory EVENT_SERVER = new NodeCategory("event/server");
 
+    /**
+     * Ce que le joueur <b>presse</b> : les touches de Blueprint (11.4).
+     *
+     * <p>Distincte d'{@link #EVENT_PLAYER}, qui rassemble ce qu'un joueur fait <i>dans le
+     * monde</i> — arriver, frapper, dormir. Une touche ne vient pas du monde : elle vient
+     * du clavier, et le monde n'en sait rien. La distinction n'est pas cosmétique, elle
+     * était devenue nécessaire — « événements du joueur » atteignait la douzaine, borne à
+     * partir de laquelle un repli de palette cesse de se lire d'un coup d'œil.
+     */
+    public static final NodeCategory EVENT_INPUT = new NodeCategory("event/input");
+
     private NodeCategories() {
     }
 }

@@ -253,6 +253,12 @@ public final class ServerBlueprintNet {
         ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenValue.TYPE,
                 (payload, context) -> receiveValue(context.player(), payload));
 
+        // Les touches (11.4). Même quota que les clics : une pression est bon marché,
+        // mille non, et un client modifié peut en envoyer autant qu'il veut.
+        c2s.register(BlueprintPayloads.KeyPress.TYPE, BlueprintPayloads.KeyPress.CODEC);
+        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.KeyPress.TYPE,
+                (payload, context) -> receiveKey(context.server(), context.player(), payload));
+
         // Un joueur parti ne garde ni quota ni écran fantôme (10.3, AC5).
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
@@ -274,6 +280,36 @@ public final class ServerBlueprintNet {
     private static RateLimiter CLICKS = new RateLimiter(
             NetLimits.DEFAULT.clicksPerWindow(), NetLimits.DEFAULT.windowMillis(),
             System::currentTimeMillis);
+
+    /**
+     * Nombre d'emplacements de touches offerts par Blueprint (story 11.4).
+     *
+     * <p>Huit, et bornés côté serveur : un client modifié annonçant l'emplacement 9 000
+     * ne doit pas faire parcourir tous les graphes du serveur pour rien, ni servir à
+     * mesurer combien de temps ce parcours prend.
+     */
+    public static final int KEY_SLOTS = 8;
+
+    /**
+     * Une touche pressée — même chemin que le récepteur, exposé pour les tests.
+     *
+     * <p>Rien de ce paquet n'est cru : la cadence d'abord, l'emplacement ensuite. Il n'y
+     * a rien d'autre à vérifier, et c'est délibéré — une touche n'appartient à aucun
+     * écran, n'ouvre rien et ne s'adresse à personne en particulier. Toute la sécurité
+     * tient donc dans ce que le graphe fera, où les permissions habituelles s'appliquent.
+     */
+    public static int receiveKey(net.minecraft.server.MinecraftServer server,
+                                 ServerPlayer player, BlueprintPayloads.KeyPress press) {
+        if (!CLICKS.allow(player.getUUID())) {
+            BlueprintMod.LOGGER.warn("Touches de {} au-delà du quota — ignorées",
+                    player.getGameProfile().name());
+            return 0;
+        }
+        if (press.slot() < 1 || press.slot() > KEY_SLOTS) {
+            return 0;
+        }
+        return BlueprintMod.emitKeyPress(server, player, press.slot());
+    }
 
     /**
      * Un clic reçu — le MÊME chemin que celui du récepteur de paquets, exposé pour que

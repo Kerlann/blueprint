@@ -262,6 +262,70 @@ public final class BlueprintEventBridge {
         return launched;
     }
 
+    // ------------------------------------------------------- touches (11.4)
+
+    /**
+     * Lance les blueprints actifs dont un nœud {@code event/key_pressed} écoute CET
+     * emplacement. Cinquième cas de la règle du littéral filtrant, et le premier où il
+     * est un entier plutôt qu'un nom.
+     *
+     * <p>Non ciblé sur un blueprint, contrairement aux clics d'écran : une touche
+     * n'appartient à personne. Deux blueprints peuvent légitimement écouter le même
+     * emplacement — un HUD et un menu, par exemple — et interdire cela ferait de l'ordre
+     * d'installation des blueprints une donnée de conception.
+     */
+    public int launchKeyPress(int slot, TriggerContext trigger) {
+        int launched = 0;
+        for (Blueprint bp : manager.all()) {
+            if (!bp.enabled()) {
+                continue;
+            }
+            for (Node node : bp.nodes().values()) {
+                Integer listened = keyOf(node);
+                if (listened != null && listened == slot) {
+                    Ir ir = compiled(bp, node.uuid());
+                    if (ir != null) {
+                        scheduler.launch(bp.id(), ir, envFactory.create(bp, trigger));
+                        launched++;
+                    }
+                }
+            }
+        }
+        return launched;
+    }
+
+    /**
+     * L'emplacement écouté par ce nœud, ou {@code null} si ce n'en est pas un.
+     *
+     * <p><b>Le défaut du type compte.</b> Un nœud posé et jamais édité ne porte aucun
+     * littéral : sans ce repli, il n'écouterait rien du tout. L'auteur le poserait, le
+     * câblerait, presserait sa touche — et rien ne se produirait, sans erreur, sans
+     * diagnostic, sans rien à corriger de visible. C'est exactement la forme du point
+     * d'entrée mort que ce projet a déjà payée avec {@code signal}.
+     *
+     * <p>Le cas ne se pose pas pour {@code command} et {@code signal}, dont le défaut est
+     * la chaîne vide : une commande sans nom n'a effectivement rien à écouter, et
+     * l'auteur DOIT en taper un. Un emplacement, lui, a un défaut qui veut dire quelque
+     * chose — le premier.
+     *
+     * <p>{@code Number} et non {@code Integer} : le silence est la pire panne possible
+     * ici, et accepter n'importe quel nombre ne coûte rien.
+     */
+    private @org.jetbrains.annotations.Nullable Integer keyOf(Node node) {
+        if (!StandardEvents.KEY_PRESSED.id().equals(node.typeId())) {
+            return null;
+        }
+        var literal = node.literal("key");
+        if (literal == null) {
+            literal = nodes.get(node.typeId())
+                    .flatMap(type -> type.inputs().stream()
+                            .filter(pin -> pin.name().equals("key")).findFirst()
+                            .map(fr.blueprint.api.node.NodeType.PinSpec::defaultValue))
+                    .orElse(null);
+        }
+        return literal != null && literal.value() instanceof Number n ? n.intValue() : null;
+    }
+
     /** Le littéral « name » d'un nœud d'événement de ce type, s'il est renseigné. */
     private static @org.jetbrains.annotations.Nullable String literalName(
             Node node, Identifier eventId) {

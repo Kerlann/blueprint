@@ -1,0 +1,56 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.4"
+story_title: "Les touches"
+gate: "PASS"
+status_reason: "Huit emplacements de touches, assignables par le joueur, qui réveillent un graphe côté serveur. La décision qui porte toute la story est de ne JAMAIS montrer la touche physique au graphe : il voit un emplacement, le joueur choisit la touche, et le conflit avec un autre mod se règle là où le jeu règle déjà tous les conflits de touches. Un défaut trouvé en relecture — le point d'entrée mort, celui que ce projet a déjà payé avec signal."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "TOUCHE-001"
+    severity: high
+    finding: "Un nœud event/key_pressed posé et jamais édité ne porte aucun littéral : le filtre ne trouvait rien et le nœud n'écoutait AUCUN emplacement. L'auteur l'aurait posé, câblé, aurait pressé sa touche — rien ne se serait produit, sans erreur, sans diagnostic, sans rien de visible à corriger"
+    suggested_action: "Trouvé en relecture adverse, par un test écrit pour cela et qui a échoué avant d'être corrigé. Le filtre se replie sur la valeur par défaut du type — l'emplacement 1. C'est exactement la forme du point d'entrée mort que ce projet a déjà payée avec signal et que EventCoverageTest existe pour empêcher ; il ne l'aurait pas vue ici, puisque l'événement A une source"
+  - id: "TOUCHE-002"
+    severity: high
+    finding: "Montrer au graphe le code de la touche physique aurait paru plus expressif. Trois conséquences : le joueur n'aurait plus le choix de sa touche, ni recours en cas de conflit avec un autre mod ; un script écrit en AZERTY cesserait de fonctionner en QWERTY ; et le serveur apprendrait ce que le joueur tape, ce qu'aucun graphe n'a de raison de savoir"
+    suggested_action: "Emplacements numérotés, jamais codes de touche. L'auteur déclare « emplacement 3 », le joueur décide que ce sera K, et le conflit se règle dans le menu des commandes du jeu. Le numéro est en outre le seul des deux qui ne puisse pas servir à deviner une frappe"
+  - id: "TOUCHE-003"
+    severity: medium
+    finding: "Une touche maintenue enverrait un paquet par tick, soit soixante actions par seconde pour un geste que le joueur croit unique — et le quota de cadence deviendrait une limite qu'on atteint sans le vouloir"
+    suggested_action: "consumeClick ne rend vrai qu'une fois par pression, et la boucle n'envoie qu'un paquet par tick même si plusieurs clics s'y accumulent. Hors serveur Blueprint, les pressions sont consommées et JETÉES : les garder en attente ferait partir une rafale au moment de la connexion, pour des touches pressées bien avant"
+  - id: "TOUCHE-004"
+    severity: medium
+    finding: "Assigner huit touches par défaut prendrait huit touches à quelqu'un qui n'a peut-être aucun blueprint — et le ferait en silence, à l'installation"
+    suggested_action: "Toutes non assignées. Le jeu affiche les commandes non assignées : elles y attendent, visibles, sans rien coûter"
+  - id: "TOUCHE-005"
+    severity: medium
+    finding: "Un client modifié peut envoyer n'importe quel numéro, aussi vite qu'il veut. Un emplacement hors bornes ferait parcourir tous les graphes du serveur pour rien, et servirait à mesurer combien de temps ce parcours prend"
+    suggested_action: "Cadence d'abord — le même quota que les clics d'écran, car le refus doit coûter moins que l'attaque — puis bornes [1, 8]. Il n'y a rien d'autre à vérifier, et c'est délibéré : une touche n'appartient à aucun écran, n'ouvre rien, ne s'adresse à personne. Toute la sécurité tient dans ce que le graphe fera, où les permissions habituelles s'appliquent"
+  - id: "TOUCHE-006"
+    severity: low
+    finding: "« Événements du joueur » atteignait douze nœuds, la borne de NodeCategoryTest. La story la franchissait, et la prochaine story à événement l'aurait franchie de toute façon"
+    suggested_action: "Nouvelle catégorie event/input — « Commandes du joueur » — qui n'est pas une échappatoire mais la bonne distinction : event/player rassemble ce qu'un joueur fait DANS LE MONDE ; une touche vient du clavier, et le monde n'en sait rien. La surface d'API publique change, donc la mineure de BlueprintApi passe à 1.2.0, comme son contrat l'exige"
+  - id: "TOUCHE-007"
+    severity: low
+    finding: "Le filtre lit un littéral entier — premier cas du genre, après quatre filtres par chaîne"
+    suggested_action: "Number et non Integer : le silence est la pire panne possible ici (voir TOUCHE-001), et accepter n'importe quel nombre ne coûte rien"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 3, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Pression seulement : ni relâchement, ni maintien, ni combinaison. Un graphe qui voudrait un mode « tant que la touche est tenue » n'a pas ce qu'il faut — ce serait un second paquet et un état par joueur."
+      - "La touche part toujours au serveur. Un raccourci purement client — ouvrir un écran sans aller-retour — reste à faire, et c'est ce qui rendrait le geste instantané sur une connexion lente."
+      - "Huit emplacements, chiffre arbitraire et volontairement bas : chacun occupe une ligne dans le menu des commandes du joueur, qu'il serve ou non."
+evidence:
+  tests_reviewed: 1149
+  gametests: 17
+  new_tests:
+    - "KeyPressEventTest (7) — la pression qui atteint son écouteur avec son numéro, deux blueprints sur la même touche, le blueprint désactivé, l'entrée de filtre, la catégorie ; et les deux qui comptent : le filtrage par numéro, et le nœud posé sans rien toucher qui écoute l'emplacement 1"
+  risks_without_gate:
+    - "Sans TOUCHE-001, la fonctionnalité aurait été livrée muette pour le cas le plus courant — poser le nœud et presser la touche — et l'auteur n'aurait eu aucun moyen de comprendre pourquoi."
+    - "Sans TOUCHE-002, chaque blueprint aurait imposé ses touches, sans recours pour le joueur ni pour les autres mods."
+quality_score: 91
+expires: "2026-08-18T00:00:00Z"

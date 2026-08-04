@@ -106,6 +106,7 @@ class fr.blueprint.api.node.NodeCategories
   field public static final fr.blueprint.api.node.NodeCategory ENTITY_QUERY
   field public static final fr.blueprint.api.node.NodeCategory ENTITY_READ
   field public static final fr.blueprint.api.node.NodeCategory EVENT
+  field public static final fr.blueprint.api.node.NodeCategory EVENT_INPUT
   field public static final fr.blueprint.api.node.NodeCategory EVENT_PLAYER
   field public static final fr.blueprint.api.node.NodeCategory EVENT_SERVER
   field public static final fr.blueprint.api.node.NodeCategory EVENT_WORLD

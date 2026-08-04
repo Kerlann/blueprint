@@ -45,6 +45,11 @@ public class BlueprintClient implements ClientModInitializer {
         KeyMapping toggleHud = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.blueprint.toggle_hud", GLFW.GLFW_KEY_F7, category));
 
+        // Les huit touches d'action (11.4), toutes NON ASSIGNÉES : en prendre huit à
+        // quelqu'un qui n'a peut-être aucun blueprint serait indéfendable. Le jeu les
+        // montre dans ses commandes, où elles attendent sans rien coûter.
+        fr.blueprint.client.content.BlueprintKeys.register(category);
+
         // F6 ouvre le NAVIGATEUR, pas une démo. Reprendre le dernier blueprint édité
         // paraissait pratique et ne l'était pas : on ne pouvait plus en atteindre un
         // autre sans passer par la commande, l'identifiant complet tapé de mémoire.
@@ -56,6 +61,7 @@ public class BlueprintClient implements ClientModInitializer {
                     openDemoEditor(mc);
                 }
             }
+            fr.blueprint.client.content.BlueprintKeys.tick();
             while (toggleHud.consumeClick()) {
                 var view = fr.blueprint.client.screen.BlueprintHud.view();
                 view.toggleHidden();

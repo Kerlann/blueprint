@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-230 nœuds dans 39 catégories.
+231 nœuds dans 40 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -266,6 +266,23 @@ permission `SAFE` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 | `type` | `blueprint:resourcelocation` | — |
+
+
+## event/input
+
+### `blueprint:event/key_pressed` — A Blueprint key is pressed
+
+permission `SAFE` · fuel 1 · E
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `key` | `blueprint:int` | `1` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `key` | `blueprint:int` | — |
 
 
 ## event/player

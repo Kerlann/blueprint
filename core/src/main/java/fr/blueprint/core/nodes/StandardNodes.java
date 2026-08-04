@@ -408,6 +408,31 @@ public final class StandardNodes {
                 })
                 .build());
 
+        // ------------------------------------------------- touches (story 11.4)
+        // Même forme que command et signal, et pour la même raison — le littéral
+        // filtre. Ici c'est un ENTIER : l'emplacement, de 1 à 8. Le graphe ne voit
+        // jamais la touche physique choisie par le joueur, seulement l'emplacement
+        // qu'elle occupe : un code de touche varie d'un clavier à l'autre, et un
+        // script écrit en AZERTY cesserait de fonctionner en QWERTY.
+        r.register(NodeType.builder(
+                        fr.blueprint.core.event.StandardEvents.KEY_PRESSED.id())
+                .category(NodeCategories.EVENT_INPUT)
+                .entryPoint()
+                .titleKey(fr.blueprint.core.event.StandardEvents.KEY_PRESSED.titleKey())
+                .execOut("exec_out")
+                .in("key", PinTypes.INT, 1)
+                .out("player", PinTypes.PLAYER)
+                .out("key", PinTypes.INT)
+                .action(ctx -> {
+                    for (var out : fr.blueprint.core.event.StandardEvents.KEY_PRESSED.outputs()) {
+                        Object value = ctx.trigger().output(out.name());
+                        if (value != null) {
+                            ctx.out(out.name(), value);
+                        }
+                    }
+                })
+                .build());
+
         // ----------------------------------------- monde, entités, items (7.3-7.5)
         ListNodes.register(r);
         VectorNodes.register(r);

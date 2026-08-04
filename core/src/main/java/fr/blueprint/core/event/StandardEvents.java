@@ -132,6 +132,25 @@ public final class StandardEvents {
             .out("arg", PinTypes.STRING)
             .dispatch(Dispatch.GLOBAL).build();
 
+    /**
+     * Une <b>touche de Blueprint</b> a été pressée (story 11.4).
+     *
+     * <p>Huit emplacements, tous <b>non assignés au départ</b>. Le nœud porte le numéro
+     * en littéral — cinquième cas de la même règle après {@code command}, {@code signal},
+     * {@code gui_clicked} et les événements d'éléments riches : sans ce filtre, chaque
+     * pression réveillerait chaque écouteur de chaque blueprint du serveur, et l'auteur
+     * devrait comparer le numéro à la main dans tous ses graphes.
+     *
+     * <p>Ce sont des <b>emplacements</b> et non des touches : le graphe ne sait pas, et
+     * n'a pas à savoir, quelle touche du clavier le joueur a choisie. Il verrait sinon un
+     * code de touche physique, différent d'un clavier à l'autre, et un script AZERTY
+     * cesserait de marcher en QWERTY.
+     */
+    public static final EventType KEY_PRESSED = EventType.builder(id("key_pressed"))
+            .out("player", PinTypes.PLAYER)
+            .out("key", PinTypes.INT)
+            .dispatch(Dispatch.PER_PLAYER).build();
+
     /** Un écran de blueprint vient de s'ouvrir chez ce joueur (story 10.4). */
     public static final EventType GUI_OPENED = EventType.builder(id("gui_opened"))
             .out("player", PinTypes.PLAYER)
@@ -227,5 +246,6 @@ public final class StandardEvents {
         registry.register(GUI_VALUE_CHANGED);
         registry.register(GUI_CLOSED);
         registry.register(GUI_ELEMENT_CLICKED);
+        registry.register(KEY_PRESSED);
     }
 }

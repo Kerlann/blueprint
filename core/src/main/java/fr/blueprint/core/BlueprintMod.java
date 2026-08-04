@@ -537,6 +537,26 @@ public class BlueprintMod implements ModInitializer {
     }
 
     /**
+     * Une touche de Blueprint devient une exécution (story 11.4).
+     *
+     * <p>Filtré par le littéral « key » du nœud, comme les clics le sont par « element ».
+     * <b>Non ciblé</b> sur un blueprint en revanche : une touche n'appartient à personne,
+     * et deux blueprints peuvent légitimement écouter le même emplacement.
+     */
+    public static int emitKeyPress(net.minecraft.server.MinecraftServer server,
+                                   net.minecraft.server.level.ServerPlayer player, int slot) {
+        var bridge = BRIDGES.get(server);
+        if (bridge == null) {
+            return 0;
+        }
+        java.util.Map<String, Object> values = new java.util.HashMap<>();
+        values.put("player", player);
+        values.put("key", slot);
+        return bridge.launchKeyPress(slot, new fr.blueprint.core.event.TriggerContextImpl(
+                fr.blueprint.core.event.StandardEvents.KEY_PRESSED, values));
+    }
+
+    /**
      * Un clic d'écran devient une exécution (story 10.4). Ciblé sur le blueprint qui
      * possède l'écran, et filtré par le littéral « element » du nœud : sans ce filtre,
      * chaque clic réveillerait chaque écouteur de chaque écran.

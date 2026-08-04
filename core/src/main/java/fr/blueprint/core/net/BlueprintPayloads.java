@@ -164,6 +164,26 @@ public final class BlueprintPayloads {
         }
     }
 
+    /**
+     * C2S : une touche de Blueprint a été pressée chez ce joueur (story 11.4).
+     *
+     * <p>Un <b>emplacement</b> de 1 à 8, jamais un code de touche. Le serveur n'a que
+     * faire de savoir quelle touche physique le joueur a choisie, et le graphe encore
+     * moins : un code varie d'un clavier à l'autre, si bien qu'un script écrit en AZERTY
+     * cesserait de fonctionner en QWERTY. Le numéro est en outre le seul des deux qui ne
+     * puisse pas servir à deviner ce que le joueur tape.
+     */
+    public record KeyPress(int slot) implements CustomPacketPayload {
+        public static final Type<KeyPress> TYPE = new Type<>(id("bp_key"));
+        public static final StreamCodec<ByteBuf, KeyPress> CODEC =
+                ByteBufCodecs.VAR_INT.map(KeyPress::new, KeyPress::slot);
+
+        @Override
+        public Type<KeyPress> type() {
+            return TYPE;
+        }
+    }
+
     /** C2S : demande d'ouverture d'un blueprint pour édition. */
     public record OpenRequest(Identifier blueprint) implements CustomPacketPayload {
         public static final Type<OpenRequest> TYPE = new Type<>(id("bp_open_request"));
