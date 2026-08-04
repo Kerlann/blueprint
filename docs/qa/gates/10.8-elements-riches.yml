@@ -3,7 +3,7 @@ schema: 1
 story: "10.8"
 story_title: "Éléments riches — liste, saisie, emplacement"
 gate: "PASS"
-status_reason: "Six types d'éléments, trois événements et huit modificateurs. Le défilement rend l'indice de l'ENTRÉE et non le rang à l'écran, le filtre de saisie est la même fonction des deux côtés, et un texte trop long est ignoré plutôt que tronqué. Le gametest exerce les trois refus qu'un client modifié tente en premier. Une limite assumée : l'aperçu d'entité dessine un cadre vide."
+status_reason: "Six types d'éléments, trois événements et huit modificateurs. Le défilement rend l'indice de l'ENTRÉE et non le rang à l'écran, le filtre de saisie est la même fonction des deux côtés, et un texte trop long est ignoré plutôt que tronqué. Le gametest exerce les trois refus qu'un client modifié tente en premier. L'aperçu d'entité construit son modèle hors du monde, avec un cache : rien ne vit pour être regardé."
 reviewer: "Quinn (Test Architect)"
 updated: "2026-08-04T00:00:00Z"
 waiver: { active: false }
@@ -26,8 +26,8 @@ top_issues:
     suggested_action: "Corrigé — catégorie gui/rich. Un auteur cherchant « comment changer ce texte » aurait dû traverser tout ce qui concerne les listes"
   - id: "RICH-005"
     severity: medium
-    finding: "ENTITY_PREVIEW dessine un cadre vide : le rendu d'une entité demande une instance LivingEntity côté client, que fabriquer depuis un type sans la faire vivre dans le monde est un travail à part entière"
-    suggested_action: "Assumé et documenté. Le faire à moitié aurait produit exactement ce que les notes de la story interdisent — une créature qui existe pour être regardée, prend des dégâts et compte dans les quotas du monde. Le reste de l'élément (modèle, sérialisation, réglage, validation) est en place ; il ne manque que la fabrique"
+    finding: "ENTITY_PREVIEW dessinait un cadre vide : le rendu d'une entité demande une instance LivingEntity côté client, qu'il faut fabriquer depuis un type sans la faire vivre dans le monde"
+    suggested_action: "Corrigé — EntityPreviews construit le modèle contre le monde du CLIENT et ne l'ajoute jamais à ce monde, comme l'écran d'inventaire le fait du joueur. Avec un cache, sans lequel un menu ouvert construirait une entité par image ; avec EntitySpawnReason.EVENT, sans quoi un squelette apparaîtrait armé différemment à chaque ouverture ; et en rendant null plutôt qu'une entité de remplacement, qui ferait croire que le graphe demande autre chose. Cache vidé au changement de monde et à la déconnexion — une entité retient son niveau"
   - id: "RICH-006"
     severity: low
     finding: "Les onze réglages des six types vivent dans UN record, dont chaque champ ne concerne que certains types"
@@ -52,7 +52,7 @@ risk_summary:
       - "receiveValue rejoue les cinq vérifications du clic par le MÊME code (resolve). Deux chemins de validation finiraient par diverger, et c'est le plus laxiste des deux qui déciderait."
       - "Le switch exhaustif sur ScreenUpdate.Kind est ce qui a forcé le client à traiter les trois nouveaux types. Garder l'énumération scellée : l'oubli donnerait des listes qui ne se remplissent jamais, sans un mot."
 evidence:
-  tests_reviewed: 993
+  tests_reviewed: 996
   gametests: 14
   new_tests:
     - "RichElementsTest (15) — défilement et indice réel, filtre des deux côtés, texte trop long refusé, alignement d'un curseur, aller-retour des lignes"

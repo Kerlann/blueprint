@@ -213,6 +213,9 @@ public class BlueprintMod implements ModInitializer {
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playC2S().register(
                 fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.TYPE,
                 fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.CODEC);
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(
+                fr.blueprint.core.net.BlueprintPayloads.ServerLimits.TYPE,
+                fr.blueprint.core.net.BlueprintPayloads.ServerLimits.CODEC);
 
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register(
                 (handler, sender, server) -> {
@@ -223,6 +226,18 @@ public class BlueprintMod implements ModInitializer {
                             fr.blueprint.core.net.BlueprintPayloads.RegistryHash.TYPE)) {
                         sender.sendPacket(new fr.blueprint.core.net.BlueprintPayloads
                                 .RegistryHash(registryHash()));
+                    }
+                    // Les bornes de CE serveur (10.6). Sans elles, l'éditeur validerait
+                    // avec les défauts du modèle : sur un serveur aux quotas resserrés,
+                    // l'auteur découvrirait le refus à l'enregistrement, après le
+                    // travail plutôt que pendant.
+                    if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(
+                            handler.player,
+                            fr.blueprint.core.net.BlueprintPayloads.ServerLimits.TYPE)) {
+                        var limits = config.graphLimits();
+                        sender.sendPacket(new fr.blueprint.core.net.BlueprintPayloads
+                                .ServerLimits(limits.maxNodes(), limits.maxScreens(),
+                                        limits.maxElementsPerScreen()));
                     }
                 });
 

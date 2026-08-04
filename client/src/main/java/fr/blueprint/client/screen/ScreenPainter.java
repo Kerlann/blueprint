@@ -246,7 +246,10 @@ public final class ScreenPainter {
                     g.renderItem(stack, (left + right) / 2 - 8, (top + bottom) / 2 - 8);
                 }
             }
-            case ENTITY_PREVIEW -> fillBox(g, left, top, right, bottom, background, style, scale);
+            case ENTITY_PREVIEW -> {
+                fillBox(g, left, top, right, bottom, background, style, scale);
+                paintEntity(g, element, left, top, right, bottom);
+            }
             default -> fillBox(g, left, top, right, bottom, background, style, scale);
         }
 
@@ -357,6 +360,32 @@ public final class ScreenPainter {
                     left + inset + font.width(shown) + 2, baseline + font.lineHeight,
                     style.textColor());
         }
+    }
+
+    /**
+     * L'aperçu d'une entité. Le modèle est <b>construit hors du monde</b> et mis en
+     * cache — voir {@link EntityPreviews} pour ce que cela évite.
+     *
+     * <p>La taille suit le CADRE : un cochon et un dragon n'ont pas la même stature, et
+     * une échelle fixe montrerait l'un minuscule et l'autre débordant. Le facteur est
+     * déduit de la hauteur du cadre, bornée pour qu'une entité géante reste dedans.
+     */
+    private static void paintEntity(GuiGraphics g, ScreenElement element,
+                                    int left, int top, int right, int bottom) {
+        var entity = EntityPreviews.of(element.options().entity());
+        if (entity == null) {
+            return;
+        }
+        int height = bottom - top;
+        int size = (int) Math.max(4, height / Math.max(1.0, entity.getBbHeight()) * 0.8);
+        // Découpé au cadre : une entité haute déborderait sur le reste du menu, et
+        // l'auteur ne saurait pas d'où vient le morceau de créature qui traverse son
+        // panneau voisin.
+        g.enableScissor(left, top, right, bottom);
+        net.minecraft.client.gui.screens.inventory.InventoryScreen
+                .renderEntityInInventoryFollowsMouse(g, left, top, right, bottom, size,
+                        0.0625f, 0, 0, entity);
+        g.disableScissor();
     }
 
     /** Une case à cocher : le carré, et la marque quand elle est cochée. */

@@ -171,7 +171,8 @@ public final class CanvasWidget {
         // Validation débouncée (5.6b) : jamais dans la frame d'une frappe.
         if (diagnostics.shouldValidate()) {
             diagnostics.accept(fr.blueprint.core.graph.GraphValidator
-                    .validate(controller.blueprint(), lookup).diagnostics());
+                    .validate(controller.blueprint(), lookup,
+                            fr.blueprint.client.net.BlueprintNet.limits()).diagnostics());
         }
         g.fill(0, 0, width, height, fr.blueprint.client.theme.Theme.current().canvasBackground());
         GridLayer.render(g, camera, width, height);
@@ -1109,7 +1110,8 @@ public final class CanvasWidget {
             case COMPILE -> {
                 // Validation immédiate, sans attendre le débouncé.
                 diagnostics.accept(fr.blueprint.core.graph.GraphValidator
-                        .validate(controller.blueprint(), lookup).diagnostics());
+                        .validate(controller.blueprint(), lookup,
+                                fr.blueprint.client.net.BlueprintNet.limits()).diagnostics());
                 actionBar("blueprint.editor.diag.summary", diagnostics.errors(),
                         diagnostics.warnings());
             }

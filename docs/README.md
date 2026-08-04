@@ -64,7 +64,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 8 | **Intégration des mods tiers** | 8.1 → 8.5 | **Complet** — 5 gates PASS (3 medium + 1 low corrigés en review dont une violation d'AC : un JSON au mauvais type emportait tout le rechargement) ; annotation `@BlueprintNode`, nœuds composites de datapack rechargeables, fantômes prouvés de bout en bout, couche de compatibilité et surface d'API verrouillée par un test |
 | 9 | **Débogage, performance, finition** | 9.1a, 9.1b, 9.2, 9.3, 9.4, 9.5 | **Complet** — 6 gates PASS (1 medium NFR11 + 3 medium débogueur corrigés en review) ; débogueur pas-à-pas visible dans l'éditeur, profileur par nœud, quotas configurables + audit ADMIN, i18n vérifiée par les sources, palette daltonienne à cinq formes, guide joueur et référence générée |
 | 4 | 4.2b (sucre BScript) | — | **Reste v1.1** — seul morceau du PRD non livré, consigné dans la story 4.1-4.3 |
-| 10 | **Interfaces graphiques** | 10.1 → 10.9 | **En cours** — 10.1 à 10.4 et **10.9** closes, 5 gates PASS ; menus cliquables ET HUD permanent. Reste 10.5 (packs), 10.6, 10.7, 10.8 |
+| 10 | **Interfaces graphiques** | 10.1 → 10.10 | **Complet** — 10 gates PASS. Modèle d'écran, concepteur, ouverture et rendu, boutons câblés, packs d'images échangeables, quotas et clavier, liaison de données, éléments riches, HUD permanent, et **10.10** née de l'usage : conteneurs qui rangent, tailles `fill`/`hug`, styles nommés. Deux défauts que seule la mesure a trouvés : une bordure par défaut invisible (1,74:1) et des libellés qui recouvraient déjà les champs |
 
 **Feuille de route éditeur (ordre recommandé)** :
 1. **5.2b** littéraux inline (éditer les valeurs sur le nœud) → 2. **5.6a** annuler/rétablir (avant les grosses features, tout naît annulable) → 3. **5.9** éditer/enregistrer/tester un VRAI blueprint en solo (`Ctrl+S`, la story qui rend l'éditeur utile) → 4. **5.6b** barre d'outils + compilation à la volée + diagnostics cliquables → 5. **5.5** panneau des variables + nœuds var/get-set (⚠ touche `core`) → 6. **5.8** copier/coller/dupliquer via BScript (⚠ touche `core/script`) → 7. **5.10** panneau de détails → 8. **5.4b** palette récents/favoris/catégories/Espace → 9. **5.2c** sélecteurs riches (item, bloc, position) → 10. **5.11** vue script → 11. **5.7** confort (commentaires, alignement, minimap, thème JSON).
@@ -74,19 +74,26 @@ ci-dessous et dans le v1.1 consigné story par story (sucre BScript 4.2b, patchs
 opération et multi-éditeur 6.3, processeur d'annotations 8.1, corps BScript de
 datapack 8.2).
 
-**L'épic 10 (interfaces graphiques) est en cours** : **neuf** stories, de la
-structure de données au concepteur à la souris, jusqu'aux listes défilantes, aux
-champs de saisie et au HUD permanent. Il ouvre un second type de document éditable
-dans le produit — c'est un épic, pas une story, et il est découpé comme tel.
+**L'épic 10 (interfaces graphiques) est livré** : **dix** stories, de la structure de
+données au concepteur à la souris, jusqu'aux listes défilantes, aux champs de saisie et
+au HUD permanent. Il ouvre un second type de document éditable dans le produit — c'est
+un épic, pas une story, et il a été découpé comme tel.
+
+La dixième, **10.10**, n'était pas au plan : l'usage réel a montré que tout se plaçait à
+la main, que rien ne suivait la taille d'écran et que le style se recopiait partout. Elle
+a remplacé la remontée par élément par une passe descendante sur tout l'arbre — le seul
+changement de l'épic qui touche à ce que la 10.1 avait posé.
+
+**Les 65 stories du projet sont closes**, chacune avec son gate PASS.
 
 > **Relecture finale** : [`rapport-de-fin.md`](rapport-de-fin.md) — l'état complet, ce
 > que la QA a réellement trouvé, ce qui reste, et ce que le harnais ne peut pas garantir.
 
 ## Prochaine action : la session en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : suites headless (build vert) et
-`./gradlew runGametest` (5 tests dans un vrai serveur). **Il ne reste que le visuel et
-l'ergonomie.** À regarder, dans l'ordre, en une seule session :
+Tout ce qui se vérifie sans yeux l'est déjà : **996 tests headless** (build vert) et
+`./gradlew runGametest` (**14 tests** dans un vrai serveur). **Il ne reste que le visuel
+et l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 
 | # | À vérifier | Comment |
 |---|---|---|
@@ -115,8 +122,8 @@ l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | V23 | Bibliothèque élargie (7.9) | signal entre deux blueprints, particules privées à un seul joueur, requêtes d'entités et lecture de l'heure, dégâts subis en combat |
 | V24 | Les cinq derniers (7.10) | `has_item` sur une clé, un score visible dans l'affichage latéral, un message cliquable, `entity/looking_at` sur un bloc visé, une barre de boss qui ne s'empile pas |
 
-| V35 | Éléments riches (10.8) | poser une **liste**, un **champ de saisie**, un **emplacement**, une **case** et un **curseur** ; alimenter la liste par `gui/set_lines` → les lignes s'affichent, la molette défile, ce qui dépasse est **découpé** (rien ne déborde sur le reste du menu), le curseur de défilement se voit ; cliquer la troisième ligne → le graphe reçoit **l'indice 2**, et toujours 2 **après avoir défilé** ; taper dans le champ → un caractère hors filtre est refusé à la frappe ; `Entrée` valide, `Échap` relâche le champ **avant** de fermer l'écran ; `gui/set_item` affiche un objet avec son nombre ; la case bascule, le curseur s'aligne sur son pas. **Connu** : l'aperçu d'entité dessine un cadre vide |
-| V34 | Quotas et clavier (10.6) | `/blueprint examples` → ouvrir `guichet`, `Ctrl+S`, lancer la commande câblée : le menu s'ouvre, « Prendre un jeton » incrémente le compteur affiché ; **`Tab` parcourt les deux boutons, `Entrée` active** — le bouton ciblé se voit ; `Échap` ferme ; abaisser `maxElementsPerScreen` à 3 dans `blueprint/config.json`, redémarrer, réimporter → **refus nommant la borne**, pas un écran vide en jeu ; vérifier que les bordures des éléments par défaut se distinguent bien du fond |
+| V35 | Éléments riches (10.8) | poser une **liste**, un **champ de saisie**, un **emplacement**, une **case** et un **curseur** ; alimenter la liste par `gui/set_lines` → les lignes s'affichent, la molette défile, ce qui dépasse est **découpé** (rien ne déborde sur le reste du menu), le curseur de défilement se voit ; cliquer la troisième ligne → le graphe reçoit **l'indice 2**, et toujours 2 **après avoir défilé** ; taper dans le champ → un caractère hors filtre est refusé à la frappe ; `Entrée` valide, `Échap` relâche le champ **avant** de fermer l'écran ; `gui/set_item` affiche un objet avec son nombre ; la case bascule, le curseur s'aligne sur son pas ; un **aperçu d'entité** (`minecraft:pig`) montre la créature qui tourne, et ouvrir/fermer le menu vingt fois ne fait pas saccader — le modèle est mis en cache |
+| V34 | Quotas et clavier (10.6) | sur un serveur dont `blueprint/config.json` fixe `maxElementsPerScreen` à 3, l'éditeur **signale le dépassement pendant qu'on dessine**, pas seulement à l'enregistrement ; `/blueprint examples` → ouvrir `guichet`, `Ctrl+S`, lancer la commande câblée : le menu s'ouvre, « Prendre un jeton » incrémente le compteur affiché ; **`Tab` parcourt les deux boutons, `Entrée` active** — le bouton ciblé se voit ; `Échap` ferme ; abaisser `maxElementsPerScreen` à 3 dans `blueprint/config.json`, redémarrer, réimporter → **refus nommant la borne**, pas un écran vide en jeu ; vérifier que les bordures des éléments par défaut se distinguent bien du fond |
 | V33 | Onglets dans la barre d'outils | les onglets **Graphe / Écrans** sont dans la barre du haut, entre le titre et les boutons — plus de seconde bande sous elle ; ils ne bougent pas quand le titre gagne son « ● » de modification ; un identifiant long ne passe pas dessous ; cliquer un onglet ne déclenche aucune action de la barre ; le canevas et le concepteur ont récupéré les treize pixels |
 | V32 | Nœuds élargis et aérés | ouvrir un graphe chargé : les champs de valeur montrent **une dizaine de caractères** au lieu de cinq, ils sont détachés les uns des autres (on voit à quelle entrée appartient chacun), aucun libellé ne mord sur un champ ; un pin booléen au nom long (`through_fluids` sur `world/raycast`) s'affiche **en entier** ; le titre est centré dans son bandeau ; un `.bp` importé sans positions se dispose sans que deux nœuds se touchent |
 | V25 | Concepteur d'écrans (10.2) | onglet **Écrans**, créer un menu, poser un panneau puis deux boutons dedans, les traîner (guides jaunes à l'accroche), redimensionner par les poignées, renommer dans le panneau — un doublon vire au rouge **pendant** la frappe ; `Ctrl+Z` défait le dernier geste même après être repassé par l'onglet Graphe |

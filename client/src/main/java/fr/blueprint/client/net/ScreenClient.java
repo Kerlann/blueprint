@@ -78,8 +78,12 @@ public final class ScreenClient {
 
         // Une déconnexion ne laisse pas les HUD du serveur précédent à l'écran.
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT
-                .register((handler, client) ->
-                        fr.blueprint.client.screen.BlueprintHud.view().clear());
+                .register((handler, client) -> {
+                    fr.blueprint.client.screen.BlueprintHud.view().clear();
+                    // Les modèles d'aperçu portent une référence à leur niveau : les
+                    // garder après une déconnexion retiendrait tout l'ancien monde.
+                    fr.blueprint.client.screen.EntityPreviews.clear();
+                });
     }
 
     private static void sendClick(net.minecraft.resources.Identifier blueprint,

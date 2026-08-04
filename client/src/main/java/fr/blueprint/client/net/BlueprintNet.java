@@ -54,7 +54,29 @@ public final class BlueprintNet {
         return ClientPlayNetworking.canSend(BlueprintPayloads.OpenRequest.TYPE);
     }
 
+    /**
+     * Les bornes que le SERVEUR applique (story 10.6). Tant qu'il ne les a pas
+     * annoncées — solo, ou serveur d'une version antérieure — ce sont celles du modèle :
+     * exactement ce que l'éditeur utilisait avant qu'elles ne voyagent.
+     */
+    private static volatile fr.blueprint.core.graph.GraphLimits limits =
+            fr.blueprint.core.graph.GraphLimits.DEFAULT;
+
+    public static fr.blueprint.core.graph.GraphLimits limits() {
+        return limits;
+    }
+
     public static void register() {
+        // Les bornes arrivent au join, avant toute ouverture d'éditeur : l'auteur voit
+        // donc dès son premier geste ce que ce serveur-ci accepte, plutôt que de le
+        // découvrir au refus de l'enregistrement.
+        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ServerLimits.TYPE,
+                (payload, context) -> limits = payload.toGraphLimits());
+
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT
+                .register((handler, client) ->
+                        limits = fr.blueprint.core.graph.GraphLimits.DEFAULT);
+
         ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ListData.TYPE,
                 (payload, context) -> {
                     known = List.copyOf(payload.ids());

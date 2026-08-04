@@ -18,8 +18,8 @@ top_issues:
     suggested_action: "Corrigé — quatre champs configurables, et ScreenQuotasTest vérifie qu'ils ARRIVENT au validateur ET au garde réseau, pas seulement qu'ils se lisent"
   - id: "QUOTA-003"
     severity: medium
-    finding: "Le validateur client ne connaît pas la configuration du serveur : les quotas ne sont pas synchronisés au join, contrairement au registre de nœuds. Un auteur travaillant sur un serveur aux quotas resserrés voit son écran refusé à l'ENREGISTREMENT plutôt que signalé pendant qu'il le dessine"
-    suggested_action: "Assumé et documenté. Ce n'est pas la coupure à l'exécution que l'AC2 interdit — le refus arrive avant qu'un joueur ne voie quoi que ce soit, et il nomme la borne. Synchroniser NetLimits au join serait la solution complète : un paquet et un champ de synchro de plus, pour un cas qui ne se produit que sur un serveur ayant modifié ses quotas"
+    finding: "Le validateur client ne connaissait pas la configuration du serveur : les quotas n'étaient pas synchronisés au join, contrairement au registre de nœuds. Un auteur travaillant sur un serveur aux quotas resserrés voyait son écran refusé à l'ENREGISTREMENT plutôt que signalé pendant qu'il le dessine — après le travail, pas pendant"
+    suggested_action: "Corrigé — paquet ServerLimits envoyé au join, à côté de l'empreinte du registre. Un paquet à part et non un champ ajouté ailleurs : ces bornes sont ce que le serveur DÉCLARE une fois, pas une réponse à une demande. Les deux points de validation du client les utilisent. Sans annonce (solo, ou serveur d'une version antérieure) les défauts du modèle s'appliquent : une mise à jour ne resserre rien sans qu'on l'ait demandé"
   - id: "QUOTA-004"
     severity: low
     finding: "Un fichier de configuration écrit par une version antérieure n'a aucun des quatre champs neufs"
@@ -43,14 +43,16 @@ risk_summary:
     monitor:
       - "Le contraste ne se protège que par la mesure. Toute retouche de couleur par défaut « pour faire plus joli » doit repasser ElementStyleContrastTest — c'est le geste exact qui casse la lisibilité sans que personne ne s'en aperçoive avant qu'un joueur ne le signale."
       - "Les écrans sont le premier état du produit qui grandit avec le nombre de joueurs CONNECTÉS plutôt qu'avec celui des blueprints. Les quotas sont la seule barrière."
+      - "Les bornes voyagent maintenant du serveur au client. Elles doivent rester les MÊMES des deux côtés : si l'annonce et l'application divergeaient, l'éditeur autoriserait ce que le garde refuse — et l'auteur ne saurait lequel croire."
 evidence:
-  tests_reviewed: 978
-  gametests: 13
+  tests_reviewed: 996
+  gametests: 14
   new_tests:
     - "ScreenQuotasTest (6) — la configuration arrive au validateur ET au garde ; compatibilité ascendante ; valeurs absurdes bornées"
     - "ScreenFocusTest (9) — parcours, bouclage, éléments masqués ou désactivés, désactivation entre-temps"
     - "ElementStyleContrastTest (4) — quatre états, bordure, distinction sans la couleur, et la formule elle-même"
     - "ExampleBlueprintsTest — guichet.bp passe les neuf tests des six autres exemples"
+    - "ServerLimitsPayloadTest (3) — les bornes traversent sans se déformer, un paquet abîmé ne les désarme pas, et sans annonce les défauts s'appliquent"
   risks_without_gate:
     - "Un menu qu'on ne peut pas parcourir au clavier exclut des joueurs d'une fonctionnalité de JEU, pas d'un outil d'auteur. L'épic 9 avait pu remettre le clavier à plus tard ; ici l'excuse ne tenait pas."
 quality_score: 92

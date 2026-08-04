@@ -44,6 +44,40 @@ public final class BlueprintPayloads {
     }
 
     /** C2S : la liste des blueprints du serveur (alimente /blueprint-edit en multi). */
+    /**
+     * S2C au join : les <b>bornes que ce serveur applique</b> (story 10.6, AC2).
+     *
+     * <p>Sans elles, l'éditeur validait avec les défauts du modèle. Sur un serveur aux
+     * quotas resserrés, l'auteur dessinait donc un écran que rien ne signalait, et
+     * découvrait le refus à l'enregistrement — après le travail, pas pendant. C'est
+     * exactement ce que « diagnostic à l'édition » veut éviter.
+     *
+     * <p>Un paquet à part plutôt qu'un champ ajouté à un autre : ces bornes sont ce que
+     * le serveur DÉCLARE une fois, comme son registre de nœuds, et non une réponse à une
+     * demande. Les glisser dans la liste des blueprints les aurait liées à un moment qui
+     * n'a rien à voir.
+     */
+    public record ServerLimits(int maxNodes, int maxScreens, int maxElementsPerScreen)
+            implements CustomPacketPayload {
+        public static final Type<ServerLimits> TYPE = new Type<>(id("server_limits"));
+        public static final StreamCodec<ByteBuf, ServerLimits> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, ServerLimits::maxNodes,
+                ByteBufCodecs.VAR_INT, ServerLimits::maxScreens,
+                ByteBufCodecs.VAR_INT, ServerLimits::maxElementsPerScreen,
+                ServerLimits::new);
+
+        public fr.blueprint.core.graph.GraphLimits toGraphLimits() {
+            return new fr.blueprint.core.graph.GraphLimits(
+                    Math.max(1, maxNodes), Math.max(1, maxScreens),
+                    Math.max(1, maxElementsPerScreen));
+        }
+
+        @Override
+        public Type<ServerLimits> type() {
+            return TYPE;
+        }
+    }
+
     public record ListRequest(int nonce) implements CustomPacketPayload {
         public static final Type<ListRequest> TYPE = new Type<>(id("bp_list_request"));
         public static final StreamCodec<ByteBuf, ListRequest> CODEC =
