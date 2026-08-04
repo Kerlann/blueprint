@@ -7,8 +7,8 @@ reste**, et **qu'est-ce que je ne peux pas garantir**.
 
 ## 1. État
 
-**Les neuf épics du PRD sont livrés, plus deux nés de l'usage.** 77 stories en statut
-*Done*, 76 gates QA (certaines couvrent des stories groupées) toutes en verdict *PASS*
+**Les neuf épics du PRD sont livrés, plus deux nés de l'usage.** 79 stories en statut
+*Done*, 78 gates QA (certaines couvrent des stories groupées) toutes en verdict *PASS*
 — aucune en *CONCERNS* ni en *FAIL*.
 
 | Épic | Titre | Stories | Verdict |
@@ -23,12 +23,12 @@ reste**, et **qu'est-ce que je ne peux pas garantir**.
 | 8 | Intégration des mods tiers | 8.1 → 8.5 | 5 PASS |
 | 9 | Débogage, performance, finition | 9.1a → 9.5 | 6 PASS |
 | 10 | **Interfaces graphiques** | 10.1 → 10.16 | 16 PASS |
-| 11 | **Contenu déclaré** | 11.1 → 11.6 | 6 PASS |
+| 11 | **Contenu déclaré** | 11.1 → 11.8 | 8 PASS |
 
-**Vérification automatique** : `./gradlew build` (1 163 tests headless, couverture
+**Vérification automatique** : `./gradlew build` (1 166 tests headless, couverture
 bloquante ≥ 80 % sur le cœur et ≥ 82 % sur la partie testable du client, référence
 des nœuds et surface d'API régénérées et comparées) et `./gradlew runGametest`
-(18 tests dans un serveur Minecraft réel). Les deux tournent en CI sur chaque push.
+(19 tests dans un serveur Minecraft réel). Les deux tournent en CI sur chaque push.
 
 ## 2. Ce que la QA a réellement trouvé
 
@@ -64,6 +64,14 @@ Les deux épics nés de l'usage ont ajouté leurs propres corrections hautes :
   reprenait une décision qu'il venait de prendre, rendant sa case inopérante.
 - **Un nœud de touche muet** (11.4) — posé et jamais édité, il n'écoutait aucun
   emplacement : ni erreur, ni diagnostic, rien à corriger de visible.
+- **Deux nœuds de rayon qui n'avaient jamais fonctionné** (11.8) — `world/raycast`
+  passait `(Entity) null` à un `ClipContext` qui fait un `requireNonNull`, et
+  `world/raycast_entity` donnait `null` comme tireur à `ProjectileUtil`. Tous deux
+  levaient à **chaque** exécution, depuis leur livraison. Ils étaient dans la palette,
+  dans la référence générée et dans la liste de vérification en jeu, **indiscernables
+  d'un nœud sain** — parce que rien ne les avait jamais exécutés. C'est le meilleur
+  argument du projet en faveur des tests de fumée : ni la compilation ni la revue ne
+  peuvent voir cela quand les pins sont des chaînes.
 
 La CI, dès sa mise en place, a immédiatement trouvé trois problèmes réels que la
 machine de développement masquait — dont une NPE dans la reprise des exécutions

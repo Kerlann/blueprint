@@ -1,0 +1,52 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.8"
+story_title: "Les nœuds non purs — deux d'entre eux n'avaient jamais fonctionné"
+gate: "PASS"
+status_reason: "Suite directe de la 11.7, qui avait chiffré l'angle mort : les nœuds non purs entre 28 % et 46 % de couverture. Le test écrit pour le combler a trouvé DEUX NŒUDS LIVRÉS QUI LEVAIENT À CHAQUE EXÉCUTION — world/raycast et world/raycast_entity, dans la palette, dans la référence générée, et l'un d'eux nommé dans la liste de vérification en jeu. Rien ne les distinguait d'un nœud sain, parce que rien ne les avait jamais exécutés."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "IMPUR-001"
+    severity: high
+    finding: "world/raycast construisait new ClipContext(…, (Entity) null). Cette surcharge appelle CollisionContext.of(entity), qui fait un Objects.requireNonNull sur son argument — vérifié au javap sur le jar 1.21.11. Le nœud levait donc une NullPointerException SYSTÉMATIQUEMENT, depuis le jour de sa livraison"
+    suggested_action: "CollisionContext.empty() : « pas d'entité » se dit avec un contexte vide, pas avec une entité absente. VÉRIFIÉ en remettant le défaut — le nouveau gametest rougit en nommant world/raycast → NullPointerException"
+  - id: "IMPUR-002"
+    severity: high
+    finding: "world/raycast_entity passait null comme entité tireuse à ProjectileUtil.getEntityHitResult, qui la déréférence (entity.tickCount). Même verdict : il n'a jamais fonctionné une seule fois. Aucune des surcharges de ProjectileUtil n'est utilisable sans tireur"
+    suggested_action: "Le rayon est fait à la main : les entités du volume, filtrées par l'intersection de leur boîte avec le segment, la plus proche gagne. C'est ce que ProjectileUtil fait aussi, à ceci près qu'il exclut le tireur — ce qu'on n'a pas à faire, faute de tireur"
+  - id: "IMPUR-003"
+    severity: high
+    finding: "Ces deux défauts n'étaient visibles ni à la compilation ni en revue : les pins sont des CHAÎNES et le corps appelle l'API de Mojang. Ils étaient dans la palette et dans la référence générée, indiscernables d'un nœud sain. Le seul moyen de les voir était de les exécuter"
+    suggested_action: "Un dix-neuvième gametest exécute CHAQUE nœud non pur de blueprint dans un vrai serveur — joueur simulé, vache, position de la zone du test. QUATRE-VINGT-DIX-NEUF nœuds tournent, aucun écarté faute de valeur. Plancher de 90 pour que le test ne puisse pas passer à vide, la panne corrigée sur PaletteTest deux stories plus tôt"
+  - id: "IMPUR-004"
+    severity: medium
+    finding: "Exécuter tous les nœuds à l'aveugle est dangereux dans ce harnais : régler l'heure ou la météo est GLOBAL au monde, une explosion détruit la structure du voisin, et les gametests tournent EN PARALLÈLE — ce projet a déjà payé une NPE causée par cette concurrence"
+    suggested_action: "Quatre nœuds écartés, chacun avec sa raison inscrite dans le code plutôt que dans un commit. Un test qui fait échouer ses voisins au hasard est la pire chose qu'un test puisse faire ; le prix est que ces quatre-là ne sont couverts par rien, et c'est dit"
+  - id: "IMPUR-005"
+    severity: low
+    finding: "Le mod de test et son datapack déclarent leurs propres nœuds, qui sont des fixtures de ce harnais et échouaient au premier passage du test"
+    suggested_action: "Restreint au namespace blueprint. Faire échouer notre suite sur le contenu d'un tiers n'est ni notre rôle ni notre affaire — et c'est aussi ce qu'un mod tiers attendrait de nous"
+  - id: "IMPUR-006"
+    severity: low
+    finding: "Les neuf nœuds abaissés par le compilateur sont exec, donc non purs, et retombaient dans ce test alors que PureNodeSmokeTest vérifie déjà leur garde sans jeu"
+    suggested_action: "Écartés ici, avec renvoi explicite au test qui les couvre. Les rejouer dans un serveur ne prouverait rien de plus et coûterait un temps de gametest"
+risk_summary:
+  totals: { critical: 0, high: 3, medium: 1, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Toujours aucune assertion sur ce que les nœuds CALCULENT : un nœud qui rend une mauvaise valeur passe ce test. Ce filet n'attrape que ce qui casse franchement, et les tests ciblés restent nécessaires."
+      - "Un seul jeu d'entrées par nœud — les défauts déclarés plus une valeur de secours par type. Les branches conditionnelles internes ne sont pas explorées."
+      - "Les quatre nœuds écartés (heure, météo, explosion, mode de jeu) ne sont couverts par rien. Les couvrir demanderait un gametest sérialisé, hors du modèle parallèle de ce harnais."
+evidence:
+  tests_reviewed: 1166
+  gametests: 19
+  new_tests:
+    - "Gametest everyImpureNodeRunsOnceInARealServer — 99 nœuds non purs exécutés dans un vrai serveur, aucun écarté faute de valeur. C'est lui qui a trouvé IMPUR-001 et IMPUR-002 au premier passage"
+  risks_without_gate:
+    - "Sans ce test, deux nœuds de la palette seraient restés cassés indéfiniment : le seul moyen de s'en apercevoir était qu'un joueur les pose et voie son graphe tomber en faute."
+    - "Sans IMPUR-004, le test aurait fait échouer d'autres gametests au hasard — un défaut de harnais plus coûteux que celui qu'il corrige."
+quality_score: 94
+expires: "2026-08-18T00:00:00Z"

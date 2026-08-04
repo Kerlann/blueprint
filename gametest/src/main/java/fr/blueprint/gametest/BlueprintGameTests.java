@@ -1133,6 +1133,196 @@ public final class BlueprintGameTests {
     }
 
     /** Exécute un nœud dans le monde du test et rend ses sorties. */
+    // ------------------------------------------------- fumée des nœuds non purs
+
+    /**
+     * Nœuds dont l'effet déborde de la zone du test, et qui ne peuvent donc pas être
+     * exercés ici.
+     *
+     * <p>« Chaque test travaille dans sa propre zone du monde, et les tests tournent en
+     * parallèle » — c'est écrit en tête de ce fichier, et le projet a déjà payé une NPE
+     * causée par des gametests concurrents. Régler l'heure ou la météo est <b>global au
+     * monde</b> ; une explosion détruit la structure du voisin. Les exercer ferait échouer
+     * d'autres tests au hasard, ce qui est la pire chose qu'un test puisse faire.
+     *
+     * <p>La liste doit rester <b>courte</b> et chaque entrée porte sa raison : c'est
+     * l'énoncé de ce que ce test ne garde pas.
+     */
+    private static final java.util.Map<String, String> OUT_OF_BOUNDS = java.util.Map.of(
+            "world/set_time", "l'heure est globale au monde — casserait les tests voisins",
+            "world/set_weather", "la météo est globale au monde",
+            "world/explosion", "détruirait la structure des tests voisins",
+            "player/set_gamemode", "change le mode d'un joueur partagé par les tests");
+
+    /**
+     * Les nœuds abaissés par le compilateur — la même liste que {@code PureNodeSmokeTest},
+     * qui vérifie déjà sans jeu que leur garde lève bien. Certains sont exec, donc non
+     * purs, et retomberaient ici.
+     */
+    private static final java.util.List<String> LOWERED = java.util.List.of(
+            "var/get", "var/set", "flow/sequence", "flow/while", "flow/for",
+            "flow/wait_until", "flow/for_each", "flow/gate", "flow/do_once");
+
+    /**
+     * VERIFY-11.8 automatisé : <b>chaque nœud non pur est exécuté au moins une fois</b>,
+     * dans un vrai serveur.
+     *
+     * <p>{@code PureNodeSmokeTest} fait cela sans jeu pour les quatre-vingts nœuds purs.
+     * L'autre moitié de la bibliothèque — monde, entité, inventaire, tableau des scores,
+     * raycast, retours au joueur — n'avait <b>rien</b> : entre 28 % et 46 % de couverture,
+     * et les gametests n'en exerçaient qu'une poignée.
+     *
+     * <p>Ce qu'un test sans jeu ne peut pas voir ici : les pins sont des <b>chaînes</b>,
+     * et ces nœuds appellent l'API de Mojang. Un pin mal nommé, un cast qui ne tient pas,
+     * une méthode renommée à la version suivante — rien de tout cela ne se voit à la
+     * compilation, et le nœud paraît parfaitement sain dans la palette jusqu'à ce qu'un
+     * joueur le pose.
+     *
+     * <p>Le test ne vérifie pas ce que les nœuds <i>font</i> — c'est le travail des tests
+     * ciblés qui les entourent. Il vérifie qu'aucun ne <b>lève</b>, ce qui est le minimum
+     * qu'un nœud livré doive tenir.
+     */
+    @GameTest(maxTicks = 200)
+    public void everyImpureNodeRunsOnceInARealServer(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        var cow = helper.spawn(net.minecraft.world.entity.EntityType.COW, new BlockPos(2, 1, 2));
+        BlockPos block = helper.absolutePos(new BlockPos(3, 1, 3));
+
+        java.util.List<String> exploded = new java.util.ArrayList<>();
+        java.util.List<String> skipped = new java.util.ArrayList<>();
+        int ran = 0;
+
+        for (var type : BlueprintMod.registries().nodes().all()) {
+            // Nos nœuds seulement : le mod de test et son datapack en déclarent d'autres,
+            // qui sont des FIXTURES de ce harnais. Les exercer ferait échouer notre suite
+            // sur le contenu d'un tiers, ce qui n'est ni notre rôle ni notre affaire.
+            if (!type.id().getNamespace().equals("blueprint")) {
+                continue;
+            }
+            if (type.pure() || type.entryPoint()) {
+                continue;
+            }
+            String path = type.id().getPath();
+            // Les nœuds ABAISSÉS par le compilateur n'ont pas d'implémentation : leur
+            // action est une garde qui doit lever, et PureNodeSmokeTest le vérifie déjà
+            // sans jeu. Les rejouer ici ne prouverait rien de plus.
+            if (OUT_OF_BOUNDS.containsKey(path) || LOWERED.contains(path)) {
+                continue;
+            }
+            java.util.Map<String, Object> inputs =
+                    impureInputs(type, player, cow, block);
+            if (inputs == null) {
+                skipped.add(path);
+                continue;
+            }
+            try {
+                runNode(helper, path, inputs);
+                ran++;
+            } catch (RuntimeException | Error e) {
+                Throwable cause = e.getCause() != null ? e.getCause() : e;
+                exploded.add(path + " → " + cause.getClass().getSimpleName()
+                        + " : " + cause.getMessage());
+            }
+        }
+
+        cow.discard();
+        helper.assertTrue(exploded.isEmpty(), Component.literal(
+                "nœud(s) non pur(s) qui lèvent dans un vrai serveur : " + exploded));
+        // Plancher : sans lui, un changement de forme des pins pourrait tout faire
+        // écarter et ce test passerait à vide, sans rien vérifier — la panne corrigée
+        // sur PaletteTest, qu'il ne faut pas réintroduire ici.
+        helper.assertTrue(ran >= 90, Component.literal(
+                "seulement " + ran + " nœuds non purs exécutés (écartés : " + skipped
+                        + ") — le test ne couvre presque plus rien"));
+        helper.succeed();
+    }
+
+    /**
+     * Les entrées d'un nœud non pur, ou {@code null} si l'une d'elles n'est pas
+     * fabricable ici.
+     *
+     * <p>Le défaut déclaré du pin passe avant tout : c'est ce qu'un auteur obtient en
+     * posant le nœud sans rien câbler, donc le cas le plus fréquent en pratique.
+     */
+    private static java.util.Map<String, Object> impureInputs(
+            fr.blueprint.api.node.NodeType type,
+            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.world.entity.Entity entity, BlockPos block) {
+        java.util.Map<String, Object> inputs = new java.util.LinkedHashMap<>();
+        for (var pin : type.inputs()) {
+            if (pin.kind() == fr.blueprint.api.pin.PinKind.EXEC) {
+                continue;
+            }
+            Object value = pin.defaultValue() != null ? pin.defaultValue().value()
+                    : impureValue(pin.type(), player, entity, block);
+            if (value == null) {
+                return null;
+            }
+            inputs.put(pin.name(), value);
+        }
+        return inputs;
+    }
+
+    private static Object impureValue(fr.blueprint.api.pin.PinType pinType,
+                                      net.minecraft.server.level.ServerPlayer player,
+                                      net.minecraft.world.entity.Entity entity,
+                                      BlockPos block) {
+        if (pinType.equals(PinTypes.PLAYER)) {
+            return player;
+        }
+        if (pinType.equals(PinTypes.ENTITY)) {
+            return entity;
+        }
+        if (pinType.equals(PinTypes.BLOCKPOS)) {
+            return block;
+        }
+        if (pinType.equals(PinTypes.VEC3)) {
+            return net.minecraft.world.phys.Vec3.atCenterOf(block);
+        }
+        if (pinType.equals(PinTypes.ITEMSTACK)) {
+            return new net.minecraft.world.item.ItemStack(
+                    net.minecraft.world.item.Items.STONE);
+        }
+        if (pinType.equals(PinTypes.BLOCKSTATE)) {
+            return Blocks.STONE.defaultBlockState();
+        }
+        if (pinType.equals(PinTypes.RESOURCE_LOCATION)) {
+            // « pig » plutôt que « stone » : les nœuds qui prennent un identifiant sans
+            // défaut attendent en général un type d'ENTITÉ (apparition, filtre de
+            // requête), et un identifiant de bloc y serait refusé pour de bonnes raisons
+            // — le nœud rendrait une faute déclarée au lieu de s'exécuter.
+            return Identifier.withDefaultNamespace("pig");
+        }
+        if (pinType.equals(PinTypes.TEXT)) {
+            return Component.literal("x");
+        }
+        if (pinType.equals(PinTypes.STRING)) {
+            return "x";
+        }
+        if (pinType.equals(PinTypes.DOUBLE)) {
+            return 1.0;
+        }
+        if (pinType.equals(PinTypes.INT)) {
+            return 1;
+        }
+        if (pinType.equals(PinTypes.LONG)) {
+            return 1L;
+        }
+        if (pinType.equals(PinTypes.BOOL)) {
+            return true;
+        }
+        if (pinType.equals(PinTypes.ANY)) {
+            return "x";
+        }
+        if (pinType.id().getPath().startsWith("list")) {
+            return java.util.List.of();
+        }
+        if (pinType.id().getPath().startsWith("map")) {
+            return java.util.Map.of();
+        }
+        return null;
+    }
+
     private static java.util.Map<String, Object> runNode(GameTestHelper helper, String path,
                                                          java.util.Map<String, Object> inputs) {
         var type = BlueprintMod.registries().nodes()

@@ -9,7 +9,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -61,11 +60,15 @@ public final class RaycastNodes {
                     Vec3 from = vec(ctx.in("from"));
                     Vec3 to = from.add(direction(ctx.in("direction"))
                             .scale(clampDistance(ctx.in("distance"))));
+                    // CollisionContext.empty() et NON (Entity) null : la surcharge qui
+                    // prend une entité fait un requireNonNull dessus, si bien que ce
+                    // nœud levait à CHAQUE exécution. « Pas d'entité » se dit avec un
+                    // contexte vide, pas avec une entité absente.
                     BlockHitResult result = ctx.level().clip(new ClipContext(from, to,
                             ClipContext.Block.OUTLINE,
                             Boolean.TRUE.equals(ctx.in("through_fluids"))
                                     ? ClipContext.Fluid.NONE : ClipContext.Fluid.ANY,
-                            (Entity) null));
+                            net.minecraft.world.phys.shapes.CollisionContext.empty()));
                     boolean hit = result.getType() == HitResult.Type.BLOCK;
                     ctx.out("hit", hit);
                     ctx.out("point", hit ? result.getLocation() : to);
@@ -119,9 +122,33 @@ public final class RaycastNodes {
                     Vec3 from = vec(ctx.in("from"));
                     double distance = clampDistance(ctx.in("distance"));
                     Vec3 to = from.add(direction(ctx.in("direction")).scale(distance));
-                    EntityHitResult result = ProjectileUtil.getEntityHitResult(
-                            ctx.level(), null, from, to,
-                            new AABB(from, to).inflate(1.0), Entity::isAlive);
+                    // Sans entité TIREUSE, ProjectileUtil est hors de portée : toutes ses
+                    // surcharges déréférencent celle qu'on lui passe. Ce nœud lui donnait
+                    // null et levait donc à chaque exécution.
+                    //
+                    // Le rayon est donc fait à la main : les entités du volume, filtrées
+                    // par l'intersection de leur boîte avec le segment, et la PLUS PROCHE
+                    // gagne. C'est ce que ProjectileUtil fait aussi, à ceci près qu'il
+                    // exclut le tireur — ce qu'on n'a pas à faire, faute de tireur.
+                    Entity closest = null;
+                    double best = Double.MAX_VALUE;
+                    Vec3 point = null;
+                    for (Entity candidate : ctx.level().getEntities((Entity) null,
+                            new AABB(from, to).inflate(1.0), Entity::isAlive)) {
+                        var box = candidate.getBoundingBox().inflate(candidate.getPickRadius());
+                        var clip = box.clip(from, to);
+                        if (clip.isEmpty()) {
+                            continue;
+                        }
+                        double squared = from.distanceToSqr(clip.get());
+                        if (squared < best) {
+                            best = squared;
+                            closest = candidate;
+                            point = clip.get();
+                        }
+                    }
+                    EntityHitResult result = closest == null ? null
+                            : new EntityHitResult(closest, point);
                     ctx.out("hit", result != null);
                     if (result != null) {
                         ctx.out("entity", result.getEntity());
