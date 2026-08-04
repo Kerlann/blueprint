@@ -1,0 +1,8 @@
+{
+  "name": "Distributeur de billets",
+  "hardness": 2.0,
+  "resistance": 12.0,
+  "tool": "pickaxe",
+  "light": 10,
+  "sound": "metal"
+}

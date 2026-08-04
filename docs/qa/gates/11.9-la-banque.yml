@@ -1,0 +1,61 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.9"
+story_title: "La banque — et le trou qu'elle a révélé dans le BScript"
+gate: "PASS"
+status_reason: "Une démonstration complète du contenu déclaré : un bloc qu'on pose et qu'on clique, deux coupures de monnaie, un compte par joueur, un distributeur qui fait l'appoint. Elle a surtout révélé que QUATRE NŒUDS LIVRÉS étaient irreprésentables en BScript — perte de données silencieuse sur la garantie centrale du produit, aggravée depuis la 10.16 par l'export à chaque enregistrement. Le défaut n'a pas été cherché : la banque a besoin de convert/to_number, et le test des exemples a refusé de la générer."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "BANQUE-001"
+    severity: high
+    finding: "Un appel inliné rend sa PREMIÈRE sortie de donnée, si bien que le générateur BScript refusait d'inliner tout nœud pur ayant plusieurs sorties — et un nœud pur n'est atteignable que par des liens de donnée. Il n'était donc JAMAIS émis : le script ne le contenait pas, et le relire perdait le nœud et tous les liens qui y entraient. Quatre nœuds livrés étaient dans ce cas — vec/split, pos/split, map/get, convert/to_number — tous dans la palette et dans la référence générée"
+    suggested_action: "Une annotation @out(\"pin\") nomme la sortie choisie quand ce n'est pas la première ; le générateur ne l'émet que dans ce cas, le parseur la lit. Test dédié sur un nœud à TROIS sorties dont seule la deuxième est utilisée — le cas que la première rendrait invisible"
+  - id: "BANQUE-002"
+    severity: high
+    finding: "Depuis la 10.16, un .bp est écrit à CHAQUE enregistrement. Un graphe utilisant l'un de ces quatre nœuds produisait donc, à chaque Ctrl+S, un export silencieusement amputé — avec un avertissement dans le journal du serveur, c'est-à-dire nulle part. La commodité ajoutée par la 10.16 transformait un défaut latent en perte de données répétée"
+    suggested_action: "Réglé par BANQUE-001. À noter pour la suite : l'export écrit le fichier MÊME quand la génération signale des pertes, et se contente d'un warn. C'est le comportement le plus discutable qui reste, et il est consigné en surveillance"
+  - id: "BANQUE-003"
+    severity: medium
+    finding: "Créditer le montant DEMANDÉ à un dépôt permettrait de déposer mille pièces qu'on n'a pas — une imprimerie, pas une banque. Et donner l'argent avant de débiter laisserait, à la moindre faute plus loin, le joueur avec l'argent ET le compte intact"
+    suggested_action: "Le dépôt crédite ce que player/remove_item dit avoir RÉELLEMENT retiré. Le retrait débite d'abord et donne ensuite. Les deux décisions sont commentées sur place, parce qu'elles se relisent comme des détails d'ordre"
+  - id: "BANQUE-004"
+    severity: medium
+    finding: "player_use_block part à chaque clic droit sur n'importe quel bloc du monde. Sans contrôle du bloc cliqué, ouvrir une porte ouvrirait la banque"
+    suggested_action: "world/is_block sur blueprint:distributeur, puis branchement. Le contrôle est la première chose du graphe, pas une garde ajoutée après coup"
+  - id: "BANQUE-005"
+    severity: medium
+    finding: "La banque porte trente-cinq nœuds, contre une borne de douze gardée par un test — « au-delà, un exemple cesse d'être un exemple et devient un projet ». Relâcher la borne pour caser ce graphe l'aurait vidée de son sens"
+    suggested_action: "showcases() distinct de all() : un exemple enseigne UNE chose, une démonstration assemble ce que plusieurs ont enseigné. Elle subit toutes les autres gardes — validation, compilation, aller-retour, fichier comparé au registre — seule la taille ne s'applique pas"
+  - id: "BANQUE-006"
+    severity: medium
+    finding: "ITEMSTACK a pour défaut ItemStack.EMPTY, dont la classe exige les registres amorcés : un exemple qui DONNE un objet ne pouvait même pas être construit en test, la validation d'un lien résolvant les défauts des pins"
+    suggested_action: "MinecraftBootstrap, à la demande, une seconde au premier appel. La règle « les tests de core tournent sans Minecraft démarré » reste entière : elle porte sur le SERVEUR — pas de monde, pas de joueur, pas de tick. L'issue tentante était d'écarter ces nœuds des exemples ; c'eût été laisser le harnais dicter ce que le produit a le droit de montrer, et s'interdire l'exemple le plus utile"
+  - id: "BANQUE-007"
+    severity: low
+    finding: "Rien ne permet de LIRE un champ de saisie à la demande : gui_input_changed est la seule façon d'en connaître le contenu, ce que rien n'expliquait"
+    suggested_action: "Le montant est rangé dans une variable à chaque frappe, et les boutons la lisent. C'est le modèle que tout formulaire suivra, et la démonstration le montre plutôt que de laisser chacun le redécouvrir"
+  - id: "BANQUE-008"
+    severity: low
+    finding: "Une monnaie à une seule pièce ne demande aucun calcul et n'aurait rien démontré"
+    suggested_action: "Deux coupures, le lingot valant cent : le retrait doit faire l'appoint — deux lingots et cinquante pièces — ce qui est le premier vrai calcul qu'un écran de ce projet ait eu à faire, et ce qui rend la division entière et le reste utiles plutôt que décoratifs"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 4, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "BlueprintFiles.export écrit le fichier même quand ScriptGenerator signale des pertes, et se contente d'un warn. C'est ce qui a rendu BANQUE-002 silencieux ; refuser d'écrire un export amputé serait plus honnête, mais changerait le comportement d'un chemin que la 10.16 a rendu automatique."
+      - "Le distributeur n'a pas d'inventaire propre et n'est pas un bloc-entité : n'importe quel bloc blueprint:distributeur ouvre le même compte. Un distributeur par propriétaire demanderait une position en variable."
+      - "Aucun frais, aucun intérêt, aucun journal des opérations : c'est une démonstration de ce que le contenu déclaré permet, pas un plugin d'économie."
+evidence:
+  tests_reviewed: 1169
+  gametests: 19
+  new_tests:
+    - "PureMultiOutputRoundTripTest (3) — un nœud à trois sorties dont seule la DEUXIÈME est utilisée survit à l'aller-retour, nœud et lien compris ; le second aller-retour est identique au premier ; et la liste des quatre nœuds concernés est verrouillée pour qu'un cinquième ne passe pas inaperçu"
+    - "La banque passe les gardes existantes des exemples : validation, compilation, aller-retour BScript, fichier commité comparé au registre"
+  risks_without_gate:
+    - "Sans BANQUE-001, quatre nœuds de la palette auraient continué de produire des exports amputés à chaque enregistrement — et le seul signal était une ligne de journal serveur."
+    - "Sans BANQUE-005, la règle « un exemple reste court » aurait été relâchée pour un cas, ce qui l'aurait supprimée pour tous."
+quality_score: 93
+expires: "2026-08-18T00:00:00Z"

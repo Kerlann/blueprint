@@ -38,6 +38,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ExampleBlueprintsTest {
 
+    static {
+        // La banque donne des items : la validation de ses liens résout le défaut du
+        // pin ITEMSTACK, qui est ItemStack.EMPTY. Voir MinecraftBootstrap.
+        MinecraftBootstrap.ensure();
+    }
+
     private static final String REGEN = "blueprint.regenDocs";
     private static final Path OUTPUT_DIR = Path.of("docs", "examples");
 
@@ -194,7 +200,7 @@ class ExampleBlueprintsTest {
         Path dir = repoRoot().resolve(OUTPUT_DIR);
         List<String> stale = new ArrayList<>();
 
-        for (ExampleBlueprints.Example example : ExampleBlueprints.all()) {
+        for (ExampleBlueprints.Example example : ExampleBlueprints.allAndShowcases()) {
             String expected = script(example.build(REGISTRIES.nodes()));
             Path file = dir.resolve(fileName(example));
             if (regen) {
@@ -226,7 +232,7 @@ class ExampleBlueprintsTest {
             return; // la génération n'a pas encore tourné
         }
         Set<String> expected = new HashSet<>();
-        ExampleBlueprints.all().forEach(e -> expected.add(fileName(e)));
+        ExampleBlueprints.allAndShowcases().forEach(e -> expected.add(fileName(e)));
         try (var files = Files.list(dir)) {
             List<String> orphans = files
                     .map(path -> path.getFileName().toString())

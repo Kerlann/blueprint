@@ -40,6 +40,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class StressBlueprintTest {
 
+    static {
+        // La démonstration « banque » donne des items : la validation de ses liens résout
+        // le défaut du pin ITEMSTACK. Voir MinecraftBootstrap.
+        MinecraftBootstrap.ensure();
+    }
+
     private static final PluginLoader.LoadedRegistries LOADED = PluginLoader.load(List.of(), true);
     private static final String REGEN = "blueprint.regenDocs";
 
@@ -246,7 +252,7 @@ class StressBlueprintTest {
         Path dir = repoRoot().resolve(OUTPUT_DIR);
         try {
             Files.createDirectories(dir);
-            for (var example : ExampleBlueprints.all()) {
+            for (var example : ExampleBlueprints.allAndShowcases()) {
                 write(dir.resolve(example.id().getPath().replace("example/", "") + ".bp"),
                         example.build(LOADED.nodes()));
             }

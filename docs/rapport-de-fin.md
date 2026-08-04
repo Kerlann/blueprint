@@ -7,8 +7,8 @@ reste**, et **qu'est-ce que je ne peux pas garantir**.
 
 ## 1. État
 
-**Les neuf épics du PRD sont livrés, plus deux nés de l'usage.** 79 stories en statut
-*Done*, 78 gates QA (certaines couvrent des stories groupées) toutes en verdict *PASS*
+**Les neuf épics du PRD sont livrés, plus deux nés de l'usage.** 80 stories en statut
+*Done*, 79 gates QA (certaines couvrent des stories groupées) toutes en verdict *PASS*
 — aucune en *CONCERNS* ni en *FAIL*.
 
 | Épic | Titre | Stories | Verdict |
@@ -23,9 +23,9 @@ reste**, et **qu'est-ce que je ne peux pas garantir**.
 | 8 | Intégration des mods tiers | 8.1 → 8.5 | 5 PASS |
 | 9 | Débogage, performance, finition | 9.1a → 9.5 | 6 PASS |
 | 10 | **Interfaces graphiques** | 10.1 → 10.16 | 16 PASS |
-| 11 | **Contenu déclaré** | 11.1 → 11.8 | 8 PASS |
+| 11 | **Contenu déclaré** | 11.1 → 11.9 | 9 PASS |
 
-**Vérification automatique** : `./gradlew build` (1 166 tests headless, couverture
+**Vérification automatique** : `./gradlew build` (1 169 tests headless, couverture
 bloquante ≥ 80 % sur le cœur et ≥ 82 % sur la partie testable du client, référence
 des nœuds et surface d'API régénérées et comparées) et `./gradlew runGametest`
 (19 tests dans un serveur Minecraft réel). Les deux tournent en CI sur chaque push.
@@ -64,6 +64,7 @@ Les deux épics nés de l'usage ont ajouté leurs propres corrections hautes :
   reprenait une décision qu'il venait de prendre, rendant sa case inopérante.
 - **Un nœud de touche muet** (11.4) — posé et jamais édité, il n'écoutait aucun
   emplacement : ni erreur, ni diagnostic, rien à corriger de visible.
+- **Quatre nœuds perdus à l'export** (11.9) — un nœud pur à plusieurs sorties n'était jamais émis en BScript : `vec/split`, `pos/split`, `map/get` et `convert/to_number` disparaissaient à la relecture, avec tous les liens qui y entraient. Depuis la 10.16 un `.bp` est écrit à chaque enregistrement : c'était donc une **perte de données répétée et silencieuse** sur la garantie centrale du produit, le graphe ⇄ texte. Trouvé sans le chercher, en construisant la démonstration « banque » qui a besoin de l'un d'eux.
 - **Deux nœuds de rayon qui n'avaient jamais fonctionné** (11.8) — `world/raycast`
   passait `(Entity) null` à un `ClipContext` qui fait un `requireNonNull`, et
   `world/raycast_entity` donnait `null` comme tireur à `ProjectileUtil`. Tous deux
@@ -97,7 +98,7 @@ c'est ce que le lanceur affiche aux joueurs, il est corrigé.
 
 ### 3.2 La session en jeu
 
-**41 points à regarder**, listés dans [`README.md` §Prochaine action](README.md).
+**42 points à regarder**, listés dans [`README.md` §Prochaine action](README.md).
 Tout ce qui se vérifie sans yeux l'est déjà ; ce qui reste est le visuel, l'ergonomie
 et les comportements qui exigent un monde vivant (redémarrage, serveur dédié, retrait
 d'un mod du dossier `mods`).
@@ -120,7 +121,7 @@ Par honnêteté, les limites du harnais :
 
 1. **Le rendu n'est vérifié par aucun test.** L'état de l'éditeur est couvert
    headless ; le dessin ne l'est pas, et ne peut pas l'être ici. C'est la raison
-   d'être des 41 points de la session en jeu.
+   d'être des 42 points de la session en jeu.
 2. **Les 60 fps ne sont mesurés qu'en passe CPU** (banc `CanvasBenchTest`). Le coût
    GPU réel n'est pas borné en CI.
 3. **Le multijoueur n'est éprouvé qu'à un seul client.** Le verrou optimiste est

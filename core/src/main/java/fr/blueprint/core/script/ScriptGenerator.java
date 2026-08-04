@@ -527,16 +527,24 @@ public final class ScriptGenerator {
         boolean pure = shape.inputs().stream().noneMatch(p -> p.kind() == PinKind.EXEC)
                 && shape.outputs().stream().noneMatch(p -> p.kind() == PinKind.EXEC)
                 && !shape.entryPoint();
-        long dataOuts = shape.outputs().stream().filter(p -> p.kind() == PinKind.DATA).count();
+        // La PREMIÈRE sortie de donnée est celle qu'un appel inliné rend par défaut ;
+        // toute autre doit être nommée par @out.
+        String firstDataOut = shape.outputs().stream().filter(p -> p.kind() == PinKind.DATA)
+                .map(NodeShape.PinDef::name).findFirst().orElse(null);
         // inlining : garde anti-cycle — un chargement forgé peut câbler des purs en
         // boucle (le chargement ne refuse rien, P4) ; on retombe alors sur $node.
-        if (pure && dataOuts == 1 && lookup.shape(bp.node(producer).typeId()) != null
+        if (pure && firstDataOut != null && lookup.shape(bp.node(producer).typeId()) != null
                 && inlining.add(producer)) {
             try {
                 Node pureNode = bp.node(producer);
                 emitted.add(producer);   // inliné = émis (sinon faux « orphelin »)
+                // @out seulement quand il change quelque chose : l'ajouter partout
+                // alourdirait chaque ligne de script pour le cas le plus rare.
+                String out = link.fromPin().equals(firstDataOut)
+                        ? "" : " @out(" + quote(link.fromPin()) + ")";
                 return renderCall(pureNode, shape) + " @id(" + quote(producer.toString()) + ")"
-                        + " @pos(" + num(pureNode.position().x()) + ", " + num(pureNode.position().y()) + ")";
+                        + " @pos(" + num(pureNode.position().x()) + ", "
+                        + num(pureNode.position().y()) + ")" + out;
             } finally {
                 inlining.remove(producer);
             }

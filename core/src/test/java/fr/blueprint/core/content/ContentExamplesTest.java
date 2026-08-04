@@ -45,30 +45,64 @@ class ContentExamplesTest {
      * champ qu'on veut montrer, et un exemple qui déclare tout n'apprend pas lequel est
      * obligatoire — aucun ne l'est.
      */
-    private static final Map<String, String> ITEMS = Map.of("rubis", """
-            {
-              "name": "Rubis",
-              "stackSize": 16,
-              "rarity": "rare"
-            }
-            """);
+    private static final Map<String, String> ITEMS = Map.of(
+            "rubis", """
+                    {
+                      "name": "Rubis",
+                      "stackSize": 16,
+                      "rarity": "rare"
+                    }
+                    """,
+            // La monnaie de l'exemple « banque ». Deux coupures, parce qu'une seule ne
+            // demande aucun calcul : c'est en rendant 250 en deux lingots et cinquante
+            // pièces qu'un distributeur devient autre chose qu'un compteur.
+            "piece", """
+                    {
+                      "name": "Pièce",
+                      "stackSize": 64
+                    }
+                    """,
+            "lingot", """
+                    {
+                      "name": "Lingot (100 pièces)",
+                      "stackSize": 64,
+                      "rarity": "uncommon"
+                    }
+                    """);
 
-    private static final Map<String, String> BLOCKS = Map.of("granit_bleu", """
-            {
-              "name": "Granit bleu",
-              "hardness": 3.0,
-              "resistance": 6.0,
-              "tool": "pickaxe",
-              "requiresTool": true,
-              "light": 7,
-              "sound": "stone"
-            }
-            """);
+    private static final Map<String, String> BLOCKS = Map.of(
+            "granit_bleu", """
+                    {
+                      "name": "Granit bleu",
+                      "hardness": 3.0,
+                      "resistance": 6.0,
+                      "tool": "pickaxe",
+                      "requiresTool": true,
+                      "light": 7,
+                      "sound": "stone"
+                    }
+                    """,
+            // Le bloc qu'on pose et sur lequel on clique droit pour ouvrir la banque.
+            // C'est lui qui relie les trois moitiés de l'épic 11 : un bloc déclaré, des
+            // items déclarés, et un graphe qui réagit aux deux.
+            "distributeur", """
+                    {
+                      "name": "Distributeur de billets",
+                      "hardness": 2.0,
+                      "resistance": 12.0,
+                      "tool": "pickaxe",
+                      "light": 10,
+                      "sound": "metal"
+                    }
+                    """);
 
-    /** Rouge sombre pour le rubis, bleu ardoise pour le granit — reconnaissables d'un coup. */
+    /** Une teinte par déclaration, reconnaissable d'un coup d'œil dans l'inventaire. */
     private static final Map<String, int[]> COLOURS = Map.of(
             "rubis", new int[]{0xC0_1A2B, 0xFF_5566},
-            "granit_bleu", new int[]{0x3A_4A6B, 0x55_6F99});
+            "granit_bleu", new int[]{0x3A_4A6B, 0x55_6F99},
+            "piece", new int[]{0xB8_860B, 0xFF_D700},
+            "lingot", new int[]{0x8B_6914, 0xFF_C125},
+            "distributeur", new int[]{0x2F_4F4F, 0x4A_C0C0});
 
     /**
      * Une texture 16×16 lisible, faite de deux teintes en damier grossier.

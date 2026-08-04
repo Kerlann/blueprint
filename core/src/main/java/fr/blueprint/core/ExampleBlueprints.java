@@ -90,6 +90,35 @@ public final class ExampleBlueprints {
                         ExampleBlueprints::rules));
     }
 
+    /**
+     * Les <b>démonstrations</b> : des projets complets, pas des exemples.
+     *
+     * <p>La distinction n'est pas cosmétique. Un exemple enseigne <i>une</i> chose et tient
+     * en une douzaine de nœuds — c'est une règle du projet, gardée par un test, et la
+     * relâcher pour caser un gros graphe l'aurait vidée de son sens. Une démonstration
+     * assemble ce que plusieurs exemples ont enseigné et montre à quoi ressemble quelque
+     * chose de <b>fini</b>.
+     *
+     * <p>Elles subissent toutes les autres gardes : elles se valident, se compilent, font
+     * leur aller-retour BScript, et leur fichier commité est comparé à ce que le registre
+     * produit. Seule la borne de taille ne s'y applique pas.
+     */
+    public static List<Example> showcases() {
+        return List.of(
+                new Example(id("banque"),
+                        "le contenu déclaré au travail : un bloc qu'on clique ouvre un "
+                                + "distributeur, une saisie dicte le montant, et l'argent "
+                                + "va et vient entre un compte et l'inventaire",
+                        ExampleBlueprints::bank));
+    }
+
+    /** Exemples et démonstrations : tout ce qui se charge par {@code /blueprint examples}. */
+    public static List<Example> allAndShowcases() {
+        List<Example> out = new ArrayList<>(all());
+        out.addAll(showcases());
+        return out;
+    }
+
     // ------------------------------------------------------------------ exemples
 
     /**
@@ -519,6 +548,278 @@ public final class ExampleBlueprints {
         return bp;
     }
 
+    /**
+     * La <b>banque</b> : le contenu déclaré de l'épic 11 mis au travail.
+     *
+     * <p>Les six premiers exemples enseignent le graphe, les deux suivants l'écran. Celui-ci
+     * montre ce qu'aucun ne montrait : un <b>bloc déclaré</b> qu'on pose et qu'on clique, des
+     * <b>items déclarés</b> qui servent de monnaie, et un graphe qui fait circuler la valeur
+     * entre un compte et un inventaire. Il exige le contenu de
+     * {@code docs/examples/content/} — {@code distributeur}, {@code piece}, {@code lingot}.
+     *
+     * <h2>Deux coupures, et pourquoi</h2>
+     * <p>Une monnaie à une seule pièce ne demande aucun calcul : retirer 250 rend 250 pièces.
+     * Avec le lingot à cent, le distributeur doit <b>faire l'appoint</b> — deux lingots et
+     * cinquante pièces — ce qui est le premier vrai calcul qu'un exemple d'écran ait à
+     * faire, et ce qui rend la division entière et le reste utiles plutôt que décoratifs.
+     *
+     * <h2>Le montant passe par une variable, et ce n'est pas un détour</h2>
+     * <p>Rien ne permet de <i>lire</i> un champ de saisie à la demande : l'événement
+     * {@code gui_input_changed} est la seule façon d'en connaître le contenu. Le montant est
+     * donc rangé dans une variable à chaque frappe, et les boutons la lisent. C'est le
+     * modèle que tout formulaire suivra, et le montrer ici évite à chacun de le redécouvrir.
+     *
+     * <h2>Ce que le dépôt fait de mieux qu'une soustraction</h2>
+     * <p>{@code player/remove_item} rend le nombre <b>réellement</b> retiré. Créditer cela
+     * plutôt que le montant demandé est ce qui empêche de créer de l'argent : demander mille
+     * pièces qu'on n'a pas retire ce qu'on a, et crédite exactement autant.
+     */
+    private static Blueprint bank(NodeTypeLookup lookup, Identifier blueprintId) {
+        Blueprint bp = start(blueprintId,
+                "Une banque : un distributeur qu'on clique, un compte, des pièces et des lingots",
+                Permission.GAMEPLAY);
+
+        // Le compte est PAR JOUEUR et persistant : un solde partagé par tout le serveur
+        // n'est pas une banque, c'est une cagnotte.
+        fr.blueprint.core.graph.GraphLoader.addVariable(bp,
+                new fr.blueprint.core.graph.Variable("compte", PinTypes.INT,
+                        LiteralValue.of(PinTypes.INT, 0), VarScope.PLAYER, false));
+        // Le montant saisi. GRAPH et non PLAYER : il ne vit que le temps d'un écran
+        // ouvert, et le persister par joueur serait le garder pour rien.
+        variable(bp, lookup, "montant", PinTypes.INT, 0);
+
+        var bouton = new fr.blueprint.core.graph.screen.ElementStyle(
+                0xC01F2735, 0xFF6B7280, 1, 0xFFE6E6E6,
+                0xC02F3A55, 0xC0141519, 0x60141519, 3,
+                fr.blueprint.core.graph.screen.ElementStyle.TextAlign.CENTER, false);
+
+        var pleine = fr.blueprint.core.graph.screen.Extent.fill();
+        var elements = java.util.List.of(
+                fr.blueprint.core.graph.screen.ScreenElement.of("cadre",
+                                fr.blueprint.core.graph.screen.ElementKind.PANEL, 0, 0, 176, 124)
+                        .withAnchor(fr.blueprint.core.graph.screen.Anchor.CENTER)
+                        .withLayout(fr.blueprint.core.graph.screen.LayoutSpec.column(4)
+                                .withCross(fr.blueprint.core.graph.screen.LayoutSpec
+                                        .Cross.STRETCH)),
+                fr.blueprint.core.graph.screen.ScreenElement.of("titre",
+                                fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 176, 12)
+                        .withParent("cadre")
+                        .resized(pleine, fr.blueprint.core.graph.screen.Extent.of(12))
+                        .withText(fr.blueprint.core.graph.screen.ScreenText
+                                .literal("Distributeur")),
+                fr.blueprint.core.graph.screen.ScreenElement.of("solde",
+                                fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 176, 12)
+                        .withParent("cadre")
+                        .resized(pleine, fr.blueprint.core.graph.screen.Extent.of(12))
+                        .withBinding(fr.blueprint.core.graph.screen.ElementBinding
+                                .text("compte", "Compte : %s pièces")),
+                // Filtre ENTIER : un montant n'a pas de décimales, et refuser la frappe
+                // vaut mieux que corriger la valeur après coup — le joueur voit
+                // immédiatement ce que le champ accepte.
+                fr.blueprint.core.graph.screen.ScreenElement.of("montant",
+                                fr.blueprint.core.graph.screen.ElementKind.INPUT, 0, 0, 176, 16)
+                        .withParent("cadre")
+                        .resized(pleine, fr.blueprint.core.graph.screen.Extent.of(16))
+                        .withOptions(fr.blueprint.core.graph.screen.ElementOptions.input(
+                                "Montant", 6, fr.blueprint.core.graph.screen.ElementOptions
+                                        .InputFilter.INTEGER))
+                        .withTooltip(fr.blueprint.core.graph.screen.ScreenText
+                                .literal("La somme à déposer ou à retirer")),
+                fr.blueprint.core.graph.screen.ScreenElement.of("deposer",
+                                fr.blueprint.core.graph.screen.ElementKind.BUTTON, 0, 0, 176, 20)
+                        .withParent("cadre")
+                        .resized(pleine, fr.blueprint.core.graph.screen.Extent.of(20))
+                        .withText(fr.blueprint.core.graph.screen.ScreenText
+                                .literal("Déposer des pièces"))
+                        .withTooltip(fr.blueprint.core.graph.screen.ScreenText
+                                .literal("Prend les pièces de votre inventaire"))
+                        .withStyleName("bouton").styled(bouton),
+                fr.blueprint.core.graph.screen.ScreenElement.of("retirer",
+                                fr.blueprint.core.graph.screen.ElementKind.BUTTON, 0, 0, 176, 20)
+                        .withParent("cadre")
+                        .resized(pleine, fr.blueprint.core.graph.screen.Extent.of(20))
+                        .withText(fr.blueprint.core.graph.screen.ScreenText
+                                .literal("Retirer"))
+                        .withTooltip(fr.blueprint.core.graph.screen.ScreenText
+                                .literal("Rend des lingots de 100 et l'appoint en pièces"))
+                        .withStyleName("bouton").styled(bouton),
+                fr.blueprint.core.graph.screen.ScreenElement.of("fermer",
+                                fr.blueprint.core.graph.screen.ElementKind.BUTTON, 0, 0, 176, 20)
+                        .withParent("cadre")
+                        .resized(pleine, fr.blueprint.core.graph.screen.Extent.of(20))
+                        .withText(fr.blueprint.core.graph.screen.ScreenText.literal("Fermer"))
+                        .withStyleName("bouton").styled(bouton));
+
+        fr.blueprint.core.graph.GraphLoader.addScreen(bp,
+                new fr.blueprint.core.graph.screen.Screen("banque", false, elements,
+                        java.util.Map.of("bouton", bouton)));
+
+        bankOpening(bp, lookup);
+        bankAmount(bp, lookup);
+        bankDeposit(bp, lookup);
+        bankWithdraw(bp, lookup);
+
+        UUID closeClick = add(bp, lookup, "close_click",
+                StandardEvents.GUI_ELEMENT_CLICKED.id(), -700, 1500);
+        literal(bp, lookup, closeClick, "element", PinTypes.STRING, "fermer");
+        UUID close = add(bp, lookup, "close", node("gui/close"), -420, 1500);
+        link(bp, lookup, closeClick, "exec_out", close, "exec_in");
+        link(bp, lookup, closeClick, "player", close, "player");
+        return bp;
+    }
+
+    /**
+     * Clic droit sur un bloc → si c'est le distributeur, l'écran s'ouvre.
+     *
+     * <p>Le contrôle du bloc n'est pas une formalité : {@code player_use_block} part à
+     * <b>chaque</b> clic droit sur <b>n'importe quel</b> bloc du monde. Sans lui, ouvrir
+     * une porte ouvrirait la banque.
+     */
+    private static void bankOpening(Blueprint bp, NodeTypeLookup lookup) {
+        UUID used = add(bp, lookup, "used", StandardEvents.PLAYER_USE_BLOCK.id(), -700, 0);
+        UUID isBank = add(bp, lookup, "is_bank", node("world/is_block"), -420, 200);
+        literal(bp, lookup, isBank, "block", PinTypes.RESOURCE_LOCATION,
+                Identifier.fromNamespaceAndPath("blueprint", "distributeur"));
+        UUID branch = add(bp, lookup, "open_branch", node("flow/branch"), -420, 0);
+        UUID open = add(bp, lookup, "open", node("gui/open"), -140, 0);
+        literal(bp, lookup, open, "screen", PinTypes.STRING, "banque");
+        UUID firstRefresh = add(bp, lookup, "first", node("gui/refresh"), 140, 0);
+        literal(bp, lookup, firstRefresh, "screen", PinTypes.STRING, "banque");
+
+        link(bp, lookup, used, "exec_out", isBank, "exec_in");
+        link(bp, lookup, used, "pos", isBank, "pos");
+        link(bp, lookup, isBank, "exec_out", branch, "exec_in");
+        link(bp, lookup, isBank, "matches", branch, "condition");
+        link(bp, lookup, branch, "true", open, "exec_in");
+        link(bp, lookup, used, "player", open, "player");
+        link(bp, lookup, open, "exec_out", firstRefresh, "exec_in");
+        link(bp, lookup, used, "player", firstRefresh, "player");
+    }
+
+    /** Chaque frappe dans le champ range le montant : c'est la seule façon de le lire. */
+    private static void bankAmount(Blueprint bp, NodeTypeLookup lookup) {
+        UUID changed = add(bp, lookup, "changed",
+                StandardEvents.GUI_INPUT_CHANGED.id(), -700, 400);
+        literal(bp, lookup, changed, "element", PinTypes.STRING, "montant");
+        UUID toNumber = add(bp, lookup, "to_number", node("convert/to_number"), -420, 600);
+        UUID toInt = add(bp, lookup, "to_int", node("convert/to_int"), -140, 600);
+        UUID setAmount = add(bp, lookup, "set_amount", node("var/set"), -420, 400);
+        literal(bp, lookup, setAmount, "var", PinTypes.STRING, "montant");
+
+        link(bp, lookup, changed, "exec_out", setAmount, "exec_in");
+        link(bp, lookup, changed, "text", toNumber, "text");
+        link(bp, lookup, toNumber, "value", toInt, "value");
+        link(bp, lookup, toInt, "result", setAmount, "value");
+    }
+
+    /**
+     * Dépôt : on retire les pièces, et on crédite <b>ce qui a réellement été retiré</b>.
+     *
+     * <p>C'est toute la différence entre une banque et une imprimerie. Créditer le montant
+     * demandé permettrait de déposer mille pièces qu'on n'a pas.
+     */
+    private static void bankDeposit(Blueprint bp, NodeTypeLookup lookup) {
+        UUID click = add(bp, lookup, "deposit_click",
+                StandardEvents.GUI_ELEMENT_CLICKED.id(), -700, 800);
+        literal(bp, lookup, click, "element", PinTypes.STRING, "deposer");
+        UUID amount = add(bp, lookup, "deposit_amount", node("var/get"), -700, 1000);
+        literal(bp, lookup, amount, "var", PinTypes.STRING, "montant");
+        UUID remove = add(bp, lookup, "remove", node("player/remove_item"), -420, 800);
+        literal(bp, lookup, remove, "item", PinTypes.RESOURCE_LOCATION,
+                Identifier.fromNamespaceAndPath("blueprint", "piece"));
+        UUID balance = add(bp, lookup, "deposit_balance", node("var/get"), -140, 1000);
+        literal(bp, lookup, balance, "var", PinTypes.STRING, "compte");
+        UUID plus = add(bp, lookup, "deposit_plus", node("math/add"), 140, 1000);
+        UUID write = add(bp, lookup, "deposit_write", node("var/set"), -140, 800);
+        literal(bp, lookup, write, "var", PinTypes.STRING, "compte");
+        UUID refresh = add(bp, lookup, "deposit_refresh", node("gui/refresh"), 140, 800);
+        literal(bp, lookup, refresh, "screen", PinTypes.STRING, "banque");
+
+        link(bp, lookup, click, "exec_out", remove, "exec_in");
+        link(bp, lookup, click, "player", remove, "player");
+        link(bp, lookup, amount, "value", remove, "count");
+        link(bp, lookup, remove, "exec_out", write, "exec_in");
+        link(bp, lookup, balance, "value", plus, "a");
+        link(bp, lookup, remove, "removed", plus, "b");
+        link(bp, lookup, plus, "result", write, "value");
+        link(bp, lookup, write, "exec_out", refresh, "exec_in");
+        link(bp, lookup, click, "player", refresh, "player");
+    }
+
+    /**
+     * Retrait : on vérifie le solde, puis on rend <b>l'appoint</b> — un lingot par
+     * centaine, le reste en pièces.
+     *
+     * <p>La vérification n'est pas décorative : sans elle, le compte passerait en négatif
+     * et le distributeur donnerait de l'argent qui n'existe pas.
+     */
+    private static void bankWithdraw(Blueprint bp, NodeTypeLookup lookup) {
+        UUID click = add(bp, lookup, "withdraw_click",
+                StandardEvents.GUI_ELEMENT_CLICKED.id(), -700, 1200);
+        literal(bp, lookup, click, "element", PinTypes.STRING, "retirer");
+        UUID balance = add(bp, lookup, "withdraw_balance", node("var/get"), -700, 1340);
+        literal(bp, lookup, balance, "var", PinTypes.STRING, "compte");
+        UUID amount = add(bp, lookup, "withdraw_amount", node("var/get"), -700, 1400);
+        literal(bp, lookup, amount, "var", PinTypes.STRING, "montant");
+        UUID enough = add(bp, lookup, "enough", node("logic/greater_eq"), -560, 1340);
+        UUID branch = add(bp, lookup, "withdraw_branch", node("flow/branch"), -420, 1200);
+
+        // Le solde d'abord : débiter avant de donner, pour qu'une faute plus loin ne
+        // laisse jamais le joueur avec l'argent ET le compte intact.
+        UUID minus = add(bp, lookup, "withdraw_minus", node("math/sub"), -280, 1400);
+        UUID write = add(bp, lookup, "withdraw_write", node("var/set"), -280, 1200);
+        literal(bp, lookup, write, "var", PinTypes.STRING, "compte");
+
+        UUID bars = add(bp, lookup, "bars", node("math/div"), -140, 1400);
+        literal(bp, lookup, bars, "b", PinTypes.DOUBLE, 100.0);
+        UUID barsInt = add(bp, lookup, "bars_int", node("convert/to_int"), 0, 1400);
+        UUID coins = add(bp, lookup, "coins", node("math/mod"), -140, 1460);
+        literal(bp, lookup, coins, "b", PinTypes.DOUBLE, 100.0);
+        UUID coinsInt = add(bp, lookup, "coins_int", node("convert/to_int"), 0, 1460);
+
+        UUID barStack = add(bp, lookup, "bar_stack", node("item/create"), 140, 1400);
+        literal(bp, lookup, barStack, "item", PinTypes.RESOURCE_LOCATION,
+                Identifier.fromNamespaceAndPath("blueprint", "lingot"));
+        UUID giveBars = add(bp, lookup, "give_bars", node("player/give_item"), -140, 1200);
+        UUID coinStack = add(bp, lookup, "coin_stack", node("item/create"), 140, 1460);
+        literal(bp, lookup, coinStack, "item", PinTypes.RESOURCE_LOCATION,
+                Identifier.fromNamespaceAndPath("blueprint", "piece"));
+        UUID giveCoins = add(bp, lookup, "give_coins", node("player/give_item"), 0, 1200);
+        UUID refresh = add(bp, lookup, "withdraw_refresh", node("gui/refresh"), 140, 1200);
+        literal(bp, lookup, refresh, "screen", PinTypes.STRING, "banque");
+        UUID refuse = add(bp, lookup, "refuse", node("player/send_message"), -280, 1100);
+        literal(bp, lookup, refuse, "text", PinTypes.STRING,
+                "Solde insuffisant pour ce retrait.");
+
+        link(bp, lookup, balance, "value", enough, "a");
+        link(bp, lookup, amount, "value", enough, "b");
+        link(bp, lookup, click, "exec_out", branch, "exec_in");
+        link(bp, lookup, enough, "result", branch, "condition");
+        link(bp, lookup, branch, "false", refuse, "exec_in");
+        link(bp, lookup, click, "player", refuse, "player");
+
+        link(bp, lookup, branch, "true", write, "exec_in");
+        link(bp, lookup, balance, "value", minus, "a");
+        link(bp, lookup, amount, "value", minus, "b");
+        link(bp, lookup, minus, "result", write, "value");
+
+        link(bp, lookup, amount, "value", bars, "a");
+        link(bp, lookup, bars, "result", barsInt, "value");
+        link(bp, lookup, barsInt, "result", barStack, "count");
+        link(bp, lookup, amount, "value", coins, "a");
+        link(bp, lookup, coins, "result", coinsInt, "value");
+        link(bp, lookup, coinsInt, "result", coinStack, "count");
+
+        link(bp, lookup, write, "exec_out", giveBars, "exec_in");
+        link(bp, lookup, click, "player", giveBars, "player");
+        link(bp, lookup, barStack, "stack", giveBars, "item");
+        link(bp, lookup, giveBars, "exec_out", giveCoins, "exec_in");
+        link(bp, lookup, click, "player", giveCoins, "player");
+        link(bp, lookup, coinStack, "stack", giveCoins, "item");
+        link(bp, lookup, giveCoins, "exec_out", refresh, "exec_in");
+        link(bp, lookup, click, "player", refresh, "player");
+    }
+
     // ------------------------------------------------------------------ outillage
 
     private static Blueprint start(Identifier blueprintId, String description, Permission cap) {
@@ -571,7 +872,7 @@ public final class ExampleBlueprints {
     /** Tous les exemples construits — pour la commande et pour le test. */
     public static List<Blueprint> buildAll(NodeTypeLookup lookup) {
         List<Blueprint> out = new ArrayList<>();
-        for (Example example : all()) {
+        for (Example example : allAndShowcases()) {
             out.add(example.build(lookup));
         }
         return out;

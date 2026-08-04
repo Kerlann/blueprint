@@ -951,9 +951,12 @@ public final class ScriptParser {
         UUID uuid = anns.idOr(UUID.randomUUID());
         materialize(uuid, typeId, anns, args);
         NodeShape shape = shapeOf(typeId, uuid);
-        String outPin = shape == null ? "out" : shape.outputs().stream()
-                .filter(p -> p.kind() == PinKind.DATA)
-                .map(NodeShape.PinDef::name).findFirst().orElse("out");
+        // @out l'emporte : sans lui, un nœud à plusieurs sorties rendrait toujours la
+        // première, et l'écriture serait ambiguë plutôt que fausse — ce qui est pire.
+        String outPin = anns.out != null ? anns.out
+                : shape == null ? "out" : shape.outputs().stream()
+                        .filter(p -> p.kind() == PinKind.DATA)
+                        .map(NodeShape.PinDef::name).findFirst().orElse("out");
         return new Expr.Call(uuid, outPin);
     }
 
@@ -972,6 +975,16 @@ public final class ScriptParser {
          */
         final Map<String, Raw> with = new java.util.LinkedHashMap<>();
         int withLine;
+        /**
+         * Sortie choisie d'un appel inliné ({@code @out}).
+         *
+         * <p>Un appel inliné rend par défaut sa <b>première</b> sortie de donnée, ce qui
+         * suffit tant qu'il n'en a qu'une. Les nœuds purs à plusieurs sorties —
+         * {@code vec/split}, {@code pos/split}, {@code map/get}, {@code convert/to_number}
+         * — étaient pour cette raison exclus de l'inlining, donc jamais émis, donc
+         * <b>perdus</b> à l'aller-retour.
+         */
+        @Nullable String out;
 
         UUID idOr(UUID fallback) {
             return id != null ? id : fallback;
@@ -1003,6 +1016,11 @@ public final class ScriptParser {
                     expect("sym", ")");
                 }
                 case "pos" -> anns.pos = parseVec();
+                case "out" -> {
+                    expect("sym", "(");
+                    anns.out = expect("string", null).text();
+                    expect("sym", ")");
+                }
                 case "size" -> anns.size = parseVec();
                 case "color" -> {
                     expect("sym", "(");

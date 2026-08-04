@@ -1,6 +1,6 @@
 # Session de vérification en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : **1166 tests headless** et **19 gametests**
+Tout ce qui se vérifie sans yeux l'est déjà : **1169 tests headless** et **19 gametests**
 dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
 seule une personne devant l'écran peut juger.
 
@@ -17,9 +17,9 @@ construit, et repartir de zéro à chaque point ferait perdre le tiers du temps.
 
 Le nécessaire est déjà en place dans `run/` :
 
-- `run/blueprint/exports/` — les huit exemples, la démo, et **deux bancs d'essai** (`banc_ecran`, `banc_graphe`). Tout le dossier se régénère d'une commande : `./gradlew :core:test --tests "*StressBlueprintTest" -Dblueprint.regenDocs=true`
+- `run/blueprint/exports/` — les huit exemples, la **démonstration « banque »**, la démo, et **deux bancs d'essai** (`banc_ecran`, `banc_graphe`). Tout le dossier se régénère d'une commande : `./gradlew :core:test --tests "*StressBlueprintTest" -Dblueprint.regenDocs=true`
 - `run/blueprint/scripts/ma_boutique/` — le pack d'images (fond, bouton, survol)
-- `run/blueprint/content/` — **un item et un bloc déclarés**, prêts à l'emploi (`rubis`, `granit_bleu`), avec leurs PNG. Régénérés d'une commande : `./gradlew :core:test --tests "*ContentExamplesTest" -Dblueprint.regenDocs=true`
+- `run/blueprint/content/` — **un item et un bloc déclarés**, prêts à l'emploi — `rubis`, `granit_bleu`, et la monnaie de la banque (`piece`, `lingot`, `distributeur`) — avec leurs PNG. Régénérés d'une commande : `./gradlew :core:test --tests "*ContentExamplesTest" -Dblueprint.regenDocs=true`
 - `run/blueprint/config.json` — configuration d'une version antérieure, **volontairement** :
   elle vérifie au passage que les quotas neufs reprennent leurs défauts
 
@@ -80,7 +80,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 
 ---
 
-## Bloc 3 — L'exécution (11 points, ~40 min)
+## Bloc 3 — L'exécution (12 points, ~45 min)
 
 | | À vérifier | Ce qui doit se produire |
 |---|---|---|
@@ -94,6 +94,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 | ☐ V44 | **Bloc déclaré (11.3)** | `granit_bleu` est déjà livré — dureté 3, pioche **exigée**, lumière 7, avec sa texture. **Redémarrer**. `/give @s blueprint:granit_bleu` : l'objet montre un **cube**, pas une vignette plate. Le poser : il s'affiche avec sa texture sur les six faces, **éclaire** autour de lui, et fait le bruit de la pierre. Le miner **à la main** : c'est long, et **rien ne tombe** (outil exigé). Le miner **à la pioche** : nettement plus rapide, et **le bloc se ramasse**. En **créatif**, casser ne lâche rien. Enfin, copier `granit_bleu.json` **aussi** dans `items/` et redémarrer → le jeu démarre, l'**item** garde le nom, et `/blueprint content` explique en rouge que le bloc a été écarté. |
 | ☐ V45 | **Les touches (11.4)** | Options → Commandes : **huit « Action Blueprint »** y figurent, toutes **non assignées**. En assigner une à `K`. Dans un blueprint, poser **« Une touche Blueprint est pressée »** (palette → Événements → **Commandes du joueur**), laisser le numéro à **1**, câbler un message au joueur, `Ctrl+S`. Presser `K` en jeu → le message arrive. Presser une **autre** touche assignée à l'emplacement 2 → rien (le filtre marche). **Maintenir** `K` trois secondes → **un seul** message, pas soixante. Désactiver le blueprint → la touche ne fait plus rien. |
 | ☐ V46 | **Le contenu qui sert (11.5)** | Un graphe avec **« Un joueur utilise un objet »** : câbler sa sortie **item** vers un message. Clic droit avec un `blueprint:rubis` → le message dit `blueprint:rubis` ; clic droit avec une pomme → `minecraft:apple`. Puis **« Un bloc déclaré est posé »** : poser `blueprint:granit_bleu` → le graphe part avec la bonne position ; poser de la pierre → **rien** (c'est voulu, le nom du nœud le dit). Puis **« Un joueur casse un bloc »** → la sortie **block** donne l'identifiant du bloc cassé, pas de l'air. Enfin : `item/create` → `item/with_name` → `player/give_item` : l'objet arrive **renommé**, et celui de la pile d'origine ne l'est pas. |
+| ☐ V47 | **La banque (11.9)** | Le contenu est **livré** dans `run/blueprint/content/` — `distributeur`, `piece`, `lingot`. Redémarrer, puis `/blueprint import banque`, `Ctrl+S`, `/blueprint enable blueprint:example/banque`. `/give @s blueprint:distributeur`, le poser, **clic droit** → l'écran s'ouvre ; clic droit sur un **autre** bloc → rien (c'est le point). `/give @s blueprint:piece 64`, taper **40**, **Déposer** → le solde monte de 40 et 40 pièces quittent l'inventaire. Taper **250**, **Retirer** avec un solde de 40 → **message de refus**, solde inchangé. Se donner de quoi monter à 250, **Retirer 250** → **2 lingots et 50 pièces** arrivent, solde à 0. Enfin, demander **1000** pièces qu'on n'a pas en dépôt → seules celles qu'on a partent, et le solde monte d'autant, jamais plus. |
 | ☐ V18 | Quotas et audit | Baisser `maxNodes` dans `blueprint/config.json`, redémarrer → le dépassement est **signalé pendant qu'on dessine**. Un nœud ADMIN laisse une trace au log. |
 
 ---
@@ -119,4 +120,4 @@ Pour chaque défaut noté :
 3. S'il révèle un **manque de conception**, c'est une story — pas un correctif glissé dans
    un commit de finition.
 
-Le tableau des 46 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
+Le tableau des 47 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.

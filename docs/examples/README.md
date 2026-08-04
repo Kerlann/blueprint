@@ -1,7 +1,8 @@
 # Blueprints d'exemple
 
-Huit graphes courts, prêts à lire et à charger, plus un dossier de contenu déclaré.
-Chacun tient en moins de douze nœuds et montre **un** mécanisme.
+Huit graphes courts, une démonstration complète, et un dossier de contenu déclaré.
+Chaque exemple tient en moins de douze nœuds et montre **un** mécanisme ; la
+démonstration les assemble.
 
 > **Fichiers générés** — ne pas modifier à la main. Ils sont produits depuis
 > `ExampleBlueprints.java` par `ExampleBlueprintsTest`, qui les valide un par un et
@@ -46,6 +47,30 @@ joueur**.
 | [`guichet.bp`](guichet.bp) | `/blueprint run guichet` : un menu avec un compteur de jetons et deux boutons | Un **écran** de bout en bout : une colonne qui range ses enfants sans qu'aucune coordonnée soit écrite, un **style nommé** porté par les deux boutons, une étiquette **liée** à une variable, et le clic qui repart dans le graphe |
 | [`reglement.bp`](reglement.bp) | `/blueprint run reglement` : une page de règles qu'on parcourt | Un écran qu'on **lit** plutôt qu'on manipule : un **panneau défilant**, du texte qui **revient à la ligne** (porté par le style, donc un sixième paragraphe n'a qu'à être écrit), des **infobulles**, et `gui/set_scroll` pour le bouton « Haut de page » |
 
+## La démonstration
+
+Un exemple enseigne **une** chose et tient en douze nœuds. Celle-ci en porte
+trente-cinq : elle assemble ce que les huit précédents enseignent, et montre à quoi
+ressemble quelque chose de **fini**.
+
+| Fichier | Ce qu'il fait |
+|---|---|
+| [`banque.bp`](banque.bp) | Un **distributeur** qu'on pose et qu'on clique droit : un compte par joueur, un champ où taper la somme, et de l'argent qui va et vient entre le compte et l'inventaire |
+
+Il lui faut le contenu déclaré ci-dessous — `distributeur`, `piece`, `lingot` — et donc un
+redémarrage. Puis : poser le distributeur, clic droit, taper un montant, **Déposer** ou
+**Retirer**.
+
+Ce qu'il montre et qu'aucun autre ne montre :
+
+- un **bloc déclaré** qui sert de porte d'entrée à un écran ;
+- le montant qui passe par une **variable** — rien ne permet de *lire* un champ de saisie à
+  la demande, `gui_input_changed` est la seule façon d'en connaître le contenu, et c'est le
+  modèle que tout formulaire suivra ;
+- un dépôt qui crédite ce que `player/remove_item` dit avoir **réellement** retiré, et non
+  le montant demandé — c'est toute la différence entre une banque et une imprimerie ;
+- un retrait qui **fait l'appoint** : deux lingots et cinquante pièces pour 250.
+
 ## Le contenu déclaré
 
 [`content/`](content/) n'est pas un blueprint : c'est un **item et un bloc**, prêts à
@@ -56,6 +81,8 @@ jeu gèlent au démarrage, il n'existe aucun rechargement possible.
 |---|---|
 | `items/rubis.json` + `rubis.png` | Le minimum : un nom, une taille de pile, une rareté. Le **nom du fichier** devient `blueprint:rubis`, et l'image est le PNG **du même nom, à côté** |
 | `blocks/granit_bleu.json` + `granit_bleu.png` | Dureté, famille d'outil **exigée**, lumière émise, bruit — un bloc qu'on pose, qui éclaire, et que la main ne récupère pas |
+| `items/piece.json`, `items/lingot.json` | La monnaie de `banque.bp`. **Deux** coupures, parce qu'une seule ne demande aucun calcul : le lingot vaut cent, et le retrait doit faire l'appoint |
+| `blocks/distributeur.json` | Le bloc qu'on clique pour ouvrir la banque |
 
 Puis `/blueprint content` pour voir ce qui a été enregistré, et **en rouge** ce qui a été
 écarté avec sa raison. Ces fichiers sont générés par `ContentExamplesTest`, comme les
