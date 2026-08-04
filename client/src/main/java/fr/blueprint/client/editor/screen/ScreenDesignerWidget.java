@@ -143,6 +143,10 @@ public final class ScreenDesignerWidget {
         Screen screen = controller.screen();
         properties.select(screen == null || controller.selection().size() != 1 ? null
                 : screen.element(controller.selection().ids().iterator().next()));
+        // Un élément sélectionné mais sorti d'un panneau défilant serait dessiné nulle
+        // part : introuvable à la souris, impossible à déplacer ou à régler. Le ramener
+        // sous les yeux est ce qui rend le découpage supportable en conception.
+        controller.revealSelection();
 
         g.fill(0, top, width, height, SURFACE_BACKGROUND);
         renderSurface(g, font, screen);
@@ -806,6 +810,16 @@ public final class ScreenDesignerWidget {
         y += ROW;
 
         if (element.kind().container()) {
+            // Le défilement d'abord : c'est une propriété du conteneur lui-même, pas de
+            // la façon dont il range, et elle vaut aussi en disposition absolue.
+            boolean scrolls = element.layout().scroll();
+            String scrollLabel = scrolls ? I18n.get("blueprint.designer.scroll.on")
+                    : I18n.get("blueprint.designer.scroll.off");
+            rows.add(new Row(y, I18n.get("blueprint.designer.scroll"), java.util.List.of(
+                    new Chip(scrollLabel, 52, 24, scrolls,
+                            () -> apply(element.withLayout(
+                                    element.layout().withScroll(!scrolls))))), null, null));
+            y += ROW;
             rows.add(new Row(y, I18n.get("blueprint.designer.layout"),
                     enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Mode.values(),
                             element.layout().mode(), "blueprint.designer.layout.",
@@ -1238,9 +1252,23 @@ public final class ScreenDesignerWidget {
         }
         this.mouseX = mx;
         this.mouseY = my;
+        // Au-dessus d'un panneau DÉFILANT, la molette le fait défiler — c'est le geste
+        // qu'on essaie, et zoomer à la place donnerait l'impression que le panneau n'en
+        // est pas un. Ailleurs, elle zoome. Le zoom reste atteignable partout dans la
+        // marge, et les boutons de la barre du bas ne dépendent pas du survol.
+        if (surface.contains(mx, my)) {
+            String panel = controller.scrollableAt(surface.toDesignX(mx), surface.toDesignY(my));
+            if (panel != null && controller.scrollBy(panel,
+                    -Math.signum(amount) * PANEL_SCROLL_STEP)) {
+                return true;
+            }
+        }
         zoomBy(amount > 0 ? 1 : -1);
         return true;
     }
+
+    /** Un cran de molette dans un panneau, en unités : trois lignes de texte. */
+    private static final double PANEL_SCROLL_STEP = 27;
 
     private void reportRefusal() {
         Diagnostic refusal = controller.takeRefusal();

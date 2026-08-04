@@ -1,0 +1,68 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.13"
+story_title: "Le panneau défilant"
+gate: "PASS"
+status_reason: "Un conteneur défile, son contenu est découpé, et ce qui sort du cadre ne se clique plus. Le décalage est appliqué DANS la passe de disposition unique et non par le rendu après coup — la seule façon d'être sûr que le clic et le dessin s'accordent. Un défaut préexistant a été trouvé en chemin : la disposition n'était enregistrée que si elle RANGEAIT les enfants, si bien qu'un panneau défilant en absolu serait revenu figé après un aller-retour, sans erreur ni avertissement."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "SCROLL-001"
+    severity: high
+    finding: "Préexistant, révélé par la story : ScreenNbt.encodeElement et ScriptGenerator.renderElement n'écrivaient la disposition que si elle ARRANGEAIT les enfants. Un panneau qui ne range rien mais qui défile — le cas d'un panneau en disposition absolue dont le contenu dépasse — serait donc revenu figé après un aller-retour : sans erreur, sans avertissement, et sans que rien ne rappelle qu'on avait coché la case. Perte de travail silencieuse, du même genre que la table de styles perdue en 10.10"
+    suggested_action: "Corrigé des deux côtés (arranges() || scrolls()) et verrouillé par unPanneauDefilantEnAbsoluTraverseLaSauvegardeEtLExport, qui fait le va-et-vient complet NBT puis BScript"
+  - id: "SCROLL-002"
+    severity: high
+    finding: "Le décalage devait-il être appliqué par le rendu, ou dans la passe de disposition ? Le rendu était plus simple et n'aurait demandé aucune signature nouvelle — mais le hit-test aurait dû le refaire de son côté, et deux calculs séparés finissent toujours par diverger. Le symptôme aurait été le plus déroutant qui soit : cliquer une ligne et en activer une autre, alors que tout a l'air juste"
+    suggested_action: "Le décalage entre dans solve() par une interface Scrolls et est appliqué dans la passe unique. Tout ce qui lit la table le voit sans rien faire. C'est la troisième fois que ce projet tranche ainsi : géométrie des fils (5.12), table partagée du concepteur (10.11), et ici"
+  - id: "SCROLL-003"
+    severity: high
+    finding: "Un enfant sorti du cadre est invisible mais son rectangle existe toujours : sans contrôle supplémentaire, il resterait CLIQUABLE. Le joueur viserait le menu en dessous, activerait ce qu'il ne voit pas, et le graphe recevrait une action que rien à l'écran n'expliquerait"
+    suggested_action: "elementAt et le survol d'infobulle passent par insideItsClip, qui lit la MÊME fonction clipOf que le découpage du dessin. Test ceQuiSortDuCadreEstDecoupe"
+  - id: "SCROLL-004"
+    severity: medium
+    finding: "Le contenu peut RÉTRÉCIR sous un panneau déjà défilé — une ligne retirée, un élément masqué par le graphe. Le décalage gardé pointerait alors au-delà de la fin, et le joueur verrait du vide que rien ne permettrait de comprendre : exactement le défaut que les listes ont connu en 10.8"
+    suggested_action: "Corrigé — chaque résolution re-borne les décalages et reprend la passe une fois si l'un d'eux a bougé. Une seule reprise suffit : borner ne peut qu'allonger ce qui reste. gui/set_scroll permet en plus au graphe de remettre explicitement en haut"
+  - id: "SCROLL-005"
+    severity: medium
+    finding: "Découper dans le CONCEPTEUR rendait inatteignable tout enfant sorti du cadre : plus dessiné, donc introuvable à la souris, donc impossible à déplacer ou à régler. Cocher une case aurait fait perdre l'accès à la moitié d'un panneau"
+    suggested_action: "revealSelection ramène l'élément sélectionné dans le cadre, à chaque image et sans rien faire s'il est déjà visible. Deux tests, dont celui qui vérifie qu'un élément déjà visible ne fait PAS sauter la page"
+  - id: "SCROLL-006"
+    severity: medium
+    finding: "Un conteneur défilant dont la hauteur s'ajuste à ses enfants ne défilera JAMAIS : il grandit avec son contenu. La case est cochée, le panneau a l'air correct, la molette ne fait rien — et l'auteur en conclurait que le défilement est cassé plutôt que mal réglé"
+    suggested_action: "Nouveau diagnostic SCREEN_SCROLL_HUGS, avertissement et non erreur (l'écran reste affichable). Même famille que les poignées inopérantes de la 10.10 : un contrôle qui ne peut rien faire doit le dire"
+  - id: "SCROLL-007"
+    severity: low
+    finding: "La molette au-dessus d'un panneau défilant : zoomer (le concepteur) ou faire défiler ? Et en jeu, une liste DANS un panneau défilant : lequel bouge ?"
+    suggested_action: "Le plus intérieur gagne, dans les deux cas — une liste avant le panneau qui la porte, un panneau intérieur avant l'extérieur. C'est ce qu'on regarde qui doit bouger. Dans le concepteur, le zoom reste atteignable partout ailleurs et par les boutons de la barre"
+  - id: "SCROLL-008"
+    severity: low
+    finding: "Un panneau dont tout le contenu tient absorbait-il la molette ?"
+    suggested_action: "Non : elle est rendue à ce qui est derrière. Un panneau qui avale un geste sans rien faire donne l'impression d'un menu bloqué"
+  - id: "SCROLL-009"
+    severity: low
+    finding: "Aucun curseur de défilement n'est dessiné sur le panneau, alors qu'une liste en a un depuis la 10.8"
+    suggested_action: "Écarté et documenté : il faudrait décider où le poser sans recouvrir le contenu, ce qui mérite d'être regardé à l'écran avant d'être tranché. La molette fonctionne, et le contenu coupé net au bord du cadre dit déjà qu'il continue. À reprendre avec le défilement au clavier, qui manque pour la même raison"
+  - id: "SCROLL-010"
+    severity: low
+    finding: "Défilement vertical seulement ; pas d'horizontal"
+    suggested_action: "Délibéré. L'horizontal demande la même mécanique sur l'autre axe et ne sert presque jamais dans un menu : l'ajouter « pour la symétrie » doublerait la surface pour un usage qui n'a pas été demandé"
+risk_summary:
+  totals: { critical: 0, high: 3, medium: 3, low: 4 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "solve() a maintenant deux signatures. Tout nouvel appelant qui prendrait celle sans décalages verrait les panneaux non défilés — correct pour la validation serveur, faux pour un rendu. Les deux appelants de rendu (BlueprintScreen, ScreenCanvasController) passent bien leur source."
+      - "Le découpage repose sur enableScissor, qui applique la pose courante (vérifié au désassemblage en 10.11). Le concepteur dessine sous une matrice de zoom : le découpage y est donc transformé, ce qui est correct, mais tout changement de la pile de matrices doit être revérifié là."
+evidence:
+  tests_reviewed: 1060
+  gametests: 17
+  new_tests:
+    - "ScreenScrollTest (13) — le décalage dans la passe unique, le découpage lu par le hit-test, l'imbrication de deux panneaux, la plage, le diagnostic, et l'aller-retour d'un panneau défilant EN ABSOLU"
+    - "DesignerScrollTest (10) — bornage, molette sur le plus intérieur, révélation de la sélection, hit-test du concepteur qui suit le décalage"
+  risks_without_gate:
+    - "Sans SCROLL-001, un auteur aurait coché « défilant » sur un panneau absolu, enregistré, rouvert — et retrouvé un panneau figé sans savoir pourquoi. Le genre de perte qu'on n'attribue pas à l'outil mais à soi-même."
+    - "Sans SCROLL-003, on aurait pu cliquer ce qu'on ne voit pas. Le pire mode de panne d'une interface : celui où tout a l'air juste."
+quality_score: 90
+expires: "2026-08-18T00:00:00Z"

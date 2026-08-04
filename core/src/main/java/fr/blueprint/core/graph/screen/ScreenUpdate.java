@@ -47,7 +47,16 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
          * aurait demandé un nœud à neuf entrées, et rien n'aurait garanti que deux onglets
          * « actifs » se ressemblent.
          */
-        STYLE
+        STYLE,
+        /**
+         * La position de lecture d'un panneau défilant, en unités (story 10.13).
+         *
+         * <p>Indispensable et non décoratif : quand le graphe change ce qu'un panneau
+         * contient, le décalage gardé pointe dans le vide et le joueur voit une page
+         * blanche qu'il devrait remonter à la main pour découvrir qu'elle est pleine.
+         * C'est exactement le défaut que les listes ont connu en 10.8.
+         */
+        SCROLL
     }
 
     public ScreenUpdate {
@@ -78,6 +87,12 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
     public static ScreenUpdate tooltip(String screen, String element, ScreenText value) {
         return new ScreenUpdate(screen, element, Kind.TOOLTIP, value.value(),
                 value.translate(), 0);
+    }
+
+    /** Repositionne un panneau défilant ; zéro le ramène en haut. */
+    public static ScreenUpdate scroll(String screen, String element, double offset) {
+        return new ScreenUpdate(screen, element, Kind.SCROLL, "", false,
+                Double.isFinite(offset) ? Math.max(0, offset) : 0);
     }
 
     /** Fait suivre à l'élément un style nommé de l'écran ; vide = son style en ligne. */

@@ -602,12 +602,23 @@ public final class ScriptParser {
                         enumOf(LayoutSpec.Distribute.class, expect("word", null), "répartition"));
                 case "cross" -> spec.withCross(
                         enumOf(LayoutSpec.Cross.class, expect("word", null), "alignement"));
+                case "scroll" -> spec.withScroll(bool(expect("word", null)));
                 default -> throw new ParseError(key.line(),
                         "réglage de disposition inconnu « " + key.text() + " »");
             };
         }
         expect("sym", ")");
         return spec;
+    }
+
+    /** {@code true} ou {@code false}, et rien d'autre : un « oui » silencieusement faux serait pire. */
+    private boolean bool(Token token) {
+        return switch (token.text()) {
+            case "true" -> true;
+            case "false" -> false;
+            default -> throw new ParseError(token.line(),
+                    "attendu true ou false, lu « " + token.text() + " »");
+        };
     }
 
     /** Le bloc {@code styles { "nom" = ... }} en tête d'un écran (story 10.10). */

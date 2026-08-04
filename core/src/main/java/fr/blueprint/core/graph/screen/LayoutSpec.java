@@ -19,9 +19,10 @@ package fr.blueprint.core.graph.screen;
  * @param columns  nombre de colonnes d'une grille ; ignoré ailleurs
  * @param main     répartition le long de l'axe principal
  * @param cross    alignement sur l'axe transverse
+ * @param scroll   vrai si ce conteneur <b>défile</b> quand son contenu dépasse
  */
 public record LayoutSpec(Mode mode, double gap, double crossGap, int columns,
-                         Distribute main, Cross cross) {
+                         Distribute main, Cross cross, boolean scroll) {
 
     /** Ce que fait le conteneur de ses enfants. */
     public enum Mode {
@@ -44,7 +45,7 @@ public record LayoutSpec(Mode mode, double gap, double crossGap, int columns,
 
     /** Le comportement historique : personne ne range personne. */
     public static final LayoutSpec ABSOLUTE =
-            new LayoutSpec(Mode.ABSOLUTE, 0, 0, 1, Distribute.START, Cross.START);
+            new LayoutSpec(Mode.ABSOLUTE, 0, 0, 1, Distribute.START, Cross.START, false);
 
     public LayoutSpec {
         if (mode == null) {
@@ -70,16 +71,16 @@ public record LayoutSpec(Mode mode, double gap, double crossGap, int columns,
 
     /** Une colonne d'enfants espacés, alignés au début. */
     public static LayoutSpec column(double gap) {
-        return new LayoutSpec(Mode.COLUMN, gap, 0, 1, Distribute.START, Cross.START);
+        return new LayoutSpec(Mode.COLUMN, gap, 0, 1, Distribute.START, Cross.START, false);
     }
 
     public static LayoutSpec row(double gap) {
-        return new LayoutSpec(Mode.ROW, gap, 0, 1, Distribute.START, Cross.START);
+        return new LayoutSpec(Mode.ROW, gap, 0, 1, Distribute.START, Cross.START, false);
     }
 
     public static LayoutSpec grid(int columns, double gap, double crossGap) {
         return new LayoutSpec(Mode.GRID, gap, crossGap, columns,
-                Distribute.START, Cross.START);
+                Distribute.START, Cross.START, false);
     }
 
     /** Vrai si ce conteneur place ses enfants lui-même. */
@@ -93,26 +94,44 @@ public record LayoutSpec(Mode mode, double gap, double crossGap, int columns,
     }
 
     public LayoutSpec withMode(Mode newMode) {
-        return new LayoutSpec(newMode, gap, crossGap, columns, main, cross);
+        return new LayoutSpec(newMode, gap, crossGap, columns, main, cross, scroll);
     }
 
     public LayoutSpec withGap(double newGap) {
-        return new LayoutSpec(mode, newGap, crossGap, columns, main, cross);
+        return new LayoutSpec(mode, newGap, crossGap, columns, main, cross, scroll);
     }
 
     public LayoutSpec withCrossGap(double newCrossGap) {
-        return new LayoutSpec(mode, gap, newCrossGap, columns, main, cross);
+        return new LayoutSpec(mode, gap, newCrossGap, columns, main, cross, scroll);
     }
 
     public LayoutSpec withColumns(int newColumns) {
-        return new LayoutSpec(mode, gap, crossGap, newColumns, main, cross);
+        return new LayoutSpec(mode, gap, crossGap, newColumns, main, cross, scroll);
     }
 
     public LayoutSpec withMain(Distribute newMain) {
-        return new LayoutSpec(mode, gap, crossGap, columns, newMain, cross);
+        return new LayoutSpec(mode, gap, crossGap, columns, newMain, cross, scroll);
     }
 
     public LayoutSpec withCross(Cross newCross) {
-        return new LayoutSpec(mode, gap, crossGap, columns, main, newCross);
+        return new LayoutSpec(mode, gap, crossGap, columns, main, newCross, scroll);
+    }
+
+    /**
+     * Fait défiler ce conteneur quand son contenu dépasse (story 10.13).
+     *
+     * <p>Une <b>liste</b> défilait déjà, mais ses lignes sont un gabarit répété : du
+     * texte, et rien d'autre. Un menu de réglages, une page de règles, une fiche de
+     * personnage sont faits d'éléments <i>différents</i> — des étiquettes, des curseurs,
+     * des cases, des images. Sans conteneur défilant, il fallait les répartir sur plusieurs
+     * écrans reliés par des boutons « suivant », ce qui est une pagination, pas un menu.
+     *
+     * <p>Le décalage lui-même n'est <b>pas</b> ici : il est propre à un joueur et à une
+     * ouverture, comme le remplissage d'une barre ou le texte d'un champ. L'écrire dans le
+     * modèle le ferait voyager dans la sauvegarde et dans l'export texte, où deux joueurs
+     * n'ont pas la même position de lecture.
+     */
+    public LayoutSpec withScroll(boolean newScroll) {
+        return new LayoutSpec(mode, gap, crossGap, columns, main, cross, newScroll);
     }
 }

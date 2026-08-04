@@ -109,7 +109,11 @@ public final class HudView {
                         // propres à ce joueur et à cette ouverture, pas des propriétés
                         // du blueprint. Les écrire dans le modèle les ferait voyager
                         // dans la sauvegarde et l'export texte.
-                        case LINES, ITEM, VALUE -> element;
+                        // SCROLL n'a pas de sens sur un HUD : il ne capte pas la molette,
+                        // et rien n'y ferait remonter le panneau. La modification est
+                        // simplement sans effet plutôt que refusée — un écran passé de
+                        // HUD à modal doit pouvoir en tirer parti.
+                        case LINES, ITEM, VALUE, SCROLL -> element;
                     }));
             if (update.kind() == ScreenUpdate.Kind.PROGRESS) {
                 progress.computeIfAbsent(update.screen(), s -> new LinkedHashMap<>())

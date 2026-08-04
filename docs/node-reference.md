@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-226 nœuds dans 39 catégories.
+228 nœuds dans 39 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -837,6 +837,37 @@ permission `GAMEPLAY` · fuel 1
 
 
 ## gui/look
+
+### `blueprint:gui/set_scroll` — Scroll panel to
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `player` | `blueprint:player` | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `offset` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+
+### `blueprint:gui/set_scroll_all` — Scroll panel to (everyone)
+
+permission `GAMEPLAY` · fuel 1
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `exec_in` | exec | — |
+| `screen` | `blueprint:string` | `` |
+| `element` | `blueprint:string` | `` |
+| `offset` | `blueprint:double` | `0.0` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
 
 ### `blueprint:gui/set_style` — Set named style
 

@@ -52,6 +52,7 @@
   "blueprint.diag.element_hug_not_container": "« %s » est un %s : seul un conteneur peut s'ajuster à ses enfants",
   "blueprint.diag.element_squeezed": "« %s » est écrasé à rien par la disposition de son parent : donnez-lui un minimum, ou faites de la place",
   "blueprint.diag.screen_style_not_found": "« %s » suit le style « %s », que cet écran ne définit plus",
+  "blueprint.diag.screen_scroll_hugs": "« %s » défile mais sa hauteur s'ajuste à ses enfants : il grandit au lieu de défiler, donc il ne défilera jamais",
   "blueprint.cmd.created": "Blueprint %s créé",
   "blueprint.cmd.exists": "Un blueprint nommé %s existe déjà",
   "blueprint.cmd.deleted": "Blueprint %s supprimé",
@@ -450,6 +451,9 @@
   "blueprint.designer.wrap": "Retour ligne",
   "blueprint.designer.wrap.on": "oui",
   "blueprint.designer.wrap.off": "non",
+  "blueprint.designer.scroll": "Défilant",
+  "blueprint.designer.scroll.on": "oui",
+  "blueprint.designer.scroll.off": "non",
   "blueprint.designer.help": "F1 raccourcis",
   "blueprint.designer.field.texture": "Texture",
   "blueprint.designer.field.background": "Fond",
@@ -600,6 +604,8 @@
   "blueprint.node.blueprint.gui/set_tooltip_all.name": "Définir l'infobulle (à tous)",
   "blueprint.node.blueprint.gui/set_tooltip_key.name": "Définir l'infobulle (clé)",
   "blueprint.node.blueprint.gui/set_tooltip_key_all.name": "Définir l'infobulle (clé, à tous)",
+  "blueprint.node.blueprint.gui/set_scroll.name": "Faire défiler un panneau",
+  "blueprint.node.blueprint.gui/set_scroll_all.name": "Faire défiler un panneau (à tous)",
   "blueprint.category.gui/look": "GUI — apparence",
   "blueprint.editor.vars.empty": "Aucune — cliquez + pour en créer"
 }

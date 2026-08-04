@@ -95,9 +95,37 @@ public final class ScreenLayout {
      */
     public static Map<String, Rect> solve(Screen screen,
                                           double viewportWidth, double viewportHeight) {
+        return solve(screen, viewportWidth, viewportHeight, container -> 0);
+    }
+
+    /**
+     * De combien un conteneur défilant est remonté, <b>en unités</b>.
+     *
+     * <p>C'est une donnée d'EXÉCUTION : deux joueurs devant le même menu n'ont pas la même
+     * position de lecture. Elle entre donc dans la passe par ce paramètre plutôt que de
+     * vivre dans le modèle, où elle voyagerait dans la sauvegarde et dans l'export texte.
+     */
+    @FunctionalInterface
+    public interface Scrolls {
+        double of(String container);
+    }
+
+    /**
+     * La même passe, avec le défilement des conteneurs.
+     *
+     * <p><b>Le décalage est appliqué ICI</b>, dans la passe unique, et non par le rendu
+     * après coup. C'est la seule façon d'être sûr que le clic et le dessin s'accordent :
+     * un décalage appliqué de deux côtés finit toujours par diverger, et le symptôme —
+     * cliquer sur une ligne et en activer une autre — est le plus déroutant qui soit,
+     * puisque tout a l'air juste. C'est la leçon que ce projet a apprise deux fois : au
+     * tracé des fils (5.12), et au concepteur qui peignait à 320×180 pendant que le clic
+     * résolvait ailleurs (10.11).
+     */
+    public static Map<String, Rect> solve(Screen screen, double viewportWidth,
+                                          double viewportHeight, Scrolls scrolls) {
         Map<String, Rect> out = new HashMap<>();
         arrange(screen, null, new Rect(0, 0, viewportWidth, viewportHeight),
-                LayoutSpec.ABSOLUTE, out, new HashSet<>());
+                LayoutSpec.ABSOLUTE, out, new HashSet<>(), scrolls);
         return out;
     }
 
@@ -106,7 +134,8 @@ public final class ScreenLayout {
      * {@code guard} coupe les cycles : un élément déjà traité ne l'est pas deux fois.
      */
     private static void arrange(Screen screen, @Nullable String parent, Rect area,
-                                LayoutSpec layout, Map<String, Rect> out, Set<String> guard) {
+                                LayoutSpec layout, Map<String, Rect> out, Set<String> guard,
+                                Scrolls scrolls) {
         List<ScreenElement> children = childrenIn(screen, parent);
         if (children.isEmpty()) {
             return;
@@ -115,17 +144,100 @@ public final class ScreenLayout {
                 ? arrangeChildren(screen, area, layout, children)
                 : absoluteChildren(screen, area, children);
 
+        // Les enfants sont d'abord posés comme si rien ne défilait, PUIS remontés d'un
+        // bloc. Les poser directement décalés obligerait chaque mode de disposition à
+        // connaître le défilement — quatre endroits au lieu d'un.
+        double shift = parent != null && layout.scroll()
+                ? Math.max(0, finite(scrolls.of(parent))) : 0;
+
         for (int i = 0; i < children.size(); i++) {
             ScreenElement child = children.get(i);
             if (!guard.add(child.name())) {
                 continue;
             }
             Rect rect = rects.get(i);
+            if (shift != 0) {
+                rect = new Rect(rect.x(), rect.y() - shift, rect.width(), rect.height());
+            }
             out.put(child.name(), rect);
             arrange(screen, child.name(), rect,
                     child.kind().container() ? child.layout() : LayoutSpec.ABSOLUTE,
-                    out, guard);
+                    out, guard, scrolls);
         }
+    }
+
+    private static double finite(double value) {
+        return Double.isFinite(value) ? value : 0;
+    }
+
+    /**
+     * De combien ce conteneur peut encore défiler, au-delà de ce qu'il montre.
+     *
+     * <p>Se déduit des rectangles <b>déjà résolus</b> : le décalage courant y est déjà
+     * appliqué, on le rend donc au contenu pour retrouver sa hauteur réelle. Une seconde
+     * passe à décalage nul donnerait le même nombre pour le double du coût, à chaque
+     * image et pour chaque panneau.
+     *
+     * <p>Zéro quand tout tient : il n'y a alors rien à faire défiler, et un curseur de
+     * défilement qui apparaît sur un contenu complet ment sur ce qui reste à lire.
+     */
+    public static double scrollRange(Screen screen, ScreenElement container,
+                                     Map<String, Rect> placed, double currentScroll) {
+        Rect frame = placed.get(container.name());
+        if (frame == null || !container.scrolls()) {
+            return 0;
+        }
+        double bottom = Double.NEGATIVE_INFINITY;
+        for (ScreenElement child : screen.childrenOf(container.name())) {
+            Rect rect = placed.get(child.name());
+            if (rect != null) {
+                bottom = Math.max(bottom, rect.bottom());
+            }
+        }
+        if (bottom == Double.NEGATIVE_INFINITY) {
+            return 0;
+        }
+        return Math.max(0, bottom + Math.max(0, finite(currentScroll)) - frame.bottom());
+    }
+
+    /**
+     * Le rectangle auquel cet élément est <b>découpé</b>, ou {@code null} s'il ne l'est
+     * pas.
+     *
+     * <p>C'est l'intersection des cadres de tous ses ancêtres défilants — plusieurs, car
+     * un panneau défilant peut en contenir un autre. Le dessin y découpe, et le hit-test
+     * y refuse le clic : sans ce second usage, on cliquerait une ligne <b>sortie du
+     * cadre</b>, invisible, et le graphe recevrait une action que rien à l'écran
+     * n'expliquait.
+     */
+    public static @Nullable Rect clipOf(Screen screen, ScreenElement element,
+                                        Map<String, Rect> placed) {
+        Rect clip = null;
+        Set<String> seen = new HashSet<>();
+        seen.add(element.name());
+        String cursor = element.parent();
+        while (cursor != null && seen.add(cursor)) {
+            ScreenElement ancestor = screen.element(cursor);
+            if (ancestor == null) {
+                break;
+            }
+            if (ancestor.scrolls()) {
+                Rect frame = placed.get(ancestor.name());
+                clip = frame == null ? clip : intersect(clip, frame);
+            }
+            cursor = ancestor.parent();
+        }
+        return clip;
+    }
+
+    private static Rect intersect(@Nullable Rect a, Rect b) {
+        if (a == null) {
+            return b;
+        }
+        double x = Math.max(a.x(), b.x());
+        double y = Math.max(a.y(), b.y());
+        return new Rect(x, y, Math.max(0, Math.min(a.right(), b.right()) - x),
+                Math.max(0, Math.min(a.bottom(), b.bottom()) - y));
     }
 
     /**

@@ -47,6 +47,16 @@ public enum DiagnosticCode {
     ELEMENT_HUG_NOT_CONTAINER,
     ELEMENT_SQUEEZED,
     SCREEN_STYLE_NOT_FOUND,
+    /**
+     * Un conteneur défilant dont la hauteur s'ajuste à ses enfants (story 10.13).
+     *
+     * <p>Il grandit avec son contenu, donc rien ne dépasse jamais, donc il ne défile
+     * <b>jamais</b>. La case est cochée, le panneau a l'air correct, et la molette ne fait
+     * rien — sans ce mot, l'auteur en conclurait que le défilement est cassé. C'est la
+     * même famille que les poignées inopérantes de la 10.10 : un contrôle qui ne peut rien
+     * faire doit le dire.
+     */
+    SCREEN_SCROLL_HUGS,
     // Liaisons de données (story 10.7)
     SCREEN_BINDING_NOT_FOUND
 }

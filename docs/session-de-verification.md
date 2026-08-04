@@ -1,6 +1,6 @@
 # Session de vérification en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : **1036 tests headless** et **17 gametests**
+Tout ce qui se vérifie sans yeux l'est déjà : **1060 tests headless** et **17 gametests**
 dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
 seule une personne devant l'écran peut juger.
 
@@ -55,12 +55,13 @@ Puis en jeu : créer un monde en **créatif**, tricheurs activés.
 
 ---
 
-## Bloc 2 — Les écrans (11 points, ~25 min)
+## Bloc 2 — Les écrans (12 points, ~28 min)
 
 Restez dans le même blueprint, onglet **Écrans**.
 
 | | À vérifier | Ce qui doit se produire |
 |---|---|---|
+| ☐ V38 | **Panneau défilant** | Un panneau de 100 de haut en **colonne**, **Défilant** coché, huit boutons dedans → la molette au-dessus le fait défiler, le contenu est **coupé net au bord du cadre**. **Cliquer là où un bouton sorti du cadre se trouverait n'active rien.** Défiler à fond dans les deux sens → il s'arrête, sans vide. Une **liste** dans le panneau : la molette sur la liste défile la liste, à côté d'elle le panneau. `gui/set_scroll` à 0 le ramène en haut. Passer sa hauteur en **ajuster** → un **avertissement** dit qu'il ne défilera jamais. Dans le concepteur : la molette sur le panneau le fait défiler (elle ne zoome plus), et **sélectionner dans les calques un enfant sorti du cadre le ramène sous les yeux**. |
 | ☐ V37 | **Menus complets** | Une étiquette large, un paragraphe dedans, **Retour ligne** coché → le texte se coupe aux mots ; réduire le cadre → les lignes en trop sont coupées, rien ne déborde. Donner une **infobulle** à un bouton, à une étiquette et à un bouton **désactivé** : les trois s'affichent au survol, le grisé compris. **Cliquer fait le bruit d'un bouton du jeu** ; un bouton grisé reste muet. `gui/set_style` bascule deux styles nommés (« onglet actif » / « inactif ») sans dupliquer les éléments. Dans le concepteur : `G` montre et cache la **grille**, `F1` liste les raccourcis, et **un seul élément** se centre dans son cadre au pavé numérique 5. |
 | ☐ V36 | **Zoom et grand canevas** | Le canevas s'ouvre en **1920×1080 cadré entier**. Molette vers l'avant en visant un bouton → **il reste sous le curseur**. Bouton du milieu (ou `Espace` + gauche) → la vue suit la souris ; pousser à fond dans une direction → **le canevas est toujours là**. `F` recadre, `Ctrl+0` revient à 1:1. Zoomé à 4×, poser un bouton depuis la palette → il atterrit **au centre de ce qu'on voit**, et ses poignées s'attrapent aussi facilement qu'à 1×. Poser un bouton en bas à droite, basculer sur **320×180** → toujours en bas à droite et **dans l'écran**. `Tab` replie les deux panneaux (le canevas double) ; cliquer là où était la palette **atteint le canevas**. À 2×, la troncature d'un texte est **la même** qu'en jeu. Un aperçu d'entité et un emplacement d'objet restent dans leur cadre à tous les zooms. |
 | ☐ V25 | Concepteur | Créer un écran, poser un panneau puis deux boutons dedans. Les traîner (guides jaunes à l'accroche), redimensionner par les poignées. Renommer : un doublon vire au rouge **pendant** la frappe. `Ctrl+Z` défait, même après un aller-retour par l'onglet Graphe. |
@@ -109,4 +110,4 @@ Pour chaque défaut noté :
 3. S'il révèle un **manque de conception**, c'est une story — pas un correctif glissé dans
    un commit de finition.
 
-Le tableau des 37 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
+Le tableau des 38 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.

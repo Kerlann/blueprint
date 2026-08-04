@@ -170,7 +170,22 @@ public final class ScreenPainter {
             if (rect == null) {
                 continue;   // parenté cyclique : le validateur le dit, le dessin passe
             }
+            // Un enfant de conteneur défilant est DÉCOUPÉ à son cadre (10.13). Sans
+            // cela, ce qui est sorti du panneau continuerait d'être peint par-dessus le
+            // reste du menu, et l'on chercherait longtemps d'où viennent les lignes qui
+            // le traversent.
+            ScreenLayout.Rect clip = ScreenLayout.clipOf(screen, element, rects);
+            if (clip == null) {
+                paintElement(g, font, screen, element, rect, originX, originY, scale, visuals);
+                continue;
+            }
+            int[] box = pixels(clip, originX, originY, scale);
+            if (box[2] <= box[0] || box[3] <= box[1]) {
+                continue;   // cadre réduit à rien : rien à dessiner, et scissor l'exige
+            }
+            g.enableScissor(box[0], box[1], box[2], box[3]);
             paintElement(g, font, screen, element, rect, originX, originY, scale, visuals);
+            g.disableScissor();
         }
     }
 

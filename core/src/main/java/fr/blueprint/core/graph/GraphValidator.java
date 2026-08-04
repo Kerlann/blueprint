@@ -181,6 +181,11 @@ public final class GraphValidator {
                             Diagnostic.element(screen.name(), element.name()),
                             element.name()));
                 }
+                if (ScreenRules.scrollsButHugs(element)) {
+                    out.add(Diagnostic.warning(DiagnosticCode.SCREEN_SCROLL_HUGS,
+                            Diagnostic.element(screen.name(), element.name()),
+                            element.name()));
+                }
                 if (ScreenRules.styleNotFound(screen, element)) {
                     out.add(Diagnostic.warning(DiagnosticCode.SCREEN_STYLE_NOT_FOUND,
                             Diagnostic.element(screen.name(), element.name()),

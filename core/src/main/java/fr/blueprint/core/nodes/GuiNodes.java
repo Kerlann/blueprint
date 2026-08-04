@@ -90,6 +90,12 @@ public final class GuiNodes {
         modifier(r, NodeCategories.GUI_LOOK, "set_tooltip_key", "key", PinTypes.STRING, "",
                 (screen, element, ctx) -> ScreenUpdate.tooltip(screen, element,
                         ScreenText.key(ctx.in("key"))));
+        // Repositionner un panneau défilant (10.13). Quand le graphe change ce qu'il
+        // contient, le décalage gardé pointe dans le vide : le joueur voit une page
+        // blanche qu'il devrait remonter à la main pour découvrir qu'elle est pleine.
+        modifier(r, NodeCategories.GUI_LOOK, "set_scroll", "offset", PinTypes.DOUBLE, 0.0,
+                (screen, element, ctx) -> ScreenUpdate.scroll(screen, element,
+                        ctx.<Double>in("offset")));
     }
 
     /** Une liste de n'importe quoi devient une liste de lignes : rien n'est jeté. */

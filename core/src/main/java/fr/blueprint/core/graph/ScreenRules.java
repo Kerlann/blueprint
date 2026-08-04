@@ -160,4 +160,21 @@ public final class ScreenRules {
     public static boolean styleNotFound(Screen screen, ScreenElement element) {
         return element.followsNamedStyle() && !screen.styles().containsKey(element.styleName());
     }
+
+    /**
+     * Ce conteneur défile-t-il alors que sa hauteur s'ajuste à ses enfants ?
+     *
+     * <p>Il grandit avec son contenu, donc rien ne dépasse jamais, donc il ne défile
+     * <b>jamais</b>. La case est cochée, le panneau a l'air correct, et la molette ne fait
+     * rien — sans ce mot, l'auteur en conclurait que le défilement est cassé plutôt que
+     * mal réglé. Même famille que les poignées inopérantes de la 10.10 : un contrôle qui
+     * ne peut rien faire doit le dire.
+     *
+     * <p>Avertissement et non erreur : l'écran reste parfaitement affichable, et refuser
+     * l'enregistrement pour un réglage sans effet serait disproportionné.
+     */
+    public static boolean scrollsButHugs(ScreenElement element) {
+        return element.scrolls()
+                && element.height().mode() == fr.blueprint.core.graph.screen.Extent.Mode.HUG;
+    }
 }

@@ -107,7 +107,12 @@ public final class ScreenNbt {
         if (element.followsNamedStyle()) {
             tag.putString("styleName", element.styleName());
         }
-        if (element.layout().arranges()) {
+        // `arranges() OU scroll()` : un panneau qui ne range pas ses enfants mais qui
+        // DÉFILE a bien une disposition à écrire. La condition d'origine ne connaissait
+        // que le rangement, et un panneau défilant en absolu serait revenu figé après un
+        // aller-retour — sans erreur, sans avertissement, et sans que rien ne rappelle
+        // qu'on avait coché la case.
+        if (element.layout().arranges() || element.layout().scroll()) {
             tag.put("layout", encodeLayout(element.layout()));
         }
         // Écrite seulement quand elle existe : un écran sans liaison pèse exactement ce
@@ -201,6 +206,11 @@ public final class ScreenNbt {
         tag.putInt("columns", layout.columns());
         tag.putString("main", layout.main().name().toLowerCase(Locale.ROOT));
         tag.putString("cross", layout.cross().name().toLowerCase(Locale.ROOT));
+        // Écrit seulement quand il est vrai : un conteneur qui ne défile pas pèse
+        // exactement ce qu'il pesait, et une version antérieure le relit sans rien voir.
+        if (layout.scroll()) {
+            tag.putBoolean("scroll", true);
+        }
         return tag;
     }
 
@@ -333,7 +343,8 @@ public final class ScreenNbt {
                 enumOr(LayoutSpec.Distribute.class, tag.getStringOr("main", ""),
                         LayoutSpec.Distribute.START),
                 enumOr(LayoutSpec.Cross.class, tag.getStringOr("cross", ""),
-                        LayoutSpec.Cross.START));
+                        LayoutSpec.Cross.START),
+                tag.getBooleanOr("scroll", false));
     }
 
     /** Une valeur d'énumération inconnue retombe sur le défaut plutôt que de lever. */

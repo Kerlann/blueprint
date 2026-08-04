@@ -325,7 +325,109 @@ public final class ScreenCanvasController {
     public java.util.Map<String, ScreenLayout.Rect> rects() {
         Screen screen = screen();
         return screen == null ? java.util.Map.of()
-                : ScreenLayout.solve(screen, viewportWidth, viewportHeight);
+                : ScreenLayout.solve(screen, viewportWidth, viewportHeight, this::scrollOf);
+    }
+
+    // ------------------------------------------------- panneaux défilants (10.13)
+
+    /**
+     * De combien chaque panneau défilant est remonté <b>dans le concepteur</b>.
+     *
+     * <p>Une position de lecture, comme en jeu : elle ne va pas dans le modèle. Ici elle
+     * sert à deux choses — voir ce que le joueur verra, et atteindre un enfant qui est
+     * sorti du cadre. Sans la seconde, découper dans le concepteur rendrait certains
+     * éléments impossibles à sélectionner autrement que par la liste des calques.
+     */
+    private final Map<String, Double> scroll = new HashMap<>();
+
+    public double scrollOf(String container) {
+        return scroll.getOrDefault(container, 0.0);
+    }
+
+    /** Fait défiler un panneau, borné à son contenu. Rend vrai s'il a bougé. */
+    public boolean scrollBy(String container, double delta) {
+        Screen screen = screen();
+        ScreenElement element = screen == null ? null : screen.element(container);
+        if (element == null || !element.scrolls()) {
+            return false;
+        }
+        double current = scrollOf(container);
+        double range = ScreenLayout.scrollRange(screen, element, rects(), current);
+        double next = Math.clamp(current + delta, 0, range);
+        if (next == current) {
+            return false;
+        }
+        scroll.put(container, next);
+        return true;
+    }
+
+    /** Le panneau défilant le plus INTÉRIEUR sous ce point, ou {@code null}. */
+    public @Nullable String scrollableAt(double x, double y) {
+        Screen screen = screen();
+        if (screen == null) {
+            return null;
+        }
+        var placed = rects();
+        List<ScreenElement> elements = List.copyOf(screen.elements().values());
+        for (int i = elements.size() - 1; i >= 0; i--) {
+            ScreenElement element = elements.get(i);
+            ScreenLayout.Rect rect = placed.get(element.name());
+            if (element.scrolls() && rect != null && rect.contains(x, y)) {
+                return element.name();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Fait défiler ce qu'il faut pour que la sélection soit <b>visible</b>.
+     *
+     * <p>C'est ce qui rend le découpage supportable en conception : un enfant sorti du
+     * cadre serait dessiné nulle part, donc introuvable à la souris, et l'on ne pourrait
+     * plus ni le déplacer ni le régler. Le sélectionner dans la liste des calques le
+     * ramène sous les yeux.
+     */
+    public boolean revealSelection() {
+        Screen screen = screen();
+        if (screen == null || selection.size() != 1) {
+            return false;
+        }
+        String name = selection.ids().iterator().next();
+        ScreenElement element = screen.element(name);
+        if (element == null) {
+            return false;
+        }
+        var placed = rects();
+        ScreenLayout.Rect rect = placed.get(name);
+        ScreenLayout.Rect clip = ScreenLayout.clipOf(screen, element, placed);
+        if (rect == null || clip == null) {
+            return false;
+        }
+        if (rect.y() < clip.y()) {
+            return scrollBy(nearestScroller(screen, element), rect.y() - clip.y());
+        }
+        if (rect.bottom() > clip.bottom()) {
+            return scrollBy(nearestScroller(screen, element), rect.bottom() - clip.bottom());
+        }
+        return false;
+    }
+
+    /** Le premier ancêtre défilant, celui dont le décalage bougera. */
+    private static String nearestScroller(Screen screen, ScreenElement element) {
+        Set<String> seen = new java.util.HashSet<>();
+        seen.add(element.name());
+        String cursor = element.parent();
+        while (cursor != null && seen.add(cursor)) {
+            ScreenElement ancestor = screen.element(cursor);
+            if (ancestor == null) {
+                return "";
+            }
+            if (ancestor.scrolls()) {
+                return ancestor.name();
+            }
+            cursor = ancestor.parent();
+        }
+        return "";
     }
 
     public ScreenLayout.@Nullable Rect rectOf(String element) {

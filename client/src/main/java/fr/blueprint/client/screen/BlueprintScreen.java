@@ -91,7 +91,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 case PROGRESS -> element;   // la valeur vit à part : voir progress()
                 // Idem pour les éléments riches (10.8) : données d'exécution, pas
                 // propriétés du blueprint.
-                case LINES, ITEM, VALUE -> element;
+                case LINES, ITEM, VALUE, SCROLL -> element;
             });
             switch (update.kind()) {
                 case PROGRESS -> progress.put(update.element(), update.number());
@@ -102,6 +102,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                     // main pour découvrir qu'elle est pleine.
                     scroll.remove(update.element());
                 }
+                case SCROLL -> panelScroll.put(update.element(), update.number());
                 case ITEM -> items.put(update.element(), itemOf(update));
                 case VALUE -> {
                     values.put(update.element(), update.number());
@@ -131,6 +132,15 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
     // cette ouverture.
     private final java.util.Map<String, java.util.List<String>> lines = new java.util.HashMap<>();
     private final java.util.Map<String, Integer> scroll = new java.util.HashMap<>();
+
+    /**
+     * De combien chaque panneau défilant est remonté, en unités (story 10.13).
+     *
+     * <p>Hors du modèle à dessein, comme le remplissage des barres et le texte des
+     * champs : deux joueurs devant le même menu n'ont pas la même position de lecture, et
+     * l'écrire dans le blueprint la ferait voyager dans la sauvegarde et dans l'export.
+     */
+    private final java.util.Map<String, Double> panelScroll = new java.util.HashMap<>();
     private final java.util.Map<String, String> inputs = new java.util.HashMap<>();
     private final java.util.Map<String, Double> values = new java.util.HashMap<>();
     private final java.util.Map<String, Boolean> checks = new java.util.HashMap<>();
@@ -237,11 +247,28 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 continue;
             }
             var rect = placed.get(element.name());
-            if (rect != null && rect.contains(mouseX, mouseY)) {
+            if (rect != null && rect.contains(mouseX, mouseY)
+                    && insideItsClip(element, placed, mouseX, mouseY)) {
                 return element.name();
             }
         }
         return null;
+    }
+
+    /**
+     * Le point est-il dans le cadre qui découpe cet élément ?
+     *
+     * <p><b>Le contrôle qui compte</b> pour un panneau défilant. Sans lui, un bouton sorti
+     * du cadre — invisible, découpé au dessin — resterait <b>cliquable</b> : le joueur
+     * viserait le menu en dessous, activerait ce qu'il ne voit pas, et le graphe recevrait
+     * une action que rien à l'écran n'expliquerait. C'est le pire mode de panne d'une
+     * interface : celui où tout a l'air juste.
+     */
+    private boolean insideItsClip(fr.blueprint.core.graph.screen.ScreenElement element,
+            java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> placed,
+            double mouseX, double mouseY) {
+        var clip = fr.blueprint.core.graph.screen.ScreenLayout.clipOf(model, element, placed);
+        return clip == null || clip.contains(mouseX, mouseY);
     }
 
     /**
@@ -297,7 +324,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         return element.options().valueAt(fraction);
     }
 
-    /** La molette fait défiler la liste sous le curseur, et elle seule. */
+    /** La molette fait défiler la liste sous le curseur, puis le panneau qui la contient. */
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double hAmount, double vAmount) {
         String name = elementAt(mouseX, mouseY);
@@ -311,7 +338,77 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 return true;
             }
         }
+        // Une LISTE d'abord, le panneau qui la porte ensuite : sinon la molette ferait
+        // glisser la page entière alors qu'on voulait parcourir la liste qu'on regarde.
+        if (scrollPanelAt(mouseX, mouseY, vAmount)) {
+            return true;
+        }
         return super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
+    }
+
+    /** Ramène chaque décalage dans sa plage ; vrai si l'un d'eux a bougé. */
+    private boolean clampScroll(
+            java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> placed) {
+        if (panelScroll.isEmpty()) {
+            return false;
+        }
+        boolean changed = false;
+        for (var entry : panelScroll.entrySet()) {
+            var container = model.element(entry.getKey());
+            if (container == null) {
+                continue;
+            }
+            double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
+                    model, container, placed, entry.getValue());
+            double clamped = Math.clamp(entry.getValue(), 0, range);
+            if (clamped != entry.getValue()) {
+                entry.setValue(clamped);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    /** Un cran de molette, en unités : trois lignes de texte, comme partout dans le jeu. */
+    private static final double SCROLL_STEP = 3 * 9;
+
+    /**
+     * Fait défiler le panneau défilant le plus <b>intérieur</b> sous le curseur.
+     *
+     * <p>Le plus intérieur, parce qu'un panneau défilant peut en contenir un autre : c'est
+     * celui qu'on regarde qui doit bouger, comme dans toute page imbriquée. Le parcours se
+     * fait donc à l'envers de l'ordre de dessin, et le premier trouvé gagne.
+     */
+    private boolean scrollPanelAt(double mouseX, double mouseY, double amount) {
+        var placed = layout();
+        var elements = java.util.List.copyOf(model.elements().values());
+        for (int i = elements.size() - 1; i >= 0; i--) {
+            var element = elements.get(i);
+            if (!element.scrolls()
+                    || !ScreenPainter.visible(model, element, ScreenPainter.Visuals.NONE)) {
+                continue;
+            }
+            var rect = placed.get(element.name());
+            if (rect == null || !rect.contains(mouseX, mouseY)) {
+                continue;
+            }
+            double current = panelScroll.getOrDefault(element.name(), 0.0);
+            double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
+                    model, element, placed, current);
+            if (range <= 0) {
+                // Tout tient : on rend la molette à ce qui est derrière plutôt que de
+                // l'avaler. Un panneau qui absorbe un geste sans rien faire donne
+                // l'impression d'un menu bloqué.
+                continue;
+            }
+            double next = Math.clamp(current - Math.signum(amount) * SCROLL_STEP, 0, range);
+            if (next != current) {
+                panelScroll.put(element.name(), next);
+                layout = null;   // la mise en page gardée ne vaut plus : elle a bougé
+            }
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -500,7 +597,8 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 continue;
             }
             var rect = placed.get(element.name());
-            if (rect != null && rect.contains(mouseX, mouseY)) {
+            if (rect != null && rect.contains(mouseX, mouseY)
+                    && insideItsClip(element, placed, mouseX, mouseY)) {
                 graphics.setTooltipForNextFrame(font, componentOf(element.tooltip()),
                         mouseX, mouseY);
                 return;
@@ -530,7 +628,16 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      */
     private java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> layout() {
         if (layout == null || layoutWidth != width || layoutHeight != height) {
-            layout = fr.blueprint.core.graph.screen.ScreenLayout.solve(model, width, height);
+            layout = fr.blueprint.core.graph.screen.ScreenLayout.solve(model, width, height,
+                    container -> panelScroll.getOrDefault(container, 0.0));
+            // Le contenu a pu RÉTRÉCIR — une ligne retirée, un élément masqué par le
+            // graphe — et le panneau resterait alors défilé au-delà de sa fin, montrant
+            // du vide que rien ne permettrait de comprendre. Une seule reprise suffit :
+            // borner un décalage ne peut qu'allonger ce qui reste, jamais le raccourcir.
+            if (clampScroll(layout)) {
+                layout = fr.blueprint.core.graph.screen.ScreenLayout.solve(model, width, height,
+                        container -> panelScroll.getOrDefault(container, 0.0));
+            }
             layoutWidth = width;
             layoutHeight = height;
         }

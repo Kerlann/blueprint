@@ -192,7 +192,10 @@ public final class ScriptGenerator {
         if (element.isBound()) {
             sb.append(" @bind(").append(renderBinding(element.binding())).append(')');
         }
-        if (element.arranges()) {
+        // `arranges() OU scrolls()` : un panneau qui ne range pas ses enfants mais qui
+        // DÉFILE a bien une disposition à écrire. La condition d'origine ne connaissait
+        // que le rangement, et l'export aurait perdu la case en silence.
+        if (element.arranges() || element.scrolls()) {
             sb.append(" @layout(").append(renderLayout(element.layout())).append(')');
         }
         // Le style NOMMÉ et le style EN LIGNE sont émis tous les deux quand ils
@@ -297,6 +300,11 @@ public final class ScriptGenerator {
         }
         if (layout.cross() != fr.blueprint.core.graph.screen.LayoutSpec.Cross.START) {
             sb.append(", cross: ").append(lower(layout.cross().name()));
+        }
+        // Émis seulement quand il est vrai : un `.bp` exporté avant le défilement se relit
+        // sans changement, et un panneau ordinaire ne gagne pas un mot inutile.
+        if (layout.scroll()) {
+            sb.append(", scroll: true");
         }
         return sb.toString();
     }

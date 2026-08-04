@@ -92,6 +92,16 @@ public record ScreenElement(String name, ElementKind kind, @Nullable String pare
         return kind.container() && layout.arranges();
     }
 
+    /**
+     * Vrai si ce conteneur <b>défile</b>. Comme {@link #arranges()}, la question n'a de
+     * sens que sur un conteneur : cocher « défilant » sur un bouton ne ferait rien, et
+     * une seule définition évite que le rendu, le clic et l'enregistrement se répondent
+     * différemment.
+     */
+    public boolean scrolls() {
+        return kind.container() && layout.scroll();
+    }
+
     /** Un élément neuf, aux valeurs par défaut : ce que pose le concepteur. */
     public static ScreenElement of(String name, ElementKind kind, double x, double y,
                                    double width, double height) {
