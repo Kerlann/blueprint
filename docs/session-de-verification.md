@@ -1,0 +1,110 @@
+# Session de vérification en jeu
+
+Tout ce qui se vérifie sans yeux l'est déjà : **996 tests headless** et **17 gametests**
+dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
+seule une personne devant l'écran peut juger.
+
+Cinq points ont quitté cette liste parce qu'ils sont devenus des gametests : la
+persistance, les nœuds fantômes, les boucles `for_each`, la commande `/bpc` et le nœud
+annoté du mod de test. Ils ne demandent plus de regard.
+
+**Comptez une heure.** L'ordre importe : chaque bloc réutilise ce que le précédent a
+construit, et repartir de zéro à chaque point ferait perdre le tiers du temps.
+
+---
+
+## Avant de commencer
+
+Le nécessaire est déjà en place dans `run/` :
+
+- `run/blueprint/exports/` — les sept exemples, plus la démo
+- `run/blueprint/scripts/ma_boutique/` — le pack d'images (fond, bouton, survol)
+- `run/blueprint/config.json` — configuration d'une version antérieure, **volontairement** :
+  elle vérifie au passage que les quotas neufs reprennent leurs défauts
+
+```bash
+./gradlew runClient
+```
+
+Puis en jeu : créer un monde en **créatif**, tricheurs activés.
+
+> Notez ce qui cloche **au fil de l'eau**, sans vous arrêter pour corriger. Une session
+> interrompue à chaque défaut ne finit jamais, et les défauts de la fin sont ceux qu'on
+> ne voit jamais.
+
+---
+
+## Bloc 1 — L'éditeur de graphe (12 points, ~20 min)
+
+`/blueprint demo` puis `F6`.
+
+| | À vérifier | Ce qui doit se produire |
+|---|---|---|
+| ☐ V1 | L'éditeur s'ouvre et se lit | Grille, nœuds, liens courbes, minimap. Fluide au déplacement et au zoom. |
+| ☐ V32 | **Nœuds élargis** | Les champs de valeur montrent une dizaine de caractères, pas cinq. Deux champs voisins sont **détachés** — on voit à quelle entrée appartient chacun. Aucun libellé ne mord sur un champ. Un pin booléen au nom long (`through_fluids` sur `world/raycast`) s'affiche **en entier**. |
+| ☐ V33 | **Onglets dans la barre** | « Graphe » et « Écrans » sont dans la barre du haut, entre le titre et les boutons. Ils **ne bougent pas** quand le titre gagne son ● de modification. Un identifiant long ne passe pas dessous. |
+| ☐ V21 | Aspect | Châssis arrondi, en-tête en dégradé par catégorie, ombre portée, pictogramme de catégorie, pastille de permission. |
+| ☐ V2 | Éditer pour de vrai | `/blueprint create essai` → poser deux nœuds, câbler, taper un littéral, `Ctrl+S`. « Enregistré », le ● part **et ne revient pas**. |
+| ☐ V3 | Le confort | Palette `Espace`, `Ctrl+Z`/`Ctrl+Y`, `Ctrl+C`/`Ctrl+V`, `Q` aligner, `C` commenter, `Ctrl+F` chercher, vue Script, panneau Détails. |
+| ☐ V20 | Gestes d'Unreal | Clic droit sur un nœud / un pin / le vide → trois menus **différents**. Promouvoir un pin en variable. Lâcher un nœud **sur un fil** → il s'y insère. |
+| ☐ V13 | Survol et liens | Infobulle au survol d'un pin et d'un bouton. Clic sur un lien → il se sélectionne. |
+| ☐ V14 | Défilement | Les panneaux Variables et Détails défilent à la molette quand ils débordent. |
+| ☐ V22 | Sous-catégories | La palette groupe par catégorie **et** sous-catégorie ; aucun repli ne dépasse douze entrées. |
+| ☐ V4 | Clavier seul | Flèches entre nœuds, `Entrée` édite la première valeur, `Ctrl+S`. Sans toucher la souris. |
+| ☐ V5 | Daltonisme | Les pins se distinguent **par leur forme** autant que par leur couleur : ▶ exec, ● donnée, ◆ objet, ▦ liste, ✚ dictionnaire. |
+
+---
+
+## Bloc 2 — Les écrans (9 points, ~20 min)
+
+Restez dans le même blueprint, onglet **Écrans**.
+
+| | À vérifier | Ce qui doit se produire |
+|---|---|---|
+| ☐ V25 | Concepteur | Créer un écran, poser un panneau puis deux boutons dedans. Les traîner (guides jaunes à l'accroche), redimensionner par les poignées. Renommer : un doublon vire au rouge **pendant** la frappe. `Ctrl+Z` défait, même après un aller-retour par l'onglet Graphe. |
+| ☐ V29 | **Dispositions et styles** | Passer le panneau en **colonne** → les boutons se rangent seuls, sans qu'on touche une coordonnée. En insérer un **au milieu** → les suivants descendent. Le tirer ailleurs dans la colonne le **réordonne** (ses poignées de largeur ont disparu : elles ne feraient rien). Basculer 320×180 ↔ 960×540 → les proportions tiennent. Créer un style depuis un bouton, l'appliquer aux autres, changer sa couleur → tous changent. Un panneau en « ajuster » épouse ses enfants. |
+| ☐ V34 | **Quotas et clavier** | `Tab` parcourt les boutons, `Entrée` active — le bouton ciblé **se voit**. `Échap` ferme. Les bordures par défaut se distinguent bien du fond. |
+| ☐ V26 | Écran en jeu | Ouvrir un menu conçu : il s'affiche, suit le redimensionnement de la fenêtre **et** le GUI scale (essayer 1 puis 4). Nommer une texture absente → damier magenta portant son nom, le reste de l'écran intact. |
+| ☐ V27 | Boutons vivants | Cliquer « acheter » déclenche le graphe. Masquer un bouton depuis le graphe le rend **vraiment** incliquable. Désactiver le blueprint referme le menu ouvert. |
+| ☐ V31 | Liaison de données | Lier une étiquette à une variable (elle se **choisit** dans la liste, ne se tape pas), format `Or : %s`. À l'ouverture, l'étiquette montre déjà le **défaut** de la variable. Changer la variable puis `gui/refresh` → le texte suit. **Sans** `gui/refresh`, rien ne bouge — c'est voulu. Renommer la variable dans l'éditeur → **erreur** de diagnostic, pas un écran vide. |
+| ☐ V35 | **Éléments riches** | Alimenter une liste par `gui/set_lines` → les lignes s'affichent, la molette défile, ce qui dépasse est **découpé** (rien ne déborde). Cliquer la troisième ligne → le graphe reçoit l'**indice 2**, et toujours 2 **après avoir défilé**. Taper dans un champ → un caractère hors filtre est refusé à la frappe ; `Entrée` valide ; `Échap` relâche le champ **avant** de fermer l'écran. `gui/set_item` affiche un objet avec son nombre. Un **aperçu d'entité** (`minecraft:pig`) montre la créature qui tourne — ouvrir/fermer vingt fois ne fait pas saccader. |
+| ☐ V30 | Packs d'images | Le pack est déjà dans `run/blueprint/scripts/`. `/blueprint-packs` → il est listé. `/blueprint import boutique.bp`, ouvrir l'écran → fond et boutons portent les images. **Renommer le dossier** et `/blueprint-packs reload` → damiers portant « pack ma_boutique absent », le menu reste cliquable. Le remettre, recharger **sans fermer le menu** → les images reviennent. |
+| ☐ V28 | HUD permanent | `hud/show` : le bandeau s'affiche et **on continue de jouer** — marcher, frapper, ouvrir son inventaire. Deux HUD à la fois. **F7** les retire tous. Désactiver le blueprint retire le sien. |
+
+---
+
+## Bloc 3 — L'exécution (6 points, ~15 min)
+
+| | À vérifier | Ce qui doit se produire |
+|---|---|---|
+| ☐ V6 | Débogueur | `/blueprint debug <id> on`, `B` sur un nœud, `F10` pas-à-pas, `F5` continuer. Les billes de flux circulent sur les fils, les valeurs s'affichent. |
+| ☐ V7 | Profileur | `/blueprint profile <id> on` puis `show` : les nœuds coûteux ressortent. |
+| ☐ V16 | Bibliothèque en monde réel | Un graphe qui lit le monde, requête des entités, donne un objet, écrit un score. |
+| ☐ V23 | Bibliothèque élargie | Inventaire, tableau des scores, texte riche, raycast, barre de boss. |
+| ☐ V24 | Les cinq derniers | `has_item`, score visible en affichage latéral, message cliquable, `entity/looking_at`, barre de boss qui ne s'empile pas. |
+| ☐ V18 | Quotas et audit | Baisser `maxNodes` dans `blueprint/config.json`, redémarrer → le dépassement est **signalé pendant qu'on dessine**. Un nœud ADMIN laisse une trace au log. |
+
+---
+
+## Bloc 4 — Ce qui demande une seconde fenêtre (3 points, ~5 min)
+
+| | À vérifier | Ce qui doit se produire |
+|---|---|---|
+| ☐ V12 | Multijoueur | Un serveur dédié + deux clients : l'éditeur s'ouvre chez les deux, l'enregistrement du premier est vu du second, un joueur sans permission voit « lecture seule ». |
+| ☐ V10 | Datapack | `shout_twice` apparaît dans la palette. Modifier son JSON puis `/reload` → le changement est pris. |
+| ☐ V11 | Guide | Suivre `getting-started.md` §3 puis §8 **sans rien savoir d'autre** : le premier blueprint et le premier menu doivent tenir en dix minutes chacun. |
+
+---
+
+## Après la session
+
+Pour chaque défaut noté :
+
+1. S'il est **visuel et isolé** — une couleur, un espacement, un libellé — corrigez-le
+   directement et notez-le dans le commit.
+2. S'il touche au **comportement**, écrivez d'abord le test qui échoue. Un défaut trouvé
+   en jeu et corrigé sans test reviendra, et il reviendra sans qu'on s'en aperçoive.
+3. S'il révèle un **manque de conception**, c'est une story — pas un correctif glissé dans
+   un commit de finition.
+
+Le tableau des 35 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.

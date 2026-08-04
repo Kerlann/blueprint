@@ -347,6 +347,175 @@ public final class BlueprintGameTests {
     }
 
     /**
+     * VERIFY-9 automatisé : un nœud dont le mod a disparu ne fait rien perdre.
+     *
+     * <p>C'est la promesse la plus lourde du produit — « réinstallez le mod et tout
+     * repart » — et celle qu'on ne peut pas vérifier à l'œil : un graphe amputé s'ouvre
+     * sans erreur, se réenregistre, et la perte devient définitive sans que personne
+     * n'ait rien vu.
+     *
+     * <p>Le mod n'est pas réellement retiré ici : c'est le registre qui ne connaît pas le
+     * type, ce qui est <b>exactement</b> ce qui arrive au chargement quand le mod manque.
+     */
+    @GameTest(maxTicks = 100)
+    public void aGhostNodeSurvivesSaveAndLoadWithoutLosingAnything(GameTestHelper helper) {
+        Identifier blueprintId = id("ghost_survives");
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        // Un type qu'AUCUN mod ne fournit : le cas du mod retiré, sans retirer de mod.
+        Identifier missing = Identifier.fromNamespaceAndPath("mod_disparu", "faire/quelque_chose");
+        Blueprint bp = new Blueprint(blueprintId, new fr.blueprint.core.graph.BlueprintMeta(
+                "", "", "1.0.0", fr.blueprint.api.node.Permission.GAMEPLAY));
+        UUID event = uuid(blueprintId + ":event");
+        UUID ghost = uuid(blueprintId + ":ghost");
+        apply(bp, new EditOperation.AddNode(event, StandardEvents.SERVER_TICK.id(),
+                new Vec2d(0, 0)));
+        // GraphLoader et non EditOperation : celui-ci refuserait un type inconnu, ce qui
+        // est son rôle à l'édition. Le CHARGEMENT, lui, ne refuse rien (P4).
+        fr.blueprint.core.graph.GraphLoader.addNode(bp,
+                new fr.blueprint.core.graph.Node(ghost, missing, new Vec2d(200, 0)));
+        fr.blueprint.core.graph.GraphLoader.addLink(bp,
+                new Link(event, "exec_out", ghost, "exec_in"));
+        manager.adopt(bp);
+
+        // Aller-retour NBT complet : ce que la sauvegarde du monde fait réellement.
+        var tag = fr.blueprint.core.graph.GraphNbt.encode(manager.get(blueprintId).orElseThrow());
+        Blueprint reloaded = fr.blueprint.core.graph.GraphNbt.decode(tag,
+                id -> BlueprintMod.registries().pinTypes().get(id).orElse(null));
+
+        helper.assertTrue(reloaded != null, Component.literal("le blueprint ne s'est pas relu"));
+        var survivor = reloaded.node(ghost);
+        helper.assertTrue(survivor != null,
+                Component.literal("le nœud fantôme a DISPARU au chargement"));
+        helper.assertTrue(missing.equals(survivor.typeId()), Component.literal(
+                "le type a changé : " + survivor.typeId()));
+        helper.assertTrue(reloaded.linksTouching(ghost).size() == 1, Component.literal(
+                "le lien vers le fantôme a été perdu : " + reloaded.linksTouching(ghost)));
+
+        // Et le graphe REFUSE de tourner, en nommant ce qui manque : l'exécuter à moitié
+        // serait pire que de ne pas l'exécuter.
+        var report = fr.blueprint.core.graph.GraphValidator.validate(reloaded,
+                BlueprintMod.registries().nodes());
+        helper.assertTrue(report.diagnostics().stream().anyMatch(d ->
+                        d.code() == fr.blueprint.core.graph.DiagnosticCode.UNKNOWN_NODE_TYPE),
+                Component.literal("aucun diagnostic ne nomme le nœud inconnu"));
+        helper.assertTrue(!report.executable(),
+                Component.literal("un graphe amputé s'est déclaré exécutable"));
+
+        helper.succeedWhen(() -> cleanup(helper, blueprintId));
+    }
+
+    /**
+     * VERIFY-15 automatisé : une boucle {@code for_each} parcourt une liste jusqu'au
+     * bout, et le graphe ne part pas en boucle infinie.
+     *
+     * <p>Ce que le test regarde n'est pas « ça marche » mais « ça <b>s'arrête</b> » :
+     * une boucle qui repart indéfiniment épuiserait le carburant du tick, le blueprint
+     * serait désactivé, et le symptôme — un graphe qui s'éteint tout seul — n'indiquerait
+     * pas la boucle.
+     */
+    @GameTest(maxTicks = 200)
+    public void aForEachLoopVisitsEveryItemAndStops(GameTestHelper helper) {
+        Identifier blueprintId = id("for_each_stops");
+        BlockPos target = helper.absolutePos(new BlockPos(5, 1, 1));
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        Blueprint bp = new Blueprint(blueprintId, new fr.blueprint.core.graph.BlueprintMeta(
+                "", "", "1.0.0", fr.blueprint.api.node.Permission.WORLD));
+        fr.blueprint.core.graph.GraphLoader.addVariable(bp,
+                new fr.blueprint.core.graph.Variable("tours", PinTypes.INT,
+                        LiteralValue.of(PinTypes.INT, 0),
+                        fr.blueprint.core.graph.VarScope.GRAPH, false));
+
+        UUID event = uuid(blueprintId + ":event");
+        UUID once = uuid(blueprintId + ":once");
+        UUID list = uuid(blueprintId + ":list");
+        UUID each = uuid(blueprintId + ":each");
+        UUID read = uuid(blueprintId + ":read");
+        UUID plus = uuid(blueprintId + ":plus");
+        UUID write = uuid(blueprintId + ":write");
+        UUID place = uuid(blueprintId + ":place");
+
+        apply(bp, new EditOperation.AddNode(event, StandardEvents.SERVER_TICK.id(), Vec2d.ZERO));
+        apply(bp, new EditOperation.AddNode(once, node("flow/do_once"), new Vec2d(200, 0)));
+        apply(bp, new EditOperation.AddNode(list, node("list/of"), new Vec2d(200, 200)));
+        apply(bp, new EditOperation.AddNode(each, node("flow/for_each"), new Vec2d(400, 0)));
+        apply(bp, new EditOperation.AddNode(read, node("var/get"), new Vec2d(600, 300)));
+        apply(bp, new EditOperation.AddNode(plus, node("math/add"), new Vec2d(800, 300)));
+        apply(bp, new EditOperation.AddNode(write, node("var/set"), new Vec2d(600, 100)));
+        apply(bp, new EditOperation.AddNode(place, node("world/set_block"), new Vec2d(800, 0)));
+
+        for (String[] entry : new String[][]{{"a", "un"}, {"b", "deux"}, {"c", "trois"}}) {
+            apply(bp, new EditOperation.SetLiteral(list, entry[0],
+                    LiteralValue.of(PinTypes.STRING, entry[1])));
+        }
+        apply(bp, new EditOperation.SetLiteral(read, "var", LiteralValue.of(PinTypes.STRING, "tours")));
+        apply(bp, new EditOperation.SetLiteral(write, "var", LiteralValue.of(PinTypes.STRING, "tours")));
+        apply(bp, new EditOperation.SetLiteral(plus, "b", LiteralValue.of(PinTypes.DOUBLE, 1.0)));
+        apply(bp, new EditOperation.SetLiteral(place, "pos",
+                LiteralValue.of(PinTypes.BLOCKPOS, target)));
+        apply(bp, new EditOperation.SetLiteral(place, "state",
+                LiteralValue.of(PinTypes.BLOCKSTATE, Blocks.GOLD_BLOCK.defaultBlockState())));
+
+        apply(bp, new EditOperation.AddLink(new Link(event, "exec_out", once, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(once, "exec_out", each, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(list, "list", each, "list")));
+        // Le CORPS incrémente ; « completed » pose le bloc. C'est ce dernier lien qui
+        // prouve que la boucle se termine : sans sortie de boucle, il ne partirait jamais.
+        apply(bp, new EditOperation.AddLink(new Link(each, "body", write, "exec_in")));
+        apply(bp, new EditOperation.AddLink(new Link(read, "value", plus, "a")));
+        apply(bp, new EditOperation.AddLink(new Link(plus, "result", write, "value")));
+        apply(bp, new EditOperation.AddLink(new Link(each, "completed", place, "exec_in")));
+
+        manager.adopt(bp);
+        manager.setEnabled(blueprintId, true);
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(helper.getLevel().getBlockState(target).is(Blocks.GOLD_BLOCK),
+                    Component.literal("la boucle ne s'est jamais terminée : « completed » "
+                            + "n'a pas été atteint"));
+            Object tours = BlueprintMod.varsOf(server)
+                    .get(fr.blueprint.core.graph.VarScope.GRAPH, "tours");
+            helper.assertTrue(tours instanceof Number number && number.intValue() == 3,
+                    Component.literal("trois entrées attendaient trois tours, obtenu " + tours));
+            helper.assertTrue(manager.get(blueprintId).map(Blueprint::enabled).orElse(false),
+                    Component.literal("le blueprint s'est désactivé — carburant épuisé ?"));
+            cleanup(helper, blueprintId);
+        });
+    }
+
+    /**
+     * VERIFY-19 automatisé : le nœud déclaré par <b>annotation</b> dans le mod de test
+     * est bien dans le registre du serveur, avec ses défauts.
+     *
+     * <p>Le chemin de l'annotation est celui qu'un mod tiers empruntera en premier. Il
+     * traverse le chargeur de plugins, la réflexion et la construction du type : quatre
+     * occasions de perdre un défaut en silence, et un défaut perdu ne se voit qu'au
+     * moment où un auteur pose le nœud et le trouve vide.
+     */
+    @GameTest(maxTicks = 20)
+    public void theAnnotatedNodeOfTheTestModIsRegisteredWithItsDefaults(GameTestHelper helper) {
+        var registry = BlueprintMod.registries().nodes();
+        Identifier shout = Identifier.fromNamespaceAndPath("blueprint_testmod", "shout");
+
+        var type = registry.get(shout);
+        helper.assertTrue(type != null, Component.literal(
+                "le nœud annoté « " + shout + " » n'est pas dans le registre"));
+
+        // Le nœud composite du DATAPACK du même mod : l'autre chemin d'extension, et
+        // celui qui se recharge à chaud.
+        Identifier twice = Identifier.fromNamespaceAndPath("blueprint_testmod", "shout_twice");
+        helper.assertTrue(registry.get(twice) != null, Component.literal(
+                "le nœud composite « " + twice + " » n'est pas chargé"));
+
+        helper.succeed();
+    }
+
+    /**
      * VERIFY-10.8 automatisé : une liste alimentée par le graphe, un clic sur la
      * troisième ligne, et le graphe reçoit l'<b>indice 2</b>.
      *

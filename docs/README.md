@@ -19,6 +19,7 @@ Dossier de planification suivant la **méthode BMAD** (Analyst → PM → Archit
 | [`bscript-spec.md`](bscript-spec.md) | Architect | Grammaire du langage généré et correspondance avec le graphe |
 | [`extension-api.md`](extension-api.md) | Architect | **Contrat d'intégration pour les mods tiers** |
 | [`stories/`](stories/) | SM | Stories prêtes pour l'agent Dev |
+| [`session-de-verification.md`](session-de-verification.md) | QA | **Ce qui reste à voir en jeu** : 30 points en quatre blocs, une heure |
 
 Configuration : [`../.bmad-core/core-config.yaml`](../.bmad-core/core-config.yaml)
 
@@ -91,8 +92,13 @@ changement de l'épic qui touche à ce que la 10.1 avait posé.
 
 ## Prochaine action : la session en jeu
 
+> **Plan de session** : [`session-de-verification.md`](session-de-verification.md) — les
+> trente points restants, groupés par ce qu'il faut ouvrir plutôt que par numéro de story,
+> avec des cases à cocher. Le nécessaire est déjà en place dans `run/` : exemples, pack
+> d'images, configuration.
+
 Tout ce qui se vérifie sans yeux l'est déjà : **996 tests headless** (build vert) et
-`./gradlew runGametest` (**14 tests** dans un vrai serveur). **Il ne reste que le visuel
+`./gradlew runGametest` (**17 tests** dans un vrai serveur). **Il ne reste que le visuel
 et l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 
 | # | À vérifier | Comment |
@@ -104,18 +110,18 @@ et l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | V5 | Daltonisme (NFR11) | les cinq formes de pins se distinguent d'un coup d'œil |
 | V6 | Débogueur (9.1a/9.1b) | bouton *Déboguer*, `B` sur un nœud, déclencher : surlignage + valeurs, `F10`, `F5` |
 | V7 | Profileur (9.2) | `/blueprint profile <id> on`, déclencher, `show` puis `export` |
-| V8 | Persistance (VERIFY-005) | `/blueprint demo`, **redémarrer le monde**, « Persistance : … » au log et ping sans réimport |
-| V9 | Fantômes (8.3) | retirer le testmod du dossier `mods` : `/blueprint info` nomme le mod, l'éditeur montre le fantôme ; le remettre restaure tout |
+| V8 | Persistance (VERIFY-005) | **Automatisé** — gametest persistenceGivesBackWhatItTook : plus rien à voir en jeu |
+| V9 | Fantômes (8.3) | **Automatisé** — gametest aGhostNodeSurvivesSaveAndLoadWithoutLosingAnything : plus rien à voir en jeu |
 | V10 | Datapack (8.2) | `shout_twice` dans la palette ; modifier son JSON puis `/reload` |
 | V11 | Guide (9.5) | suivre `getting-started.md` §3 à la lettre, sans rien savoir d'autre |
 | V12 | Multijoueur (6.2/6.3) | serveur dédié : édition à deux, verrou optimiste, joueur sans permission → lecture seule |
 | V13 | Survol et liens (5.12) | poser la souris sur un pin, un nœud fauté, un fantôme, un bouton : l'infobulle explique ; cliquer un fil → halo, `Suppr` le retire, `Ctrl+Z` le remet ; pastille de permission et losange de conversion visibles |
 | V14 | Défilement des panneaux (5.12) | un nœud à douze pins et un blueprint à vingt variables : molette dans chaque panneau, curseur visible, rien d'inatteignable |
-| V15 | Boucles et listes (7.1b/7.8) | un graphe qui parcourt une liste de trois noms et envoie un message à chacun : `Pour chaque` + nœuds de liste, sans boucle infinie ni carburant épuisé |
+| V15 | Boucles et listes (7.1b/7.8) | **Automatisé** — gametest aForEachLoopVisitsEveryItemAndStops : plus rien à voir en jeu |
 | V16 | Bibliothèque en monde réel (7.3/7.4/7.5) | poser un bloc, jouer un son, faire apparaître une entité, lire l'heure : les nœuds monde/entité/temps agissent vraiment |
-| V17 | Commande de blueprint (7.7) | `/bpc <nom>` déclenche le graphe qui la déclare, avec suggestion du nom à la frappe |
+| V17 | Commande de blueprint (7.7) | **Automatisé** — gametest theBpcCommandTriggersItsBlueprint : plus rien à voir en jeu |
 | V18 | Quotas et audit (9.3) | `maxNodes: 5` dans la config puis redémarrage → l'éditeur refuse le sixième nœud ; exécuter un nœud ADMIN → ligne `blueprint-audit` avec le nom du joueur |
-| V19 | Nœud annoté et compat (8.1/8.4) | `shout` dans la palette avec ses défauts « salut » et 1 ; `compat/testmod_greet` présent et « Intégration « blueprint_testmod » chargée » au log |
+| V19 | Nœud annoté et compat (8.1/8.4) | **Automatisé** — gametest theAnnotatedNodeOfTheTestModIsRegisteredWithItsDefaults : plus rien à voir en jeu |
 | V20 | Gestes d'Unreal (5.13) | clic droit sur un nœud, un pin, un fil, le vide : quatre menus différents ; promouvoir un pin en variable ; **lâcher un nœud sur un fil** → halo vert puis insertion, `Ctrl+Z` défait tout d'un coup |
 | V21 | Aspect d'Unreal (5.13) | coins arrondis, ombre portée, dégradé d'en-tête, pictogramme de catégorie, halo de sélection ; en débogage, les billes coulent sur les fils exec parcourus |
 | V22 | Sous-catégories (5.14) | clic droit à vide : Événements ▸ Joueur/Monde/Serveur, Variables, Contrôle du flux ▸ Branchements/Boucles… ; replier une parente replie ses enfants, les comptes incluent la descendance |
