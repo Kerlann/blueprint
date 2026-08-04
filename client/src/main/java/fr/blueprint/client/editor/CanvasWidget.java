@@ -674,6 +674,12 @@ public final class CanvasWidget {
             palette.close();
             return true;
         }
+        // La case « Contextuel » vit dans l'en-tête, au-dessus des lignes : elle se
+        // teste donc AVANT rowAt, qui ne connaît que la liste.
+        if (PalettePopup.checkboxAt(palette, e.x(), e.y(), width, height)) {
+            palette.toggleContextSensitive();
+            return true;
+        }
         int itemIndex = PalettePopup.rowAt(palette, e.x(), e.y(), width, height);
         if (itemIndex >= 0) {
             switch (palette.items().get(itemIndex)) {

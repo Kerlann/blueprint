@@ -1,0 +1,52 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "12.1"
+story_title: "La palette qu'on peut lire"
+gate: "PASS"
+status_reason: "Signalé avec une capture d'Unreal Engine 5 : « j'arrive pas à me repérer ». Ce n'était pas une impression — le menu s'ouvrait TOUT DÉPLIÉ, cent quatre-vingt-quatre nœuds sous une trentaine d'en-têtes dans une fenêtre de dix lignes, soit une vingtaine d'écrans de défilement pour parcourir ce qui aurait dû être une table des matières. Il s'ouvre désormais sur son index, avec la case « Contextuel » qui manquait et un vrai champ de recherche."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "PALETTE-001"
+    severity: high
+    finding: "Le menu d'ajout s'ouvrait entièrement déplié : 184 nœuds sous une trentaine d'en-têtes, dans une fenêtre de dix lignes. Parcourir la seule table des matières demandait une vingtaine d'écrans, et l'en-tête qu'on venait de dépasser était déjà hors de vue. Le repérage était structurellement impossible"
+    suggested_action: "Replié par défaut, comme Unreal : l'ouverture montre l'index. Fenêtre portée à dix-huit lignes, de sorte que l'index tienne presque entier. La recherche, elle, traverse toujours tout — repli ou non"
+  - id: "PALETTE-002"
+    severity: high
+    finding: "Ma première règle d'auto-dépliage — « si tout tient à l'écran, tout est déplié » — était écrite en OU et ÉCRASAIT le choix de l'auteur : replier une petite palette la redépliait aussitôt, et le triangle ne faisait rien. Une aide qui reprend la main à celui qu'elle aide n'est pas une aide"
+    suggested_action: "Trouvé en faisant tourner les tests existants, qui ont refusé la bascule. L'auto-dépliage est un DÉFAUT dont l'auteur s'écarte, pas un verrou — ce qui a demandé de passer d'un ensemble « ce qui est déplié » à une carte « ce que l'auteur en a dit », parce qu'« absent » ne peut plus signifier « replié ». Test dédié"
+  - id: "PALETTE-003"
+    severity: medium
+    finding: "En tirant un fil, la palette ne montrait que les nœuds compatibles — le bon défaut, mais une impasse : rien ne permettait de voir le reste, ni même de comprendre qu'on ne le voyait pas. Un auteur qui ne trouvait pas un nœud en concluait qu'il n'existait pas"
+    suggested_action: "La case « Contextuel » d'Unreal, à la même place. Elle n'apparaît que lorsqu'elle décide de quelque chose : sans fil tiré elle ne filtre rien, et l'afficher inerte serait proposer un bouton qui ne fait rien"
+  - id: "PALETTE-004"
+    severity: medium
+    finding: "Replier tout par principe aurait fait cliquer sur trois en-têtes pour révéler quatre nœuds — du rangement pour le rangement. C'est le cas COURANT en tirant un fil, où le filtre ne laisse qu'une poignée de candidats, et c'est précisément là qu'on veut les voir tout de suite"
+    suggested_action: "Auto-dépliage quand l'ensemble tient à l'écran. Deux tests, un par côté de la bascule"
+  - id: "PALETTE-005"
+    severity: low
+    finding: "La colonne de catégorie était répétée à droite de CHAQUE nœud, y compris sous l'en-tête qui venait de la nommer : un tiers de la largeur pour redire la ligne du dessus, et un titre de nœud tronqué en échange"
+    suggested_action: "Répétée seulement en recherche, où les résultats viennent de partout. Les entrées d'une catégorie dépliée sont en revanche indentées sous elle, faute de quoi l'arbre se relit comme une liste plate"
+  - id: "PALETTE-006"
+    severity: low
+    finding: "L'invite « > _ » ne disait qu'à ceux qui le savaient déjà qu'on pouvait taper là"
+    suggested_action: "Un champ encadré avec un texte d'invite. La clé de l'ancien rappel de filtre est devenue morte et a été retirée — c'est la garde de localisation qui l'a signalé, pas moi"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 2, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "L'état de repli ne survit pas à la fermeture du menu : rouvrir repart de l'index. Unreal le garde ; le persister demanderait de l'écrire dans les préférences, et un index qui rouvre là où on l'a laissé désoriente autant qu'il aide tant qu'on ne connaît pas les catégories."
+      - "Pas d'icône par catégorie, contrairement à la capture. À dessiner si le texte seul ne suffit pas une fois la liste courte."
+      - "Rien ne décrit un nœud AVANT de le poser : l'infobulle existe sur le nœud placé, pas dans la liste. C'est ce qui manque encore le plus à qui découvre la bibliothèque."
+evidence:
+  tests_reviewed: 1175
+  gametests: 20
+  new_tests:
+    - "PaletteTest (+5) — une palette fournie s'ouvre repliée et son index tient à l'écran ; une palette courte s'ouvre dépliée ; replier reste faisable sur une palette courte (le test qui a attrapé PALETTE-002) ; la case Contextuel décochée montre tout et le filtre revient ; la colonne de catégorie n'apparaît qu'en recherche"
+  risks_without_gate:
+    - "Sans PALETTE-001, le menu d'ajout restait inutilisable pour qui ne connaissait pas déjà le nom du nœud cherché — c'est-à-dire pour tout nouvel auteur."
+    - "Sans PALETTE-002, la story aurait livré un triangle qui ne fait rien sur les petites listes, en croyant améliorer les grandes."
+quality_score: 92
+expires: "2026-08-18T00:00:00Z"

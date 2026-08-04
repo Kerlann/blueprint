@@ -353,6 +353,138 @@ class PaletteTest {
     // ---------------------------------------------- sous-catégories (5.14, UE5)
 
     /** Palette à deux catégories dont une subdivisée : math, math/arithmetic, flow. */
+    /**
+     * Une palette assez <b>grande</b> pour que le repli ait un sens : au-delà de
+     * {@link PaletteState#VISIBLE_ROWS}, la palette cesse de tout déplier d'office.
+     *
+     * <p>Les jeux d'essai à deux ou trois nœuds tiennent tous à l'écran, et la palette
+     * les montre donc entièrement — ce qui est le bon comportement, mais rend ces
+     * fixtures aveugles au repli.
+     */
+    private static PaletteState grande() {
+        List<NodeSearch.Entry> many = new ArrayList<>();
+        Map<Identifier, NodeDescriptor> descs = new HashMap<>();
+        for (int i = 0; i < PaletteState.VISIBLE_ROWS + 6; i++) {
+            Identifier id = Identifier.fromNamespaceAndPath("blueprint", "n" + i);
+            String category = i % 2 == 0 ? "flow" : "math";
+            many.add(new NodeSearch.Entry(id, "Nœud " + i, "d", category));
+            descs.put(id, new NodeDescriptor(id, category, "t." + i, "d." + i,
+                    List.of(), List.of(pin("exec_out", PinKind.EXEC)),
+                    false, Permission.SAFE, 1, true));
+        }
+        return new PaletteState(new NodeSearch(many), descs::get,
+                new fr.blueprint.client.config.PalettePrefs(), () -> Permission.ADMIN);
+    }
+
+    /**
+     * <b>Le test qui compte.</b> Une grande palette s'ouvre <b>repliée</b> : on voit
+     * l'index des catégories, pas les nœuds.
+     *
+     * <p>C'était l'inverse, et « je n'arrive pas à me repérer » décrivait exactement le
+     * résultat — deux cents lignes déversées d'un coup.
+     */
+    @Test
+    void unePaletteFournieSOuvreRepliee() {
+        PaletteState p = grande();
+        p.open(0, 0, 0, 0, null);
+
+        assertEquals(0, p.results().size(), "aucun nœud visible tant qu'on n'a pas déplié");
+        assertTrue(p.items().stream().allMatch(i -> i instanceof PaletteState.Item.Category),
+                "seules des catégories : " + p.items());
+        assertTrue(p.items().size() <= PaletteState.VISIBLE_ROWS,
+                "l'index doit tenir à l'écran, sinon il n'est pas un index");
+
+        p.toggleCategory("flow");
+        assertTrue(p.results().size() > 0, "déplier montre le contenu");
+    }
+
+    /**
+     * <b>Le test qui compte.</b> Une palette qui tient à l'écran s'ouvre <b>dépliée</b>.
+     *
+     * <p>Faire cliquer sur trois en-têtes pour révéler quatre nœuds qu'on aurait pu
+     * montrer d'emblée serait un rangement pour le rangement. C'est le cas courant en
+     * tirant un fil, où le filtre ne laisse qu'une poignée de candidats — et c'est
+     * précisément là qu'on veut les voir tout de suite.
+     */
+    @Test
+    void unePaletteCourteSOuvreDepliee() {
+        PaletteState p = palette();
+        p.open(0, 0, 0, 0, null);
+        assertEquals(2, p.results().size(), "deux nœuds tiennent à l'écran : on les montre");
+    }
+
+    /**
+     * <b>Le test qui compte.</b> L'auto-dépliage est un <b>défaut</b>, pas un verrou.
+     *
+     * <p>Première version de la règle : « si tout tient à l'écran, tout est déplié ».
+     * Elle écrasait le choix de l'auteur — replier une petite palette redevenait dépliée
+     * à l'instant même, et le triangle ne faisait rien. Une aide qui reprend la main à
+     * celui qu'elle aide n'est pas une aide.
+     */
+    @Test
+    void replierResteFaisableSurUnePaletteCourte() {
+        PaletteState p = palette();
+        p.open(0, 0, 0, 0, null);
+        assertEquals(2, p.results().size(), "déplié d'office : tout tient à l'écran");
+
+        p.toggleCategory("flow");
+        assertEquals(1, p.results().size(), "et l'auteur peut quand même replier");
+        p.toggleCategory("flow");
+        assertEquals(2, p.results().size());
+    }
+
+    /**
+     * <b>Le test qui compte.</b> La case « Contextuel » décochée rend la palette entière.
+     *
+     * <p>Sans elle, un fil tiré filtrait sans recours : l'auteur qui ne trouvait pas un
+     * nœud dans la liste réduite en concluait qu'il n'existait pas. Le filtre reste le
+     * bon défaut ; c'est l'absence d'issue qui ne l'était pas.
+     */
+    @Test
+    void laCaseContextuelDecocheeMontreTout() {
+        PaletteState p = palette();
+        CanvasController.PinRef from = new CanvasController.PinRef(
+                UUID.randomUUID(), "exec_out", PinKind.EXEC, PinTypes.EXEC, true, 0);
+        p.open(0, 0, 0, 0, from);
+        assertTrue(p.contextSensitive(), "cochée par défaut : le filtre est le bon défaut");
+        assertEquals(1, p.results().size(), "seul le nœud compatible");
+
+        p.toggleContextSensitive();
+        assertFalse(p.contextSensitive());
+        assertEquals(2, p.results().size(), "décochée, la palette entière");
+
+        p.toggleContextSensitive();
+        assertEquals(1, p.results().size(), "et le filtre revient");
+    }
+
+    /**
+     * Sans fil tiré, la case ne décide de rien — et le rendu ne l'affiche donc pas.
+     * Basculer ne doit rien changer, plutôt que de changer quelque chose d'invisible.
+     */
+    @Test
+    void sansFilTireLaCaseNeChangeRien() {
+        PaletteState p = palette();
+        p.open(0, 0, 0, 0, null);
+        int before = p.results().size();
+        p.toggleContextSensitive();
+        assertEquals(before, p.results().size());
+    }
+
+    /**
+     * La colonne de catégorie n'est répétée que là où elle apprend quelque chose : en
+     * recherche, où les résultats viennent de partout. Sous l'en-tête qui les nomme, elle
+     * volait un tiers de la largeur pour redire la ligne du dessus.
+     */
+    @Test
+    void laColonneDeCategorieNApparaitQuEnRecherche() {
+        PaletteState p = palette();
+        p.open(0, 0, 0, 0, null);
+        assertFalse(p.showsCategoryColumn(), "sous l'arbre, l'en-tête suffit");
+
+        p.type("node");
+        assertTrue(p.showsCategoryColumn(), "en recherche, elle situe le résultat");
+    }
+
     private static PaletteState arborescente() {
         NodeSearch search = new NodeSearch(List.of(
                 new NodeSearch.Entry(EXEC_NODE.id(), "Exec node", "d", "flow"),

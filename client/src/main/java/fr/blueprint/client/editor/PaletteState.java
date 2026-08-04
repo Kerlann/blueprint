@@ -31,8 +31,14 @@ import java.util.function.Supplier;
  */
 public final class PaletteState {
 
-    /** Lignes visibles simultanément (le reste défile). */
-    public static final int VISIBLE_ROWS = 10;
+    /**
+     * Lignes visibles simultanément (le reste défile).
+     *
+     * <p>Dix ne suffisaient pas : l'index des catégories en compte une trentaine, donc
+     * il fallait trois écrans pour seulement lire la table des matières. Dix-huit la
+     * montrent presque entière, comme le fait Unreal.
+     */
+    public static final int VISIBLE_ROWS = 18;
     private static final int SEARCH_LIMIT = 200;
 
     /** Une ligne de la palette : section, catégorie repliable, ou entrée insérable. */
@@ -69,7 +75,49 @@ public final class PaletteState {
     private List<Item> items = List.of();
     private int selected;
     private int scroll;
-    private final Set<String> collapsed = new LinkedHashSet<>();
+    /**
+     * Ce que l'auteur a explicitement plié ou déplié. Absent = le défaut s'applique.
+     *
+     * <p>Le défaut était « tout déplié », et c'était le défaut au sens propre : ouvrir la
+     * palette déversait cent quatre-vingt-quatre nœuds sous une trentaine d'en-têtes,
+     * soit plusieurs écrans à faire défiler avant même de trouver un repère. « Je n'arrive
+     * pas à me repérer » décrivait exactement ce que le menu faisait.
+     *
+     * <p>Il est désormais <b>replié</b>, comme Unreal : un index qu'on parcourt d'un
+     * regard et dans lequel on plonge. Rien n'est perdu — la recherche traverse toujours
+     * tout, repli ou non.
+     *
+     * <p>Une <b>carte</b> et non un ensemble : le défaut dépend de la taille de la liste
+     * (voir {@link #autoExpand}), donc « absent » ne peut pas vouloir dire « replié ».
+     * Sans cela, replier une petite palette entièrement dépliée d'office était impossible —
+     * la bascule reposait aussitôt sur le défaut.
+     */
+    private final Map<String, Boolean> userState = new LinkedHashMap<>();
+
+    /** L'état d'une catégorie : ce que l'auteur en a dit, sinon le défaut du moment. */
+    private boolean isExpanded(String name) {
+        return userState.getOrDefault(name, autoExpand);
+    }
+
+    /**
+     * Le repli par défaut du dernier affichage : replié, sauf si tout tient à l'écran.
+     *
+     * <p>Gardé parce que {@link #toggleCategory} doit savoir de quoi il part. Une
+     * catégorie jamais touchée n'a pas d'état à elle ; la basculer doit l'écarter du
+     * défaut, pas d'une valeur arbitraire.
+     */
+    private boolean autoExpand;
+
+    /**
+     * Voir <b>tout</b> plutôt que ce qui se câble ici — la case « Context Sensitive »
+     * d'Unreal.
+     *
+     * <p>En tirant un fil, la palette ne montre que les nœuds compatibles. C'est le bon
+     * défaut, et c'était jusqu'ici une impasse : rien ne permettait de voir le reste, ni
+     * même de comprendre qu'on ne le voyait pas. Un auteur qui cherche un nœud absent de
+     * la liste concluait qu'il n'existait pas.
+     */
+    private boolean contextSensitive = true;
     private double anchorX;
     private double anchorY;
     private double worldX;
@@ -211,10 +259,30 @@ public final class PaletteState {
         return itemIndex >= 0 && itemIndex < itemToEntry.length ? itemToEntry[itemIndex] : -1;
     }
 
+    /**
+     * La colonne de catégorie à droite d'une entrée apprend-elle quelque chose ?
+     *
+     * <p>Non quand les entrées vivent sous l'en-tête qui les nomme — c'est-à-dire dans
+     * l'arbre replié. Oui en recherche, où les résultats viennent de partout, et dans
+     * les favoris et les récents, où ils sont sortis de leur rangement.
+     */
+    public boolean showsCategoryColumn() {
+        return !query.isBlank();
+    }
+
+    /** Vrai si la palette se restreint à ce qui se câble au fil tiré. */
+    public boolean contextSensitive() {
+        return contextSensitive;
+    }
+
+    /** La case « Context Sensitive » : sans fil tiré, elle ne change rien. */
+    public void toggleContextSensitive() {
+        contextSensitive = !contextSensitive;
+        refresh();
+    }
+
     public void toggleCategory(String name) {
-        if (!collapsed.remove(name)) {
-            collapsed.add(name);
-        }
+        userState.put(name, !isExpanded(name));
         refresh();
     }
 
@@ -296,6 +364,11 @@ public final class PaletteState {
      */
     private void buildCategoryTree(List<Item> out, List<NodeSearch.Entry> flat,
                                    Map<String, List<NodeSearch.Entry>> byCategory) {
+        // Si TOUT tient à l'écran, replier n'a aucun sens : on ferait cliquer sur trois
+        // en-têtes pour révéler quatre nœuds qu'on aurait pu montrer d'emblée. C'est le
+        // cas courant en tirant un fil, où le filtre ne laisse qu'une poignée de
+        // candidats — et c'est précisément là qu'on veut les voir tout de suite.
+        autoExpand = byCategory.values().stream().mapToInt(List::size).sum() <= VISIBLE_ROWS;
         // Regrouper par parent, en gardant l'ordre interne des sous-catégories.
         Map<String, List<String>> children = new LinkedHashMap<>();
         for (String category : byCategory.keySet().stream().sorted(CATEGORY_ORDER).toList()) {
@@ -305,7 +378,7 @@ public final class PaletteState {
         for (String parent : children.keySet().stream().sorted(CATEGORY_ORDER).toList()) {
             List<String> paths = children.get(parent);
             int total = paths.stream().mapToInt(p -> byCategory.get(p).size()).sum();
-            boolean parentExpanded = !collapsed.contains(parent);
+            boolean parentExpanded = isExpanded(parent);
             out.add(new Item.Category(parent, total, parentExpanded, 0));
             if (!parentExpanded) {
                 continue;
@@ -317,9 +390,9 @@ public final class PaletteState {
                     emit(out, flat, members);
                     continue;
                 }
-                boolean expanded = !collapsed.contains(path);
-                out.add(new Item.Category(path, members.size(), expanded, 1));
-                if (expanded) {
+                boolean open = isExpanded(path);
+                out.add(new Item.Category(path, members.size(), open, 1));
+                if (open) {
                     emit(out, flat, members);
                 }
             }
@@ -398,7 +471,10 @@ public final class PaletteState {
 
     /** Sans lien source : tout passe. Sinon : au moins un pin compatible. */
     private boolean compatible(NodeSearch.Entry entry) {
-        CanvasController.PinRef from = wireFrom;
+        // La case décochée rend la palette ENTIÈRE, fil tiré ou non : c'est ce que la
+        // case sert à dire, et l'auto-connexion refusera d'elle-même ce qui ne se câble
+        // pas — mieux vaut un refus qu'un nœud introuvable.
+        CanvasController.PinRef from = contextSensitive ? wireFrom : null;
         if (from == null) {
             return true;
         }
