@@ -50,22 +50,31 @@ class CompilerPerfTest {
             previous = uuid;
         }
 
-        // Échauffement JIT, puis MEILLEUR de cinq mesures.
+        // Échauffement JIT, puis meilleur de cinq mesures — en temps <b>processeur du
+        // fil</b>, pas en temps mural.
         //
-        // Un budget en temps mural mesuré une seule fois n'est pas une garde, c'est une
-        // loterie : sur un runner partagé, une préemption de l'ordonnanceur suffit à
-        // faire échouer un code parfaitement sain (constaté au premier CI de ce dépôt).
-        // Le minimum, lui, mesure ce que la machine SAIT faire — c'est ce que le NFR2
-        // veut dire, et une vraie régression le fait monter tout autant.
+        // Le meilleur de cinq mesures murales ne suffisait pas : mesuré seul, ce
+        // compilateur prend 18 ms ; mesuré pendant que la suite complète tourne en
+        // parallèle, il « prend » 54 ms et le test échoue. Il mesurait donc la charge de
+        // la machine, et un test qui rougit sans qu'aucun code n'ait changé apprend
+        // surtout à relancer plutôt qu'à chercher — c'est ainsi qu'une vraie régression
+        // finit par passer inaperçue.
+        //
+        // Le temps processeur du fil ne compte que les instants où ce fil a réellement
+        // tourné : une préemption ne s'y voit pas, une régression du compilateur si.
+        // C'est ce que le NFR2 veut dire, et c'était ce qu'on cherchait depuis le début.
         for (int i = 0; i < 3; i++) {
             Compiler.compile(bp, loaded.nodes(), first);
         }
+        var threads = java.lang.management.ManagementFactory.getThreadMXBean();
+        boolean cpuTime = threads.isCurrentThreadCpuTimeSupported();
         long bestMs = Long.MAX_VALUE;
         Compiler.CompileResult result = null;
         for (int i = 0; i < 5; i++) {
-            long begin = System.nanoTime();
+            long begin = cpuTime ? threads.getCurrentThreadCpuTime() : System.nanoTime();
             result = Compiler.compile(bp, loaded.nodes(), first);
-            bestMs = Math.min(bestMs, (System.nanoTime() - begin) / 1_000_000);
+            long end = cpuTime ? threads.getCurrentThreadCpuTime() : System.nanoTime();
+            bestMs = Math.min(bestMs, (end - begin) / 1_000_000);
         }
 
         assertTrue(result.success());
