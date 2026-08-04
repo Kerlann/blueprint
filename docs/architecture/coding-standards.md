@@ -94,6 +94,13 @@ Trois formes, dans cet ordre de préférence :
    machine, donc leur rapport n'en dépend plus. À privilégier dès qu'il existe une
    référence naturelle — le même travail sans le cache, quatre fois plus de données.
    *Exemples : `EventDispatchPerfTest`, `DesignerLayoutCacheTest`.*
+
+   **Les deux mesures ne doivent RIEN partager.** Une première version du rapport de
+   `DesignerLayoutCacheTest` comparait deux images complètes qui avaient quatre appels en
+   commun ; ce travail identique de part et d'autre diluait l'écart et posait un plancher
+   au rapport. Elle a rougi sur l'intégration continue à **0,51** contre un seuil de 0,50.
+   Une fois les deux mesures réduites à ce qui les distingue vraiment, le rapport est tombé
+   à **0,0017** : de un pour cent de marge à cent quarante-sept fois.
 2. **Le temps processeur du fil** (`ThreadMXBean#getCurrentThreadCpuTime`), quand le seuil
    est une **exigence du produit** qu'on ne veut pas diluer. Il ne compte que les instants
    où le fil a réellement tourné : une préemption ne s'y voit pas, une régression si.
@@ -107,8 +114,14 @@ Trois formes, dans cet ordre de préférence :
 3. **Le temps mural**, seulement avec une marge d'un ordre de grandeur. C'est le cas des
    bancs de rendu, qui mesurent des images entières : ils n'ont jamais rougi.
 
-Et la règle qui vaut pour les trois : **un banc qu'on n'a jamais vu échouer ne prouve
-rien.** Avant de le commiter, remettre le défaut qu'il surveille et vérifier qu'il rougit.
+Et **deux** règles qui valent pour les trois formes :
+
+- **Un banc qu'on n'a jamais vu échouer ne prouve rien.** Avant de le commiter, remettre le
+  défaut qu'il surveille et vérifier qu'il rougit.
+- **Un banc dont on n'a pas mesuré la marge n'est pas fini.** Le voir rougir quand on le
+  casse ne dit rien de sa stabilité quand tout va bien. Relever la valeur qui passe, la
+  comparer au seuil, et viser au moins un ordre de grandeur — c'est cet oubli, et lui
+  seul, qui a produit l'échec à 0,51 contre 0,50.
 
 ## 8. Documentation
 

@@ -190,6 +190,21 @@ class DesignerLayoutCacheTest {
      *
      * <p>Ce qu'il attrape n'est donc pas une lenteur de quelques pour cent : c'est le
      * retour du recalcul à chaque appel, qui rendrait le rapport égal à un.
+     *
+     * <h2>Les deux mesures ne doivent RIEN partager</h2>
+     * <p>Première version de ce rapport : une image complète mémorisée contre une image
+     * complète recalculée. Elle a rougi sur l'intégration continue à <b>0,51</b> contre un
+     * seuil de 0,50 — un pour cent de marge, que je n'avais pas mesurée.
+     *
+     * <p>La cause est instructive : les deux images partageaient quatre appels
+     * (survol, repères, révélation, poignées) qui passent <b>tous les deux</b> par le
+     * cache. Ce travail commun, identique de part et d'autre, diluait l'écart et posait
+     * un plancher au rapport. Un rapport ne vaut que si son numérateur et son
+     * dénominateur ne diffèrent <b>que</b> par ce qu'on mesure.
+     *
+     * <p>Ici, donc : mille {@code rects()} — une passe puis neuf cent quatre-vingt-dix-neuf
+     * lectures — contre mille passes de disposition. Rien de commun, et un rapport attendu
+     * de l'ordre du millième.
      */
     @Test
     void uneImageDuConcepteurCouteBienMoinsQuUneImageRecalculee() {
@@ -198,61 +213,39 @@ class DesignerLayoutCacheTest {
         }
         controller.selection().selectAll(List.of("b1"), false);
 
-        for (int frame = 0; frame < 500; frame++) {
-            designerFrame();
-            recomputedFrame();
+        Screen screen = bp.screen("menu");
+        Runnable memoised = controller::rects;
+        Runnable recomputed = () -> ScreenLayout.solve(screen, 320, 180);
+        for (int i = 0; i < 2_000; i++) {
+            memoised.run();
+            recomputed.run();
         }
 
-        double cached = bestFrameNanos(this::designerFrame);
-        double recomputed = bestFrameNanos(this::recomputedFrame);
-        double ratio = cached / recomputed;
+        double cached = bestNanos(memoised);
+        double solved = bestNanos(recomputed);
+        double ratio = cached / solved;
 
-        assertTrue(ratio < 0.5, () -> String.format(java.util.Locale.ROOT,
-                "une image mémorisée coûte %.0f ns contre %.0f ns recalculée (rapport %.2f) "
-                        + "— la mémorisation ne sert plus à rien",
-                cached, recomputed, ratio));
+        // Seuil à 0,25, soit quatre fois le coût mémorisé toléré : mesuré autour de
+        // 0,005 ici, il reste deux ordres de grandeur de marge — et il vaut UN si
+        // quelqu'un retire la mémorisation.
+        assertTrue(ratio < 0.25, () -> String.format(java.util.Locale.ROOT,
+                "une lecture mémorisée coûte %.0f ns contre %.0f ns recalculée "
+                        + "(rapport %.3f) — la mémorisation ne sert plus à rien",
+                cached, solved, ratio));
     }
 
-    /** Meilleur de cinq séries de mille images, en nanosecondes par image. */
-    private static double bestFrameNanos(Runnable frame) {
+    /** Meilleur de cinq séries de mille appels, en nanosecondes par appel. */
+    private static double bestNanos(Runnable call) {
         double best = Double.MAX_VALUE;
         for (int round = 0; round < 5; round++) {
             long start = System.nanoTime();
             for (int i = 0; i < 1_000; i++) {
-                frame.run();
+                call.run();
             }
             best = Math.min(best, (System.nanoTime() - start) / 1_000.0);
         }
         return best;
     }
 
-    /**
-     * La même image, mais dont chaque appel recalcule — l'état d'avant la 10.14.
-     *
-     * <p>Elle appelle la passe de disposition directement, autant de fois qu'une image en
-     * demandait alors. C'est la mesure de référence : si la mémorisation disparaissait,
-     * l'image réelle coûterait ceci.
-     */
-    private void recomputedFrame() {
-        Screen screen = bp.screen("menu");
-        for (int i = 0; i < 3; i++) {
-            ScreenLayout.solve(screen, 320, 180);
-        }
-        controller.hitTest(50, 30);
-        controller.rectOf("b1");
-        controller.revealSelection();
-        controller.operableHandles("b1");
-    }
 
-    /** Ce qu'une image du concepteur demande réellement au contrôleur. */
-    private void designerFrame() {
-        controller.rects();                       // le dessin de l'écran
-        controller.rects();                       // le cerne de dépassement
-        controller.rects();                       // le liseré de sélection
-        controller.hitTest(50, 30);               // l'infobulle survolée
-        controller.rectOf("b1");                  // les repères de la barre du bas
-        controller.revealSelection();             // ramener la sélection dans son cadre
-        controller.operableHandles("b1");         // les poignées
-        ScreenLayout.solve(bp.screen("menu"), 320, 180);   // la zone garantie, à part
-    }
 }
