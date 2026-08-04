@@ -175,14 +175,24 @@ class DesignerLayoutCacheTest {
      * huit. Un banc qui mesure autre chose que le code qui tourne ne garantit rien — c'est
      * la leçon des deux bancs de la 10.10, restés sur l'ancien chemin de résolution.
      *
-     * <p>Le budget <b>sépare les deux mondes</b>, mesurés ici : ≈ 69 µs par image avec la
-     * mémorisation, ≈ 229 µs sans. Un seuil qui laisserait passer les deux ne prouverait
-     * rien — c'est le défaut qu'on reproche au banc existant, il ne faut pas le refaire.
-     * Ce qu'il attrape n'est donc pas une lenteur de quelques pour cent, c'est le retour
-     * du recalcul à chaque appel.
+     * <h2>Un rapport, et non une durée</h2>
+     * <p>Ce banc a d'abord porté un budget absolu — 150 µs par image, entre les ≈ 69 µs
+     * mesurés avec la mémorisation et les ≈ 229 µs sans. Il <b>rougissait sur la machine
+     * d'intégration</b> sans qu'aucun code n'ait changé : une machine partagée met plus de
+     * 150 µs à faire ce qui en prend 69 ici, et le test mesurait donc sa charge.
+     *
+     * <p>C'est la même maladie que {@code CompilerPerfTest} et
+     * {@code EventDispatchPerfTest}, et le même remède : mesurer la <b>propriété</b> qu'on
+     * veut garder plutôt qu'une durée. Ici, cette propriété est exactement ce que la 10.14
+     * a corrigé — une image du concepteur doit coûter <b>nettement moins</b> que la même
+     * image dont chaque appel recalculerait. Les deux mesures subissent la même machine au
+     * même moment, si bien que leur rapport ne dépend plus d'elle.
+     *
+     * <p>Ce qu'il attrape n'est donc pas une lenteur de quelques pour cent : c'est le
+     * retour du recalcul à chaque appel, qui rendrait le rapport égal à un.
      */
     @Test
-    void uneImageDuConcepteurTientLargementDansSonBudget() {
+    void uneImageDuConcepteurCouteBienMoinsQuUneImageRecalculee() {
         for (int i = 6; i < 64; i++) {
             put(ScreenElement.of("e" + i, ElementKind.LABEL, 0, 0, 80, 9).withParent("cadre"));
         }
@@ -190,19 +200,49 @@ class DesignerLayoutCacheTest {
 
         for (int frame = 0; frame < 500; frame++) {
             designerFrame();
+            recomputedFrame();
         }
-        long start = System.nanoTime();
-        for (int frame = 0; frame < 2_000; frame++) {
-            designerFrame();
-        }
-        double perFrame = (System.nanoTime() - start) / 2_000.0;
 
-        assertTrue(perFrame < BUDGET_NANOS_PER_FRAME, () -> String.format(
-                "%.0f ns par image du concepteur pour 64 éléments (budget %.0f)",
-                perFrame, BUDGET_NANOS_PER_FRAME));
+        double cached = bestFrameNanos(this::designerFrame);
+        double recomputed = bestFrameNanos(this::recomputedFrame);
+        double ratio = cached / recomputed;
+
+        assertTrue(ratio < 0.5, () -> String.format(java.util.Locale.ROOT,
+                "une image mémorisée coûte %.0f ns contre %.0f ns recalculée (rapport %.2f) "
+                        + "— la mémorisation ne sert plus à rien",
+                cached, recomputed, ratio));
     }
 
-    private static final double BUDGET_NANOS_PER_FRAME = 150_000;
+    /** Meilleur de cinq séries de mille images, en nanosecondes par image. */
+    private static double bestFrameNanos(Runnable frame) {
+        double best = Double.MAX_VALUE;
+        for (int round = 0; round < 5; round++) {
+            long start = System.nanoTime();
+            for (int i = 0; i < 1_000; i++) {
+                frame.run();
+            }
+            best = Math.min(best, (System.nanoTime() - start) / 1_000.0);
+        }
+        return best;
+    }
+
+    /**
+     * La même image, mais dont chaque appel recalcule — l'état d'avant la 10.14.
+     *
+     * <p>Elle appelle la passe de disposition directement, autant de fois qu'une image en
+     * demandait alors. C'est la mesure de référence : si la mémorisation disparaissait,
+     * l'image réelle coûterait ceci.
+     */
+    private void recomputedFrame() {
+        Screen screen = bp.screen("menu");
+        for (int i = 0; i < 3; i++) {
+            ScreenLayout.solve(screen, 320, 180);
+        }
+        controller.hitTest(50, 30);
+        controller.rectOf("b1");
+        controller.revealSelection();
+        controller.operableHandles("b1");
+    }
 
     /** Ce qu'une image du concepteur demande réellement au contrôleur. */
     private void designerFrame() {

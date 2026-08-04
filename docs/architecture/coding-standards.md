@@ -77,6 +77,39 @@
 - Tout codec, tout parseur et tout décodeur réseau a un test de fuzzing.
 - Les seuils de performance (NFR1–NFR3) sont vérifiés en CI et font échouer le build.
 
+### 7.1 Comment mesurer, pour que le banc mesure le code
+
+Cinq bancs de ce projet ont porté un budget en **temps mural**. Trois ont fini par rougir
+sur la machine d'intégration **sans qu'aucun code n'ait changé** — dix-huit constructions
+rouges, réparties sur `PaletteTest`, `CompilerPerfTest` et `DesignerLayoutCacheTest`.
+
+Ce n'est pas de la malchance : une machine partagée met parfois trois fois plus longtemps
+à faire la même chose, et un banc en temps mural mesure alors sa charge. Le coût réel n'est
+pas la construction rouge, c'est ce qu'elle enseigne — **relancer plutôt que chercher**. Une
+vraie régression finit ainsi par passer pour un caprice de la machine.
+
+Trois formes, dans cet ordre de préférence :
+
+1. **Un rapport entre deux mesures prises au même moment.** Les deux subissent la même
+   machine, donc leur rapport n'en dépend plus. À privilégier dès qu'il existe une
+   référence naturelle — le même travail sans le cache, quatre fois plus de données.
+   *Exemples : `EventDispatchPerfTest`, `DesignerLayoutCacheTest`.*
+2. **Le temps processeur du fil** (`ThreadMXBean#getCurrentThreadCpuTime`), quand le seuil
+   est une **exigence du produit** qu'on ne veut pas diluer. Il ne compte que les instants
+   où le fil a réellement tourné : une préemption ne s'y voit pas, une régression si.
+   *Exemples : `CompilerPerfTest` (NFR2), `PaletteTest` (AC4).*
+
+   **Toujours l'agréger.** Cette horloge est grossière — environ 15 ms sous Windows — et
+   mesurer une opération plus courte rend `0`. Le test passe alors **à vide**, ce qui est
+   pire que rouge : il ne vérifie plus rien et personne ne s'en aperçoit. Mesurer assez
+   d'itérations pour dépasser largement la granularité, puis diviser, et **asserter que la
+   mesure n'est pas nulle**. Le piège s'est refermé deux fois dans la même session.
+3. **Le temps mural**, seulement avec une marge d'un ordre de grandeur. C'est le cas des
+   bancs de rendu, qui mesurent des images entières : ils n'ont jamais rougi.
+
+Et la règle qui vaut pour les trois : **un banc qu'on n'a jamais vu échouer ne prouve
+rien.** Avant de le commiter, remettre le défaut qu'il surveille et vérifier qu'il rougit.
+
 ## 8. Documentation
 
 - Tout type public de `api` a une javadoc avec un exemple d'usage.

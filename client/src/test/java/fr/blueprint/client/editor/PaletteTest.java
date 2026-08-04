@@ -61,6 +61,9 @@ class PaletteTest {
         assertEquals(1, search.search("", e -> e.category().equals("math"), 10).size());
     }
 
+    /** Assez de recherches pour dépasser la granularité de l'horloge processeur. */
+    private static final int SEARCHES = 200;
+
     @Test
     void performance2000TypesSous5Ms() {
         List<NodeSearch.Entry> entries = new ArrayList<>();
@@ -69,16 +72,38 @@ class PaletteTest {
         }
         NodeSearch search = new NodeSearch(entries);
         search.search("alpha", e -> true, 8); // échauffement
-        // Meilleure de 5 mesures : l'AC vise la capacité, pas la variance d'une
-        // machine de CI chargée (flake observé à 6 ms sous deux builds parallèles).
-        double best = Double.MAX_VALUE;
-        for (int run = 0; run < 5; run++) {
-            long start = System.nanoTime();
-            List<NodeSearch.Entry> r = search.search("beta 42", e -> true, 8);
-            best = Math.min(best, (System.nanoTime() - start) / 1e6);
-            assertNotNull(r);
+
+        // AGRÉGÉE sur deux cents recherches, en temps PROCESSEUR DU FIL.
+        //
+        // Ce banc a été la première cause de constructions rouges du projet : douze, sans
+        // qu'aucun code n'ait changé. Une mesure murale d'UNE recherche de 0,4 ms voit un
+        // à-coup de l'ordonnanceur comme une régression, et le meilleur de cinq n'y
+        // suffisait pas — un meilleur de cinq mesures murales reste une mesure de la
+        // machine.
+        //
+        // Deux corrections, et il faut les deux :
+        //
+        // — le temps processeur du fil ne compte que les instants où ce fil a réellement
+        //   tourné, si bien qu'une préemption ne s'y voit pas ;
+        // — l'AGRÉGATION est indispensable avec lui. Cette horloge a une granularité
+        //   grossière (≈ 15 ms sur Windows) : mesurer une seule recherche de 0,4 ms rend
+        //   ZÉRO, et le test passerait alors à vide — sans rien vérifier, ce qui est pire
+        //   que rougir. Deux cents recherches font ≈ 90 ms, très au-dessus.
+        //
+        // Le seuil de 5 ms, lui, ne bouge pas : c'est l'AC4, une exigence du produit. Le
+        // relever aurait affaibli l'exigence pour un problème qui n'est pas dedans.
+        var threads = java.lang.management.ManagementFactory.getThreadMXBean();
+        boolean cpuTime = threads.isCurrentThreadCpuTimeSupported();
+        long start = cpuTime ? threads.getCurrentThreadCpuTime() : System.nanoTime();
+        for (int i = 0; i < SEARCHES; i++) {
+            assertNotNull(search.search("beta 42", e -> true, 8));
         }
-        assertTrue(best < 5, "recherche en " + best + " ms (AC4 : ≤ 5 ms)");
+        long end = cpuTime ? threads.getCurrentThreadCpuTime() : System.nanoTime();
+        double perSearch = (end - start) / (double) SEARCHES / 1e6;
+
+        assertTrue(perSearch > 0, "mesure nulle : l'horloge ne résout pas "
+                + SEARCHES + " recherches — en agréger davantage");
+        assertTrue(perSearch < 5, "recherche en " + perSearch + " ms (AC4 : ≤ 5 ms)");
     }
 
     // ------------------------------------------------------------------ palette
