@@ -1,0 +1,55 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.15"
+story_title: "Des bancs d'essai, et un dossier run/ reproductible"
+gate: "PASS"
+status_reason: "Deux constats derrière la demande, tous deux vérifiés. Le dossier d'export était rempli à la main et avait dérivé : il manquait reglement et ses fichiers dataient d'avant l'infobulle, le retour à la ligne et le panneau défilant — une session de vérification menée dessus aurait validé une version qui n'existe plus. Et rien n'était éprouvé à l'échelle : tous les tests d'écran travaillent sur cinq à soixante-quatre éléments alors que le modèle en autorise cent vingt-huit. Deux bancs volumineux comblent l'écart, chacun vérifié sur une limite réelle du produit."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "BANC-001"
+    severity: high
+    finding: "run/blueprint/exports/ était rempli par copie manuelle et avait dérivé de quatre stories : reglement absent, et les huit autres fichiers écrits avant l'infobulle, le retour à la ligne et le panneau défilant. C'est le dossier que la session en jeu importe — la session aurait donc validé une version qui n'existe plus, et aurait eu l'air de réussir. Le pire résultat possible pour une vérification"
+    suggested_action: "Une commande régénère tout le dossier depuis le modèle : les huit exemples, la démo, les deux bancs. Plus aucune copie à la main sauf le pack ma_boutique, dont les textures ne sont pas générables"
+  - id: "BANC-002"
+    severity: high
+    finding: "ScreenSync.MAX_BYTES vaut 64 Kio et rien ne le vérifiait au-delà d'une poignée d'éléments. Un écran chargé qui dépasserait ne s'ouvrirait PAS chez le joueur — après avoir été dessiné, enregistré et validé sans un mot. La panne serait arrivée au pire moment : à la première ouverture, chez quelqu'un d'autre, sur un écran que son auteur croit terminé"
+    suggested_action: "Vérifié à 110 éléments : ~27 Kio, il passe, avec de la marge. Le test échouera si un ajout futur au modèle d'élément fait franchir le plafond — c'est exactement ce qu'on veut savoir avant, pas après"
+  - id: "BANC-003"
+    severity: medium
+    finding: "L'aller-retour BScript n'avait jamais été éprouvé au-delà d'une dizaine d'éléments. C'est le chemin le plus fragile du produit — une grammaire écrite à la main — et celui qui a déjà perdu un filtre d'événement sans que rien ne le voie, parce qu'un test comptait au lieu de comparer"
+    suggested_action: "Aller-retour NBT ET BScript sur les deux bancs, comparés par contentEquals. 110 éléments avec les onze types, trois axes de défilement, deux styles nommés et quatre liaisons d'un côté ; 361 nœuds enchaînés de l'autre"
+  - id: "BANC-004"
+    severity: medium
+    finding: "Un banc trop petit ne prouve rien, un banc au-dessus du plafond ne mesure que le refus. Le choix de la taille est donc lui-même une décision à défendre"
+    suggested_action: "110 éléments sur 128, et un test qui EXIGE d'être à plus de 80 % du plafond : si quelqu'un réduit le banc un jour pour accélérer la suite, le test le dira. Le graphe s'arrête à 361 nœuds sur 1000 — trois fois plus long ne dirait rien de plus sur la compilation et rallongerait la suite pour tout le monde"
+  - id: "BANC-005"
+    severity: low
+    finding: "Le graphe de banc est une CHAÎNE et non un tas de nœuds indépendants. Un graphe large mais plat aurait été plus simple à écrire"
+    suggested_action: "Délibéré : ce qu'on veut éprouver est la compilation et le parcours. Un graphe plat se compile en un clin d'œil et ne prouverait rien. Le test vérifie que la chaîne entière se retrouve dans le programme compilé"
+  - id: "BANC-006"
+    severity: low
+    finding: "Les bancs ne sont pas dans /blueprint examples"
+    suggested_action: "Délibéré : ce sont des fixtures, pas des exemples. Les mettre dans la liste d'apprentissage ferait passer pour des modèles à suivre deux fichiers dont le seul mérite est d'être gros. Ils vivent dans core/src/test et ne partent pas dans le jar"
+  - id: "BANC-007"
+    severity: low
+    finding: "Le pack ma_boutique reste copié à la main dans run/blueprint/scripts/"
+    suggested_action: "Assumé et documenté : ses textures ne sont pas générables depuis le modèle, et c'est le module client qui produit son .bp. Seul fichier du dossier run/ qui ne se régénère pas d'une commande"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 2, low: 3 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le banc d'écran pèse ~27 Kio pour un plafond de 64. Tout champ ajouté au modèle d'élément le fera grossir : c'est le test à regarder en premier quand ScreenElement gagnera un composant."
+      - "La régénération de run/ écrase le dossier. Si quelqu'un y met un jour un fichier à la main, il disparaîtra à la prochaine commande — le dossier est désormais un produit, pas un espace de travail."
+evidence:
+  tests_reviewed: 1100
+  gametests: 17
+  new_tests:
+    - "StressBlueprintTest (10) — paquet réseau d'un écran chargé, aller-retour NBT et BScript à l'échelle, compilation d'une chaîne de 120 maillons, budget de la passe sur 110 éléments à deux tailles de fenêtre, et les plafonds eux-mêmes"
+  risks_without_gate:
+    - "Sans BANC-001, la session en jeu — le seul jalon qui reste — aurait été menée sur des fichiers d'avant trois stories, et aurait conclu que tout va bien."
+    - "Sans BANC-002, le premier écran vraiment chargé livré par un auteur aurait échoué à s'ouvrir, sans message, chez ses joueurs."
+quality_score: 93
+expires: "2026-08-18T00:00:00Z"
