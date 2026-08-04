@@ -134,6 +134,8 @@ D:\Blueprint\
 | Un paquet réseau | payload dans `core/net/`, handler client dans `client/net/` |
 | Un widget de l'éditeur | `client/editor/` |
 | Une intégration avec un mod précis | `compat/<modid>/` — **jamais** ailleurs |
+| Un élément d'écran, une passe de disposition | `core/graph/screen/` (modèle, pur) + `client/editor/screen/` (concepteur) |
+| Un item ou un bloc déclaré, son chargement, son pack | `core/content/` — jamais dans `graph/` : cela ne vit pas dans un blueprint |
 | Une chaîne visible | les deux fichiers `lang/` |
 
 ## Ressources et données
@@ -143,5 +145,8 @@ D:\Blueprint\
 | `assets/blueprint/theme/default.json` | Jetons de style de l'éditeur |
 | `data/<modid>/blueprint/nodes/*.json` | Nœuds composites de datapack |
 | `blueprint/config.json` | Config serveur (fuel, permissions, limites) |
-| `blueprint/exports/*.bp` | Exports BScript |
+| `blueprint/exports/*.bp` | Exports BScript — **reflet** du monde, réécrit à chaque enregistrement |
+| `blueprint/scripts/<pack>/` | Packs d'images d'écran, échangeables à chaud |
+| `blueprint/content/items|blocks/*.json` + PNG voisin | **Contenu déclaré** : lu AVANT le gel des registres, donc au démarrage du mod et nulle part ailleurs |
+| `resourcepacks/blueprint_content/` | Pack **généré** pour le contenu déclaré — jamais écrit à la main, jamais écrasé s'il n'a pas été créé par nous |
 | Sauvegarde du monde (`SavedData`) | Blueprints, exécutions suspendues, variables `WORLD` |

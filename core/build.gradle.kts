@@ -30,6 +30,11 @@ tasks.test {
 // BlueprintMod (entrypoint Fabric) est exclu : il ne s'exerce qu'en jeu (gametests).
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
+    reports {
+        // Aligné sur le client : sans XML, la couverture de core ne se lit qu'à l'œil
+        // dans un rapport HTML, donc aucun outil ne peut dire QUELLE classe manque.
+        xml.required.set(true)
+    }
 }
 
 tasks.jacocoTestCoverageVerification {

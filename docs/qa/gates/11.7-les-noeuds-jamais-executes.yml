@@ -1,0 +1,56 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.7"
+story_title: "Les nœuds que personne n'avait jamais exécutés"
+gate: "PASS"
+status_reason: "Second passage d'audit, sur les zones peu testées et les documents de planification — que les deux audits précédents n'avaient pas regardés. Cent quatre-vingt-quatre nœuds livrés et aucun test n'en exécutait un seul ; deux épics livrés n'existaient dans aucun document de planification ; et le « rapport de fin », lié comme l'état complet, retardait de deux épics. Le résultat de la bibliothèque est rassurant : rien ne lève. Elle est désormais gardée."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "FUMEE-001"
+    severity: high
+    finding: "StandardLibraryTest vérifiait les métadonnées des 184 nœuds — permissions, pureté, enregistrement, langues — sans jamais en EXÉCUTER un seul. La couverture le disait : core/nodes à 65 %, environ 3 200 instructions jamais atteintes. Or les pins sont désignés par des CHAÎNES : un ctx.out(\"resultat\") là où la déclaration dit \"result\" compile, passe toutes les vérifications de forme, et ne se voit qu'en partie. Ce projet a déjà payé deux fois cette famille — event/signal mort plusieurs stories, et le nœud de touche muet de la 11.4"
+    suggested_action: "PureNodeSmokeTest exécute les 80 nœuds purs faisables sans serveur avec leurs propres défauts. Résultat rassurant : aucun ne lève, aucun ne laisse une sortie déclarée vide. VÉRIFIÉ en cassant le produit — renommer une sortie de vec/split fait rougir les deux tests en nommant le nœud et le pin"
+  - id: "FUMEE-002"
+    severity: medium
+    finding: "Une sortie déclarée et jamais renseignée donne null au nœud suivant. La faute se manifeste alors chez le voisin, à un endroit qui n'a rien fait de mal — la forme la plus coûteuse à diagnostiquer, parce qu'elle accuse le mauvais nœud"
+    suggested_action: "Second test dédié, distinct du premier : un nœud peut parfaitement ne pas lever ET ne rien produire. Une faute déclarée (ctx.fail) reste un résultat légitime et n'est pas comptée"
+  - id: "FUMEE-003"
+    severity: medium
+    finding: "Neuf nœuds sont abaissés par le compilateur et leur action n'est qu'une garde qui doit lever. Ils auraient pu être une simple liste d'exclusions du test de fumée"
+    suggested_action: "VÉRIFIÉS plutôt qu'écartés : un nœud abaissé qui cesserait de lever serait un nœud dont le compilateur a oublié l'abaissement, et la VM l'exécuterait pour de bon — une boucle deviendrait silencieusement un nœud qui ne fait rien. Une liste d'exclusions n'aurait rien prouvé et se serait périmée au premier nœud abaissé de plus"
+  - id: "FUMEE-004"
+    severity: medium
+    finding: "Deux épics livrés — 22 stories — n'existaient dans AUCUN document de planification. Le PRD s'arrêtait à l'épic 10 ; source-tree.md, qui dit où placer chaque classe, ne connaissait ni core/content/ ni core/graph/screen/. Trou de méthode : la boucle Analyst → PM → Architect a été court-circuitée par la conversation, et rien ne l'a rattrapée"
+    suggested_action: "L'épic 11 est écrit dans le PRD, avec la mention EXPLICITE qu'il l'a été après coup — le noter est le minimum, l'idéal aurait été de l'écrire d'abord. source-tree.md complété pour les écrans et le contenu, avec la règle qui compte : le contenu déclaré ne vit pas dans graph/, parce qu'il ne vit pas dans un blueprint"
+  - id: "FUMEE-005"
+    severity: medium
+    finding: "rapport-de-fin.md, lié depuis le README comme « l'état complet », annonçait 55 stories, 541 tests et 5 gametests — contre 77, 1 163 et 18. Un document faux qui se présente comme la référence est pire qu'un document absent"
+    suggested_action: "Remis à jour, et enrichi des corrections hautes des deux épics nés de l'usage, plus des dix-huit constructions rouges de l'intégration continue et de ce qu'elles ont enseigné"
+  - id: "FUMEE-006"
+    severity: low
+    finding: "core ne produisait pas de rapport de couverture XML, contrairement au client : aucun outil ne pouvait dire QUELLE classe manquait, seulement un pourcentage global"
+    suggested_action: "Aligné sur le client. C'est ce qui a rendu possibles FUMEE-001 et l'analyse par classe : sans lui, l'audit se serait arrêté au chiffre global de 80 %, qui passait"
+  - id: "FUMEE-007"
+    severity: low
+    finding: "Un message d'erreur du cœur disait « pas de pin d'sortie », et le README des exemples annonçait « Six graphes » pour huit fichiers"
+    suggested_action: "Corrigés. Le premier a été trouvé en cassant volontairement un nœud pour vérifier que le nouveau test l'attrape — la vérification a donc rapporté deux fois"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 4, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Les nœuds NON purs — monde, entité, inventaire, scoreboard, raycast — restent non couverts hors gametests, qui n'en exercent qu'une poignée. C'est le plus grand angle mort du harnais, et il est chiffré : ces classes sont entre 28 % et 46 % de couverture."
+      - "architecture.md ne décrit toujours pas le contenu déclaré. La story 11.1 le fait en profondeur ; recopier n'apporterait rien, mais le document d'architecture reste incomplet."
+      - "Le trou de méthode se rouvrira au prochain épic né d'une conversation. Écrire l'épic dans le PRD AVANT de le construire est la seule parade, et elle ne tient à rien d'automatique."
+evidence:
+  tests_reviewed: 1166
+  gametests: 18
+  new_tests:
+    - "PureNodeSmokeTest (3) — 80 nœuds purs exécutés avec leurs propres défauts sans qu'aucun ne lève ; aucune sortie déclarée laissée vide ; et les neuf nœuds abaissés dont la garde lève bien. Plancher de 60 exécutions pour que le test ne puisse pas passer à vide — la panne qu'on venait de corriger sur PaletteTest"
+  risks_without_gate:
+    - "Sans FUMEE-001, un nœud au pin mal nommé serait resté livré jusqu'à ce qu'un joueur le pose — sans qu'aucun test, aucune compilation ni aucune revue ne puisse le voir."
+    - "Sans FUMEE-004, la documentation de planification aurait continué de décrire un produit qui s'arrête deux épics plus tôt que la réalité."
+quality_score: 93
+expires: "2026-08-18T00:00:00Z"

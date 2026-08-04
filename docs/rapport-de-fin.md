@@ -1,16 +1,15 @@
 # Rapport de fin — Blueprint 0.1.0
 
-Relecture finale du 2026-08-03, à l'issue de la boucle de développement autonome.
+Relecture finale, tenue à jour à chaque fin d'épic — dernière mise à jour le
+2026-08-04, après l'épic 11.
 Ce document répond à trois questions : **qu'est-ce qui est fait**, **qu'est-ce qui
 reste**, et **qu'est-ce que je ne peux pas garantir**.
 
 ## 1. État
 
-**Les neuf épics du PRD sont livrés.** 55 stories en statut *Done*, 54 gates QA
-(certaines couvrent des stories groupées) toutes en verdict *PASS* — aucune en
-*CONCERNS* ni en *FAIL*. La dernière *CONCERNS* restante, celle de la story 1.2,
-a été réémise en *PASS* ce jour : ses deux points bloquants étaient du process
-(balayage `Identifier`, couverture non mesurée), tous deux réglés depuis.
+**Les neuf épics du PRD sont livrés, plus deux nés de l'usage.** 77 stories en statut
+*Done*, 76 gates QA (certaines couvrent des stories groupées) toutes en verdict *PASS*
+— aucune en *CONCERNS* ni en *FAIL*.
 
 | Épic | Titre | Stories | Verdict |
 |---|---|---|---|
@@ -23,11 +22,13 @@ a été réémise en *PASS* ce jour : ses deux points bloquants étaient du proc
 | 7 | Événements et bibliothèque | 7.1a → 7.10 | 7 PASS |
 | 8 | Intégration des mods tiers | 8.1 → 8.5 | 5 PASS |
 | 9 | Débogage, performance, finition | 9.1a → 9.5 | 6 PASS |
+| 10 | **Interfaces graphiques** | 10.1 → 10.16 | 16 PASS |
+| 11 | **Contenu déclaré** | 11.1 → 11.6 | 6 PASS |
 
-**Vérification automatique** : `./gradlew build` (541 tests headless, couverture
+**Vérification automatique** : `./gradlew build` (1 163 tests headless, couverture
 bloquante ≥ 80 % sur le cœur et ≥ 82 % sur la partie testable du client, référence
 des nœuds et surface d'API régénérées et comparées) et `./gradlew runGametest`
-(5 tests dans un serveur Minecraft réel). Les deux tournent en CI sur chaque push.
+(18 tests dans un serveur Minecraft réel). Les deux tournent en CI sur chaque push.
 
 ## 2. Ce que la QA a réellement trouvé
 
@@ -51,9 +52,30 @@ Les plus coûteuses si elles étaient parties en production :
 - **Treize paires de pins indiscernables en deutéranopie** (9.4) — violation franche
   de NFR11, trouvée par un test écrit pour l'occasion, corrigée à la racine.
 
+Les deux épics nés de l'usage ont ajouté leurs propres corrections hautes :
+
+- **Le concepteur peignait ailleurs qu'il ne cliquait** (10.11) — le dessin à 320×180
+  pendant que le clic résolvait à la taille simulée. Tout *avait l'air* juste.
+- **`Map.copyOf` ne préserve pas l'ordre d'insertion** (11.1) — et l'ordre décide ici
+  des identifiants **numériques** du réseau : un monde rouvert aurait montré ses items
+  permutés, un rubis devenu émeraude, en silence. Le même `Map.copyOf` avait déjà pris
+  les textures d'un pack en 10.5.
+- **Un pack recoché contre la volonté du joueur** (11.2) — l'activation automatique
+  reprenait une décision qu'il venait de prendre, rendant sa case inopérante.
+- **Un nœud de touche muet** (11.4) — posé et jamais édité, il n'écoutait aucun
+  emplacement : ni erreur, ni diagnostic, rien à corriger de visible.
+
 La CI, dès sa mise en place, a immédiatement trouvé trois problèmes réels que la
 machine de développement masquait — dont une NPE dans la reprise des exécutions
 persistées, causée par des gametests tournant en parallèle.
+
+**Et elle a fini par en trouver un quatrième, sur elle-même.** Dix-huit constructions
+rouges, réparties sur trois bancs de performance, sans qu'aucun code n'ait changé :
+ils portaient un budget en temps mural et mesuraient donc la charge d'une machine
+partagée. Le coût réel n'est pas la construction rouge, c'est ce qu'elle enseigne —
+*relancer plutôt que chercher*. La règle de mesure est désormais écrite
+([`architecture/coding-standards.md` §7.1](architecture/coding-standards.md)), et avec
+elle celle qui vaut pour tous : **un banc qu'on n'a jamais vu échouer ne prouve rien**.
 
 ## 3. Ce qui reste
 
@@ -67,7 +89,7 @@ c'est ce que le lanceur affiche aux joueurs, il est corrigé.
 
 ### 3.2 La session en jeu
 
-**24 points à regarder**, listés dans [`README.md` §Prochaine action](README.md).
+**41 points à regarder**, listés dans [`README.md` §Prochaine action](README.md).
 Tout ce qui se vérifie sans yeux l'est déjà ; ce qui reste est le visuel, l'ergonomie
 et les comportements qui exigent un monde vivant (redémarrage, serveur dédié, retrait
 d'un mod du dossier `mods`).
@@ -90,7 +112,7 @@ Par honnêteté, les limites du harnais :
 
 1. **Le rendu n'est vérifié par aucun test.** L'état de l'éditeur est couvert
    headless ; le dessin ne l'est pas, et ne peut pas l'être ici. C'est la raison
-   d'être des 24 points de la session en jeu.
+   d'être des 41 points de la session en jeu.
 2. **Les 60 fps ne sont mesurés qu'en passe CPU** (banc `CanvasBenchTest`). Le coût
    GPU réel n'est pas borné en CI.
 3. **Le multijoueur n'est éprouvé qu'à un seul client.** Le verrou optimiste est

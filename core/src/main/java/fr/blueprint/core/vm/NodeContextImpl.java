@@ -246,7 +246,7 @@ public final class NodeContextImpl implements NodeContext {
                 return pin;
             }
         }
-        throw new IllegalStateException(dev("pas de pin d'" + sideName + " nommé « " + name + " »"));
+        throw new IllegalStateException(dev("pas de pin de " + sideName + " nommé « " + name + " »"));
     }
 
     private String dev(String message) {

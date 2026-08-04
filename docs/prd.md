@@ -520,6 +520,67 @@ ils restent la liste de contrôle avant de déclarer l'épic terminé.*
 
 ---
 
+### Épic 11 — Contenu déclaré
+
+*Objectif : qu'un serveur puisse ajouter de VRAIS items et blocs, pas des items vanilla
+renommés.*
+
+> **Épic écrit après coup.** Il n'était pas au PRD initial : il est né d'une demande
+> directe — « le but c'est que je puisse créer des blocs et items custom, des vrais
+> blocs » — et a été construit en six stories avant d'être consigné ici. Le noter est le
+> minimum ; l'idéal aurait été de l'écrire d'abord, et c'est ce que la méthode demande.
+
+#### La contrainte qui décide de toute sa forme
+
+*Les registres de Minecraft **gèlent** à la fin de l'initialisation des mods, avant
+qu'aucun monde ne soit chargé. Un blueprint vit dans la sauvegarde d'un monde — donc
+après le gel — et ne peut donc **structurellement pas** enregistrer un item. Aucun effort
+d'ingénierie n'y changera rien.*
+
+*Les définitions sont par conséquent des **fichiers sur le disque**, lus au démarrage,
+comme le fait tout mod de contenu. Trois conséquences à assumer, et à dire :*
+
+1. *ajouter ou modifier du contenu demande un **redémarrage** ;*
+2. *en multijoueur, le mod **et les mêmes fichiers** chez chaque joueur ;*
+3. *textures et modèles passent par un **pack de ressources**.*
+
+*La même contrainte est revenue sous trois visages : les registres pour les items, les
+**tags** de minage et les **tables de butin** pour les blocs. La réponse a été la même
+chaque fois — porter la règle dans le code plutôt qu'écrire dans la sauvegarde du joueur,
+où le fichier survivrait à la désinstallation du mod.*
+
+**Story 11.1 — Les items déclarés**
+- AC1 : `blueprint/content/items/<nom>.json` déclare un item **réellement enregistré** ; le nom du fichier devient l'identifiant, l'image est le PNG du même nom à côté.
+- AC2 : un fichier fautif n'emporte pas les autres et **n'empêche jamais le jeu de démarrer** — un identifiant invalide fait lever Minecraft avant l'écran titre.
+- AC3 : `/blueprint content` liste l'enregistré et l'écarté **avec sa raison** ; l'ordre d'enregistrement est stable d'un démarrage à l'autre (les identifiants réseau en dépendent).
+
+**Story 11.2 — Le pack de ressources généré**
+- AC1 : un item déclaré avec son PNG s'affiche avec son image ; le pack est écrit dans `resourcepacks/blueprint_content/` et activé **à sa création seulement**.
+- AC2 : rien n'a changé → rien n'est réécrit et **aucun rechargement** n'a lieu ; un item retiré ne laisse aucun fichier fantôme.
+- AC3 : on n'écrit **jamais** dans un dossier qu'on n'a pas créé, et le joueur qui décoche le pack le voit **rester** décoché.
+
+**Story 11.3 — Les blocs déclarés**
+- AC1 : `blocks/<nom>.json` déclare un bloc **et son item** — on le tient, on le pose, on le mine, on le ramasse.
+- AC2 : dureté, résistance, famille d'outil, exigence d'outil, lumière, bruit.
+- AC3 : la vitesse de minage et le butin sont portés par le bloc, **jamais** par un fichier écrit dans la sauvegarde du joueur.
+
+**Story 11.4 — Les touches**
+- AC1 : huit **emplacements** assignables dans le menu des commandes, **non assignés** au départ.
+- AC2 : le graphe voit l'emplacement, **jamais** la touche physique — c'est le joueur qui choisit, et un code de touche varierait d'un clavier à l'autre.
+- AC3 : une pression vaut une action, la cadence est bornée côté serveur.
+
+**Story 11.5 — Le graphe réagit au contenu déclaré**
+- AC1 : `player_use_item` donne la pile **et** l'identifiant ; `player_break_block` donne le bloc ; poser un bloc déclaré est un événement.
+- AC2 : des nœuds pour lire l'identifiant et le nom d'une pile, la renommer, la décrire — tous **purs**, donc rendant une copie.
+- AC3 : additif — aucun graphe existant ne casse.
+
+**Story 11.6 — Audit à froid de l'épic**
+- AC1 : les chemins d'émission filtrés passent par l'index des points d'entrée, comme la répartition générique.
+- AC2 : l'épic existe dans la documentation **joueur**, et livre un item et un bloc d'exemple **générés**.
+- AC3 : `/blueprint content` sur une installation vierge dit **où** déposer les fichiers.
+
+---
+
 ## 4. Ordre de livraison recommandé
 
 1. Épic 1 → 2 → 3 (le socle exécutable sans interface, testable en tests unitaires)

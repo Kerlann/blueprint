@@ -1,7 +1,7 @@
 # Blueprints d'exemple
 
-Six graphes courts, prêts à lire et à charger. Chacun tient en moins de douze nœuds
-et montre **un** mécanisme.
+Huit graphes courts, prêts à lire et à charger, plus un dossier de contenu déclaré.
+Chacun tient en moins de douze nœuds et montre **un** mécanisme.
 
 > **Fichiers générés** — ne pas modifier à la main. Ils sont produits depuis
 > `ExampleBlueprints.java` par `ExampleBlueprintsTest`, qui les valide un par un et
