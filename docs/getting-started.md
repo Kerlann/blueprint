@@ -126,6 +126,24 @@ La vue **Script** (bouton de la barre d'outils) montre le texte du graphe en dir
 Un blueprint peut ouvrir un **écran** chez un joueur : une boutique, un distributeur, un
 tableau de scores. En dix minutes, de zéro à un guichet qui compte des jetons.
 
+### Se déplacer dans le concepteur
+
+Le canevas s'ouvre en **1920×1080, cadré entier**. Trois gestes suffisent, et ils sont les
+mêmes que dans l'onglet Graphe :
+
+| | |
+|---|---|
+| **molette** | zoomer — le point visé reste sous le curseur |
+| **bouton du milieu**, ou `Espace` + clic gauche | déplacer la vue |
+| `F` / `Ctrl+0` | cadrer le canevas / revenir à 1:1 |
+| `Tab` | replier les deux panneaux latéraux ; le canevas double de largeur |
+| **`F1`** | **la liste de tous les raccourcis** |
+
+Le reste se découvre par `F1` plutôt qu'en le retenant d'ici. Deux qui rendent service
+tout de suite : `G` montre et cache la grille d'accroche, et le **pavé numérique** aligne
+la sélection — avec un seul élément sélectionné, il l'aligne sur son **parent**, ce qui
+est la façon courte de dire « centre ce bouton dans son cadre ».
+
 ### Dessiner l'écran
 
 Onglet **Écrans** dans la barre du haut. À gauche, la liste des écrans de ce blueprint et
@@ -186,6 +204,42 @@ servir.
 
 L'exemple complet est livré : [`examples/guichet.bp`](examples/guichet.bp), ou
 `/blueprint examples` pour le créer directement en jeu.
+
+### Une page qu'on lit
+
+Un menu se manipule ; une page se **parcourt** — un règlement, une aide, la description
+d'un objet. Trois réglages suffisent, et ils vont ensemble.
+
+**Le texte qui revient à la ligne.** Cochez `Retour ligne` sur une étiquette : son texte se
+coupe aux mots au lieu d'être tronqué. Ce qui ne tient pas en hauteur est coupé net —
+mieux vaut ça qu'un paragraphe qui traverse le menu par-dessus ses voisins.
+
+> Mettez le réglage dans un **style nommé** plutôt que sur chaque étiquette. Ajouter un
+> sixième paragraphe ne demandera alors que d'écrire son texte.
+
+**Le panneau défilant.** Sur un conteneur, le réglage `Défilant` accepte `V`, `H` ou
+`V+H`. Donnez-lui une hauteur **à lui** : en `ajuster`, il grandirait avec son contenu,
+donc rien ne dépasserait, donc il ne défilerait jamais — l'éditeur vous le dira, mais
+autant le savoir avant.
+
+En jeu : la molette, `Maj`+molette pour l'horizontale, `Page↑`/`Page↓`, `Origine`/`Fin`,
+et le curseur à droite du cadre, qui se tire. `Tab` ramène dans le cadre l'élément qu'il
+atteint. Depuis le graphe, `gui/set_scroll` à `0` remet en haut — utile après avoir changé
+le contenu, et indispensable pour un bouton « Haut de page ».
+
+**L'infobulle.** Le champ `Infobulle` de n'importe quel élément — y compris une étiquette,
+une image, et surtout un bouton **désactivé**, où c'est le moment exact où le joueur se
+demande pourquoi il ne peut pas cliquer. Un `#` en tête en fait une clé de traduction,
+comme pour le texte.
+
+L'exemple complet est livré : [`examples/reglement.bp`](examples/reglement.bp).
+
+### Changer l'apparence en cours de partie
+
+`gui/set_style` fait suivre à un élément un **style nommé de l'écran**. C'est ainsi qu'on
+fait des onglets sans dupliquer quoi que ce soit : décrivez `onglet_actif` et
+`onglet_inactif` une fois dans le concepteur, et un seul nœud bascule les six boutons.
+`gui/set_tooltip` change de même ce que le survol explique.
 
 ### Un HUD plutôt qu'un menu
 

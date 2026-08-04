@@ -1,0 +1,63 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.14"
+story_title: "Ce qui ne se voyait pas"
+gate: "PASS"
+status_reason: "Audit demandé à froid. Trois constats vérifiés avant d'écrire une ligne : le concepteur relançait la passe de disposition huit fois par image sans cache alors que le jeu en garde un depuis la 10.7 ; aucun des huit exemples ne montrait les capacités des quatre dernières stories ; et le guide joueur les ignorait de même. Le premier est un défaut mesuré (229 µs → 69 µs par image), les deux autres rendaient invisible ce qui avait été livré."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "AUDIT-001"
+    severity: high
+    finding: "ScreenCanvasController.rects() était appelé en vingt-deux endroits du contrôleur et quatre fois de plus par image dans le widget, et chacun relançait ScreenLayout.solve sur tout l'écran. L'écran de JEU garde son résultat depuis la 10.7 avec le bon argument — redessiner est inévitable à chaque image, recalculer ne l'est pas — mais le concepteur n'en a jamais rien eu, et chaque story de l'épic y a ajouté un appel : les repères en 10.11, l'infobulle en 10.12, la révélation et les plages de défilement en 10.13"
+    suggested_action: "Mémorisée. Mesuré 229 µs par image avant, 69 µs après, pour 64 éléments"
+  - id: "AUDIT-002"
+    severity: high
+    finding: "Le banc existant ne POUVAIT PAS voir ce défaut : ScreenRenderBenchTest mesure une passe par image, ce que fait le jeu. Un banc qui mesure autre chose que le code qui tourne ne garantit rien — c'est mot pour mot le reproche fait aux deux bancs de la 10.10, restés sur l'ancien chemin de résolution. Le défaut a donc pu grossir story après story sans qu'aucun test ne bronche"
+    suggested_action: "Banc du CONCEPTEUR ajouté, qui rejoue la vraie boucle d'une image. Son budget est posé ENTRE les deux mondes mesurés (150 µs pour 69 contre 229) : un seuil qui laisserait passer les deux aurait refait exactement le défaut qu'on reproche à l'autre banc"
+  - id: "AUDIT-003"
+    severity: high
+    finding: "L'invalidation d'un cache est plus risquée que le cache. Le piège précis : Ctrl+Z est joué par l'onglet GRAPHE, qui détient la pile d'annulation et modifie le même blueprint sans que le contrôleur d'écrans voie rien passer. Un drapeau « modifié » posé à la main aurait donc montré une mise en page annulée, et l'auteur aurait cliqué sur des éléments qui ne sont plus là"
+    suggested_action: "L'invalidation ne repose sur AUCUN signal : Screen est un record immuable et toute édition en produit un nouveau, donc comparer l'identité de l'instance suffit. Exact par construction. Test uneModificationVenueDAilleursVideLeCache, plus six gestes du concepteur exercés en boucle"
+  - id: "AUDIT-004"
+    severity: medium
+    finding: "Les huit exemples livrés ne montraient aucune infobulle, aucun retour à la ligne, aucun panneau défilant. /blueprint examples est le premier contact d'un joueur avec ce que le produit sait faire : quatre stories de capacités étaient en pratique invisibles"
+    suggested_action: "Exemple reglement.bp — une page qu'on parcourt, là où guichet montre un menu qu'on manipule. Généré depuis le modèle et jamais écrit à la main, leçon du pack ma_boutique de la 10.5 dont le .bp rédigé à la main ne se parsait pas"
+  - id: "AUDIT-005"
+    severity: medium
+    finding: "getting-started.md §8 n'évoquait ni le zoom, ni le canevas 1920×1080, ni F1, ni les infobulles, ni le retour à la ligne, ni le panneau défilant. Et docs/examples/README.md annonçait « Les six » alors que huit fichiers étaient sur le disque : guichet n'y avait jamais été ajouté"
+    suggested_action: "Deux sections neuves dans le guide, plus une sur gui/set_style ; tableau des exemples porté à huit entrées ; « Six blueprints » corrigé dans l'index"
+  - id: "AUDIT-006"
+    severity: low
+    finding: "La table de rectangles est désormais PARTAGÉE entre tous les appelants au lieu d'être reconstruite. Un appelant qui l'écrirait corromprait la vue de tous les autres"
+    suggested_action: "Aucun ne l'écrit — vérifié sur les vingt-six sites. Renvoyer une copie défensive coûterait exactement ce que la mémorisation économise ; le contrat est écrit sur la méthode"
+  - id: "AUDIT-007"
+    severity: low
+    finding: "La passe de la zone garantie (solve à 320×180, pour le cerne orange) reste refaite à chaque image et n'est pas mémorisée"
+    suggested_action: "Assumé : elle ne dépend ni de la fenêtre simulée ni des décalages, donc la mémoriser demanderait une seconde clé pour un gain trois fois moindre. Elle est comptée dans le banc, donc sa dérive éventuelle serait vue"
+  - id: "AUDIT-008"
+    severity: low
+    finding: "ScreenElement reste un record positionnel à dix-huit composants avec quatorze copies écrites à la main — signalé en 10.10 puis en 10.12, toujours pas fait"
+    suggested_action: "Toujours écarté, et pour la même raison : le renommage mécanique de element.x() sur ~80 sites enfouirait n'importe quel changement de fond sous du bruit. À faire SEUL, un jour où il n'y a rien d'autre dans le commit. Le garde qui compte existe déjà (toutesLesCopiesEmportentLInfobulle, qui exerce les treize withX)"
+  - id: "AUDIT-009"
+    severity: low
+    finding: "Ce que l'audit n'a PAS trouvé, et qu'il faut consigner pour ne pas le rechercher : aucun TODO ni FIXME dans les six modules, tous les gates au vert, aucun waiver actif"
+    suggested_action: "Le reste consigné en v1.1 — sucre BScript 4.2b, patchs par opération et multi-éditeur 6.3, processeur d'annotations 8.1, corps BScript de datapack 8.2 — est délibéré et documenté story par story. Rien d'oublié, seulement des choix"
+risk_summary:
+  totals: { critical: 0, high: 3, medium: 2, low: 4 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le cache repose entièrement sur l'immuabilité de Screen. Si un jour une méthode modifiait un Screen en place plutôt que d'en produire un nouveau, le concepteur montrerait une mise en page périmée sans que rien ne l'indique — c'est l'invariant à défendre, et il vaut d'être rappelé sur Screen lui-même."
+      - "Le banc du concepteur rejoue une boucle écrite à la main. Si le widget ajoute un appel à rects() ailleurs, le banc ne le verra pas grossir : il faut y ajouter la ligne en même temps."
+evidence:
+  tests_reviewed: 1090
+  gametests: 17
+  new_tests:
+    - "DesignerLayoutCacheTest (8) — la modification venue d'ailleurs, six gestes en boucle, l'écran supprimé, le changement de fenêtre et de défilement, et le banc du concepteur"
+  risks_without_gate:
+    - "Sans AUDIT-003, le concepteur aurait montré une mise en page annulée après un Ctrl+Z joué depuis l'autre onglet : on cliquerait sur des éléments qui ne sont plus là, et le symptôme se serait manifesté au pire moment, celui où l'on vient de défaire une erreur."
+    - "Sans AUDIT-004 et 005, quatre stories livrées et vertes seraient restées inconnues de qui n'a pas lu le code."
+quality_score: 92
+expires: "2026-08-18T00:00:00Z"

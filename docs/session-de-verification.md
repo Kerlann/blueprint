@@ -1,6 +1,6 @@
 # Session de vérification en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : **1082 tests headless** et **17 gametests**
+Tout ce qui se vérifie sans yeux l'est déjà : **1090 tests headless** et **17 gametests**
 dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
 seule une personne devant l'écran peut juger.
 
@@ -17,7 +17,7 @@ construit, et repartir de zéro à chaque point ferait perdre le tiers du temps.
 
 Le nécessaire est déjà en place dans `run/` :
 
-- `run/blueprint/exports/` — les sept exemples, plus la démo
+- `run/blueprint/exports/` — les huit exemples, plus la démo
 - `run/blueprint/scripts/ma_boutique/` — le pack d'images (fond, bouton, survol)
 - `run/blueprint/config.json` — configuration d'une version antérieure, **volontairement** :
   elle vérifie au passage que les quotas neufs reprennent leurs défauts
@@ -55,7 +55,7 @@ Puis en jeu : créer un monde en **créatif**, tricheurs activés.
 
 ---
 
-## Bloc 2 — Les écrans (12 points, ~28 min)
+## Bloc 2 — Les écrans (13 points, ~30 min)
 
 Restez dans le même blueprint, onglet **Écrans**.
 
@@ -71,6 +71,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 | ☐ V27 | Boutons vivants | Cliquer « acheter » déclenche le graphe. Masquer un bouton depuis le graphe le rend **vraiment** incliquable. Désactiver le blueprint referme le menu ouvert. |
 | ☐ V31 | Liaison de données | Lier une étiquette à une variable (elle se **choisit** dans la liste, ne se tape pas), format `Or : %s`. À l'ouverture, l'étiquette montre déjà le **défaut** de la variable. Changer la variable puis `gui/refresh` → le texte suit. **Sans** `gui/refresh`, rien ne bouge — c'est voulu. Renommer la variable dans l'éditeur → **erreur** de diagnostic, pas un écran vide. |
 | ☐ V35 | **Éléments riches** | Alimenter une liste par `gui/set_lines` → les lignes s'affichent, la molette défile, ce qui dépasse est **découpé** (rien ne déborde). Cliquer la troisième ligne → le graphe reçoit l'**indice 2**, et toujours 2 **après avoir défilé**. Taper dans un champ → un caractère hors filtre est refusé à la frappe ; `Entrée` valide ; `Échap` relâche le champ **avant** de fermer l'écran. `gui/set_item` affiche un objet avec son nombre. Un **aperçu d'entité** (`minecraft:pig`) montre la créature qui tourne — ouvrir/fermer vingt fois ne fait pas saccader. |
+| ☐ V39 | **Page qui se lit** | `/blueprint examples` → `reglement`, `Ctrl+S`, puis `/blueprint run reglement`. La page s'ouvre : les cinq règles **reviennent à la ligne** (aucune coupée au milieu d'un mot), le panneau **défile** à la molette **et** au clavier, les deux boutons ont leur **infobulle** au survol, et « Haut de page » remonte d'un coup. Dans l'éditeur, ouvrir le même écran : le concepteur montre exactement la même chose. |
 | ☐ V30 | Packs d'images | Le pack est déjà dans `run/blueprint/scripts/`. `/blueprint-packs` → il est listé. `/blueprint import boutique.bp`, ouvrir l'écran → fond et boutons portent les images. **Renommer le dossier** et `/blueprint-packs reload` → damiers portant « pack ma_boutique absent », le menu reste cliquable. Le remettre, recharger **sans fermer le menu** → les images reviennent. |
 | ☐ V28 | HUD permanent | `hud/show` : le bandeau s'affiche et **on continue de jouer** — marcher, frapper, ouvrir son inventaire. Deux HUD à la fois. **F7** les retire tous. Désactiver le blueprint retire le sien. |
 
@@ -110,4 +111,4 @@ Pour chaque défaut noté :
 3. S'il révèle un **manque de conception**, c'est une story — pas un correctif glissé dans
    un commit de finition.
 
-Le tableau des 38 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
+Le tableau des 39 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.

@@ -83,7 +83,11 @@ public final class ExampleBlueprints {
                 new Example(id("guichet"),
                         "un écran complet : disposition en colonne, style nommé, "
                                 + "étiquette liée à une variable, boutons câblés",
-                        ExampleBlueprints::counter));
+                        ExampleBlueprints::counter),
+                new Example(id("reglement"),
+                        "une page qui se lit : panneau défilant, texte qui revient à la "
+                                + "ligne, infobulles, retour en haut par le graphe",
+                        ExampleBlueprints::rules));
     }
 
     // ------------------------------------------------------------------ exemples
@@ -195,6 +199,120 @@ public final class ExampleBlueprints {
                 StandardEvents.GUI_ELEMENT_CLICKED.id(), -640, 560);
         literal(bp, lookup, closeClick, "element", PinTypes.STRING, "fermer");
         UUID close = add(bp, lookup, "close", node("gui/close"), -400, 560);
+        link(bp, lookup, closeClick, "exec_out", close, "exec_in");
+        link(bp, lookup, closeClick, "player", close, "player");
+        return bp;
+    }
+
+    /**
+     * Une page qu'on <b>lit</b> : le règlement du serveur.
+     *
+     * <p>Le guichet montre un écran qu'on manipule ; celui-ci montre un écran qu'on
+     * parcourt, et c'est un besoin différent. Il enseigne les trois choses qu'aucun autre
+     * exemple ne montrait : un <b>panneau défilant</b>, du texte qui <b>revient à la
+     * ligne</b>, et des <b>infobulles</b>. Sans elles, une page de règles se découpait en
+     * plusieurs écrans reliés par des boutons « suivant » — une pagination, pas une page.
+     *
+     * <p>Le retour à la ligne est porté par un <b>style nommé</b> et non par chaque
+     * étiquette : c'est ce qui fait qu'ajouter un paragraphe ne demande rien d'autre que
+     * d'écrire son texte.
+     *
+     * <p>Et le bouton « Haut de page » appelle {@code gui/set_scroll} : sans lui, un
+     * lecteur arrivé au bout n'aurait que la molette pour remonter — et un joueur au
+     * clavier, rien du tout.
+     */
+    private static Blueprint rules(NodeTypeLookup lookup, Identifier blueprintId) {
+        Blueprint bp = start(blueprintId, "Une page de règles qui défile et se lit",
+                Permission.GAMEPLAY);
+
+        // Le style porte le retour à la ligne : les cinq paragraphes le suivent, et un
+        // sixième n'aura qu'à le nommer.
+        var paragraphe = fr.blueprint.core.graph.screen.ElementStyle.DEFAULT.withWrap(true);
+
+        var elements = new java.util.ArrayList<fr.blueprint.core.graph.screen.ScreenElement>();
+        elements.add(fr.blueprint.core.graph.screen.ScreenElement.of("page",
+                        fr.blueprint.core.graph.screen.ElementKind.PANEL, 0, -12, 200, 120)
+                .withAnchor(fr.blueprint.core.graph.screen.Anchor.CENTER)
+                .resized(fr.blueprint.core.graph.screen.Extent.percent(0.7, 160, 400),
+                        fr.blueprint.core.graph.screen.Extent.percent(0.6, 90, 260))
+                // Le cadre a une hauteur À LUI : un « ajuster » grandirait avec le
+                // contenu, donc rien ne dépasserait, donc il ne défilerait jamais.
+                .withLayout(fr.blueprint.core.graph.screen.LayoutSpec.column(4)
+                        .withCross(fr.blueprint.core.graph.screen.LayoutSpec.Cross.STRETCH)
+                        .withScroll(fr.blueprint.core.graph.screen.LayoutSpec
+                                .Scroll.VERTICAL)));
+        elements.add(fr.blueprint.core.graph.screen.ScreenElement.of("titre",
+                        fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 160, 12)
+                .withParent("page")
+                .resized(fr.blueprint.core.graph.screen.Extent.fill(),
+                        fr.blueprint.core.graph.screen.Extent.of(12))
+                .withText(fr.blueprint.core.graph.screen.ScreenText
+                        .literal("Règlement du serveur")));
+
+        String[] regles = {
+            "1. Restez courtois. Un désaccord se règle par la parole, pas par la pioche.",
+            "2. Ne construisez pas à moins de cinquante blocs d'une base habitée sans "
+                    + "l'accord de ses occupants.",
+            "3. Les fermes automatiques sont autorisées tant qu'elles ne font pas chuter "
+                    + "le nombre d'images par seconde des autres joueurs.",
+            "4. Le contenu d'un coffre appartient à qui l'a posé, même sans cadenas.",
+            "5. Signalez les défauts plutôt que de les exploiter : ils seront corrigés, "
+                    + "et vous serez remercié.",
+        };
+        for (int i = 0; i < regles.length; i++) {
+            elements.add(fr.blueprint.core.graph.screen.ScreenElement.of("regle" + (i + 1),
+                            fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 160, 30)
+                    .withParent("page")
+                    .resized(fr.blueprint.core.graph.screen.Extent.fill(),
+                            fr.blueprint.core.graph.screen.Extent.of(30))
+                    .withText(fr.blueprint.core.graph.screen.ScreenText.literal(regles[i]))
+                    .withStyleName("paragraphe").styled(paragraphe));
+        }
+
+        // Les deux boutons vivent HORS du panneau : ils doivent rester atteignables quelle
+        // que soit la position de lecture. Dedans, ils défileraient avec le texte.
+        elements.add(fr.blueprint.core.graph.screen.ScreenElement.of("haut",
+                        fr.blueprint.core.graph.screen.ElementKind.BUTTON, -34, -8, 60, 16)
+                .withAnchor(fr.blueprint.core.graph.screen.Anchor.BOTTOM_CENTER)
+                .withText(fr.blueprint.core.graph.screen.ScreenText.literal("Haut de page"))
+                .withTooltip(fr.blueprint.core.graph.screen.ScreenText
+                        .literal("Revenir au début du règlement")));
+        elements.add(fr.blueprint.core.graph.screen.ScreenElement.of("fermer",
+                        fr.blueprint.core.graph.screen.ElementKind.BUTTON, 34, -8, 60, 16)
+                .withAnchor(fr.blueprint.core.graph.screen.Anchor.BOTTOM_CENTER)
+                .withText(fr.blueprint.core.graph.screen.ScreenText.literal("Fermer"))
+                .withTooltip(fr.blueprint.core.graph.screen.ScreenText
+                        .literal("Ferme la page. Échap fait la même chose.")));
+
+        fr.blueprint.core.graph.GraphLoader.addScreen(bp,
+                new fr.blueprint.core.graph.screen.Screen("reglement", false, elements,
+                        java.util.Map.of("paragraphe", paragraphe)));
+
+        // /blueprint run reglement : la page s'ouvre. Rien à rafraîchir — elle ne montre
+        // aucune variable, et c'est ce qui la rend si courte côté graphe.
+        UUID command = add(bp, lookup, "commande", StandardEvents.COMMAND.id(), -640, 0);
+        literal(bp, lookup, command, "name", PinTypes.STRING, "reglement");
+        UUID open = add(bp, lookup, "ouvrir", node("gui/open"), -400, 0);
+        literal(bp, lookup, open, "screen", PinTypes.STRING, "reglement");
+        link(bp, lookup, command, "exec_out", open, "exec_in");
+        link(bp, lookup, command, "player", open, "player");
+
+        // « Haut de page » : sans ce nœud, un lecteur arrivé au bout n'aurait que la
+        // molette pour remonter — et un joueur au clavier, rien du tout.
+        UUID topClick = add(bp, lookup, "clic_haut",
+                StandardEvents.GUI_ELEMENT_CLICKED.id(), -640, 260);
+        literal(bp, lookup, topClick, "element", PinTypes.STRING, "haut");
+        UUID toTop = add(bp, lookup, "remonter", node("gui/set_scroll"), -400, 260);
+        literal(bp, lookup, toTop, "screen", PinTypes.STRING, "reglement");
+        literal(bp, lookup, toTop, "element", PinTypes.STRING, "page");
+        literal(bp, lookup, toTop, "offset", PinTypes.DOUBLE, 0.0);
+        link(bp, lookup, topClick, "exec_out", toTop, "exec_in");
+        link(bp, lookup, topClick, "player", toTop, "player");
+
+        UUID closeClick = add(bp, lookup, "clic_fermer",
+                StandardEvents.GUI_ELEMENT_CLICKED.id(), -640, 520);
+        literal(bp, lookup, closeClick, "element", PinTypes.STRING, "fermer");
+        UUID close = add(bp, lookup, "fermer", node("gui/close"), -400, 520);
         link(bp, lookup, closeClick, "exec_out", close, "exec_in");
         link(bp, lookup, closeClick, "player", close, "player");
         return bp;

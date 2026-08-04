@@ -321,23 +321,67 @@ public final class ScreenCanvasController {
      * Les rectangles de tout l'écran, par la <b>même passe que le rendu</b>. Deux
      * chemins de résolution divergeraient au premier conteneur qui range ses enfants,
      * et le concepteur montrerait un menu que le jeu ne dessine pas (story 10.10).
+     *
+     * <p><b>Mémorisée.</b> Ce contrôleur appelle {@code rects()} en vingt-deux endroits,
+     * et le widget quatre fois de plus par image : le dessin, le cerne de dépassement, la
+     * sélection, l'infobulle survolée, les repères de la barre du bas, la révélation de la
+     * sélection. Chacun relançait la passe entière. L'écran de jeu, lui, garde son résultat
+     * depuis la 10.7 avec le bon argument — « redessiner est inévitable à chaque image,
+     * recalculer ne l'est pas » — mais le concepteur n'en a jamais rien eu, et chaque story
+     * de l'épic y a ajouté un appel.
+     *
+     * <p>L'invalidation est <b>exacte par construction</b> : {@link Screen} est un record
+     * immuable, et toute édition en produit un nouveau par {@code ScreenOps}. Comparer
+     * l'<i>identité</i> de l'instance suffit donc à savoir si le contenu a changé — y
+     * compris quand la modification vient d'ailleurs, d'un {@code Ctrl+Z} joué dans
+     * l'onglet Graphe par exemple, que ce contrôleur ne voit pas passer. Un drapeau
+     * « modifié » posé à la main aurait raté précisément ce cas.
+     *
+     * <p>La table rendue est <b>partagée, en lecture seule</b>. Aucun appelant ne l'écrit ;
+     * en renvoyer une copie coûterait ce que la mémorisation vient d'économiser.
      */
     public java.util.Map<String, ScreenLayout.Rect> rects() {
         Screen screen = screen();
-        return screen == null ? java.util.Map.of()
-                : ScreenLayout.solve(screen, viewportWidth, viewportHeight,
-                        new ScreenLayout.Scrolls() {
-                            @Override
-                            public double of(String container) {
-                                return scrollOf(container);
-                            }
+        if (screen == null) {
+            return java.util.Map.of();
+        }
+        if (screen != solvedFor || viewportWidth != solvedWidth
+                || viewportHeight != solvedHeight || scrollStamp != solvedStamp) {
+            solved = ScreenLayout.solve(screen, viewportWidth, viewportHeight,
+                    new ScreenLayout.Scrolls() {
+                        @Override
+                        public double of(String container) {
+                            return scrollOf(container);
+                        }
 
-                            @Override
-                            public double xOf(String container) {
-                                return scrollXOf(container);
-                            }
-                        });
+                        @Override
+                        public double xOf(String container) {
+                            return scrollXOf(container);
+                        }
+                    });
+            solvedFor = screen;
+            solvedWidth = viewportWidth;
+            solvedHeight = viewportHeight;
+            solvedStamp = scrollStamp;
+        }
+        return solved;
     }
+
+    private @Nullable Screen solvedFor;
+    private double solvedWidth = Double.NaN;
+    private double solvedHeight = Double.NaN;
+    private int solvedStamp = -1;
+    private java.util.Map<String, ScreenLayout.Rect> solved = java.util.Map.of();
+
+    /**
+     * Incrémenté à chaque changement de décalage.
+     *
+     * <p>Les tables de défilement sont les seules données de la passe qui ne soient pas
+     * portées par l'écran immuable : il faut donc les compter à part. Un simple compteur
+     * plutôt qu'une copie des tables — comparer deux tables à chaque appel reviendrait à
+     * payer ce qu'on économise.
+     */
+    private int scrollStamp;
 
     // ------------------------------------------------- panneaux défilants (10.13)
 
@@ -382,6 +426,7 @@ public final class ScreenCanvasController {
             return false;
         }
         axis.put(container, next);
+        scrollStamp++;   // la passe mémorisée ne vaut plus : le contenu a bougé
         return true;
     }
 
