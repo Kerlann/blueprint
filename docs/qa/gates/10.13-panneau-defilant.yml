@@ -53,23 +53,33 @@ top_issues:
     finding: "Les flèches nues auraient pu faire défiler. Un menu ouvert aurait alors avalé les touches de déplacement dès qu'il contient un panneau"
     suggested_action: "Ctrl+flèches pour un cran, Page↑/↓ pour un écran, Origine/Fin aux extrémités. Les flèches nues restent au jeu. Sans focus, le clavier ne vise un panneau que s'il n'y en a qu'UN : avec plusieurs, rien ne bouge, parce que rien ne dit lequel et que deviner serait pire"
   - id: "SCROLL-010"
+    severity: medium
+    finding: "D'abord écarté « pour la symétrie », puis LIVRÉ à la demande : l'axe horizontal. Le booléen de LayoutSpec devient une énumération d'axe — deux booléens se seraient lus comme deux réglages indépendants alors qu'ils décrivent une seule chose, et le second aurait porté un nom que le premier n'a pas"
+    suggested_action: "Livré, avec trois pièges refermés. Le NBT écrit l'axe ET garde le booléen à côté, comme rel vit à côté du mode d'un Extent : une version antérieure y lit « ce panneau défile » plutôt que « figé ». BScript accepte toujours scroll: true, qui vaut vertical. Et les deux curseurs sont calculés ENSEMBLE, chacun s'arrêtant avant le coin que l'autre occupe : séparément ils se recouvriraient, et celui du dessous serait devenu inattrapable dans son dernier centimètre — là où l'on va chercher la fin d'une page"
+  - id: "SCROLL-013"
+    severity: medium
+    finding: "Maj + molette vise l'horizontal, mais un panneau qui ne défile que sur UN axe doit répondre sans qu'on ait à le savoir : exiger la bonne touche là où il n'y a qu'un choix serait une devinette, et le joueur conclurait que la molette ne marche pas. La règle risquait d'être écrite deux fois — une en jeu, une dans le concepteur"
+    suggested_action: "Une seule règle, ScreenLayout.scrollVertical, lue par les deux. Deux règles d'axe auraient fini par diverger, et l'auteur aurait découvert que son menu ne se parcourt pas comme il l'a conçu. Test laMoletteChoisitLAxeSansQuOnLuiDise"
+  - id: "SCROLL-014"
     severity: low
-    finding: "Défilement vertical seulement ; pas d'horizontal"
-    suggested_action: "Délibéré. L'horizontal demande la même mécanique sur l'autre axe et ne sert presque jamais dans un menu : l'ajouter « pour la symétrie » doublerait la surface pour un usage qui n'a pas été demandé"
+    finding: "Origine ne ramenait qu'un axe : sur un panneau qui défile des deux côtés, « le début » aurait laissé le contenu décalé à droite"
+    suggested_action: "Origine ramène les DEUX axes — le début d'une page est son coin, pas la première ligne d'une colonne dont on serait encore décalé. La révélation d'un élément suit la même règle : il peut être sorti par le bas ET par la droite"
 risk_summary:
-  totals: { critical: 0, high: 3, medium: 4, low: 5 }
+  totals: { critical: 0, high: 3, medium: 6, low: 5 }
   recommendations:
     must_fix: []
     monitor:
       - "solve() a maintenant deux signatures. Tout nouvel appelant qui prendrait celle sans décalages verrait les panneaux non défilés — correct pour la validation serveur, faux pour un rendu. Les deux appelants de rendu (BlueprintScreen, ScreenCanvasController) passent bien leur source."
       - "Le découpage repose sur enableScissor, qui applique la pose courante (vérifié au désassemblage en 10.11). Le concepteur dessine sous une matrice de zoom : le découpage y est donc transformé, ce qui est correct, mais tout changement de la pile de matrices doit être revérifié là."
 evidence:
-  tests_reviewed: 1069
+  tests_reviewed: 1080
   gametests: 17
   new_tests:
     - "ScreenScrollTest (13) — le décalage dans la passe unique, le découpage lu par le hit-test, l'imbrication de deux panneaux, la plage, le diagnostic, et l'aller-retour d'un panneau défilant EN ABSOLU"
     - "DesignerScrollTest (10) — bornage, molette sur le plus intérieur, révélation de la sélection, hit-test du concepteur qui suit le décalage"
     - "Curseur de défilement (9) — le placement et sa lecture sont des inverses exacts, la proportion visible, le plancher de taille, les deux extrémités, revealDelta et scrollerOf"
+    - "Axe horizontal (11) — chaque axe ne répond que si on le lui a donné, le choix d'axe de la molette, les deux curseurs qui se laissent le coin, l'aller-retour exact du curseur horizontal, et un ancien booléen relu comme un défilement vertical"
+    - "Axe horizontal (11) — chaque axe ne répond que si on le lui a donné, le choix d'axe de la molette, les deux curseurs qui se laissent le coin, l'aller-retour exact du curseur horizontal, et un ancien booléen relu comme un défilement vertical"
   risks_without_gate:
     - "Sans SCROLL-001, un auteur aurait coché « défilant » sur un panneau absolu, enregistré, rouvert — et retrouvé un panneau figé sans savoir pourquoi. Le genre de perte qu'on n'attribue pas à l'outil mais à soi-même."
     - "Sans SCROLL-003, on aurait pu cliquer ce qu'on ne voit pas. Le pire mode de panne d'une interface : celui où tout a l'air juste."

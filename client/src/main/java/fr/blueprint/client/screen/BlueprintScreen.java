@@ -141,6 +141,9 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      * l'écrire dans le blueprint la ferait voyager dans la sauvegarde et dans l'export.
      */
     private final java.util.Map<String, Double> panelScroll = new java.util.HashMap<>();
+
+    /** Le même, sur l'axe horizontal. */
+    private final java.util.Map<String, Double> panelScrollX = new java.util.HashMap<>();
     private final java.util.Map<String, String> inputs = new java.util.HashMap<>();
     private final java.util.Map<String, Double> values = new java.util.HashMap<>();
     private final java.util.Map<String, Boolean> checks = new java.util.HashMap<>();
@@ -345,7 +348,10 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         }
         // Une LISTE d'abord, le panneau qui la porte ensuite : sinon la molette ferait
         // glisser la page entière alors qu'on voulait parcourir la liste qu'on regarde.
-        if (scrollPanelAt(mouseX, mouseY, vAmount)) {
+        // La molette ne porte pas ses modificateurs : on interroge la fenêtre plutôt que
+        // de tenir un drapeau à jour dans keyPressed/keyReleased, qui reste enfoncé pour
+        // toujours dès qu'on relâche Maj hors de l'écran.
+        if (scrollPanelAt(mouseX, mouseY, vAmount, shiftDown())) {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
@@ -369,9 +375,15 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         if (rect == null || clip == null || panel == null) {
             return;
         }
-        double delta = fr.blueprint.core.graph.screen.ScreenLayout.revealDelta(clip, rect);
-        if (delta != 0) {
-            scrollPanel(panel, delta);
+        // Les deux axes : un élément peut être sorti par le bas ET par la droite, et ne
+        // le ramener que d'un côté le laisserait invisible pour l'autre.
+        double dy = fr.blueprint.core.graph.screen.ScreenLayout.revealDelta(clip, rect);
+        if (dy != 0) {
+            scrollPanel(panel, dy, true);
+        }
+        double dx = fr.blueprint.core.graph.screen.ScreenLayout.revealDeltaX(clip, rect);
+        if (dx != 0) {
+            scrollPanel(panel, dx, false);
         }
     }
 
@@ -395,14 +407,24 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         var frame = layout().get(panel);
         double page = frame == null ? SCROLL_STEP : Math.max(SCROLL_STEP, frame.height() - 9);
         return switch (key) {
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP -> scrollPanel(panel, -page);
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN -> scrollPanel(panel, page);
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> scrollPanel(panel, Double.NEGATIVE_INFINITY);
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> scrollPanel(panel, Double.MAX_VALUE);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP -> scrollPanel(panel, -page, true);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN -> scrollPanel(panel, page, true);
+            // Origine et Fin ramènent les DEUX axes : « le début », c'est le coin, pas la
+            // première ligne d'une colonne dont on serait encore décalé à droite.
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME ->
+                    scrollPanel(panel, Double.NEGATIVE_INFINITY, true)
+                            | scrollPanel(panel, Double.NEGATIVE_INFINITY, false);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> scrollPanel(panel, Double.MAX_VALUE, true);
             // Les flèches restent au jeu SAUF avec Ctrl : sans cela, un menu ouvert
             // avalerait les touches de déplacement dès qu'il contient un panneau.
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> control && scrollPanel(panel, -SCROLL_STEP);
-            case org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> control && scrollPanel(panel, SCROLL_STEP);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_UP ->
+                    control && scrollPanel(panel, -SCROLL_STEP, true);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN ->
+                    control && scrollPanel(panel, SCROLL_STEP, true);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT ->
+                    control && scrollPanel(panel, -SCROLL_STEP, false);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT ->
+                    control && scrollPanel(panel, SCROLL_STEP, false);
             default -> false;
         };
     }
@@ -430,27 +452,52 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         return only;
     }
 
-    /** Applique un delta borné à un panneau ; vrai s'il a bougé. */
-    private boolean scrollPanel(String panel, double delta) {
+    /** Applique un delta borné à un panneau, sur l'axe demandé ; vrai s'il a bougé. */
+    private boolean scrollPanel(String panel, double delta, boolean vertical) {
         var element = model.element(panel);
         var placed = layout();
         if (element == null || placed.get(panel) == null) {
             return false;
         }
-        double current = panelScroll.getOrDefault(panel, 0.0);
-        double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
-                model, element, placed, current);
+        var axis = vertical ? panelScroll : panelScrollX;
+        double current = axis.getOrDefault(panel, 0.0);
+        double range = rangeOf(element, placed, current, vertical);
         double next = Math.clamp(current + delta, 0, range);
         if (next == current) {
             return false;
         }
-        panelScroll.put(panel, next);
+        axis.put(panel, next);
         layout = null;
         return true;
     }
 
-    /** Le panneau dont on tient le curseur, et où on l'a saisi dans celui-ci. */
+    /** La plage d'un axe. Un seul point d'entrée : les deux se lisent partout ensemble. */
+    private double rangeOf(fr.blueprint.core.graph.screen.ScreenElement element,
+            java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> placed,
+            double current, boolean vertical) {
+        return vertical
+                ? fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
+                        model, element, placed, current)
+                : fr.blueprint.core.graph.screen.ScreenLayout.scrollRangeX(
+                        model, element, placed, current);
+    }
+
+    /** Les deux curseurs d'un panneau, au décalage courant. */
+    private fr.blueprint.core.graph.screen.ScreenLayout.ScrollBars barsOf(
+            fr.blueprint.core.graph.screen.ScreenElement element,
+            java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> placed) {
+        var frame = placed.get(element.name());
+        double offsetY = panelScroll.getOrDefault(element.name(), 0.0);
+        double offsetX = panelScrollX.getOrDefault(element.name(), 0.0);
+        return fr.blueprint.core.graph.screen.ScreenLayout.scrollBarsOf(frame,
+                rangeOf(element, placed, offsetY, true),
+                rangeOf(element, placed, offsetX, false),
+                offsetY, offsetX, model.styleOf(element).padding());
+    }
+
+    /** Le panneau dont on tient le curseur, sur quel axe, et où on l'a saisi. */
     private @Nullable String dragging;
+    private boolean draggingVertical;
     private double dragGrab;
 
     /**
@@ -473,35 +520,39 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             if (frame == null) {
                 continue;
             }
-            double offset = panelScroll.getOrDefault(element.name(), 0.0);
-            double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
-                    model, element, placed, offset);
-            var bar = fr.blueprint.core.graph.screen.ScreenLayout.scrollBarOf(frame, range,
-                    offset, model.styleOf(element).padding());
-            if (bar == null || !bar.track().contains(mouseX, mouseY)) {
-                continue;
+            var bars = barsOf(element, placed);
+            for (var bar : new fr.blueprint.core.graph.screen.ScreenLayout.ScrollBar[]{
+                    bars.vertical(), bars.horizontal()}) {
+                if (bar == null || !bar.track().contains(mouseX, mouseY)) {
+                    continue;
+                }
+                double along = bar.vertical() ? mouseY : mouseX;
+                dragging = element.name();
+                draggingVertical = bar.vertical();
+                if (bar.thumb().contains(mouseX, mouseY)) {
+                    dragGrab = along - bar.thumbStart();
+                } else {
+                    // Hors du curseur : on l'amène sous le doigt, centré, et le glisser
+                    // continue de là. Sauter puis exiger un second geste serait deux clics
+                    // pour ce que toute barre fait en un.
+                    dragGrab = (bar.vertical() ? bar.thumb().height() : bar.thumb().width()) / 2;
+                    moveThumbTo(along, bar, rangeOf(element, placed,
+                            (bar.vertical() ? panelScroll : panelScrollX)
+                                    .getOrDefault(element.name(), 0.0), bar.vertical()));
+                }
+                return true;
             }
-            dragging = element.name();
-            if (bar.thumb().contains(mouseX, mouseY)) {
-                dragGrab = mouseY - bar.thumb().y();
-            } else {
-                // Hors du curseur : on l'amène sous le doigt, centré, et le glisser
-                // continue de là. Sauter puis exiger un second geste serait deux clics
-                // pour ce que toute barre fait en un.
-                dragGrab = bar.thumb().height() / 2;
-                moveThumbTo(mouseY, bar, range);
-            }
-            return true;
         }
         return false;
     }
 
-    private void moveThumbTo(double mouseY,
+    private void moveThumbTo(double along,
                              fr.blueprint.core.graph.screen.ScreenLayout.ScrollBar bar,
                              double range) {
-        double next = bar.offsetFor(mouseY - dragGrab, range);
-        if (next != panelScroll.getOrDefault(dragging, 0.0)) {
-            panelScroll.put(dragging, next);
+        var axis = bar.vertical() ? panelScroll : panelScrollX;
+        double next = bar.offsetFor(along - dragGrab, range);
+        if (next != axis.getOrDefault(dragging, 0.0)) {
+            axis.put(dragging, next);
             layout = null;
         }
     }
@@ -514,18 +565,17 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         }
         var element = model.element(dragging);
         var placed = layout();
-        var frame = element == null ? null : placed.get(dragging);
-        if (frame == null) {
+        if (element == null || placed.get(dragging) == null) {
             dragging = null;
             return true;
         }
-        double offset = panelScroll.getOrDefault(dragging, 0.0);
-        double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
-                model, element, placed, offset);
-        var bar = fr.blueprint.core.graph.screen.ScreenLayout.scrollBarOf(frame, range,
-                offset, model.styleOf(element).padding());
+        var bars = barsOf(element, placed);
+        var bar = draggingVertical ? bars.vertical() : bars.horizontal();
         if (bar != null) {
-            moveThumbTo(event.y(), bar, range);
+            double current = (draggingVertical ? panelScroll : panelScrollX)
+                    .getOrDefault(dragging, 0.0);
+            moveThumbTo(draggingVertical ? event.y() : event.x(), bar,
+                    rangeOf(element, placed, current, draggingVertical));
         }
         return true;
     }
@@ -533,24 +583,30 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
     /** Ramène chaque décalage dans sa plage ; vrai si l'un d'eux a bougé. */
     private boolean clampScroll(
             java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> placed) {
-        if (panelScroll.isEmpty()) {
-            return false;
-        }
         boolean changed = false;
-        for (var entry : panelScroll.entrySet()) {
-            var container = model.element(entry.getKey());
-            if (container == null) {
-                continue;
-            }
-            double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
-                    model, container, placed, entry.getValue());
-            double clamped = Math.clamp(entry.getValue(), 0, range);
-            if (clamped != entry.getValue()) {
-                entry.setValue(clamped);
-                changed = true;
+        for (boolean vertical : new boolean[]{true, false}) {
+            for (var entry : (vertical ? panelScroll : panelScrollX).entrySet()) {
+                var container = model.element(entry.getKey());
+                if (container == null) {
+                    continue;
+                }
+                double range = rangeOf(container, placed, entry.getValue(), vertical);
+                double clamped = Math.clamp(entry.getValue(), 0, range);
+                if (clamped != entry.getValue()) {
+                    entry.setValue(clamped);
+                    changed = true;
+                }
             }
         }
         return changed;
+    }
+
+    private static boolean shiftDown() {
+        var window = net.minecraft.client.Minecraft.getInstance().getWindow();
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(
+                        window, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
+                || com.mojang.blaze3d.platform.InputConstants.isKeyDown(
+                        window, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT);
     }
 
     /** Un cran de molette, en unités : trois lignes de texte, comme partout dans le jeu. */
@@ -563,7 +619,8 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      * celui qu'on regarde qui doit bouger, comme dans toute page imbriquée. Le parcours se
      * fait donc à l'envers de l'ordre de dessin, et le premier trouvé gagne.
      */
-    private boolean scrollPanelAt(double mouseX, double mouseY, double amount) {
+    private boolean scrollPanelAt(double mouseX, double mouseY, double amount,
+                                  boolean horizontal) {
         var placed = layout();
         var elements = java.util.List.copyOf(model.elements().values());
         for (int i = elements.size() - 1; i >= 0; i--) {
@@ -576,15 +633,17 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             if (rect == null || !rect.contains(mouseX, mouseY)) {
                 continue;
             }
-            double current = panelScroll.getOrDefault(element.name(), 0.0);
-            if (fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
-                    model, element, placed, current) <= 0) {
+            boolean vertical = fr.blueprint.core.graph.screen.ScreenLayout.scrollVertical(
+                    element, horizontal);
+            double current = (vertical ? panelScroll : panelScrollX)
+                    .getOrDefault(element.name(), 0.0);
+            if (rangeOf(element, placed, current, vertical) <= 0) {
                 // Tout tient : on rend la molette à ce qui est derrière plutôt que de
                 // l'avaler. Un panneau qui absorbe un geste sans rien faire donne
                 // l'impression d'un menu bloqué.
                 continue;
             }
-            scrollPanel(element.name(), -Math.signum(amount) * SCROLL_STEP);
+            scrollPanel(element.name(), -Math.signum(amount) * SCROLL_STEP, vertical);
             return true;
         }
         return false;
@@ -827,20 +886,34 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      */
     private java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> layout() {
         if (layout == null || layoutWidth != width || layoutHeight != height) {
-            layout = fr.blueprint.core.graph.screen.ScreenLayout.solve(model, width, height,
-                    container -> panelScroll.getOrDefault(container, 0.0));
+            layout = solved();
             // Le contenu a pu RÉTRÉCIR — une ligne retirée, un élément masqué par le
             // graphe — et le panneau resterait alors défilé au-delà de sa fin, montrant
             // du vide que rien ne permettrait de comprendre. Une seule reprise suffit :
             // borner un décalage ne peut qu'allonger ce qui reste, jamais le raccourcir.
             if (clampScroll(layout)) {
-                layout = fr.blueprint.core.graph.screen.ScreenLayout.solve(model, width, height,
-                        container -> panelScroll.getOrDefault(container, 0.0));
+                layout = solved();
             }
             layoutWidth = width;
             layoutHeight = height;
         }
         return layout;
+    }
+
+    /** La passe, alimentée par les décalages des deux axes. */
+    private java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> solved() {
+        return fr.blueprint.core.graph.screen.ScreenLayout.solve(model, width, height,
+                new fr.blueprint.core.graph.screen.ScreenLayout.Scrolls() {
+                    @Override
+                    public double of(String container) {
+                        return panelScroll.getOrDefault(container, 0.0);
+                    }
+
+                    @Override
+                    public double xOf(String container) {
+                        return panelScrollX.getOrDefault(container, 0.0);
+                    }
+                });
     }
 
     private @Nullable java.util.Map<String,

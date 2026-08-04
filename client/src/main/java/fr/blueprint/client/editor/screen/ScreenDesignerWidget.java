@@ -89,6 +89,8 @@ public final class ScreenDesignerWidget {
     private boolean needsFit = true;
     private boolean panning;
     private boolean spaceDown;
+    /** Maj tenue : elle vise l'axe horizontal d'un panneau défilant. */
+    private boolean shiftHeld;
     private double mouseX;
     private double mouseY;
     private @Nullable String message;
@@ -308,10 +310,15 @@ public final class ScreenDesignerWidget {
                         return previewOf(element);
                     }
 
-                    /** Le curseur de défilement se dessine ici comme en jeu (10.13). */
+                    /** Les curseurs de défilement se dessinent ici comme en jeu (10.13). */
                     @Override
                     public double panelScroll(String element) {
                         return controller.scrollOf(element);
+                    }
+
+                    @Override
+                    public double panelScrollX(String element) {
+                        return controller.scrollXOf(element);
                     }
                 });
         g.pose().popMatrix();
@@ -818,13 +825,11 @@ public final class ScreenDesignerWidget {
         if (element.kind().container()) {
             // Le défilement d'abord : c'est une propriété du conteneur lui-même, pas de
             // la façon dont il range, et elle vaut aussi en disposition absolue.
-            boolean scrolls = element.layout().scroll();
-            String scrollLabel = scrolls ? I18n.get("blueprint.designer.scroll.on")
-                    : I18n.get("blueprint.designer.scroll.off");
-            rows.add(new Row(y, I18n.get("blueprint.designer.scroll"), java.util.List.of(
-                    new Chip(scrollLabel, 52, 24, scrolls,
-                            () -> apply(element.withLayout(
-                                    element.layout().withScroll(!scrolls))))), null, null));
+            rows.add(new Row(y, I18n.get("blueprint.designer.scroll"),
+                    enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Scroll.values(),
+                            element.layout().scroll(), "blueprint.designer.scroll.",
+                            axis -> apply(element.withLayout(
+                                    element.layout().withScroll(axis)))), null, null));
             y += ROW;
             rows.add(new Row(y, I18n.get("blueprint.designer.layout"),
                     enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Mode.values(),
@@ -1264,8 +1269,14 @@ public final class ScreenDesignerWidget {
         // marge, et les boutons de la barre du bas ne dépendent pas du survol.
         if (surface.contains(mx, my)) {
             String panel = controller.scrollableAt(surface.toDesignX(mx), surface.toDesignY(my));
-            if (panel != null && controller.scrollBy(panel,
-                    -Math.signum(amount) * PANEL_SCROLL_STEP)) {
+            Screen current = controller.screen();
+            ScreenElement container = panel == null || current == null
+                    ? null : current.element(panel);
+            // La MÊME règle d'axe qu'en jeu : Maj vise l'horizontal, mais un panneau à un
+            // seul axe répond sans qu'on ait à le savoir.
+            if (container != null && controller.scrollBy(panel,
+                    -Math.signum(amount) * PANEL_SCROLL_STEP,
+                    ScreenLayout.scrollVertical(container, shiftHeld))) {
                 return true;
             }
         }
@@ -1285,6 +1296,10 @@ public final class ScreenDesignerWidget {
     // ------------------------------------------------------------------ clavier
 
     public boolean keyPressed(KeyEvent e) {
+        if (e.key() == GLFW.GLFW_KEY_LEFT_SHIFT || e.key() == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+            shiftHeld = true;
+            return false;   // Maj ne fait rien seule : elle qualifie les autres gestes
+        }
         if (e.key() == GLFW.GLFW_KEY_SPACE && renamingScreen == null
                 && properties.editing() == null) {
             spaceDown = true;
@@ -1393,6 +1408,10 @@ public final class ScreenDesignerWidget {
 
     /** Sans cela, Espace resterait enfoncé pour toujours et le clic ne poserait plus rien. */
     public boolean keyReleased(KeyEvent e) {
+        if (e.key() == GLFW.GLFW_KEY_LEFT_SHIFT || e.key() == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+            shiftHeld = false;
+            return false;
+        }
         if (e.key() == GLFW.GLFW_KEY_SPACE) {
             spaceDown = false;
             return true;

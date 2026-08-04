@@ -602,7 +602,7 @@ public final class ScriptParser {
                         enumOf(LayoutSpec.Distribute.class, expect("word", null), "répartition"));
                 case "cross" -> spec.withCross(
                         enumOf(LayoutSpec.Cross.class, expect("word", null), "alignement"));
-                case "scroll" -> spec.withScroll(bool(expect("word", null)));
+                case "scroll" -> spec.withScroll(scrollAxis(expect("word", null)));
                 default -> throw new ParseError(key.line(),
                         "réglage de disposition inconnu « " + key.text() + " »");
             };
@@ -611,13 +611,18 @@ public final class ScriptParser {
         return spec;
     }
 
-    /** {@code true} ou {@code false}, et rien d'autre : un « oui » silencieusement faux serait pire. */
-    private boolean bool(Token token) {
+    /**
+     * L'axe de défilement d'un conteneur.
+     *
+     * <p>{@code true} et {@code false} restent acceptés : c'est ce qu'écrivaient les
+     * `.bp` exportés avant l'axe horizontal, et {@code true} y voulait dire vertical.
+     * Les refuser rendrait illisible un fichier que rien n'oblige à réécrire.
+     */
+    private LayoutSpec.Scroll scrollAxis(Token token) {
         return switch (token.text()) {
-            case "true" -> true;
-            case "false" -> false;
-            default -> throw new ParseError(token.line(),
-                    "attendu true ou false, lu « " + token.text() + " »");
+            case "true" -> LayoutSpec.Scroll.VERTICAL;
+            case "false" -> LayoutSpec.Scroll.NONE;
+            default -> enumOf(LayoutSpec.Scroll.class, token, "axe de défilement");
         };
     }
 

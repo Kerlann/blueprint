@@ -72,6 +72,11 @@ public final class ScreenPainter {
             return 0;
         }
 
+        /** De combien un panneau défilant est décalé vers la gauche. */
+        default double panelScrollX(String element) {
+            return 0;
+        }
+
         /** Le texte saisi dans ce champ ; vide = l'indication s'affiche à la place. */
         default String input(String element) {
             return "";
@@ -221,14 +226,16 @@ public final class ScreenPainter {
             if (frame == null) {
                 continue;
             }
-            double offset = visuals.panelScroll(element.name());
-            ScreenLayout.ScrollBar bar = ScreenLayout.scrollBarOf(frame,
-                    ScreenLayout.scrollRange(screen, element, rects, offset), offset,
-                    screen.styleOf(element).padding());
-            if (bar == null) {
+            ElementStyle style = screen.styleOf(element);
+            double offsetY = visuals.panelScroll(element.name());
+            double offsetX = visuals.panelScrollX(element.name());
+            ScreenLayout.ScrollBars bars = ScreenLayout.scrollBarsOf(frame,
+                    ScreenLayout.scrollRange(screen, element, rects, offsetY),
+                    ScreenLayout.scrollRangeX(screen, element, rects, offsetX),
+                    offsetY, offsetX, style.padding());
+            if (bars.vertical() == null && bars.horizontal() == null) {
                 continue;   // tout tient : pas de curseur, il mentirait sur ce qui reste
             }
-            ElementStyle style = screen.styleOf(element);
             ScreenLayout.Rect clip = ScreenLayout.clipOf(screen, element, rects);
             int[] box = clip == null ? null : pixels(clip, originX, originY, scale);
             if (box != null) {
@@ -237,8 +244,14 @@ public final class ScreenPainter {
                 }
                 g.enableScissor(box[0], box[1], box[2], box[3]);
             }
-            fillRect(g, bar.track(), originX, originY, scale, style.border());
-            fillRect(g, bar.thumb(), originX, originY, scale, style.textColor());
+            for (ScreenLayout.ScrollBar bar
+                    : new ScreenLayout.ScrollBar[]{bars.vertical(), bars.horizontal()}) {
+                if (bar == null) {
+                    continue;
+                }
+                fillRect(g, bar.track(), originX, originY, scale, style.border());
+                fillRect(g, bar.thumb(), originX, originY, scale, style.textColor());
+            }
             if (box != null) {
                 g.disableScissor();
             }

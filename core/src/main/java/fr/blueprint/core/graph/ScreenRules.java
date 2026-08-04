@@ -174,7 +174,8 @@ public final class ScreenRules {
      * l'enregistrement pour un réglage sans effet serait disproportionné.
      */
     public static boolean scrollsButHugs(ScreenElement element) {
-        return element.scrolls()
-                && element.height().mode() == fr.blueprint.core.graph.screen.Extent.Mode.HUG;
+        var hug = fr.blueprint.core.graph.screen.Extent.Mode.HUG;
+        return (element.scrollsVertically() && element.height().mode() == hug)
+                || (element.scrollsHorizontally() && element.width().mode() == hug);
     }
 }

@@ -22,7 +22,30 @@ package fr.blueprint.core.graph.screen;
  * @param scroll   vrai si ce conteneur <b>défile</b> quand son contenu dépasse
  */
 public record LayoutSpec(Mode mode, double gap, double crossGap, int columns,
-                         Distribute main, Cross cross, boolean scroll) {
+                         Distribute main, Cross cross, Scroll scroll) {
+
+    /**
+     * Sur quel(s) axe(s) ce conteneur défile.
+     *
+     * <p>Une énumération et non deux booléens : « défilant » et « défilant en X » se
+     * seraient lus comme deux réglages indépendants alors qu'ils décrivent une seule
+     * chose, et le second aurait porté un nom que le premier n'a pas.
+     */
+    public enum Scroll {
+        NONE, VERTICAL, HORIZONTAL, BOTH;
+
+        public boolean vertical() {
+            return this == VERTICAL || this == BOTH;
+        }
+
+        public boolean horizontal() {
+            return this == HORIZONTAL || this == BOTH;
+        }
+
+        public boolean any() {
+            return this != NONE;
+        }
+    }
 
     /** Ce que fait le conteneur de ses enfants. */
     public enum Mode {
@@ -45,7 +68,7 @@ public record LayoutSpec(Mode mode, double gap, double crossGap, int columns,
 
     /** Le comportement historique : personne ne range personne. */
     public static final LayoutSpec ABSOLUTE =
-            new LayoutSpec(Mode.ABSOLUTE, 0, 0, 1, Distribute.START, Cross.START, false);
+            new LayoutSpec(Mode.ABSOLUTE, 0, 0, 1, Distribute.START, Cross.START, Scroll.NONE);
 
     public LayoutSpec {
         if (mode == null) {
@@ -56,6 +79,9 @@ public record LayoutSpec(Mode mode, double gap, double crossGap, int columns,
         }
         if (cross == null) {
             cross = Cross.START;
+        }
+        if (scroll == null) {
+            scroll = Scroll.NONE;
         }
         gap = finite(gap);
         crossGap = finite(crossGap);
@@ -71,16 +97,16 @@ public record LayoutSpec(Mode mode, double gap, double crossGap, int columns,
 
     /** Une colonne d'enfants espacés, alignés au début. */
     public static LayoutSpec column(double gap) {
-        return new LayoutSpec(Mode.COLUMN, gap, 0, 1, Distribute.START, Cross.START, false);
+        return new LayoutSpec(Mode.COLUMN, gap, 0, 1, Distribute.START, Cross.START, Scroll.NONE);
     }
 
     public static LayoutSpec row(double gap) {
-        return new LayoutSpec(Mode.ROW, gap, 0, 1, Distribute.START, Cross.START, false);
+        return new LayoutSpec(Mode.ROW, gap, 0, 1, Distribute.START, Cross.START, Scroll.NONE);
     }
 
     public static LayoutSpec grid(int columns, double gap, double crossGap) {
         return new LayoutSpec(Mode.GRID, gap, crossGap, columns,
-                Distribute.START, Cross.START, false);
+                Distribute.START, Cross.START, Scroll.NONE);
     }
 
     /** Vrai si ce conteneur place ses enfants lui-même. */
@@ -131,7 +157,19 @@ public record LayoutSpec(Mode mode, double gap, double crossGap, int columns,
      * modèle le ferait voyager dans la sauvegarde et dans l'export texte, où deux joueurs
      * n'ont pas la même position de lecture.
      */
-    public LayoutSpec withScroll(boolean newScroll) {
-        return new LayoutSpec(mode, gap, crossGap, columns, main, cross, newScroll);
+    public LayoutSpec withScroll(Scroll newScroll) {
+        return new LayoutSpec(mode, gap, crossGap, columns, main, cross,
+                newScroll == null ? Scroll.NONE : newScroll);
+    }
+
+    /**
+     * L'écriture d'avant l'axe horizontal : {@code true} vaut « vertical ».
+     *
+     * <p>Conservée parce que c'est ce que la 10.13 a écrit partout, et que la remplacer
+     * mécaniquement dans les tests et les exemples aurait enfoui l'ajout de l'axe sous
+     * du bruit. Elle dit exactement ce qu'elle disait.
+     */
+    public LayoutSpec withScroll(boolean vertical) {
+        return withScroll(vertical ? Scroll.VERTICAL : Scroll.NONE);
     }
 }

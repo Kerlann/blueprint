@@ -325,7 +325,18 @@ public final class ScreenCanvasController {
     public java.util.Map<String, ScreenLayout.Rect> rects() {
         Screen screen = screen();
         return screen == null ? java.util.Map.of()
-                : ScreenLayout.solve(screen, viewportWidth, viewportHeight, this::scrollOf);
+                : ScreenLayout.solve(screen, viewportWidth, viewportHeight,
+                        new ScreenLayout.Scrolls() {
+                            @Override
+                            public double of(String container) {
+                                return scrollOf(container);
+                            }
+
+                            @Override
+                            public double xOf(String container) {
+                                return scrollXOf(container);
+                            }
+                        });
     }
 
     // ------------------------------------------------- panneaux défilants (10.13)
@@ -339,25 +350,38 @@ public final class ScreenCanvasController {
      * éléments impossibles à sélectionner autrement que par la liste des calques.
      */
     private final Map<String, Double> scroll = new HashMap<>();
+    private final Map<String, Double> scrollX = new HashMap<>();
 
     public double scrollOf(String container) {
         return scroll.getOrDefault(container, 0.0);
     }
 
-    /** Fait défiler un panneau, borné à son contenu. Rend vrai s'il a bougé. */
+    public double scrollXOf(String container) {
+        return scrollX.getOrDefault(container, 0.0);
+    }
+
+    /** Fait défiler un panneau verticalement, borné à son contenu. Vrai s'il a bougé. */
     public boolean scrollBy(String container, double delta) {
+        return scrollBy(container, delta, true);
+    }
+
+    /** La même chose sur l'axe demandé. */
+    public boolean scrollBy(String container, double delta, boolean vertical) {
         Screen screen = screen();
         ScreenElement element = screen == null ? null : screen.element(container);
         if (element == null || !element.scrolls()) {
             return false;
         }
-        double current = scrollOf(container);
-        double range = ScreenLayout.scrollRange(screen, element, rects(), current);
+        Map<String, Double> axis = vertical ? scroll : scrollX;
+        double current = axis.getOrDefault(container, 0.0);
+        double range = vertical
+                ? ScreenLayout.scrollRange(screen, element, rects(), current)
+                : ScreenLayout.scrollRangeX(screen, element, rects(), current);
         double next = Math.clamp(current + delta, 0, range);
         if (next == current) {
             return false;
         }
-        scroll.put(container, next);
+        axis.put(container, next);
         return true;
     }
 
@@ -406,9 +430,18 @@ public final class ScreenCanvasController {
         }
         // Le MÊME calcul qu'en jeu, où le focus au clavier ramène de la même façon ce
         // qu'il atteint : deux versions de « à quelle distance suis-je hors du cadre »
-        // finiraient par répondre différemment.
-        double delta = ScreenLayout.revealDelta(clip, rect);
-        return delta != 0 && scrollBy(panel, delta);
+        // finiraient par répondre différemment. Les deux axes, car un élément peut être
+        // sorti par le bas ET par la droite.
+        boolean moved = false;
+        double dy = ScreenLayout.revealDelta(clip, rect);
+        if (dy != 0) {
+            moved = scrollBy(panel, dy, true);
+        }
+        double dx = ScreenLayout.revealDeltaX(clip, rect);
+        if (dx != 0) {
+            moved |= scrollBy(panel, dx, false);
+        }
+        return moved;
     }
 
     public ScreenLayout.@Nullable Rect rectOf(String element) {

@@ -187,13 +187,209 @@ class ScreenScrollTest {
         assertEquals(100, clip.bottom(), 1e-9, "le bord bas vient de l'extérieur");
     }
 
+    // ------------------------------------------------------- l'axe horizontal
+
+    /** Un panneau large : six boutons de 100 en ligne dans un cadre de 200. */
+    private static Screen large(LayoutSpec.Scroll axis) {
+        List<ScreenElement> elements = new ArrayList<>();
+        elements.add(ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 200, 100)
+                .withLayout(LayoutSpec.row(0).withScroll(axis)));
+        for (int i = 0; i < 6; i++) {
+            elements.add(ScreenElement.of("b" + i, ElementKind.BUTTON, 0, 0, 100, 20)
+                    .withParent("cadre"));
+        }
+        return new Screen("menu", false, elements);
+    }
+
+    @Test
+    void leDecalageHorizontalPousseLesEnfantsVersLaGauche() {
+        Screen screen = large(LayoutSpec.Scroll.HORIZONTAL);
+        Map<String, ScreenLayout.Rect> placed = ScreenLayout.solve(screen, 320, 180,
+                new ScreenLayout.Scrolls() {
+                    @Override
+                    public double of(String container) {
+                        return 0;
+                    }
+
+                    @Override
+                    public double xOf(String container) {
+                        return 150;
+                    }
+                });
+
+        assertEquals(-150, placed.get("b0").x(), 1e-9, "le premier est sorti par la gauche");
+        assertEquals(0, placed.get("cadre").x(), 1e-9, "le cadre, lui, ne bouge pas");
+        assertEquals(0, placed.get("b0").y(), 1e-9, "et rien n'a bougé verticalement");
+    }
+
+    /**
+     * <b>Le test qui compte pour l'axe.</b> Un panneau ne défile que sur l'axe qu'on lui a
+     * donné.
+     *
+     * <p>Sans ce contrôle, un décalage horizontal envoyé à un panneau vertical déplacerait
+     * son contenu sur un axe où rien ne peut le ramener : il n'y aurait ni curseur, ni
+     * molette, ni touche pour revenir, et la moitié du menu serait définitivement hors du
+     * cadre.
+     */
+    @Test
+    void chaqueAxeNeRepondQueSiOnLeLuiADonne() {
+        for (var axis : LayoutSpec.Scroll.values()) {
+            Screen screen = large(axis);
+            ScreenElement cadre = screen.element("cadre");
+            var placed = ScreenLayout.solve(screen, 320, 180);
+
+            assertEquals(axis.horizontal(),
+                    ScreenLayout.scrollRangeX(screen, cadre, placed, 0) > 0,
+                    () -> "plage horizontale incohérente pour " + axis);
+            // Six boutons de 20 en ligne tiennent en hauteur : rien ne dépasse
+            // verticalement, donc aucun axe n'a de plage verticale ici.
+            assertEquals(0, ScreenLayout.scrollRange(screen, cadre, placed, 0), 1e-9,
+                    () -> "plage verticale inattendue pour " + axis);
+        }
+    }
+
+    @Test
+    void laPlageHorizontaleEstCeQuiDepasseADroite() {
+        Screen screen = large(LayoutSpec.Scroll.BOTH);
+        assertEquals(400, ScreenLayout.scrollRangeX(screen, screen.element("cadre"),
+                ScreenLayout.solve(screen, 320, 180), 0), 1e-9,
+                "six boutons de 100 dans un cadre de 200 : il en dépasse 400");
+    }
+
+    /** Maj vise l'horizontal, mais un panneau à UN seul axe répond sans qu'on le sache. */
+    @Test
+    void laMoletteChoisitLAxeSansQuOnLuiDise() {
+        var vertical = large(LayoutSpec.Scroll.VERTICAL).element("cadre");
+        var horizontal = large(LayoutSpec.Scroll.HORIZONTAL).element("cadre");
+        var both = large(LayoutSpec.Scroll.BOTH).element("cadre");
+
+        assertTrue(ScreenLayout.scrollVertical(vertical, false));
+        assertTrue(ScreenLayout.scrollVertical(vertical, true),
+                "Maj sur un panneau qui ne défile que verticalement : il répond quand même, "
+                        + "exiger la bonne touche serait une devinette");
+        assertFalse(ScreenLayout.scrollVertical(horizontal, false),
+                "sans Maj sur un panneau qui ne défile qu'horizontalement : il répond aussi");
+        assertTrue(ScreenLayout.scrollVertical(both, false));
+        assertFalse(ScreenLayout.scrollVertical(both, true),
+                "sur les deux axes, c'est Maj qui tranche");
+    }
+
+    /**
+     * Les deux curseurs se <b>gênent</b> : chacun s'arrête avant le coin que l'autre
+     * occupe. Les calculer séparément les ferait se recouvrir, et celui du dessous
+     * deviendrait inattrapable dans son dernier centimètre — là où l'on va chercher la
+     * fin d'une page.
+     */
+    @Test
+    void lesDeuxCurseursSeLaissentLeCoin() {
+        var seul = ScreenLayout.scrollBarsOf(CADRE, 100, 0, 0, 0, 0);
+        var deux = ScreenLayout.scrollBarsOf(CADRE, 100, 100, 0, 0, 0);
+
+        assertNotNull(seul.vertical());
+        assertNotNull(deux.vertical());
+        assertNotNull(deux.horizontal());
+        assertTrue(deux.vertical().track().height() < seul.vertical().track().height(),
+                "avec une barre en bas, celle de droite doit s'arrêter avant");
+        assertEquals(ScreenLayout.SCROLLBAR_WIDTH,
+                seul.vertical().track().height() - deux.vertical().track().height(), 1e-9);
+    }
+
+    @Test
+    void leCurseurHorizontalEstEnBasEtSeLitDeGaucheADroite() {
+        var bars = ScreenLayout.scrollBarsOf(CADRE, 0, 100, 0, 100, 0);
+        var bar = bars.horizontal();
+
+        assertNotNull(bar);
+        assertNull(bars.vertical(), "rien ne dépasse verticalement : pas de barre à droite");
+        assertFalse(bar.vertical());
+        assertEquals(CADRE.bottom() - ScreenLayout.SCROLLBAR_WIDTH, bar.track().y(), 1e-9);
+        assertEquals(bar.track().right(), bar.thumb().right(), 1e-9,
+                "tout lu : le curseur est collé à droite");
+    }
+
+    /** L'aller-retour du curseur horizontal est exact lui aussi. */
+    @Test
+    void placerLeCurseurHorizontalEtLeLireSontDesInversesExacts() {
+        double range = 400;
+        for (double offset : new double[]{0, 3, 137.5, 200, 399, 400}) {
+            var bar = ScreenLayout.scrollBarsOf(CADRE, 0, range, 0, offset, 2).horizontal();
+            assertNotNull(bar);
+            assertEquals(offset, bar.offsetFor(bar.thumbStart(), range), 1e-6,
+                    () -> "aller-retour faux pour un décalage de " + offset);
+        }
+    }
+
+    @Test
+    void ramenerHorizontalementSuitLeMemeSensQueVerticalement() {
+        ScreenLayout.Rect clip = new ScreenLayout.Rect(0, 0, 100, 100);
+
+        assertEquals(0, ScreenLayout.revealDeltaX(clip,
+                new ScreenLayout.Rect(10, 0, 50, 10)), 1e-9);
+        assertEquals(-15, ScreenLayout.revealDeltaX(clip,
+                new ScreenLayout.Rect(-15, 0, 50, 10)), 1e-9, "sorti par la gauche");
+        assertEquals(20, ScreenLayout.revealDeltaX(clip,
+                new ScreenLayout.Rect(110, 0, 10, 10)), 1e-9, "sorti par la droite");
+    }
+
+    /**
+     * L'axe traverse la sauvegarde et l'export — et un fichier écrit <b>avant</b> l'axe,
+     * qui portait un simple booléen, se relit comme un défilement vertical.
+     */
+    @Test
+    void lAxeTraverseLaSauvegardeEtLExport() {
+        Blueprint bp = with(large(LayoutSpec.Scroll.BOTH));
+
+        Blueprint relu = GraphNbt.decode(GraphNbt.encode(bp),
+                id -> fr.blueprint.api.pin.PinTypes.builtin().stream()
+                        .filter(type -> type.id().equals(id)).findFirst().orElse(null));
+        assertEquals(LayoutSpec.Scroll.BOTH,
+                relu.screen("menu").element("cadre").layout().scroll());
+
+        var generated = ScriptGenerator.generate(bp, LOADED.nodes());
+        var parsed = ScriptParser.parse(generated.text(), LOADED);
+        assertTrue(parsed.success(), () -> "parse échoué : " + parsed.error());
+        assertEquals(LayoutSpec.Scroll.BOTH,
+                parsed.blueprint().screen("menu").element("cadre").layout().scroll());
+    }
+
+    @Test
+    void unAncienBooleenSeRelitCommeUnDefilementVertical() {
+        String script = """
+                blueprint test:ancien {
+                  screen "menu" {
+                    panel "cadre" @at(top_left, 0, 0) @size(200, 100) \
+                @layout(column, gap: 2, scroll: true)
+                  }
+                }
+                """;
+        var parsed = ScriptParser.parse(script, LOADED);
+
+        assertTrue(parsed.success(), () -> "parse échoué : " + parsed.error());
+        assertEquals(LayoutSpec.Scroll.VERTICAL,
+                parsed.blueprint().screen("menu").element("cadre").layout().scroll(),
+                "c'est ce que « true » voulait dire avant que l'axe existe");
+    }
+
+    @Test
+    void unPanneauLargeQuiSajusteEnLargeurEstSignale() {
+        Blueprint bp = with(new Screen("menu", false, List.of(
+                ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 200, 100)
+                        .resized(Extent.hug(), Extent.of(100))
+                        .withLayout(LayoutSpec.row(2).withScroll(LayoutSpec.Scroll.HORIZONTAL)),
+                ScreenElement.of("b", ElementKind.BUTTON, 0, 0, 100, 20).withParent("cadre"))));
+
+        assertTrue(GraphValidator.validate(bp, LOADED.nodes()).diagnostics().stream()
+                        .anyMatch(d -> d.code() == DiagnosticCode.SCREEN_SCROLL_HUGS),
+                "il grandit en largeur avec son contenu : il ne défilera jamais");
+    }
+
     // ------------------------------------------------- le curseur de défilement
 
     private static final ScreenLayout.Rect CADRE = new ScreenLayout.Rect(0, 0, 200, 100);
 
     @Test
     void sansRienAParcourirIlNyAPasDeCurseur() {
-        assertNull(ScreenLayout.scrollBarOf(CADRE, 0, 0, 2),
+        assertNull(ScreenLayout.scrollBarsOf(CADRE, 0, 0, 0, 0, 2).vertical(),
                 "un curseur qui occupe toute sa glissière dit qu'il y a autre chose à "
                         + "voir alors qu'il n'y a rien, et l'on cherche");
     }
@@ -202,7 +398,7 @@ class ScreenScrollTest {
     void leCurseurDitLaProportionVisible() {
         // 100 visibles, 100 qui dépassent : la moitié se voit, donc la moitié de la
         // glissière. C'est ce que le joueur lit sans compter.
-        var bar = ScreenLayout.scrollBarOf(CADRE, 100, 0, 0);
+        var bar = ScreenLayout.scrollBarsOf(CADRE, 100, 0, 0, 0, 0).vertical();
         assertNotNull(bar);
         assertEquals(50, bar.thumb().height(), 1e-9);
         assertEquals(100, bar.track().height(), 1e-9);
@@ -210,7 +406,7 @@ class ScreenScrollTest {
 
     @Test
     void unCurseurMinusculeGardeUneTailleAttrapable() {
-        var bar = ScreenLayout.scrollBarOf(CADRE, 100000, 0, 0);
+        var bar = ScreenLayout.scrollBarsOf(CADRE, 100000, 0, 0, 0, 0).vertical();
         assertNotNull(bar);
         assertEquals(ScreenLayout.MIN_THUMB, bar.thumb().height(), 1e-9,
                 "en dessous, il ne se voit plus et ne s'attrape plus");
@@ -218,8 +414,8 @@ class ScreenScrollTest {
 
     @Test
     void leCurseurVaDUnBoutALAutre() {
-        var haut = ScreenLayout.scrollBarOf(CADRE, 100, 0, 0);
-        var bas = ScreenLayout.scrollBarOf(CADRE, 100, 100, 0);
+        var haut = ScreenLayout.scrollBarsOf(CADRE, 100, 0, 0, 0, 0).vertical();
+        var bas = ScreenLayout.scrollBarsOf(CADRE, 100, 0, 100, 0, 0).vertical();
         assertNotNull(haut);
         assertNotNull(bas);
 
@@ -241,7 +437,7 @@ class ScreenScrollTest {
     void placerLeCurseurEtLeLireSontDesInversesExacts() {
         double range = 240;
         for (double offset : new double[]{0, 1, 37.5, 120, 239, 240}) {
-            var bar = ScreenLayout.scrollBarOf(CADRE, range, offset, 2);
+            var bar = ScreenLayout.scrollBarsOf(CADRE, range, 0, offset, 0, 2).vertical();
             assertNotNull(bar);
             assertEquals(offset, bar.offsetFor(bar.thumb().y(), range), 1e-6,
                     () -> "aller-retour faux pour un décalage de " + offset);
@@ -250,7 +446,7 @@ class ScreenScrollTest {
 
     @Test
     void leCurseurTireAuDelaDesBoutsSyArrete() {
-        var bar = ScreenLayout.scrollBarOf(CADRE, 100, 0, 0);
+        var bar = ScreenLayout.scrollBarsOf(CADRE, 100, 0, 0, 0, 0).vertical();
         assertNotNull(bar);
 
         assertEquals(0, bar.offsetFor(-500, 100), 1e-9);

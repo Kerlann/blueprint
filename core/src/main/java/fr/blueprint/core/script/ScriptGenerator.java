@@ -301,10 +301,10 @@ public final class ScriptGenerator {
         if (layout.cross() != fr.blueprint.core.graph.screen.LayoutSpec.Cross.START) {
             sb.append(", cross: ").append(lower(layout.cross().name()));
         }
-        // Émis seulement quand il est vrai : un `.bp` exporté avant le défilement se relit
+        // Émis seulement quand il défile : un `.bp` exporté avant le défilement se relit
         // sans changement, et un panneau ordinaire ne gagne pas un mot inutile.
-        if (layout.scroll()) {
-            sb.append(", scroll: true");
+        if (layout.scroll().any()) {
+            sb.append(", scroll: ").append(lower(layout.scroll().name()));
         }
         return sb.toString();
     }

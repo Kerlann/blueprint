@@ -99,7 +99,17 @@ public record ScreenElement(String name, ElementKind kind, @Nullable String pare
      * différemment.
      */
     public boolean scrolls() {
-        return kind.container() && layout.scroll();
+        return kind.container() && layout.scroll().any();
+    }
+
+    /** Vrai si ce conteneur défile verticalement. */
+    public boolean scrollsVertically() {
+        return kind.container() && layout.scroll().vertical();
+    }
+
+    /** Vrai si ce conteneur défile horizontalement. */
+    public boolean scrollsHorizontally() {
+        return kind.container() && layout.scroll().horizontal();
     }
 
     /** Un élément neuf, aux valeurs par défaut : ce que pose le concepteur. */

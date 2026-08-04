@@ -79,6 +79,8 @@ class DesignerLocalizationTest {
                         fr.blueprint.core.graph.screen.Extent.Mode.values()),
                 new Family("blueprint.designer.layout.",
                         fr.blueprint.core.graph.screen.LayoutSpec.Mode.values()),
+                new Family("blueprint.designer.scroll.",
+                        fr.blueprint.core.graph.screen.LayoutSpec.Scroll.values()),
                 new Family("blueprint.designer.main.",
                         fr.blueprint.core.graph.screen.LayoutSpec.Distribute.values()),
                 new Family("blueprint.designer.cross.",

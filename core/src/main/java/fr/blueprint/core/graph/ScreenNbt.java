@@ -112,7 +112,7 @@ public final class ScreenNbt {
         // que le rangement, et un panneau défilant en absolu serait revenu figé après un
         // aller-retour — sans erreur, sans avertissement, et sans que rien ne rappelle
         // qu'on avait coché la case.
-        if (element.layout().arranges() || element.layout().scroll()) {
+        if (element.layout().arranges() || element.layout().scroll().any()) {
             tag.put("layout", encodeLayout(element.layout()));
         }
         // Écrite seulement quand elle existe : un écran sans liaison pèse exactement ce
@@ -206,10 +206,16 @@ public final class ScreenNbt {
         tag.putInt("columns", layout.columns());
         tag.putString("main", layout.main().name().toLowerCase(Locale.ROOT));
         tag.putString("cross", layout.cross().name().toLowerCase(Locale.ROOT));
-        // Écrit seulement quand il est vrai : un conteneur qui ne défile pas pèse
-        // exactement ce qu'il pesait, et une version antérieure le relit sans rien voir.
-        if (layout.scroll()) {
+        // Écrit seulement quand il défile : un conteneur ordinaire pèse exactement ce
+        // qu'il pesait, et une version antérieure le relit sans rien voir.
+        //
+        // Le BOOLÉEN d'avant l'axe horizontal reste écrit à côté de l'axe, comme « rel »
+        // l'est à côté du mode d'un Extent : une version antérieure du mod y lit alors
+        // « ce panneau défile » — c'est le sens le plus proche dont elle dispose — au
+        // lieu de croire qu'il est figé.
+        if (layout.scroll().any()) {
             tag.putBoolean("scroll", true);
+            tag.putString("scrollAxis", layout.scroll().name().toLowerCase(Locale.ROOT));
         }
         return tag;
     }
@@ -344,7 +350,12 @@ public final class ScreenNbt {
                         LayoutSpec.Distribute.START),
                 enumOr(LayoutSpec.Cross.class, tag.getStringOr("cross", ""),
                         LayoutSpec.Cross.START),
-                tag.getBooleanOr("scroll", false));
+                // L'axe s'il est là ; sinon le booléen d'avant, qui voulait dire vertical.
+                tag.getStringOr("scrollAxis", "").isEmpty()
+                        ? (tag.getBooleanOr("scroll", false)
+                                ? LayoutSpec.Scroll.VERTICAL : LayoutSpec.Scroll.NONE)
+                        : enumOr(LayoutSpec.Scroll.class, tag.getStringOr("scrollAxis", ""),
+                                LayoutSpec.Scroll.VERTICAL));
     }
 
     /** Une valeur d'énumération inconnue retombe sur le défaut plutôt que de lever. */

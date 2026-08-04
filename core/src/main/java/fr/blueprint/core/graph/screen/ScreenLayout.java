@@ -107,7 +107,18 @@ public final class ScreenLayout {
      */
     @FunctionalInterface
     public interface Scrolls {
+
+        /** De combien ce conteneur est remonté. */
         double of(String container);
+
+        /**
+         * De combien il est décalé vers la gauche. Zéro par défaut : la plupart des
+         * appelants ne défilent que verticalement, et leur imposer une seconde méthode
+         * pour rendre zéro n'apprendrait rien à personne.
+         */
+        default double xOf(String container) {
+            return 0;
+        }
     }
 
     /**
@@ -147,8 +158,10 @@ public final class ScreenLayout {
         // Les enfants sont d'abord posés comme si rien ne défilait, PUIS remontés d'un
         // bloc. Les poser directement décalés obligerait chaque mode de disposition à
         // connaître le défilement — quatre endroits au lieu d'un.
-        double shift = parent != null && layout.scroll()
+        double shiftY = parent != null && layout.scroll().vertical()
                 ? Math.max(0, finite(scrolls.of(parent))) : 0;
+        double shiftX = parent != null && layout.scroll().horizontal()
+                ? Math.max(0, finite(scrolls.xOf(parent))) : 0;
 
         for (int i = 0; i < children.size(); i++) {
             ScreenElement child = children.get(i);
@@ -156,8 +169,9 @@ public final class ScreenLayout {
                 continue;
             }
             Rect rect = rects.get(i);
-            if (shift != 0) {
-                rect = new Rect(rect.x(), rect.y() - shift, rect.width(), rect.height());
+            if (shiftY != 0 || shiftX != 0) {
+                rect = new Rect(rect.x() - shiftX, rect.y() - shiftY,
+                        rect.width(), rect.height());
             }
             out.put(child.name(), rect);
             arrange(screen, child.name(), rect,
@@ -183,21 +197,40 @@ public final class ScreenLayout {
      */
     public static double scrollRange(Screen screen, ScreenElement container,
                                      Map<String, Rect> placed, double currentScroll) {
-        Rect frame = placed.get(container.name());
-        if (frame == null || !container.scrolls()) {
+        if (!container.scrollsVertically()) {
             return 0;
         }
-        double bottom = Double.NEGATIVE_INFINITY;
+        return rangeOn(screen, container, placed, currentScroll, true);
+    }
+
+    /** La même chose sur l'axe horizontal. */
+    public static double scrollRangeX(Screen screen, ScreenElement container,
+                                      Map<String, Rect> placed, double currentScroll) {
+        if (!container.scrollsHorizontally()) {
+            return 0;
+        }
+        return rangeOn(screen, container, placed, currentScroll, false);
+    }
+
+    private static double rangeOn(Screen screen, ScreenElement container,
+                                  Map<String, Rect> placed, double currentScroll,
+                                  boolean vertical) {
+        Rect frame = placed.get(container.name());
+        if (frame == null) {
+            return 0;
+        }
+        double far = Double.NEGATIVE_INFINITY;
         for (ScreenElement child : screen.childrenOf(container.name())) {
             Rect rect = placed.get(child.name());
             if (rect != null) {
-                bottom = Math.max(bottom, rect.bottom());
+                far = Math.max(far, vertical ? rect.bottom() : rect.right());
             }
         }
-        if (bottom == Double.NEGATIVE_INFINITY) {
+        if (far == Double.NEGATIVE_INFINITY) {
             return 0;
         }
-        return Math.max(0, bottom + Math.max(0, finite(currentScroll)) - frame.bottom());
+        double edge = vertical ? frame.bottom() : frame.right();
+        return Math.max(0, far + Math.max(0, finite(currentScroll)) - edge);
     }
 
     /**
@@ -244,44 +277,78 @@ public final class ScreenLayout {
      * un curseur qui saute au moment où on l'attrape — le défaut classique d'une barre de
      * défilement, et celui qu'on met le plus longtemps à croire réel.
      */
-    public record ScrollBar(Rect track, Rect thumb) {
+    public record ScrollBar(Rect track, Rect thumb, boolean vertical) {
 
         /**
-         * La position de lecture correspondant à un curseur posé à {@code thumbTop}.
+         * La position de lecture correspondant à un curseur posé à {@code thumbStart}.
          * L'inverse exact du placement ci-dessus, écrit à côté de lui pour la même raison
          * que l'aller et le retour d'une ancre vivent dans le même fichier.
          */
-        public double offsetFor(double thumbTop, double range) {
-            double travel = track.height() - thumb.height();
+        public double offsetFor(double thumbStart, double range) {
+            double travel = vertical ? track.height() - thumb.height()
+                    : track.width() - thumb.width();
+            double origin = vertical ? track.y() : track.x();
             if (travel <= 0 || range <= 0) {
                 return 0;
             }
-            return Math.clamp((thumbTop - track.y()) / travel, 0, 1) * range;
+            return Math.clamp((thumbStart - origin) / travel, 0, 1) * range;
+        }
+
+        /** Le bord du curseur qui suit le doigt : le haut, ou la gauche. */
+        public double thumbStart() {
+            return vertical ? thumb.y() : thumb.x();
         }
     }
 
     /**
-     * Le curseur de défilement d'un panneau, ou {@code null} quand il n'y a rien à
+     * Les deux curseurs d'un panneau, chacun {@code null} quand son axe n'a rien à
      * parcourir.
      *
      * <p>{@code null} et non une barre pleine : un curseur qui occupe toute sa glissière
      * dit « il y a autre chose à voir » alors qu'il n'y a rien, et l'on cherche.
+     *
+     * <p>Les deux sont calculés <b>ensemble</b> parce qu'ils se gênent : quand les deux
+     * existent, chacun s'arrête avant le coin que l'autre occupe. Les calculer séparément
+     * les ferait se recouvrir, et le curseur du dessous deviendrait inattrapable dans son
+     * dernier centimètre — exactement là où l'on va chercher la fin d'une page.
      */
-    public static @Nullable ScrollBar scrollBarOf(Rect frame, double range, double offset,
-                                                  double inset) {
-        double trackHeight = frame.height() - 2 * inset;
-        if (range <= 0 || trackHeight <= 0) {
-            return null;
+    public record ScrollBars(@Nullable ScrollBar vertical, @Nullable ScrollBar horizontal) {
+    }
+
+    public static ScrollBars scrollBarsOf(Rect frame, double rangeY, double rangeX,
+                                          double offsetY, double offsetX, double inset) {
+        boolean hasY = rangeY > 0;
+        boolean hasX = rangeX > 0;
+        double corner = SCROLLBAR_WIDTH + inset;
+        double trackHeight = frame.height() - 2 * inset - (hasX ? corner : 0);
+        double trackWidth = frame.width() - 2 * inset - (hasY ? corner : 0);
+
+        ScrollBar bottom = null;
+        ScrollBar right = null;
+        if (hasY && trackHeight > 0) {
+            double x = frame.right() - inset - SCROLLBAR_WIDTH;
+            double top = frame.y() + inset;
+            // La proportion visible : c'est elle qui dit d'un coup d'œil combien il reste.
+            double thumb = thumbLength(trackHeight, frame.height(), rangeY);
+            right = new ScrollBar(new Rect(x, top, SCROLLBAR_WIDTH, trackHeight),
+                    new Rect(x, top + (trackHeight - thumb) * Math.clamp(offsetY / rangeY, 0, 1),
+                            SCROLLBAR_WIDTH, thumb),
+                    true);
         }
-        double x = frame.right() - inset - SCROLLBAR_WIDTH;
-        double trackTop = frame.y() + inset;
-        // La proportion visible : c'est elle qui dit d'un coup d'œil combien il reste.
-        double visible = frame.height() / (frame.height() + range);
-        double thumbHeight = Math.min(trackHeight, Math.max(MIN_THUMB, trackHeight * visible));
-        double thumbTop = trackTop + (trackHeight - thumbHeight)
-                * Math.clamp(offset / range, 0, 1);
-        return new ScrollBar(new Rect(x, trackTop, SCROLLBAR_WIDTH, trackHeight),
-                new Rect(x, thumbTop, SCROLLBAR_WIDTH, thumbHeight));
+        if (hasX && trackWidth > 0) {
+            double y = frame.bottom() - inset - SCROLLBAR_WIDTH;
+            double left = frame.x() + inset;
+            double thumb = thumbLength(trackWidth, frame.width(), rangeX);
+            bottom = new ScrollBar(new Rect(left, y, trackWidth, SCROLLBAR_WIDTH),
+                    new Rect(left + (trackWidth - thumb) * Math.clamp(offsetX / rangeX, 0, 1), y,
+                            thumb, SCROLLBAR_WIDTH),
+                    false);
+        }
+        return new ScrollBars(right, bottom);
+    }
+
+    private static double thumbLength(double track, double frame, double range) {
+        return Math.min(track, Math.max(MIN_THUMB, track * (frame / (frame + range))));
     }
 
     /**
@@ -297,6 +364,33 @@ public final class ScreenLayout {
         }
         if (rect.bottom() > clip.bottom()) {
             return rect.bottom() - clip.bottom();
+        }
+        return 0;
+    }
+
+    /**
+     * Quel axe la molette vise sur ce conteneur, selon que Maj est tenue.
+     *
+     * <p>Maj vise l'horizontal, comme dans tout ce qui défile. Mais un panneau qui ne
+     * défile que sur <b>un</b> axe répond sans qu'on ait à le savoir : exiger la bonne
+     * touche sur un panneau à un seul axe serait une devinette, et le joueur conclurait
+     * que la molette ne marche pas.
+     *
+     * <p>Ici et non dans chacun des deux appelants — le jeu et le concepteur — parce que
+     * deux règles de sélection d'axe finiraient par diverger, et l'auteur découvrirait
+     * alors que son menu ne se parcourt pas comme il l'a conçu.
+     */
+    public static boolean scrollVertical(ScreenElement container, boolean shiftHeld) {
+        return shiftHeld ? !container.scrollsHorizontally() : container.scrollsVertically();
+    }
+
+    /** La même chose sur l'axe horizontal. */
+    public static double revealDeltaX(Rect clip, Rect rect) {
+        if (rect.x() < clip.x()) {
+            return rect.x() - clip.x();
+        }
+        if (rect.right() > clip.right()) {
+            return rect.right() - clip.right();
         }
         return 0;
     }
