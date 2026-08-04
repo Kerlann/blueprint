@@ -88,8 +88,14 @@ public record ContentPack(Map<String, String> files, Map<String, Path> textures,
         rejected = List.copyOf(rejected);
     }
 
-    /** Ce que le pack devrait contenir pour ces définitions. */
+    /** Ce que le pack devrait contenir pour ces items. */
     public static ContentPack of(Collection<ItemDefinition> items) {
+        return of(items, List.of());
+    }
+
+    /** Ce que le pack devrait contenir pour ces définitions. */
+    public static ContentPack of(Collection<ItemDefinition> items,
+                                 Collection<BlockDefinition> blocks) {
         Map<String, String> files = new LinkedHashMap<>();
         Map<String, Path> textures = new LinkedHashMap<>();
         List<String> rejected = new ArrayList<>();
@@ -130,15 +136,62 @@ public record ContentPack(Map<String, String> files, Map<String, Path> textures,
             textures.put("assets/%s/textures/item/%s.png".formatted(item.id().getNamespace(), name),
                     Path.of(item.texture()));
         }
+
+        for (BlockDefinition block : blocks) {
+            String space = block.id().getNamespace();
+            String name = block.id().getPath();
+            String refusal = textureRefusal(block.id(), block.hasTexture() ? block.texture() : null);
+            if (refusal != null) {
+                rejected.add(name + " : " + refusal);
+                continue;
+            }
+            String model = space + ":block/" + name;
+            // Un état unique, sans variante : c'est ce qui distingue un bloc plein d'une
+            // porte ou d'une clôture, et c'est tout ce que cette story promet.
+            files.put("assets/%s/blockstates/%s.json".formatted(space, name), """
+                    {
+                      "variants": {
+                        "": {
+                          "model": "%s"
+                        }
+                      }
+                    }
+                    """.formatted(model));
+            files.put("assets/%s/models/block/%s.json".formatted(space, name), """
+                    {
+                      "parent": "minecraft:block/cube_all",
+                      "textures": {
+                        "all": "%s:block/%s"
+                      }
+                    }
+                    """.formatted(space, name));
+            // L'item du bloc HÉRITE du modèle de bloc : c'est ainsi qu'il s'affiche en
+            // cube dans la main et dans l'inventaire, et non en vignette plate.
+            files.put("assets/%s/items/%s.json".formatted(space, name), """
+                    {
+                      "model": {
+                        "type": "minecraft:model",
+                        "model": "%s"
+                      }
+                    }
+                    """.formatted(model));
+            textures.put("assets/%s/textures/block/%s.png".formatted(space, name),
+                    Path.of(block.texture()));
+        }
         return new ContentPack(files, textures, rejected);
     }
 
-    /** {@code null} si la texture convient, sinon la raison, dite au joueur. */
     private static @Nullable String textureRefusal(ItemDefinition item) {
-        if (!item.hasTexture()) {
-            return "aucune image — déposez « " + item.id().getPath() + ".png » à côté du JSON";
+        return textureRefusal(item.id(), item.hasTexture() ? item.texture() : null);
+    }
+
+    /** {@code null} si la texture convient, sinon la raison, dite au joueur. */
+    private static @Nullable String textureRefusal(net.minecraft.resources.Identifier id,
+                                                   @Nullable String texture) {
+        if (texture == null || texture.isBlank()) {
+            return "aucune image — déposez « " + id.getPath() + ".png » à côté du JSON";
         }
-        Path png = Path.of(item.texture());
+        Path png = Path.of(texture);
         int[] size = PngHeader.size(png);
         if (size == null) {
             return "« " + png.getFileName() + " » n'est pas un PNG lisible";

@@ -1,0 +1,52 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.3"
+story_title: "Les blocs déclarés"
+gate: "PASS"
+status_reason: "Un JSON dans blueprint/content/blocks/ devient un bloc réel : on le tient, on le pose, on le mine, on le ramasse. La contrainte de la 11.1 est reparue sous un autre visage — la vitesse de minage et le butin vivent tous deux dans des données de datapack, donc dans une sauvegarde de monde, alors que le bloc doit être enregistré avant qu'un monde existe. L'issue « écrire un tag dans la sauvegarde du joueur » a été refusée ; les deux règles sont portées par le bloc lui-même, et vérifiables sans jeu."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "BLOC-001"
+    severity: high
+    finding: "Un même nom déclaré dans items/ ET dans blocks/ cassait le registre en silence : un bloc pose AUSSI un item, du même identifiant. Le bloc s'enregistrait, puis son item échouait sur un identifiant déjà pris — il restait un bloc réel qu'aucun objet ne permettait de poser, et un pack décrivant l'un pendant que le registre contenait l'autre"
+    suggested_action: "Trouvé en relecture adverse. Tranché AVANT le registre, dans le chargeur : le bloc cède, avec un message qui dit exactement pourquoi et nomme le conflit. Test unNomDeclareDesDeuxCotesEstTranche"
+  - id: "BLOC-002"
+    severity: high
+    finding: "La vitesse de minage d'un bloc vit dans les tags mineable/*, qui sont des données de datapack, donc de sauvegarde de monde — inaccessibles à l'initialisation du mod, où le bloc doit pourtant être enregistré. Sans réponse, un bloc déclaré se minerait à la main aussi vite qu'à la pioche de netherite, et personne ne comprendrait pourquoi"
+    suggested_action: "L'issue « écrire un tag dans la sauvegarde du joueur » a été explicitement REFUSÉE : ce produit n'écrit pas dans les mondes de quelqu'un d'autre, et le fichier y survivrait à la désinstallation du mod. DeclaredBlock redresse getDestroyProgress avec la formule du jeu et une vitesse obtenue en POSANT LA QUESTION AU JEU — « que ferait l'objet tenu sur de la pierre ? » — ce qui répond juste pour les outils des mods qu'on ne connaît pas. La règle est une fonction pure, testée sans monde"
+  - id: "BLOC-003"
+    severity: medium
+    finding: "Même cause pour le butin : un bloc désigne une table de butin, elle aussi donnée de datapack. Sans réponse, le jeu chercherait une table absente à CHAQUE coup de pioche, et le bloc ne lâcherait rien"
+    suggested_action: "noLootTable() sur le bloc — le jeu ne cherche plus rien — et ContentDrops décide : lui-même, une fois, si le joueur avait ce qu'il fallait. AFTER et non BEFORE, pour qu'une protection de terrain qui refuse la casse ne fasse pas apparaître le butin quand même"
+  - id: "BLOC-004"
+    severity: medium
+    finding: "Exiger un outil sur un bloc de famille NONE rendrait le bloc IRRÉCUPÉRABLE : aucun outil ne peut dépasser la main, donc la condition ne serait jamais remplie. Ce n'est pas de la difficulté, c'est un piège que l'auteur se tendrait sans le voir"
+    suggested_action: "dropsFor rend vrai quand la famille est NONE, quelle que soit l'exigence. Test leButinSuitLExigenceDOutil, qui vérifie explicitement ce cas. Même famille de décision que « rien ne mine plus lentement qu'une main » : une double peine pour la même faute rendrait certains blocs quasi impossibles à retirer"
+  - id: "BLOC-005"
+    severity: medium
+    finding: "/blueprint content comptait l'item d'un bloc comme un item : la commande annonçait deux déclarations là où l'auteur n'en avait écrit qu'une, et listait le même identifiant deux fois"
+    suggested_action: "Items et blocs comptés à part ; un bloc apparaît une seule fois, comme bloc, avec sa dureté et sa famille d'outil"
+  - id: "BLOC-006"
+    severity: low
+    finding: "Les JSON générés (blockstate, modèle de cube, modèle d'item) sont invisibles au compilateur : une faute de forme ne se verrait qu'en jeu, sous la forme d'un bloc invisible ou d'une vignette plate dans la main"
+    suggested_action: "Comparés aux assets vanilla du jar 1.21.11 (yellow_wool) plutôt que déduits de mémoire, et verrouillés par un test qui exige que l'item du bloc hérite du MODÈLE DE BLOC — le seul point où l'erreur serait silencieuse à la lecture"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 3, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le butin ne vient que du joueur : une explosion, un piston, un /setblock ne lâchent rien. L'événement de casse est le seul point d'accroche public. Sans conséquence pour un bloc décoratif ; à revoir le jour où quelqu'un déclarera un minerai."
+      - "Un cube plein, un seul état, six faces identiques. Escaliers, dalles et orientations demandent un modèle par variante et une propriété de blocstate — une autre story, pas un paramètre de plus."
+      - "Poser ou casser un bloc déclaré ne réveille toujours aucun graphe (11.5). C'est ce qui manque pour que l'épic tienne sa promesse."
+evidence:
+  tests_reviewed: 1142
+  gametests: 17
+  new_tests:
+    - "BlockDefinitionTest (11) — bornes, famille d'outil inconnue, lecture du dossier blocks/, bloc fautif isolé des autres ET des items, dossier de blocs seul, trois fichiers de pack, bloc sans image ; et les quatre qui comptent : la vitesse venue de l'outil tenu, le butin qui suit l'exigence, le nom déclaré des deux côtés, l'item du bloc qui hérite du modèle de bloc"
+  risks_without_gate:
+    - "Sans BLOC-001, une collision de noms aurait laissé un bloc posé qu'aucun objet ne permet de placer — un état incohérent du registre, découvert en jeu et impossible à relier à sa cause."
+    - "Sans BLOC-002, la story aurait livré des blocs que la pioche ne mine pas plus vite que la main : techniquement conformes, inutilisables en pratique."
+quality_score: 90
+expires: "2026-08-18T00:00:00Z"

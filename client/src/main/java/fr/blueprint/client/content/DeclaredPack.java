@@ -52,7 +52,7 @@ public final class DeclaredPack {
      */
     public static void install(Path contentDir, Path resourcePacksDir) {
         ContentLoader.Report report = ContentLoader.load(contentDir);
-        ContentPack built = ContentPack.of(report.items().values());
+        ContentPack built = ContentPack.of(report.items().values(), report.blocks().values());
         pack = built;
         var outcome = ContentPackWriter.writeIfChanged(built,
                 resourcePacksDir.resolve(ContentPackWriter.DIRECTORY));

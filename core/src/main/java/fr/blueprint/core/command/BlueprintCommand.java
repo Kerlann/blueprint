@@ -17,6 +17,7 @@ import net.minecraft.server.permissions.Permission;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Predicate;
 
 /**
@@ -486,10 +487,26 @@ public final class BlueprintCommand {
         var registered = fr.blueprint.core.content.ContentRegistrar.registered();
         var rejected = fr.blueprint.core.BlueprintMod.contentRejected();
 
-        ctx.getSource().sendSuccess(() -> Component.translatable(
-                "blueprint.cmd.content", registered.size(), rejected.size()), false);
         var declared = fr.blueprint.core.BlueprintMod.contentDeclared();
+        var blocks = fr.blueprint.core.BlueprintMod.contentBlocks();
+        // Un bloc pose son propre item, du même identifiant : le compter dans les items
+        // ferait annoncer deux déclarations là où l'auteur n'en a écrit qu'une.
+        int itemCount = registered.size() - blocks.size();
+        ctx.getSource().sendSuccess(() -> Component.translatable(
+                "blueprint.cmd.content", itemCount, blocks.size(), rejected.size()), false);
         registered.keySet().forEach(id -> {
+            var block = blocks.get(id);
+            if (block != null) {
+                // Un bloc apparaît une seule fois, comme bloc : son item porte le même
+                // identifiant, et le lister deux fois donnerait à croire qu'on a déclaré
+                // deux choses là où il n'y en a qu'une.
+                ctx.getSource().sendSuccess(() -> block.hasTexture()
+                        ? Component.translatable("blueprint.cmd.content_block", id.toString(),
+                                block.hardness(), block.tool().name().toLowerCase(Locale.ROOT))
+                        : Component.translatable("blueprint.cmd.content_no_texture",
+                                id.toString()), false);
+                return;
+            }
             var definition = declared.get(id);
             // « sans image » est dit ICI, à côté de l'item, et non dans une seconde
             // liste : un item enregistré qui s'affiche en damier est le cas le plus

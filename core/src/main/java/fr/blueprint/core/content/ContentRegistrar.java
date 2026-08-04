@@ -27,6 +27,7 @@ import java.util.Map;
 public final class ContentRegistrar {
 
     private static final Map<Identifier, Item> REGISTERED = new LinkedHashMap<>();
+    private static final Map<Identifier, DeclaredBlock> BLOCKS = new LinkedHashMap<>();
 
     private ContentRegistrar() {
     }
@@ -47,7 +48,73 @@ public final class ContentRegistrar {
                 rejected.add(entry.getKey() + " : enregistrement refusé — " + e.getMessage());
             }
         }
+        // Les blocs APRÈS les items : un bloc pose aussi un item (celui qu'on tient en
+        // main), et mélanger les deux ordres rendrait les identifiants numériques du
+        // réseau dépendants du contenu de deux dossiers plutôt que d'un.
+        for (var entry : report.blocks().entrySet()) {
+            try {
+                BLOCKS.put(entry.getKey(), register(entry.getValue()));
+            } catch (RuntimeException e) {
+                rejected.add(entry.getKey() + " : enregistrement refusé — " + e.getMessage());
+            }
+        }
         return registered();
+    }
+
+    /**
+     * Enregistre un bloc <b>et</b> son item.
+     *
+     * <p>Les deux vont ensemble : un bloc sans item ne se tient pas en main, donc ne se
+     * pose pas, donc n'existe que pour {@code /setblock}. Ce n'est pas ce qu'on demande
+     * quand on demande un bloc.
+     */
+    private static DeclaredBlock register(BlockDefinition definition) {
+        ResourceKey<net.minecraft.world.level.block.Block> blockKey =
+                ResourceKey.create(Registries.BLOCK, definition.id());
+        var properties = net.minecraft.world.level.block.state.BlockBehaviour.Properties.of()
+                .setId(blockKey)
+                .strength(definition.hardness(), definition.resistance())
+                .sound(soundOf(definition.sound()))
+                // Pas de table de butin : le jeu en chercherait une dans un datapack,
+                // n'en trouverait pas, et le bloc ne lâcherait rien en se plaignant à
+                // chaque coup de pioche. Ce qu'il lâche est décidé par ContentDrops.
+                .noLootTable();
+        if (definition.light() > 0) {
+            properties = properties.lightLevel(state -> definition.light());
+        }
+        DeclaredBlock block = Registry.register(BuiltInRegistries.BLOCK, definition.id(),
+                new DeclaredBlock(definition, properties));
+
+        ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, definition.id());
+        Item.Properties itemProperties = new Item.Properties()
+                .setId(itemKey)
+                .useBlockDescriptionPrefix();
+        if (!definition.name().isEmpty()) {
+            itemProperties = itemProperties.component(
+                    net.minecraft.core.component.DataComponents.ITEM_NAME,
+                    definition.translate()
+                            ? Component.translatable(definition.name())
+                            : Component.literal(definition.name()));
+        }
+        REGISTERED.put(definition.id(), Registry.register(BuiltInRegistries.ITEM,
+                definition.id(), new net.minecraft.world.item.BlockItem(block, itemProperties)));
+        return block;
+    }
+
+    private static net.minecraft.world.level.block.SoundType soundOf(BlockDefinition.Sound sound) {
+        return switch (sound) {
+            case STONE -> net.minecraft.world.level.block.SoundType.STONE;
+            case WOOD -> net.minecraft.world.level.block.SoundType.WOOD;
+            case METAL -> net.minecraft.world.level.block.SoundType.METAL;
+            case GLASS -> net.minecraft.world.level.block.SoundType.GLASS;
+            case WOOL -> net.minecraft.world.level.block.SoundType.WOOL;
+            case GRAVEL -> net.minecraft.world.level.block.SoundType.GRAVEL;
+        };
+    }
+
+    /** Les blocs enregistrés, dans l'ordre. */
+    public static Map<Identifier, DeclaredBlock> blocks() {
+        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(BLOCKS));
     }
 
     private static Item register(ItemDefinition definition) {

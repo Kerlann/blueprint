@@ -40,6 +40,15 @@ public class BlueprintMod implements ModInitializer {
         return contentDeclared;
     }
 
+    /** Les blocs déclarés, pour la commande et le pack de ressources (11.3). */
+    private static java.util.Map<net.minecraft.resources.Identifier,
+            fr.blueprint.core.content.BlockDefinition> contentBlocks = java.util.Map.of();
+
+    public static java.util.Map<net.minecraft.resources.Identifier,
+            fr.blueprint.core.content.BlockDefinition> contentBlocks() {
+        return contentBlocks;
+    }
+
     /**
      * Lit et enregistre les items déclarés.
      *
@@ -56,9 +65,14 @@ public class BlueprintMod implements ModInitializer {
         // s'affiche en damier. C'est la question la plus posée d'un contenu déclaré, et
         // seule la définition sait y répondre (11.2).
         contentDeclared = report.items();
+        contentBlocks = report.blocks();
+        // Le butin des blocs déclarés : ils n'ont pas de table, faute d'un datapack où
+        // l'écrire, et c'est ce branchement qui leur en tient lieu (11.3).
+        fr.blueprint.core.content.ContentDrops.register();
         if (!registered.isEmpty() || !rejected.isEmpty()) {
-            LOGGER.info("Contenu déclaré : {} item(s) enregistré(s), {} écarté(s)",
-                    registered.size(), rejected.size());
+            LOGGER.info("Contenu déclaré : {} item(s) et {} bloc(s) enregistré(s), {} écarté(s)",
+                    registered.size() - report.blocks().size(), report.blocks().size(),
+                    rejected.size());
             rejected.forEach(reason -> LOGGER.warn("Contenu écarté — {}", reason));
         }
     }
