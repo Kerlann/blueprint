@@ -1,0 +1,48 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "12.2"
+story_title: "Sans favoris ni récents"
+gate: "PASS"
+status_reason: "Retrait demandé au lendemain de la refonte de la palette. Les deux sections, l'étoile, et tout ce qui n'existait que pour elles — PalettePrefs entier, son fichier de préférences, Item.Section, deux clés de langue. Le retrait a fait passer la couverture du client sous son seuil, ce qui a conduit à DeclaredPack.install, livré en 11.2 sans un seul test — et à un défaut dedans."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "SANS-001"
+    severity: medium
+    finding: "Retirer l'affichage en laissant le stockage aurait donné du code mort qui a l'air vivant : PalettePrefs ne contenait QUE les favoris et les récents, et blueprint/editor-client.json n'aurait plus rien eu à contenir"
+    suggested_action: "Tout retiré : la classe, son test, le fichier, Item.Section (deux usages, tous deux ici) et les deux clés de langue. C'est la garde de localisation qui a réclamé les clés, pas moi"
+  - id: "SANS-002"
+    severity: medium
+    finding: "La couverture du client est tombée à 81 % pour un plancher de 82 % — non pas parce que du code non testé avait été ajouté, mais parce que du code BIEN TESTÉ avait été supprimé. Baisser le seuil était la réponse tentante"
+    suggested_action: "Le seuil n'a pas bougé : c'est lui qui empêche la logique de redescendre dans les widgets, et il n'avait rien fait de mal. La couverture est remontée en testant ce qui le méritait vraiment"
+  - id: "SANS-003"
+    severity: high
+    finding: "DeclaredPack.install n'avait AUCUN test. C'est l'installation du pack de ressources du contenu déclaré — la chose qui décide si un item déclaré s'affiche ou reste en damier magenta — livrée en 11.2 alors qu'elle est parfaitement vérifiable sans jeu : lire un dossier, construire un plan, écrire des fichiers. Même famille que les trous des stories 11.7 et 11.8"
+    suggested_action: "Cinq tests : l'item habillé, l'item sans image signalé, le dossier absent, le dossier étranger épargné, la seconde installation qui ne réécrit rien. Trouvé en cherchant où la couverture avait baissé — pas en le cherchant lui"
+  - id: "SANS-004"
+    severity: medium
+    finding: "Le pack était créé MÊME sans un seul item à habiller, avec son seul pack.mcmeta : un pack vide apparaissait dans la liste de tous ceux qui n'ont jamais rien déclaré. C'est exactement le raisonnement que la 11.1 avait tenu pour blueprint/content/, et que la 11.2 avait oublié d'appliquer à son propre dossier"
+    suggested_action: "Trouvé par le troisième test écrit, qui a échoué. Condition « rien à habiller ET rien d'écrit auparavant » — le second membre compte, car retirer son dernier item doit encore permettre d'élaguer ce qui reste"
+  - id: "SANS-005"
+    severity: low
+    finding: "Un favori figurait dans sa section ET dans sa catégorie, ce qui avait obligé à indexer les lignes par POSITION pour que cliquer la seconde ne surligne pas la première. Le doublon disparu, rien ne garde que la confusion ne revienne"
+    suggested_action: "Test « chaque nœud n'apparaît qu'une fois ». Et la correspondance ligne ↔ entrée reste vérifiée dans les deux sens : les favoris l'avaient rendue nécessaire, mais c'est la sélection et le défilement qui s'appuient dessus"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 3, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le raccourci vers les nœuds qu'on utilise souvent disparaît — c'était l'argument des favoris, et il était réel. Ce qui le remplace : la recherche, qui traverse tout et classe par pertinence, et un index désormais lisible. À rouvrir si le manque se fait sentir à l'usage."
+      - "Les préférences client du menu n'existent plus du tout. Si un réglage devait y revenir — l'état de repli persistant, par exemple — le fichier serait à recréer."
+evidence:
+  tests_reviewed: 1178
+  gametests: 20
+  new_tests:
+    - "DeclaredPackTest (5) — l'item habillé et son pack écrit, l'item sans image signalé au joueur, le dossier absent qui ne produit rien (celui qui a trouvé SANS-004), le dossier étranger épargné avec son refus dit, et la seconde installation qui ne réécrit rien"
+    - "PaletteTest — deux tests remplacés plutôt que supprimés : la liste commence par ses catégories, et chaque nœud n'apparaît qu'une fois"
+  risks_without_gate:
+    - "Sans SANS-003, l'installation du pack serait restée sans test, et SANS-004 aurait continué de déposer un pack vide chez chaque joueur."
+    - "Sans SANS-002, la réponse facile aurait été d'abaisser le plancher de couverture pour un retrait qui n'avait rien cassé — et le plancher aurait cessé de protéger ce pour quoi il existe."
+quality_score: 92
+expires: "2026-08-18T00:00:00Z"

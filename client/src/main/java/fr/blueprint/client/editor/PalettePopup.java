@@ -7,9 +7,11 @@ import net.minecraft.client.resources.language.I18n;
 import java.util.List;
 
 /**
- * Rendu écran de la palette (5.4a + 5.4b) : recherche, ou navigation favoris /
- * récents / catégories ; ★ cliquable, défilement, nœuds bloqués grisés avec raison.
- * La logique vit dans {@link PaletteState}.
+ * Rendu écran de la palette (5.4a + 5.4b, refondue en 12.1) : un champ de recherche,
+ * la case « Contextuel », et un index de catégories repliables. Les nœuds bloqués y
+ * restent visibles, grisés, avec leur raison.
+ *
+ * <p>La logique vit dans {@link PaletteState}.
  */
 public final class PalettePopup {
 
@@ -30,8 +32,6 @@ public final class PalettePopup {
     private static final int HEADER_HEIGHT = 40;
     /** Hauteur de la case à cocher, alignée sur le texte de la ligne de titre. */
     private static final int CHECKBOX = 7;
-    /** Zone ★ au bord gauche d'une ligne d'entrée. */
-    public static final int STAR_WIDTH = 12;
 
     private static final int BACKGROUND = 0xF01A1B1E;
     private static final int BORDER = 0xFF3A3D42;
@@ -42,9 +42,6 @@ public final class PalettePopup {
     private static final int BLOCKED_COLOR = 0xFF5A5F68;
     private static final int META_COLOR = 0xFF7A7F88;
     private static final int FILTER_COLOR = 0xFF7DCFFF;
-    private static final int STAR_ON = 0xFFE5C07B;
-    private static final int STAR_OFF = 0xFF4A4F58;
-    private static final int SECTION_COLOR = 0xFF7DCFFF;
     /** Sous-catégorie : même rôle, un cran plus discret et décalé. */
     private static final int SUBTITLE_COLOR = 0xFF6E737C;
     private static final int SUB_INDENT = 8;
@@ -182,8 +179,6 @@ public final class PalettePopup {
             }
             int rowY = y + HEADER_HEIGHT + r * ROW_HEIGHT;
             switch (items.get(index)) {
-                case PaletteState.Item.Section(String labelKey) ->
-                        g.drawString(font, I18n.get(labelKey), x + 4, rowY + 3, SECTION_COLOR, false);
                 case PaletteState.Item.Category(String n, int count, boolean open, int depth) ->
                         // L'indentation est la SEULE chose qui distingue une
                         // sous-catégorie de sa parente : sans elle, l'arbre se lit
@@ -192,11 +187,10 @@ public final class PalettePopup {
                                         + categoryLabel(n) + " (" + count + ")",
                                 x + 4 + depth * SUB_INDENT, rowY + 3,
                                 depth == 0 ? TITLE_COLOR : SUBTITLE_COLOR, false);
-                case PaletteState.Item.EntryItem(var entry, boolean favorite, boolean blocked) -> {
+                case PaletteState.Item.EntryItem(var entry, boolean blocked) -> {
                     if (state.entryIndexOf(index) == state.selectedIndex()) {
                         g.fill(x + 1, rowY, x + WIDTH - 1, rowY + ROW_HEIGHT, ROW_SELECTED);
                     }
-                    g.drawString(font, "★", x + 3, rowY + 3, favorite ? STAR_ON : STAR_OFF, false);
                     // La catégorie n'est répétée que là où elle APPREND quelque chose :
                     // en recherche, en favoris, en récents — c'est-à-dire quand la ligne
                     // ne vit pas déjà sous l'en-tête qui la nomme. La répéter partout
@@ -210,8 +204,8 @@ public final class PalettePopup {
                     // qu'on vient d'ouvrir se perd dès la première ligne.
                     int indent = state.showsCategoryColumn() ? 0 : SUB_INDENT;
                     g.drawString(font, font.plainSubstrByWidth(entry.title(),
-                                    WIDTH - 14 - STAR_WIDTH - metaW - indent),
-                            x + 4 + STAR_WIDTH + indent, rowY + 3,
+                                    WIDTH - 16 - metaW - indent),
+                            x + 6 + indent, rowY + 3,
                             blocked ? BLOCKED_COLOR : ENTRY_COLOR, false);
                     if (!meta.isEmpty()) {
                         g.drawString(font, meta, x + WIDTH - metaW, rowY + 3,
@@ -240,12 +234,6 @@ public final class PalettePopup {
         int row = (int) ((my - y - HEADER_HEIGHT) / ROW_HEIGHT);
         int index = state.scroll() + row;
         return index < state.items().size() ? index : -1;
-    }
-
-    /** Le clic est-il dans la zone ★ d'une ligne ? */
-    public static boolean starAt(PaletteState state, double mx, int screenW) {
-        int x = left(state, screenW);
-        return mx >= x && mx < x + 4 + STAR_WIDTH;
     }
 
     /** Le point est-il dans le popup (pour ne pas fermer sur un clic dedans) ? */

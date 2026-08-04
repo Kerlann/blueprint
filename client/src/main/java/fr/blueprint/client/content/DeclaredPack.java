@@ -54,8 +54,23 @@ public final class DeclaredPack {
         ContentLoader.Report report = ContentLoader.load(contentDir);
         ContentPack built = ContentPack.of(report.items().values(), report.blocks().values());
         pack = built;
-        var outcome = ContentPackWriter.writeIfChanged(built,
-                resourcePacksDir.resolve(ContentPackWriter.DIRECTORY));
+
+        // Rien à habiller ET rien d'écrit auparavant : on ne crée pas le dossier. Un
+        // pack vide apparaissant dans la liste de quelqu'un qui n'a jamais déclaré de
+        // contenu est du bruit — c'est le même raisonnement que pour blueprint/content/,
+        // qui n'est pas créé tant qu'on n'y écrit pas.
+        //
+        // « Ou déjà écrit » compte : si l'auteur retire son dernier item, il faut
+        // repasser pour élaguer ce qui reste, faute de quoi le pack garderait un item
+        // que le jeu n'enregistre plus.
+        Path target = resourcePacksDir.resolve(ContentPackWriter.DIRECTORY);
+        if (built.dressed() == 0 && !java.nio.file.Files.exists(target)) {
+            notices = List.copyOf(built.rejected());
+            rewritten = false;
+            created = false;
+            return;
+        }
+        var outcome = ContentPackWriter.writeIfChanged(built, target);
 
         var messages = new java.util.ArrayList<>(built.rejected());
         if (!outcome.ok()) {

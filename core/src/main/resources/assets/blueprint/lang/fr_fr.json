@@ -337,8 +337,6 @@
   "blueprint.editor.palette.search": "Rechercher…",
   "blueprint.editor.palette.context": "Contextuel",
   "blueprint.editor.palette.empty": "Aucun résultat",
-  "blueprint.editor.palette.favorites": "★ Favoris",
-  "blueprint.editor.palette.recents": "Récents",
   "blueprint.editor.palette.blocked": "plafonné",
   "blueprint.editor.picker.item": "Choisir un item (Ctrl+P dans un champ position = position du joueur)",
   "blueprint.editor.picker.block": "Choisir un bloc",

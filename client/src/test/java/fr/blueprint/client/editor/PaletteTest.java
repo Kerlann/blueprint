@@ -139,7 +139,7 @@ class PaletteTest {
                 new NodeSearch.Entry(EXEC_NODE.id(), "Exec node", "d", "flow"),
                 new NodeSearch.Entry(PURE_NODE.id(), "Pure node", "d", "math")));
         return new PaletteState(search, descriptorsForTest(),
-                new fr.blueprint.client.config.PalettePrefs(), () -> Permission.GAMEPLAY);
+                () -> Permission.GAMEPLAY);
     }
 
     @Test
@@ -174,25 +174,44 @@ class PaletteTest {
 
     // -------------------------------------------------------- navigation (5.4b)
 
+    /**
+     * La liste <b>commence</b> par ses catégories, dans l'ordre de travail.
+     *
+     * <p>Elle commençait par « Favoris » puis « Récents », retirés en 12.2 : deux
+     * sections en tête qui repoussaient l'index vers le bas et faisaient apparaître le
+     * même nœud à deux endroits.
+     */
     @Test
-    void sansRequeteFavorisPuisRecentsPuisCategories() {
+    void sansRequeteLaListeCommenceParSesCategories() {
         PaletteState p = palette();
         p.open(0, 0, 0, 0, null);
-        // Sans favoris ni récents : catégories triées, dépliées par défaut.
         assertTrue(p.items().get(0) instanceof PaletteState.Item.Category(String n, int c, boolean x, int d)
-                && n.equals("flow"));
+                && n.equals("flow"),
+                "la première ligne est une catégorie, pas une section : " + p.items());
         assertEquals(2, p.results().size());
+    }
 
-        p.toggleFavorite(PURE_NODE.id());
-        p.noteInserted(EXEC_NODE.id());
+    /**
+     * <b>Le test qui compte.</b> Un nœud n'apparaît qu'<b>une fois</b>.
+     *
+     * <p>C'était le prix des favoris : le même nœud figurait dans sa section et dans sa
+     * catégorie, et il a fallu indexer les lignes par POSITION pour que cliquer la
+     * seconde ne surligne pas la première. Le doublon disparu, cette classe de confusion
+     * disparaît avec lui — et ce test garde qu'elle ne revienne pas.
+     */
+    @Test
+    void chaqueNoeudNApparaitQuUneFois() {
+        PaletteState p = palette();
         p.open(0, 0, 0, 0, null);
-        // ★ Favoris d'abord, puis Récents, puis les catégories.
-        assertTrue(p.items().get(0) instanceof PaletteState.Item.Section(String key)
-                && key.contains("favorites"));
-        assertTrue(p.items().get(1) instanceof PaletteState.Item.EntryItem(var e, boolean fav, boolean b)
-                && fav && e.id().equals(PURE_NODE.id()));
-        assertTrue(p.items().get(2) instanceof PaletteState.Item.Section(String key)
-                && key.contains("recents"));
+
+        Map<Identifier, Integer> counts = new HashMap<>();
+        for (PaletteState.Item item : p.items()) {
+            if (item instanceof PaletteState.Item.EntryItem(var e, var blocked)) {
+                counts.merge(e.id(), 1, Integer::sum);
+            }
+        }
+        assertTrue(counts.values().stream().allMatch(n -> n == 1),
+                "un nœud à deux endroits : " + counts);
     }
 
     @Test
@@ -221,8 +240,7 @@ class PaletteTest {
         descs.put(admin.id(), admin);
         PaletteState p = new PaletteState(
                 new NodeSearch(List.of(new NodeSearch.Entry(admin.id(), "Admin", "d", "world"))),
-                descs::get, new fr.blueprint.client.config.PalettePrefs(),
-                () -> Permission.GAMEPLAY);
+                descs::get, () -> Permission.GAMEPLAY);
         p.open(0, 0, 0, 0, null);
         // Visible (jamais masqué, U2) mais marqué bloqué.
         assertEquals(1, p.results().size());
@@ -249,36 +267,33 @@ class PaletteTest {
     }
 
     /**
-     * Un nœud en favori apparaît DEUX fois : dans « Favoris » et dans sa catégorie.
-     * Le clic doit sélectionner la ligne cliquée, pas sa jumelle — sinon le
-     * surlignage saute tout en haut de la liste sans rien expliquer.
+     * La correspondance ligne ↔ entrée reste juste dans les deux sens.
+     *
+     * <p>Elle avait été construite par POSITION parce qu'un favori apparaissait deux
+     * fois et que cliquer la seconde ligne surlignait la première. Les favoris ont
+     * disparu, la contrainte non : l'index reste ce sur quoi la sélection et le
+     * défilement s'appuient, et une erreur d'un cran s'y voit à peine.
      */
     @Test
-    void unFavoriApparaitDeuxFoisEtChaqueLigneEstDistincte() {
+    void laCorrespondanceLigneEntreeTientDansLesDeuxSens() {
         PaletteState p = palette();
-        p.toggleFavorite(PURE_NODE.id());
         p.open(0, 0, 0, 0, null);
 
-        // Les deux lignes qui portent le même nœud.
         List<Integer> rows = new java.util.ArrayList<>();
         for (int i = 0; i < p.items().size(); i++) {
-            if (p.items().get(i) instanceof PaletteState.Item.EntryItem(var e, var f, var b)
-                    && e.id().equals(PURE_NODE.id())) {
+            if (p.items().get(i) instanceof PaletteState.Item.EntryItem) {
                 rows.add(i);
             }
         }
-        assertEquals(2, rows.size(), "une fois en favori, une fois dans sa catégorie");
+        assertEquals(2, rows.size());
 
-        int premiere = p.entryIndexOf(rows.get(0));
-        int seconde = p.entryIndexOf(rows.get(1));
-        assertTrue(premiere >= 0 && seconde >= 0);
-        assertFalse(premiere == seconde, "deux lignes, deux indices d'entrée");
-
-        // Et la correspondance revient bien sur la ligne cliquée, dans les deux sens.
-        p.select(seconde);
-        assertEquals(seconde, p.selectedIndex());
-        assertEquals(rows.get(1).intValue(), p.itemRowOf(seconde));
-        assertEquals(rows.get(0).intValue(), p.itemRowOf(premiere));
+        for (int row : rows) {
+            int entry = p.entryIndexOf(row);
+            assertTrue(entry >= 0, "toute ligne d'entrée a son indice");
+            assertEquals(row, p.itemRowOf(entry), "et le chemin inverse y revient");
+            p.select(entry);
+            assertEquals(entry, p.selectedIndex());
+        }
     }
 
     // ------------------------------------------- tri du menu d'ajout (5.13, UE5)
@@ -316,8 +331,7 @@ class PaletteTest {
         PaletteState p = new PaletteState(
                 new NodeSearch(List.of(
                         new NodeSearch.Entry(EXEC_NODE.id(), "Exec node", "d", "flow"))),
-                descriptorsForTest(), new fr.blueprint.client.config.PalettePrefs(),
-                () -> Permission.ADMIN,
+                descriptorsForTest(), () -> Permission.ADMIN,
                 () -> List.of(get, set));
         p.open(0, 0, 0, 0, null);
 
@@ -373,7 +387,7 @@ class PaletteTest {
                     false, Permission.SAFE, 1, true));
         }
         return new PaletteState(new NodeSearch(many), descs::get,
-                new fr.blueprint.client.config.PalettePrefs(), () -> Permission.ADMIN);
+                () -> Permission.ADMIN);
     }
 
     /**
@@ -495,7 +509,7 @@ class PaletteTest {
         descs.put(EXEC_NODE.id(), EXEC_NODE);
         descs.put(PURE_NODE.id(), PURE_NODE);
         return new PaletteState(search, descs::get,
-                new fr.blueprint.client.config.PalettePrefs(), () -> Permission.ADMIN);
+                () -> Permission.ADMIN);
     }
 
     @Test

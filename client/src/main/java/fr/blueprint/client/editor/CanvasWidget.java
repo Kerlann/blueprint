@@ -126,7 +126,6 @@ public final class CanvasWidget {
         fr.blueprint.client.theme.Theme.set(
                 fr.blueprint.client.theme.ThemeLoader.load(configDir));
         this.palette = new PaletteState(new NodeSearch(entries), descriptors::descriptor,
-                fr.blueprint.client.config.PalettePrefs.load(configDir),
                 () -> session.blueprint().meta().permissionCap(),
                 this::variablePaletteEntries);
         this.varPanel = new VariablePanelState(session.blueprint(), lookup, controller::applyOp,
@@ -685,14 +684,9 @@ public final class CanvasWidget {
             switch (palette.items().get(itemIndex)) {
                 case PaletteState.Item.Category(String name, int c, boolean ex, int depth) ->
                         palette.toggleCategory(name);
-                case PaletteState.Item.EntryItem(var entry, boolean fav, boolean blocked) -> {
-                    if (PalettePopup.starAt(palette, e.x(), width)) {
-                        palette.toggleFavorite(entry.id());
-                        palette.prefs().save(configDir);
-                    } else {
-                        palette.select(palette.entryIndexOf(itemIndex));
-                        insertFromPalette(!e.hasControlDown());
-                    }
+                case PaletteState.Item.EntryItem(var entry, boolean blocked) -> {
+                    palette.select(palette.entryIndexOf(itemIndex));
+                    insertFromPalette(!e.hasControlDown());
                 }
                 default -> {
                 }
@@ -1737,8 +1731,6 @@ public final class CanvasWidget {
                 controller.insertNode(entry.id(), palette.worldX(), palette.worldY(),
                         connect ? palette.wireFrom() : null);
             }
-            palette.noteInserted(entry.id());
-            palette.prefs().save(configDir);
         }
         palette.close();
     }

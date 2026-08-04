@@ -3,7 +3,6 @@ package fr.blueprint.client.editor;
 import fr.blueprint.api.node.NodeCategory;
 import fr.blueprint.api.node.Permission;
 import fr.blueprint.api.pin.PinKind;
-import fr.blueprint.client.config.PalettePrefs;
 import fr.blueprint.core.registry.NodeDescriptor;
 import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
@@ -20,7 +19,7 @@ import java.util.function.Supplier;
 
 /**
  * État de la palette (5.4a + 5.4b) : requête et résultats classés, ou — sans
- * requête — navigation ★ favoris / récents / catégories repliables. Les nœuds
+ * requête — un index de catégories repliables. Les nœuds
  * au-dessus du plafond de permission restent visibles mais marqués bloqués (U2).
  * Pur — le rendu et les entrées vivent dans {@link PalettePopup} et
  * {@code CanvasWidget}.
@@ -41,11 +40,8 @@ public final class PaletteState {
     public static final int VISIBLE_ROWS = 18;
     private static final int SEARCH_LIMIT = 200;
 
-    /** Une ligne de la palette : section, catégorie repliable, ou entrée insérable. */
+    /** Une ligne de la palette : catégorie repliable, ou entrée insérable. */
     public sealed interface Item {
-        record Section(String labelKey) implements Item {
-        }
-
         /**
          * @param depth 0 pour une catégorie, 1 pour une sous-catégorie — le rendu
          *              l'indente, et c'est la seule chose qui les distingue à l'œil.
@@ -57,13 +53,12 @@ public final class PaletteState {
             }
         }
 
-        record EntryItem(NodeSearch.Entry entry, boolean favorite, boolean blocked) implements Item {
+        record EntryItem(NodeSearch.Entry entry, boolean blocked) implements Item {
         }
     }
 
     private final NodeSearch search;
     private final Function<Identifier, NodeDescriptor> descriptors;
-    private final PalettePrefs prefs;
     private final Supplier<Permission> permissionCap;
 
     private boolean open;
@@ -132,22 +127,17 @@ public final class PaletteState {
     private final Supplier<List<NodeSearch.Entry>> variables;
 
     public PaletteState(NodeSearch search, Function<Identifier, NodeDescriptor> descriptors,
-                        PalettePrefs prefs, Supplier<Permission> permissionCap) {
-        this(search, descriptors, prefs, permissionCap, List::of);
+                        Supplier<Permission> permissionCap) {
+        this(search, descriptors, permissionCap, List::of);
     }
 
     public PaletteState(NodeSearch search, Function<Identifier, NodeDescriptor> descriptors,
-                        PalettePrefs prefs, Supplier<Permission> permissionCap,
+                        Supplier<Permission> permissionCap,
                         Supplier<List<NodeSearch.Entry>> variables) {
         this.search = search;
         this.descriptors = descriptors;
-        this.prefs = prefs;
         this.permissionCap = permissionCap;
         this.variables = variables;
-    }
-
-    public PalettePrefs prefs() {
-        return prefs;
     }
 
     /** Ouvre à l'ancre écran donnée ; {@code wireFrom} non nul = filtre par type. */
@@ -181,7 +171,7 @@ public final class PaletteState {
         return entries;
     }
 
-    /** Les lignes affichées (sections, catégories, entrées). */
+    /** Les lignes affichées (catégories et entrées). */
     public List<Item> items() {
         return items;
     }
@@ -286,16 +276,6 @@ public final class PaletteState {
         refresh();
     }
 
-    /** Bascule le favori d'une entrée ; l'appelant persiste les préférences. */
-    public void toggleFavorite(Identifier id) {
-        prefs.toggleFavorite(id);
-        refresh();
-    }
-
-    public void noteInserted(Identifier id) {
-        prefs.addRecent(id);
-    }
-
     // -------------------------------------------------------------------- contenu
 
     private void refresh() {
@@ -310,14 +290,6 @@ public final class PaletteState {
             }
         } else {
             List<NodeSearch.Entry> all = search.search("", this::compatible, SEARCH_LIMIT);
-            Map<Identifier, NodeSearch.Entry> byId = new LinkedHashMap<>();
-            all.forEach(e -> byId.put(e.id(), e));
-
-            section(out, flat, "blueprint.editor.palette.favorites",
-                    prefs.favorites().stream().map(byId::get).filter(e -> e != null).toList());
-            section(out, flat, "blueprint.editor.palette.recents",
-                    prefs.recents().stream().map(byId::get).filter(e -> e != null).toList());
-
             Map<String, List<NodeSearch.Entry>> byCategory = new LinkedHashMap<>();
             all.forEach(e -> byCategory.computeIfAbsent(e.category(), k -> new ArrayList<>()).add(e));
             // Les variables du blueprint sont une catégorie à part entière : sans
@@ -406,18 +378,6 @@ public final class PaletteState {
         }
     }
 
-    private void section(List<Item> out, List<NodeSearch.Entry> flat, String labelKey,
-                         List<NodeSearch.Entry> members) {
-        if (members.isEmpty()) {
-            return;
-        }
-        out.add(new Item.Section(labelKey));
-        for (NodeSearch.Entry entry : members) {
-            out.add(wrap(entry));
-            flat.add(entry);
-        }
-    }
-
     /** Catégorie synthétique : elle ne vient d'aucun nœud, mais du graphe ouvert. */
     public static final String VARIABLES = "variables";
 
@@ -441,7 +401,7 @@ public final class PaletteState {
     }
 
     private Item.EntryItem wrap(NodeSearch.Entry entry) {
-        return new Item.EntryItem(entry, prefs.isFavorite(entry.id()), blocked(entry));
+        return new Item.EntryItem(entry, blocked(entry));
     }
 
     /** Au-dessus du plafond de permission : visible mais marqué (jamais masqué, U2). */
