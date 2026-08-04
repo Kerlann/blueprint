@@ -1,0 +1,42 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.10"
+story_title: "Retirer zéro rendait tout l'inventaire"
+gate: "PASS"
+status_reason: "Défaut signalé par l'utilisateur après essai de la banque. player/remove_item promettait « le nombre réellement retiré » et mentait : Mojang traite maxCount == 0 comme « compte sans retirer » et rend le total possédé. Dans la banque, le champ de montant vaut zéro tant qu'on n'y a rien tapé — cliquer Déposer à l'ouverture créditait tout l'inventaire sans rien prendre. De la fausse monnaie, au premier clic, sans chercher la faille."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "ZERO-001"
+    severity: high
+    finding: "Inventory.clearOrCountMatchingItems traite maxCount == 0 comme un COMPTAGE et rend le total possédé. player/remove_item passait zéro tel quel et annonçait avoir retiré trente-deux pierres sans qu'une seule ne bouge — en violation directe de son propre contrat, écrit dans son commentaire : « le nombre réellement retiré »"
+    suggested_action: "Retirer zéro rend zéro. Deux lignes, et le commentaire qui dit pourquoi elles ne sont pas superflues — parce qu'elles en ont l'air. Reproduit dans un vrai serveur AVANT le correctif, avec le message qu'il fallait"
+  - id: "ZERO-002"
+    severity: high
+    finding: "Le chemin d'exploitation ne demandait aucune malice : le champ de montant de la banque vaut zéro tant qu'on n'y a rien tapé, c'est-à-dire à l'ouverture de l'écran. Le premier clic sur « Déposer » créditait tout l'inventaire. Un défaut de sécurité économique atteignable par accident est pire qu'un défaut qu'il faut chercher"
+    suggested_action: "Réglé à la racine par ZERO-001 : le nœud ne peut plus mentir, quel que soit l'écran qui l'appelle. Corriger seulement la banque aurait laissé le piège armé pour tous les autres usages"
+  - id: "ZERO-003"
+    severity: medium
+    finding: "Un dépôt qui ne prend rien et n'affiche rien laisse croire que le bouton est mort — c'est le reproche qui a été fait, et il était mérité même une fois le nœud corrigé"
+    suggested_action: "La démonstration dit désormais « Rien à déposer : tapez un montant, et ayez les pièces. » Symétrique du refus déjà présent sur le retrait"
+  - id: "ZERO-004"
+    severity: medium
+    finding: "Trois filets existaient et aucun ne pouvait attraper ce défaut. PureNodeSmokeTest ne couvre que les nœuds purs. Le gametest de fumée de la 11.8 exécute chaque nœud non pur mais ne regarde pas ce qu'il FAIT — et il le lance sur un inventaire vide, où zéro est la bonne réponse pour de mauvaises raisons. L'aller-retour BScript et la validation ne disent rien du comportement"
+    suggested_action: "Le trou était nommé depuis la 11.8 — « aucune assertion sur ce que les nœuds calculent ». Il vient de coûter un défaut de fausse monnaie, ce qui est un argument plus convaincant que la remarque. Un gametest dédié couvre maintenant remove_item sur les trois cas qui comptent"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 2, low: 0 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Cent nœuds non purs sont exécutés par le test de fumée, UN SEUL a désormais une assertion sur ce qu'il produit. Les nœuds qui manipulent l'inventaire, le monde et les entités méritent chacun la leur — c'est le prochain chantier, et il est chiffré."
+      - "La famille du défaut est générale : une méthode de Mojang dont la valeur limite change de SENS plutôt que de degré. Chaque appel qui passe une borne calculée par un graphe mérite qu'on relise ce que fait cette borne à zéro."
+evidence:
+  tests_reviewed: 1169
+  gametests: 20
+  new_tests:
+    - "Gametest removingItemsTakesThemAndReportsTheTruth — dix retirés sur soixante-quatre en laissent cinquante-quatre ; en demander mille en prend cinquante-quatre et le dit ; et LE PIÈGE : retirer zéro rend zéro sans toucher aux trente-deux restantes. Écrit avant le correctif, il a échoué sur le dernier cas"
+  risks_without_gate:
+    - "Sans ZERO-001, tout écran de dépôt construit avec ce nœud aurait créé de la monnaie au premier clic — y compris ceux qu'un joueur écrirait lui-même en suivant la démonstration livrée."
+quality_score: 95
+expires: "2026-08-18T00:00:00Z"

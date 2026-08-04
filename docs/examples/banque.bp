@@ -36,8 +36,15 @@ blueprint blueprint:example/banque {
   }
   on blueprint:event/gui_clicked(player, screen, element) @id("efa0ac87-6667-3309-b99b-819f17385f31") @pos(-700, 800) @with(element: "deposer") {
     blueprint:player/remove_item(player: $player, item: "blueprint:piece", count: blueprint:var/get(var: "montant") @id("038a189c-cb67-33bf-8288-01bc7e2bd3a6") @pos(-700, 1000)) @id("695eb508-730b-3778-bab3-826b8547067a") @pos(-420, 800)
-    blueprint:var/set(var: "compte", value: blueprint:math/add(a: blueprint:var/get(var: "compte") @id("ccb647d4-6020-3fa9-b9a9-7688f02a67a6") @pos(-140, 1000), b: $node("695eb508-730b-3778-bab3-826b8547067a").removed) @id("20f79600-aac2-3fda-be7e-8cf41370fab8") @pos(140, 1000)) @id("98506eb0-d3b8-3d94-91da-cddd08ff4ed6") @pos(-140, 800)
-    blueprint:gui/refresh(player: $player, screen: "banque") @id("2d79ed65-d45f-30f7-a026-1b1f18086017") @pos(140, 800)
+    blueprint:flow/branch(condition: blueprint:logic/greater(a: $node("695eb508-730b-3778-bab3-826b8547067a").removed, b: 0.0) @id("7810e379-d998-3b27-b467-05ee3fb95cdc") @pos(-420, 1000)) @id("196092c6-a024-3ade-a86f-e6a9d8c70e76") @pos(-280, 800) {
+      true: {
+        blueprint:var/set(var: "compte", value: blueprint:math/add(a: blueprint:var/get(var: "compte") @id("ccb647d4-6020-3fa9-b9a9-7688f02a67a6") @pos(-140, 1000), b: $node("695eb508-730b-3778-bab3-826b8547067a").removed) @id("20f79600-aac2-3fda-be7e-8cf41370fab8") @pos(140, 1000)) @id("98506eb0-d3b8-3d94-91da-cddd08ff4ed6") @pos(-140, 800)
+        blueprint:gui/refresh(player: $player, screen: "banque") @id("2d79ed65-d45f-30f7-a026-1b1f18086017") @pos(140, 800)
+      }
+      false: {
+        blueprint:player/send_message(player: $player, text: "Rien à déposer : tapez un montant, et ayez les pièces.") @id("232e8f9b-e0a9-39a2-a6d2-c62a8a3655de") @pos(-280, 700)
+      }
+    }
   }
   on blueprint:event/gui_clicked(player, screen, element) @id("03b23e78-301f-31d4-936d-3df5bf25482a") @pos(-700, 1200) @with(element: "retirer") {
     blueprint:flow/branch(condition: blueprint:logic/greater_eq(a: blueprint:var/get(var: "compte") @id("19d7f46c-868e-3ed5-815b-eb21b79c1b0b") @pos(-700, 1340), b: blueprint:var/get(var: "montant") @id("b6b5e45b-e6c2-3da0-8bbc-db1b0d897a4a") @pos(-700, 1400)) @id("bf2eafa4-76bf-3e83-9b16-c0c77da94abb") @pos(-560, 1340)) @id("d032757b-3c98-3bab-b947-2c27826dfea6") @pos(-420, 1200) {

@@ -735,10 +735,26 @@ public final class ExampleBlueprints {
         UUID refresh = add(bp, lookup, "deposit_refresh", node("gui/refresh"), 140, 800);
         literal(bp, lookup, refresh, "screen", PinTypes.STRING, "banque");
 
+        // Rien retiré → on le DIT. Un dépôt qui ne prend rien et n'affiche rien laisse
+        // croire que le bouton est mort : c'est le premier reproche qu'on lui a fait, et
+        // il était mérité. Le cas arrive dès qu'on clique sans avoir tapé de montant.
+        UUID took = add(bp, lookup, "deposit_took", node("logic/greater"), -420, 1000);
+        literal(bp, lookup, took, "b", PinTypes.DOUBLE, 0.0);
+        UUID branch = add(bp, lookup, "deposit_branch", node("flow/branch"), -280, 800);
+        UUID nothing = add(bp, lookup, "deposit_nothing", node("player/send_message"),
+                -280, 700);
+        literal(bp, lookup, nothing, "text", PinTypes.STRING,
+                "Rien à déposer : tapez un montant, et ayez les pièces.");
+
         link(bp, lookup, click, "exec_out", remove, "exec_in");
         link(bp, lookup, click, "player", remove, "player");
         link(bp, lookup, amount, "value", remove, "count");
-        link(bp, lookup, remove, "exec_out", write, "exec_in");
+        link(bp, lookup, remove, "exec_out", branch, "exec_in");
+        link(bp, lookup, remove, "removed", took, "a");
+        link(bp, lookup, took, "result", branch, "condition");
+        link(bp, lookup, branch, "false", nothing, "exec_in");
+        link(bp, lookup, click, "player", nothing, "player");
+        link(bp, lookup, branch, "true", write, "exec_in");
         link(bp, lookup, balance, "value", plus, "a");
         link(bp, lookup, remove, "removed", plus, "b");
         link(bp, lookup, plus, "result", write, "value");

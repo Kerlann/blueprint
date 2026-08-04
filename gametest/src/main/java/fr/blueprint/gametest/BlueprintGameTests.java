@@ -1133,6 +1133,66 @@ public final class BlueprintGameTests {
     }
 
     /** Exécute un nœud dans le monde du test et rend ses sorties. */
+    /**
+     * VERIFY-11.10 : {@code player/remove_item} retire <b>vraiment</b>, et rend un compte
+     * <b>vrai</b>.
+     *
+     * <p>Le nœud promet « le nombre réellement retiré ». Toute la banque en dépend : c'est
+     * ce nombre qu'elle crédite, et le créditer sans que rien ne parte serait de la
+     * fausse monnaie. Aucun test ne l'exerçait — {@code everyImpureNodeRunsOnce…} le lance
+     * mais ne regarde pas ce qu'il fait, et un inventaire vide rend zéro sans rien
+     * prouver.
+     */
+    @GameTest(maxTicks = 100)
+    public void removingItemsTakesThemAndReportsTheTruth(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.getInventory().clearContent();
+        player.getInventory().add(new net.minecraft.world.item.ItemStack(
+                net.minecraft.world.item.Items.STONE, 64));
+
+        java.util.Map<String, Object> take = java.util.Map.of(
+                "player", player,
+                "item", Identifier.withDefaultNamespace("stone"),
+                "count", 10);
+        var first = runNode(helper, "player/remove_item", take);
+        helper.assertTrue(Integer.valueOf(10).equals(first.get("removed")),
+                Component.literal("retiré attendu 10, obtenu " + first.get("removed")));
+        int left = (Integer) runNode(helper, "player/count_item", java.util.Map.of(
+                "player", player, "item", Identifier.withDefaultNamespace("stone")))
+                .get("count");
+        helper.assertTrue(left == 54, Component.literal(
+                "54 pierres devaient rester, il en reste " + left));
+
+        // Demander plus qu'on n'a : on prend tout, et on le DIT.
+        var rest = runNode(helper, "player/remove_item", java.util.Map.of(
+                "player", player,
+                "item", Identifier.withDefaultNamespace("stone"),
+                "count", 1000));
+        helper.assertTrue(Integer.valueOf(54).equals(rest.get("removed")),
+                Component.literal("retiré attendu 54, obtenu " + rest.get("removed")));
+
+        // LE PIÈGE. Zéro doit retirer zéro et DIRE zéro. La méthode de Mojang traite
+        // maxCount == 0 comme « compte sans retirer » et rend alors le TOTAL possédé :
+        // un dépôt de zéro aurait crédité tout l'inventaire sans rien prendre.
+        player.getInventory().add(new net.minecraft.world.item.ItemStack(
+                net.minecraft.world.item.Items.STONE, 32));
+        var nothing = runNode(helper, "player/remove_item", java.util.Map.of(
+                "player", player,
+                "item", Identifier.withDefaultNamespace("stone"),
+                "count", 0));
+        helper.assertTrue(Integer.valueOf(0).equals(nothing.get("removed")),
+                Component.literal("retirer zéro doit rendre zéro, obtenu "
+                        + nothing.get("removed") + " — de la fausse monnaie"));
+        int still = (Integer) runNode(helper, "player/count_item", java.util.Map.of(
+                "player", player, "item", Identifier.withDefaultNamespace("stone")))
+                .get("count");
+        helper.assertTrue(still == 32, Component.literal(
+                "32 pierres devaient rester intactes, il en reste " + still));
+
+        player.getInventory().clearContent();
+        helper.succeed();
+    }
+
     // ------------------------------------------------- fumée des nœuds non purs
 
     /**

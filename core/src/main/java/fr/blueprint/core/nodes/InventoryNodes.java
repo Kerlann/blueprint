@@ -93,6 +93,22 @@ public final class InventoryNodes {
                         ctx.out("removed", 0);
                         return;
                     }
+                    // ZÉRO EST UN PIÈGE, et il a coûté cher. clearOrCountMatchingItems
+                    // traite maxCount == 0 comme « COMPTE sans retirer » et rend alors le
+                    // total possédé : demander zéro rendait donc « j'en ai retiré trente-
+                    // deux » sans qu'une seule pierre ne bouge.
+                    //
+                    // Ce n'est pas une bizarrerie théorique. Un écran de dépôt dont le
+                    // champ n'a pas encore été rempli vaut zéro : cliquer « Déposer »
+                    // créditait tout l'inventaire sans rien prendre. De la fausse monnaie,
+                    // au premier clic, par un joueur qui ne cherchait même pas la faille.
+                    //
+                    // Le nœud promet le nombre RÉELLEMENT retiré. Retirer zéro, c'est
+                    // retirer zéro.
+                    if (wanted == 0) {
+                        ctx.out("removed", 0);
+                        return;
+                    }
                     int removed = player.getInventory().clearOrCountMatchingItems(
                             stack -> stack.is(item), wanted, player.inventoryMenu.getCraftSlots());
                     ctx.out("removed", removed);
