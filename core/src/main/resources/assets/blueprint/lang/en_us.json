@@ -608,6 +608,8 @@
   "blueprint.node.blueprint.gui/set_tooltip_key_all.name": "Set tooltip (key, everyone)",
   "blueprint.node.blueprint.gui/set_scroll.name": "Scroll panel to",
   "blueprint.node.blueprint.gui/set_scroll_all.name": "Scroll panel to (everyone)",
+  "blueprint.node.blueprint.gui/set_scroll_x.name": "Scroll panel sideways to",
+  "blueprint.node.blueprint.gui/set_scroll_x_all.name": "Scroll panel sideways to (everyone)",
   "blueprint.category.gui/look": "GUI — appearance",
   "blueprint.editor.vars.empty": "None yet — click + to add one"
 }

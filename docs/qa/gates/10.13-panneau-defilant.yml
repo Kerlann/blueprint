@@ -60,19 +60,23 @@ top_issues:
     severity: medium
     finding: "Maj + molette vise l'horizontal, mais un panneau qui ne défile que sur UN axe doit répondre sans qu'on ait à le savoir : exiger la bonne touche là où il n'y a qu'un choix serait une devinette, et le joueur conclurait que la molette ne marche pas. La règle risquait d'être écrite deux fois — une en jeu, une dans le concepteur"
     suggested_action: "Une seule règle, ScreenLayout.scrollVertical, lue par les deux. Deux règles d'axe auraient fini par diverger, et l'auteur aurait découvert que son menu ne se parcourt pas comme il l'a conçu. Test laMoletteChoisitLAxeSansQuOnLuiDise"
+  - id: "SCROLL-015"
+    severity: medium
+    finding: "gui/set_scroll ne visait que l'axe vertical, ce qui laissait le graphe incapable de remettre à gauche un panneau horizontal après en avoir changé le contenu — le défaut exact que set_scroll existait pour éviter sur l'autre axe. Le réflexe aurait été d'ajouter une entrée « axe » au nœud existant"
+    suggested_action: "Deux nœuds (gui/set_scroll_x et sa variante _all), et surtout deux TYPES de modification. L'axe caché dans un champ aurait été pire qu'inélégant : les modifications d'un tick se regroupent par leur clé, donc « remets en haut » et « remets à gauche » se seraient remplacées l'une l'autre, en silence, et le panneau serait resté décalé sur un axe sans que rien ne l'explique. Test lesDeuxAxesNeSeMarchentPasDessusDansUnMemeTick"
   - id: "SCROLL-014"
     severity: low
     finding: "Origine ne ramenait qu'un axe : sur un panneau qui défile des deux côtés, « le début » aurait laissé le contenu décalé à droite"
     suggested_action: "Origine ramène les DEUX axes — le début d'une page est son coin, pas la première ligne d'une colonne dont on serait encore décalé. La révélation d'un élément suit la même règle : il peut être sorti par le bas ET par la droite"
 risk_summary:
-  totals: { critical: 0, high: 3, medium: 6, low: 5 }
+  totals: { critical: 0, high: 3, medium: 7, low: 5 }
   recommendations:
     must_fix: []
     monitor:
       - "solve() a maintenant deux signatures. Tout nouvel appelant qui prendrait celle sans décalages verrait les panneaux non défilés — correct pour la validation serveur, faux pour un rendu. Les deux appelants de rendu (BlueprintScreen, ScreenCanvasController) passent bien leur source."
       - "Le découpage repose sur enableScissor, qui applique la pose courante (vérifié au désassemblage en 10.11). Le concepteur dessine sous une matrice de zoom : le découpage y est donc transformé, ce qui est correct, mais tout changement de la pile de matrices doit être revérifié là."
 evidence:
-  tests_reviewed: 1080
+  tests_reviewed: 1082
   gametests: 17
   new_tests:
     - "ScreenScrollTest (13) — le décalage dans la passe unique, le découpage lu par le hit-test, l'imbrication de deux panneaux, la plage, le diagnostic, et l'aller-retour d'un panneau défilant EN ABSOLU"

@@ -383,6 +383,39 @@ class ScreenScrollTest {
                 "il grandit en largeur avec son contenu : il ne défilera jamais");
     }
 
+    // ------------------------------------------- ce que le graphe peut repositionner
+
+    /**
+     * <b>Le test qui compte pour les deux nœuds.</b> « Remets en haut » et « remets à
+     * gauche » ne se remplacent pas l'un l'autre.
+     *
+     * <p>Les modifications d'un même tick sont regroupées par leur clé, et deux
+     * modifications de même clé se remplacent — c'est ce qui évite d'envoyer deux fois
+     * l'or dans le même tick. Un axe caché dans un champ plutôt que dans le TYPE aurait
+     * donc fait disparaître l'une des deux en silence, et le panneau serait resté décalé
+     * sur un axe sans que rien ne l'explique.
+     */
+    @Test
+    void lesDeuxAxesNeSeMarchentPasDessusDansUnMemeTick() {
+        ScreenUpdate haut = ScreenUpdate.scroll("menu", "cadre", 0);
+        ScreenUpdate gauche = ScreenUpdate.scrollX("menu", "cadre", 0);
+
+        assertEquals(ScreenUpdate.Kind.SCROLL, haut.kind());
+        assertEquals(ScreenUpdate.Kind.SCROLL_X, gauche.kind());
+        assertFalse(haut.key().equals(gauche.key()),
+                "même écran, même élément — mais deux axes : deux clés, ou l'une des deux "
+                        + "modifications disparaîtrait sans un mot");
+    }
+
+    /** Un décalage négatif ou non fini est ramené à zéro : le haut d'une page existe. */
+    @Test
+    void unDecalageImpossibleRamèneAuDebut() {
+        assertEquals(0, ScreenUpdate.scroll("menu", "cadre", -50).number(), 1e-9);
+        assertEquals(0, ScreenUpdate.scrollX("menu", "cadre", Double.NaN).number(), 1e-9);
+        assertEquals(0, ScreenUpdate.scrollX("menu", "cadre",
+                Double.NEGATIVE_INFINITY).number(), 1e-9);
+    }
+
     // ------------------------------------------------- le curseur de défilement
 
     private static final ScreenLayout.Rect CADRE = new ScreenLayout.Rect(0, 0, 200, 100);

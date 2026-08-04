@@ -96,6 +96,13 @@ public final class GuiNodes {
         modifier(r, NodeCategories.GUI_LOOK, "set_scroll", "offset", PinTypes.DOUBLE, 0.0,
                 (screen, element, ctx) -> ScreenUpdate.scroll(screen, element,
                         ctx.<Double>in("offset")));
+        // Deux nœuds plutôt qu'un seul portant un axe, comme set_text et set_text_key :
+        // une entrée « axe » se taperait en toutes lettres, et rien dans la palette ne
+        // dirait quels mots sont acceptés — la syntaxe qu'aucun panneau n'affiche est
+        // exactement ce que les choix par bouton du concepteur ont remplacé.
+        modifier(r, NodeCategories.GUI_LOOK, "set_scroll_x", "offset", PinTypes.DOUBLE, 0.0,
+                (screen, element, ctx) -> ScreenUpdate.scrollX(screen, element,
+                        ctx.<Double>in("offset")));
     }
 
     /** Une liste de n'importe quoi devient une liste de lignes : rien n'est jeté. */

@@ -91,7 +91,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 case PROGRESS -> element;   // la valeur vit à part : voir progress()
                 // Idem pour les éléments riches (10.8) : données d'exécution, pas
                 // propriétés du blueprint.
-                case LINES, ITEM, VALUE, SCROLL -> element;
+                case LINES, ITEM, VALUE, SCROLL, SCROLL_X -> element;
             });
             switch (update.kind()) {
                 case PROGRESS -> progress.put(update.element(), update.number());
@@ -103,6 +103,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                     scroll.remove(update.element());
                 }
                 case SCROLL -> panelScroll.put(update.element(), update.number());
+                case SCROLL_X -> panelScrollX.put(update.element(), update.number());
                 case ITEM -> items.put(update.element(), itemOf(update));
                 case VALUE -> {
                     values.put(update.element(), update.number());

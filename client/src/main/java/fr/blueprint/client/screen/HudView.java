@@ -113,7 +113,7 @@ public final class HudView {
                         // et rien n'y ferait remonter le panneau. La modification est
                         // simplement sans effet plutôt que refusée — un écran passé de
                         // HUD à modal doit pouvoir en tirer parti.
-                        case LINES, ITEM, VALUE, SCROLL -> element;
+                        case LINES, ITEM, VALUE, SCROLL, SCROLL_X -> element;
                     }));
             if (update.kind() == ScreenUpdate.Kind.PROGRESS) {
                 progress.computeIfAbsent(update.screen(), s -> new LinkedHashMap<>())

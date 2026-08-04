@@ -56,7 +56,16 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
          * blanche qu'il devrait remonter à la main pour découvrir qu'elle est pleine.
          * C'est exactement le défaut que les listes ont connu en 10.8.
          */
-        SCROLL
+        SCROLL,
+        /**
+         * La même chose sur l'axe horizontal (story 10.13).
+         *
+         * <p>Une valeur distincte plutôt qu'un axe passé dans le drapeau : les
+         * modifications se regroupent par {@link #key()}, et un axe caché dans un champ
+         * ferait que « remets en haut » et « remets à gauche » se remplaceraient l'une
+         * l'autre dans le même tick — le graphe en perdrait une sans rien dire.
+         */
+        SCROLL_X
     }
 
     public ScreenUpdate {
@@ -91,8 +100,16 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
 
     /** Repositionne un panneau défilant ; zéro le ramène en haut. */
     public static ScreenUpdate scroll(String screen, String element, double offset) {
-        return new ScreenUpdate(screen, element, Kind.SCROLL, "", false,
-                Double.isFinite(offset) ? Math.max(0, offset) : 0);
+        return new ScreenUpdate(screen, element, Kind.SCROLL, "", false, positive(offset));
+    }
+
+    /** La même chose sur l'axe horizontal ; zéro le ramène à gauche. */
+    public static ScreenUpdate scrollX(String screen, String element, double offset) {
+        return new ScreenUpdate(screen, element, Kind.SCROLL_X, "", false, positive(offset));
+    }
+
+    private static double positive(double offset) {
+        return Double.isFinite(offset) ? Math.max(0, offset) : 0;
     }
 
     /** Fait suivre à l'élément un style nommé de l'écran ; vide = son style en ligne. */

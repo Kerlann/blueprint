@@ -608,6 +608,8 @@
   "blueprint.node.blueprint.gui/set_tooltip_key_all.name": "Définir l'infobulle (clé, à tous)",
   "blueprint.node.blueprint.gui/set_scroll.name": "Faire défiler un panneau",
   "blueprint.node.blueprint.gui/set_scroll_all.name": "Faire défiler un panneau (à tous)",
+  "blueprint.node.blueprint.gui/set_scroll_x.name": "Faire défiler un panneau (horizontal)",
+  "blueprint.node.blueprint.gui/set_scroll_x_all.name": "Faire défiler un panneau (horizontal, à tous)",
   "blueprint.category.gui/look": "GUI — apparence",
   "blueprint.editor.vars.empty": "Aucune — cliquez + pour en créer"
 }
