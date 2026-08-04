@@ -230,6 +230,98 @@ public final class ScreenLayout {
         return clip;
     }
 
+    /** Largeur du curseur de défilement d'un panneau, en unités. */
+    public static final double SCROLLBAR_WIDTH = 4;
+
+    /** Hauteur minimale du curseur : en dessous, il ne se voit plus et ne s'attrape plus. */
+    public static final double MIN_THUMB = 8;
+
+    /**
+     * La glissière et le curseur d'un panneau défilant.
+     *
+     * <p>Un record, et pas quelques lignes d'arithmétique dans le peintre : le dessin et
+     * le <b>glisser</b> doivent lire la même géométrie. Deux calculs séparés donneraient
+     * un curseur qui saute au moment où on l'attrape — le défaut classique d'une barre de
+     * défilement, et celui qu'on met le plus longtemps à croire réel.
+     */
+    public record ScrollBar(Rect track, Rect thumb) {
+
+        /**
+         * La position de lecture correspondant à un curseur posé à {@code thumbTop}.
+         * L'inverse exact du placement ci-dessus, écrit à côté de lui pour la même raison
+         * que l'aller et le retour d'une ancre vivent dans le même fichier.
+         */
+        public double offsetFor(double thumbTop, double range) {
+            double travel = track.height() - thumb.height();
+            if (travel <= 0 || range <= 0) {
+                return 0;
+            }
+            return Math.clamp((thumbTop - track.y()) / travel, 0, 1) * range;
+        }
+    }
+
+    /**
+     * Le curseur de défilement d'un panneau, ou {@code null} quand il n'y a rien à
+     * parcourir.
+     *
+     * <p>{@code null} et non une barre pleine : un curseur qui occupe toute sa glissière
+     * dit « il y a autre chose à voir » alors qu'il n'y a rien, et l'on cherche.
+     */
+    public static @Nullable ScrollBar scrollBarOf(Rect frame, double range, double offset,
+                                                  double inset) {
+        double trackHeight = frame.height() - 2 * inset;
+        if (range <= 0 || trackHeight <= 0) {
+            return null;
+        }
+        double x = frame.right() - inset - SCROLLBAR_WIDTH;
+        double trackTop = frame.y() + inset;
+        // La proportion visible : c'est elle qui dit d'un coup d'œil combien il reste.
+        double visible = frame.height() / (frame.height() + range);
+        double thumbHeight = Math.min(trackHeight, Math.max(MIN_THUMB, trackHeight * visible));
+        double thumbTop = trackTop + (trackHeight - thumbHeight)
+                * Math.clamp(offset / range, 0, 1);
+        return new ScrollBar(new Rect(x, trackTop, SCROLLBAR_WIDTH, trackHeight),
+                new Rect(x, thumbTop, SCROLLBAR_WIDTH, thumbHeight));
+    }
+
+    /**
+     * De combien il faut faire défiler pour que {@code rect} entre dans {@code clip}.
+     *
+     * <p>Zéro s'il y est déjà — et c'est ce qui compte : faire défiler « pour rien » à
+     * chaque déplacement du focus ferait sauter la page sous les yeux du joueur qui
+     * parcourt un menu au clavier.
+     */
+    public static double revealDelta(Rect clip, Rect rect) {
+        if (rect.y() < clip.y()) {
+            return rect.y() - clip.y();
+        }
+        if (rect.bottom() > clip.bottom()) {
+            return rect.bottom() - clip.bottom();
+        }
+        return 0;
+    }
+
+    /**
+     * Le premier ancêtre <b>défilant</b> de cet élément, ou {@code null}. C'est celui dont
+     * le décalage bouge quand on veut ramener l'élément sous les yeux.
+     */
+    public static @Nullable String scrollerOf(Screen screen, ScreenElement element) {
+        Set<String> seen = new HashSet<>();
+        seen.add(element.name());
+        String cursor = element.parent();
+        while (cursor != null && seen.add(cursor)) {
+            ScreenElement ancestor = screen.element(cursor);
+            if (ancestor == null) {
+                return null;
+            }
+            if (ancestor.scrolls()) {
+                return ancestor.name();
+            }
+            cursor = ancestor.parent();
+        }
+        return null;
+    }
+
     private static Rect intersect(@Nullable Rect a, Rect b) {
         if (a == null) {
             return b;

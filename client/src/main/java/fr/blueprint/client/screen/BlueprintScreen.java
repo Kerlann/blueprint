@@ -194,6 +194,11 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             }
 
             @Override
+            public double panelScroll(String element) {
+                return panelScroll.getOrDefault(element, 0.0);
+            }
+
+            @Override
             public java.util.List<String> lines(String element) {
                 return lines.getOrDefault(element, java.util.List.of());
             }
@@ -346,6 +351,185 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         return super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
     }
 
+    /**
+     * Fait défiler ce qu'il faut pour que cet élément soit visible.
+     *
+     * <p>Ne fait rien s'il l'est déjà : faire défiler « pour rien » à chaque déplacement
+     * du focus ferait sauter la page sous les yeux du joueur qui parcourt le menu.
+     */
+    private void reveal(String name) {
+        var element = model.element(name);
+        if (element == null) {
+            return;
+        }
+        var placed = layout();
+        var rect = placed.get(name);
+        var clip = fr.blueprint.core.graph.screen.ScreenLayout.clipOf(model, element, placed);
+        String panel = fr.blueprint.core.graph.screen.ScreenLayout.scrollerOf(model, element);
+        if (rect == null || clip == null || panel == null) {
+            return;
+        }
+        double delta = fr.blueprint.core.graph.screen.ScreenLayout.revealDelta(clip, rect);
+        if (delta != 0) {
+            scrollPanel(panel, delta);
+        }
+    }
+
+    /**
+     * Le clavier fait défiler : {@code Page↑}/{@code Page↓} d'un écran,
+     * {@code Origine}/{@code Fin} aux extrémités.
+     *
+     * <p>Sans lui, un joueur au clavier — ou une manette — ne pouvait atteindre le bas
+     * d'une page qu'en tabulant d'élément en élément, et rien du tout si la page ne
+     * contenait que du texte : il n'y avait alors aucun élément à atteindre.
+     *
+     * <p>Le panneau visé est celui du <b>focus</b>, faute de curseur pour désigner. À
+     * défaut de focus, le seul panneau défilant de l'écran : c'est le cas courant, et
+     * exiger un focus préalable pour lire une page serait une marche de trop.
+     */
+    private boolean scrollByKey(int key, boolean control) {
+        String panel = focusedPanel();
+        if (panel == null) {
+            return false;
+        }
+        var frame = layout().get(panel);
+        double page = frame == null ? SCROLL_STEP : Math.max(SCROLL_STEP, frame.height() - 9);
+        return switch (key) {
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP -> scrollPanel(panel, -page);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN -> scrollPanel(panel, page);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> scrollPanel(panel, Double.NEGATIVE_INFINITY);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> scrollPanel(panel, Double.MAX_VALUE);
+            // Les flèches restent au jeu SAUF avec Ctrl : sans cela, un menu ouvert
+            // avalerait les touches de déplacement dès qu'il contient un panneau.
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> control && scrollPanel(panel, -SCROLL_STEP);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> control && scrollPanel(panel, SCROLL_STEP);
+            default -> false;
+        };
+    }
+
+    /** Le panneau que le clavier vise : celui du focus, sinon le seul de l'écran. */
+    private @Nullable String focusedPanel() {
+        String focused = focus.focused();
+        var element = focused == null ? null : model.element(focused);
+        if (element != null) {
+            String panel = fr.blueprint.core.graph.screen.ScreenLayout.scrollerOf(model, element);
+            if (panel != null) {
+                return panel;
+            }
+        }
+        String only = null;
+        for (var candidate : model.elements().values()) {
+            if (!candidate.scrolls()) {
+                continue;
+            }
+            if (only != null) {
+                return null;   // plusieurs : rien ne dit lequel, et deviner serait pire
+            }
+            only = candidate.name();
+        }
+        return only;
+    }
+
+    /** Applique un delta borné à un panneau ; vrai s'il a bougé. */
+    private boolean scrollPanel(String panel, double delta) {
+        var element = model.element(panel);
+        var placed = layout();
+        if (element == null || placed.get(panel) == null) {
+            return false;
+        }
+        double current = panelScroll.getOrDefault(panel, 0.0);
+        double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
+                model, element, placed, current);
+        double next = Math.clamp(current + delta, 0, range);
+        if (next == current) {
+            return false;
+        }
+        panelScroll.put(panel, next);
+        layout = null;
+        return true;
+    }
+
+    /** Le panneau dont on tient le curseur, et où on l'a saisi dans celui-ci. */
+    private @Nullable String dragging;
+    private double dragGrab;
+
+    /**
+     * Attrape le curseur de défilement sous le point, s'il y en a un.
+     *
+     * <p>Cliquer <b>ailleurs sur la glissière</b> saute directement à cet endroit, comme
+     * dans toute barre du jeu : c'est ce qui permet d'atteindre le bas d'une longue page
+     * sans traverser tout le contenu à la molette.
+     */
+    private boolean grabScrollBar(double mouseX, double mouseY) {
+        var placed = layout();
+        var elements = java.util.List.copyOf(model.elements().values());
+        for (int i = elements.size() - 1; i >= 0; i--) {
+            var element = elements.get(i);
+            if (!element.scrolls()
+                    || !ScreenPainter.visible(model, element, ScreenPainter.Visuals.NONE)) {
+                continue;
+            }
+            var frame = placed.get(element.name());
+            if (frame == null) {
+                continue;
+            }
+            double offset = panelScroll.getOrDefault(element.name(), 0.0);
+            double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
+                    model, element, placed, offset);
+            var bar = fr.blueprint.core.graph.screen.ScreenLayout.scrollBarOf(frame, range,
+                    offset, model.styleOf(element).padding());
+            if (bar == null || !bar.track().contains(mouseX, mouseY)) {
+                continue;
+            }
+            dragging = element.name();
+            if (bar.thumb().contains(mouseX, mouseY)) {
+                dragGrab = mouseY - bar.thumb().y();
+            } else {
+                // Hors du curseur : on l'amène sous le doigt, centré, et le glisser
+                // continue de là. Sauter puis exiger un second geste serait deux clics
+                // pour ce que toute barre fait en un.
+                dragGrab = bar.thumb().height() / 2;
+                moveThumbTo(mouseY, bar, range);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private void moveThumbTo(double mouseY,
+                             fr.blueprint.core.graph.screen.ScreenLayout.ScrollBar bar,
+                             double range) {
+        double next = bar.offsetFor(mouseY - dragGrab, range);
+        if (next != panelScroll.getOrDefault(dragging, 0.0)) {
+            panelScroll.put(dragging, next);
+            layout = null;
+        }
+    }
+
+    @Override
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event,
+                                double dragX, double dragY) {
+        if (dragging == null) {
+            return super.mouseDragged(event, dragX, dragY);
+        }
+        var element = model.element(dragging);
+        var placed = layout();
+        var frame = element == null ? null : placed.get(dragging);
+        if (frame == null) {
+            dragging = null;
+            return true;
+        }
+        double offset = panelScroll.getOrDefault(dragging, 0.0);
+        double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
+                model, element, placed, offset);
+        var bar = fr.blueprint.core.graph.screen.ScreenLayout.scrollBarOf(frame, range,
+                offset, model.styleOf(element).padding());
+        if (bar != null) {
+            moveThumbTo(event.y(), bar, range);
+        }
+        return true;
+    }
+
     /** Ramène chaque décalage dans sa plage ; vrai si l'un d'eux a bougé. */
     private boolean clampScroll(
             java.util.Map<String, fr.blueprint.core.graph.screen.ScreenLayout.Rect> placed) {
@@ -393,19 +577,14 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 continue;
             }
             double current = panelScroll.getOrDefault(element.name(), 0.0);
-            double range = fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
-                    model, element, placed, current);
-            if (range <= 0) {
+            if (fr.blueprint.core.graph.screen.ScreenLayout.scrollRange(
+                    model, element, placed, current) <= 0) {
                 // Tout tient : on rend la molette à ce qui est derrière plutôt que de
                 // l'avaler. Un panneau qui absorbe un geste sans rien faire donne
                 // l'impression d'un menu bloqué.
                 continue;
             }
-            double next = Math.clamp(current - Math.signum(amount) * SCROLL_STEP, 0, range);
-            if (next != current) {
-                panelScroll.put(element.name(), next);
-                layout = null;   // la mise en page gardée ne vaut plus : elle a bougé
-            }
+            scrollPanel(element.name(), -Math.signum(amount) * SCROLL_STEP);
             return true;
         }
         return false;
@@ -460,7 +639,18 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             }
         }
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) {
-            return focus.move(model, event.hasShiftDown() ? -1 : 1) != null;
+            String reached = focus.move(model, event.hasShiftDown() ? -1 : 1);
+            // Le focus peut atterrir DANS un panneau défilant, sur un élément sorti du
+            // cadre : il serait alors invisible, et le joueur au clavier tabulerait à
+            // l'aveugle jusqu'à ce qu'un élément réapparaisse. Le ramener est ce qui
+            // rend le parcours au clavier utilisable dans une longue page.
+            if (reached != null) {
+                reveal(reached);
+            }
+            return reached != null;
+        }
+        if (scrollByKey(key, event.hasControlDown())) {
+            return true;
         }
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
                 || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER
@@ -477,6 +667,11 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event,
                                 boolean doubled) {
+        // Le curseur de défilement AVANT tout le reste : il est dessiné par-dessus le
+        // panneau, donc il doit aussi recevoir le clic par-dessus ce qu'il recouvre.
+        if (grabScrollBar(event.x(), event.y())) {
+            return true;
+        }
         String element = elementAt(event.x(), event.y());
         // Cliquer déplace le focus : passer de la souris au clavier ne doit pas
         // renvoyer au premier bouton du menu.
@@ -495,6 +690,10 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      */
     @Override
     public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        if (dragging != null) {
+            dragging = null;
+            return true;
+        }
         String was = pressed;
         pressed = null;
         if (was == null || !was.equals(elementAt(event.x(), event.y()))) {

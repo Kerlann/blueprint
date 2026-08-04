@@ -3,7 +3,7 @@ schema: 1
 story: "10.13"
 story_title: "Le panneau défilant"
 gate: "PASS"
-status_reason: "Un conteneur défile, son contenu est découpé, et ce qui sort du cadre ne se clique plus. Le décalage est appliqué DANS la passe de disposition unique et non par le rendu après coup — la seule façon d'être sûr que le clic et le dessin s'accordent. Un défaut préexistant a été trouvé en chemin : la disposition n'était enregistrée que si elle RANGEAIT les enfants, si bien qu'un panneau défilant en absolu serait revenu figé après un aller-retour, sans erreur ni avertissement."
+status_reason: "Un conteneur défile — avec son curseur et son clavier, les deux limites d'abord écartées ayant été fermées dans la foulée à la demande. Son contenu est découpé, et ce qui sort du cadre ne se clique plus. Le décalage est appliqué DANS la passe de disposition unique et non par le rendu après coup — la seule façon d'être sûr que le clic et le dessin s'accordent. Un défaut préexistant a été trouvé en chemin : la disposition n'était enregistrée que si elle RANGEAIT les enfants, si bien qu'un panneau défilant en absolu serait revenu figé après un aller-retour, sans erreur ni avertissement."
 reviewer: "Quinn (Test Architect)"
 updated: "2026-08-04T00:00:00Z"
 waiver: { active: false }
@@ -42,25 +42,34 @@ top_issues:
     suggested_action: "Non : elle est rendue à ce qui est derrière. Un panneau qui avale un geste sans rien faire donne l'impression d'un menu bloqué"
   - id: "SCROLL-009"
     severity: low
-    finding: "Aucun curseur de défilement n'est dessiné sur le panneau, alors qu'une liste en a un depuis la 10.8"
-    suggested_action: "Écarté et documenté : il faudrait décider où le poser sans recouvrir le contenu, ce qui mérite d'être regardé à l'écran avant d'être tranché. La molette fonctionne, et le contenu coupé net au bord du cadre dit déjà qu'il continue. À reprendre avec le défilement au clavier, qui manque pour la même raison"
+    finding: "D'abord écarté, puis LIVRÉ dans la foulée à la demande : le curseur de défilement et le défilement au clavier. Les deux allaient ensemble — sans curseur rien ne dit qu'une page continue, et sans clavier une page de texte pur est illisible pour qui n'a pas de souris, puisqu'il n'y a alors aucun élément à tabuler"
+    suggested_action: "Livré. La géométrie du curseur est un record de ScreenLayout porteur de son PROPRE inverse (offsetFor) : le dessin le place d'après la position de lecture, le glisser fait le chemin retour, et deux calculs séparés auraient donné un curseur qui saute au moment où on l'attrape. Verrouillé par placerLeCurseurEtLeLireSontDesInversesExacts, sur six positions"
+  - id: "SCROLL-011"
+    severity: medium
+    finding: "Tab pouvait poser le focus sur un élément sorti du panneau : invisible, sans que rien ne bouge à l'écran. Le joueur au clavier tabulait à l'aveugle jusqu'à ce qu'un élément réapparaisse — la plus gênante des trois limites laissées ouvertes"
+    suggested_action: "Corrigé — le focus ramène dans le cadre ce qu'il atteint, par revealDelta et scrollerOf, les MÊMES fonctions que la révélation de la sélection dans le concepteur. Deux versions de « à quelle distance suis-je hors du cadre » auraient fini par répondre différemment"
+  - id: "SCROLL-012"
+    severity: low
+    finding: "Les flèches nues auraient pu faire défiler. Un menu ouvert aurait alors avalé les touches de déplacement dès qu'il contient un panneau"
+    suggested_action: "Ctrl+flèches pour un cran, Page↑/↓ pour un écran, Origine/Fin aux extrémités. Les flèches nues restent au jeu. Sans focus, le clavier ne vise un panneau que s'il n'y en a qu'UN : avec plusieurs, rien ne bouge, parce que rien ne dit lequel et que deviner serait pire"
   - id: "SCROLL-010"
     severity: low
     finding: "Défilement vertical seulement ; pas d'horizontal"
     suggested_action: "Délibéré. L'horizontal demande la même mécanique sur l'autre axe et ne sert presque jamais dans un menu : l'ajouter « pour la symétrie » doublerait la surface pour un usage qui n'a pas été demandé"
 risk_summary:
-  totals: { critical: 0, high: 3, medium: 3, low: 4 }
+  totals: { critical: 0, high: 3, medium: 4, low: 5 }
   recommendations:
     must_fix: []
     monitor:
       - "solve() a maintenant deux signatures. Tout nouvel appelant qui prendrait celle sans décalages verrait les panneaux non défilés — correct pour la validation serveur, faux pour un rendu. Les deux appelants de rendu (BlueprintScreen, ScreenCanvasController) passent bien leur source."
       - "Le découpage repose sur enableScissor, qui applique la pose courante (vérifié au désassemblage en 10.11). Le concepteur dessine sous une matrice de zoom : le découpage y est donc transformé, ce qui est correct, mais tout changement de la pile de matrices doit être revérifié là."
 evidence:
-  tests_reviewed: 1060
+  tests_reviewed: 1069
   gametests: 17
   new_tests:
     - "ScreenScrollTest (13) — le décalage dans la passe unique, le découpage lu par le hit-test, l'imbrication de deux panneaux, la plage, le diagnostic, et l'aller-retour d'un panneau défilant EN ABSOLU"
     - "DesignerScrollTest (10) — bornage, molette sur le plus intérieur, révélation de la sélection, hit-test du concepteur qui suit le décalage"
+    - "Curseur de défilement (9) — le placement et sa lecture sont des inverses exacts, la proportion visible, le plancher de taille, les deux extrémités, revealDelta et scrollerOf"
   risks_without_gate:
     - "Sans SCROLL-001, un auteur aurait coché « défilant » sur un panneau absolu, enregistré, rouvert — et retrouvé un panneau figé sans savoir pourquoi. Le genre de perte qu'on n'attribue pas à l'outil mais à soi-même."
     - "Sans SCROLL-003, on aurait pu cliquer ce qu'on ne voit pas. Le pire mode de panne d'une interface : celui où tout a l'air juste."

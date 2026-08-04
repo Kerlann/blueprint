@@ -307,6 +307,12 @@ public final class ScreenDesignerWidget {
                             ScreenElement element) {
                         return previewOf(element);
                     }
+
+                    /** Le curseur de défilement se dessine ici comme en jeu (10.13). */
+                    @Override
+                    public double panelScroll(String element) {
+                        return controller.scrollOf(element);
+                    }
                 });
         g.pose().popMatrix();
     }

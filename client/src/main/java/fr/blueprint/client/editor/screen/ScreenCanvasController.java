@@ -400,34 +400,15 @@ public final class ScreenCanvasController {
         var placed = rects();
         ScreenLayout.Rect rect = placed.get(name);
         ScreenLayout.Rect clip = ScreenLayout.clipOf(screen, element, placed);
-        if (rect == null || clip == null) {
+        String panel = ScreenLayout.scrollerOf(screen, element);
+        if (rect == null || clip == null || panel == null) {
             return false;
         }
-        if (rect.y() < clip.y()) {
-            return scrollBy(nearestScroller(screen, element), rect.y() - clip.y());
-        }
-        if (rect.bottom() > clip.bottom()) {
-            return scrollBy(nearestScroller(screen, element), rect.bottom() - clip.bottom());
-        }
-        return false;
-    }
-
-    /** Le premier ancêtre défilant, celui dont le décalage bougera. */
-    private static String nearestScroller(Screen screen, ScreenElement element) {
-        Set<String> seen = new java.util.HashSet<>();
-        seen.add(element.name());
-        String cursor = element.parent();
-        while (cursor != null && seen.add(cursor)) {
-            ScreenElement ancestor = screen.element(cursor);
-            if (ancestor == null) {
-                return "";
-            }
-            if (ancestor.scrolls()) {
-                return ancestor.name();
-            }
-            cursor = ancestor.parent();
-        }
-        return "";
+        // Le MÊME calcul qu'en jeu, où le focus au clavier ramène de la même façon ce
+        // qu'il atteint : deux versions de « à quelle distance suis-je hors du cadre »
+        // finiraient par répondre différemment.
+        double delta = ScreenLayout.revealDelta(clip, rect);
+        return delta != 0 && scrollBy(panel, delta);
     }
 
     public ScreenLayout.@Nullable Rect rectOf(String element) {

@@ -187,6 +187,112 @@ class ScreenScrollTest {
         assertEquals(100, clip.bottom(), 1e-9, "le bord bas vient de l'extérieur");
     }
 
+    // ------------------------------------------------- le curseur de défilement
+
+    private static final ScreenLayout.Rect CADRE = new ScreenLayout.Rect(0, 0, 200, 100);
+
+    @Test
+    void sansRienAParcourirIlNyAPasDeCurseur() {
+        assertNull(ScreenLayout.scrollBarOf(CADRE, 0, 0, 2),
+                "un curseur qui occupe toute sa glissière dit qu'il y a autre chose à "
+                        + "voir alors qu'il n'y a rien, et l'on cherche");
+    }
+
+    @Test
+    void leCurseurDitLaProportionVisible() {
+        // 100 visibles, 100 qui dépassent : la moitié se voit, donc la moitié de la
+        // glissière. C'est ce que le joueur lit sans compter.
+        var bar = ScreenLayout.scrollBarOf(CADRE, 100, 0, 0);
+        assertNotNull(bar);
+        assertEquals(50, bar.thumb().height(), 1e-9);
+        assertEquals(100, bar.track().height(), 1e-9);
+    }
+
+    @Test
+    void unCurseurMinusculeGardeUneTailleAttrapable() {
+        var bar = ScreenLayout.scrollBarOf(CADRE, 100000, 0, 0);
+        assertNotNull(bar);
+        assertEquals(ScreenLayout.MIN_THUMB, bar.thumb().height(), 1e-9,
+                "en dessous, il ne se voit plus et ne s'attrape plus");
+    }
+
+    @Test
+    void leCurseurVaDUnBoutALAutre() {
+        var haut = ScreenLayout.scrollBarOf(CADRE, 100, 0, 0);
+        var bas = ScreenLayout.scrollBarOf(CADRE, 100, 100, 0);
+        assertNotNull(haut);
+        assertNotNull(bas);
+
+        assertEquals(haut.track().y(), haut.thumb().y(), 1e-9, "en haut quand on n'a rien lu");
+        assertEquals(haut.track().bottom(), bas.thumb().bottom(), 1e-9,
+                "et collé en bas quand on a tout lu");
+    }
+
+    /**
+     * <b>Le test qui compte pour la barre.</b> Le placement du curseur et sa lecture sont
+     * des <b>inverses exacts</b>.
+     *
+     * <p>Le dessin place le curseur d'après la position de lecture ; le glisser fait
+     * l'inverse. Deux calculs séparés donneraient un curseur qui <b>saute</b> au moment où
+     * on l'attrape — le défaut classique d'une barre de défilement, et celui qu'on met le
+     * plus longtemps à croire réel, parce qu'il ne se produit que sous le doigt.
+     */
+    @Test
+    void placerLeCurseurEtLeLireSontDesInversesExacts() {
+        double range = 240;
+        for (double offset : new double[]{0, 1, 37.5, 120, 239, 240}) {
+            var bar = ScreenLayout.scrollBarOf(CADRE, range, offset, 2);
+            assertNotNull(bar);
+            assertEquals(offset, bar.offsetFor(bar.thumb().y(), range), 1e-6,
+                    () -> "aller-retour faux pour un décalage de " + offset);
+        }
+    }
+
+    @Test
+    void leCurseurTireAuDelaDesBoutsSyArrete() {
+        var bar = ScreenLayout.scrollBarOf(CADRE, 100, 0, 0);
+        assertNotNull(bar);
+
+        assertEquals(0, bar.offsetFor(-500, 100), 1e-9);
+        assertEquals(100, bar.offsetFor(5000, 100), 1e-9);
+    }
+
+    // ---------------------------------------------------- ramener sous les yeux
+
+    @Test
+    void ramenerNeFaitRienSurCeQuiEstDejaVisible() {
+        ScreenLayout.Rect clip = new ScreenLayout.Rect(0, 0, 100, 100);
+        assertEquals(0, ScreenLayout.revealDelta(clip, new ScreenLayout.Rect(0, 10, 50, 10)),
+                1e-9, "faire défiler pour rien ferait sauter la page sous les yeux");
+    }
+
+    @Test
+    void ramenerRemonteOuDescendSelonLeBordFranchi() {
+        ScreenLayout.Rect clip = new ScreenLayout.Rect(0, 0, 100, 100);
+
+        assertEquals(-15, ScreenLayout.revealDelta(clip,
+                new ScreenLayout.Rect(0, -15, 50, 10)), 1e-9, "sorti par le haut");
+        assertEquals(20, ScreenLayout.revealDelta(clip,
+                new ScreenLayout.Rect(0, 110, 50, 10)), 1e-9, "sorti par le bas");
+    }
+
+    @Test
+    void leResponsableDuDecalageEstLAncetreDefilantLePlusProche() {
+        Screen screen = new Screen("menu", false, List.of(
+                ScreenElement.of("dehors", ElementKind.PANEL, 0, 0, 200, 150)
+                        .withLayout(LayoutSpec.ABSOLUTE.withScroll(true)),
+                ScreenElement.of("dedans", ElementKind.PANEL, 0, 0, 100, 60)
+                        .withParent("dehors").withLayout(LayoutSpec.ABSOLUTE.withScroll(true)),
+                ScreenElement.of("feuille", ElementKind.LABEL, 0, 0, 50, 10)
+                        .withParent("dedans"),
+                ScreenElement.of("libre", ElementKind.LABEL, 0, 0, 50, 10)));
+
+        assertEquals("dedans", ScreenLayout.scrollerOf(screen, screen.element("feuille")));
+        assertEquals("dehors", ScreenLayout.scrollerOf(screen, screen.element("dedans")));
+        assertNull(ScreenLayout.scrollerOf(screen, screen.element("libre")),
+                "hors de tout panneau défilant, personne n'a de décalage à bouger");
+    }
+
     // ------------------------------------------------------------ le diagnostic
 
     /**

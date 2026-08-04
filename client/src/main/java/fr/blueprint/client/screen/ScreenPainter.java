@@ -61,6 +61,17 @@ public final class ScreenPainter {
             return 0;
         }
 
+        /**
+         * De combien un <b>panneau défilant</b> est remonté, en unités (story 10.13).
+         *
+         * <p>Distinct de {@link #scroll} juste au-dessus, qui compte les <i>lignes</i>
+         * d'une liste : ce sont deux mécanismes différents, et leur donner le même nom
+         * aurait invité à brancher l'un sur l'autre.
+         */
+        default double panelScroll(String element) {
+            return 0;
+        }
+
         /** Le texte saisi dans ce champ ; vide = l'indication s'affiche à la place. */
         default String input(String element) {
             return "";
@@ -187,6 +198,57 @@ public final class ScreenPainter {
             paintElement(g, font, screen, element, rect, originX, originY, scale, visuals);
             g.disableScissor();
         }
+        paintScrollBars(g, screen, rects, originX, originY, scale, visuals);
+    }
+
+    /**
+     * Les curseurs de défilement des panneaux, dessinés <b>en dernier</b>.
+     *
+     * <p>Un panneau est peint avant ses enfants — c'est l'ordre de dessin — donc un
+     * curseur tracé au passage passerait dessous et disparaîtrait derrière le contenu
+     * qu'il sert à situer. Il vit aussi hors du découpage de son propre panneau : il en
+     * borde le cadre, il n'en fait pas partie, et l'y découper le rognerait au dernier
+     * cran. Le découpage d'un panneau défilant EXTÉRIEUR, lui, s'applique bien.
+     */
+    private static void paintScrollBars(GuiGraphics g, Screen screen,
+                                        java.util.Map<String, ScreenLayout.Rect> rects,
+                                        int originX, int originY, int scale, Visuals visuals) {
+        for (ScreenElement element : screen.elements().values()) {
+            if (!element.scrolls() || !visible(screen, element, visuals)) {
+                continue;
+            }
+            ScreenLayout.Rect frame = rects.get(element.name());
+            if (frame == null) {
+                continue;
+            }
+            double offset = visuals.panelScroll(element.name());
+            ScreenLayout.ScrollBar bar = ScreenLayout.scrollBarOf(frame,
+                    ScreenLayout.scrollRange(screen, element, rects, offset), offset,
+                    screen.styleOf(element).padding());
+            if (bar == null) {
+                continue;   // tout tient : pas de curseur, il mentirait sur ce qui reste
+            }
+            ElementStyle style = screen.styleOf(element);
+            ScreenLayout.Rect clip = ScreenLayout.clipOf(screen, element, rects);
+            int[] box = clip == null ? null : pixels(clip, originX, originY, scale);
+            if (box != null) {
+                if (box[2] <= box[0] || box[3] <= box[1]) {
+                    continue;
+                }
+                g.enableScissor(box[0], box[1], box[2], box[3]);
+            }
+            fillRect(g, bar.track(), originX, originY, scale, style.border());
+            fillRect(g, bar.thumb(), originX, originY, scale, style.textColor());
+            if (box != null) {
+                g.disableScissor();
+            }
+        }
+    }
+
+    private static void fillRect(GuiGraphics g, ScreenLayout.Rect rect,
+                                 int originX, int originY, int scale, int colour) {
+        int[] box = pixels(rect, originX, originY, scale);
+        g.fill(box[0], box[1], box[2], box[3], colour);
     }
 
     /**
