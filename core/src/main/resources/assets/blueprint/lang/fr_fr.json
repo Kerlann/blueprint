@@ -510,6 +510,7 @@
   "blueprint.node.blueprint.hud/hide_all.name": "Masquer tous les HUD",
   "blueprint.designer.viewport": "Fenêtre :",
   "blueprint.designer.viewport_mine": "la mienne",
+  "blueprint.designer.zoom_fit": "cadrer",
   "blueprint.designer.field.gap": "Écart",
   "blueprint.designer.field.cross_gap": "Écart de ligne",
   "blueprint.designer.field.columns": "Colonnes",

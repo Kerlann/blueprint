@@ -1,0 +1,69 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.11"
+story_title: "Zoom, cadrage et canevas 1920×1080"
+gate: "PASS"
+status_reason: "Le concepteur zoome de 0,15 à 8 avec pivot sous le curseur, se déplace sans jamais perdre le canevas, s'ouvre sur 1920×1080 cadré, et replie ses panneaux pour doubler la surface de dessin. Le défaut signalé en jeu — « quand on place les boutons ça ne se redimensionne pas correctement » — était une ancre, pas une taille : tout élément neuf naissait ancré en haut à gauche, ce qui écrit « à 1770 du bord gauche » sur un grand canevas. Deux défauts préexistants trouvés en revue et corrigés, dont un qui faisait cliquer à côté de ce qu'on voyait dès qu'on quittait le plus petit préréglage."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "ZOOM-001"
+    severity: high
+    finding: "Le concepteur peignait l'écran en passant au peintre les dimensions de la fenêtre GARANTIE — 320×180 en dur — pendant que le hit-test interrogeait controller.rects(), résolu à la taille SIMULÉE. Dès qu'on quittait le préréglage le plus petit, on cliquait à côté de ce qu'on voyait, et les ancres comme les pourcentages étaient dessinés faux. Le sélecteur de taille de fenêtre, dont c'est toute la raison d'être, ne montrait donc rien de ce qu'il promettait. Défaut préexistant, introduit avec le sélecteur lui-même"
+    suggested_action: "Corrigé en supprimant la classe de défaut plutôt qu'en accordant les paramètres : le dessin lit désormais la MÊME TABLE que le hit-test (surcharge paint(screen, rects, …)). Des paramètres identiques peuvent se désaccorder ; une table partagée, non. Test leClicResoutALaTailleSimuleeEtUnPourcentageYTombeAilleurs"
+  - id: "ZOOM-002"
+    severity: high
+    finding: "Tout élément neuf naissait ancré en haut à gauche (ScreenElement.of). Invisible tant qu'on dessinait sur 320×180 ; sur un canevas de 1920×1080 cela écrit « à 1770 du bord gauche », une position que la fenêtre d'un joueur ordinaire ne contient pas. C'est exactement le défaut remonté du jeu, et il devenait bloquant du fait même du nouveau défaut par défaut à 1920×1080"
+    suggested_action: "Corrigé — addElement pose l'ancre du tiers où l'élément atterrit, via Anchor.of ajouté à core. Test unBoutonPoseEnBasADroiteYResteQuelleQueSoitLaFenetre, qui vérifie que l'écart aux bords de référence ne bouge pas de 320×180 à 1920×1080"
+  - id: "ZOOM-003"
+    severity: medium
+    finding: "Les tolérances de geste — poignée de redimensionnement, accroche des guides — étaient exprimées en UNITÉS d'interface, ce qui n'a de sens qu'à 1:1. Au zoom le plus large une poignée aurait valu 0,6 pixel (insaisissable), au plus serré vingt (elle recouvre l'élément qu'elle sert à redimensionner). Le zoom aurait été livré cassé aux deux bouts sans que rien ne le signale"
+    suggested_action: "Corrigé — HANDLE_PIXELS et SNAP_PIXELS sont des pixels, convertis par setUnitsPerPixel appelé en UN seul endroit. Test unePoigneeSAttrapeDansLeMemeNombreDePixelsAToutZoom, formulé en pixels"
+  - id: "ZOOM-004"
+    severity: medium
+    finding: "Le cerne orange du dépassement se DÉCIDE sur la fenêtre garantie et se DESSINE sur le canevas courant ; le même rectangle servait aux deux. À 960×540, l'orange apparaissait à un endroit sans rapport avec l'élément qu'il désignait. Défaut préexistant, de la même famille que ZOOM-001"
+    suggested_action: "Corrigé — deux tables distinctes, l'une pour la décision, l'autre pour le tracé. Au passage la table courante est hissée hors de la boucle : elle y était résolue une fois par élément"
+  - id: "ZOOM-005"
+    severity: medium
+    finding: "Le texte du concepteur ne suivait pas l'échelle : paintText dessine la police à 9 pixels quel que soit le facteur, alors que les boîtes sont multipliées. En jeu la police occupe 9 UNITÉS ; au facteur 2 le concepteur montrait donc deux fois plus de texte qu'il n'en rentre, et la troncature qui attendait l'auteur restait invisible. Sans conséquence tant que le facteur dépassait rarement 2 — un zoom jusqu'à 8 l'aurait rendu criant"
+    suggested_action: "Corrigé par construction, sans toucher au peintre : le concepteur l'appelle avec les paramètres du JEU (origine nulle, facteur 1) et laisse la matrice grossir le tout. ScreenPainter reste le fichier partagé avec le rendu en partie, et n'est pas modifié"
+  - id: "ZOOM-006"
+    severity: low
+    finding: "La molette n'arrivait pas jusqu'au concepteur : BlueprintEditorScreen ne la routait que vers le canevas de nœuds. Le relâchement de touche non plus, ce qui aurait laissé Espace enfoncé pour toujours"
+    suggested_action: "Corrigé — mouseScrolled et keyReleased routent vers le concepteur dans l'onglet Écrans"
+  - id: "ZOOM-007"
+    severity: low
+    finding: "Le contrat « l'échelle du concepteur est un entier », défendu par un test depuis la 10.2 au nom de la netteté, est abandonné"
+    suggested_action: "Assumé et documenté. L'argument tenait tant que le peintre multipliait des entiers ; sous une matrice tout est mis à l'échelle d'un bloc. Et aucun facteur entier ne montre 1920 unités dans les ~420 pixels que laissent les panneaux : le contrat rendait le besoin impossible. Le test est remplacé par ce qui compte encore — à 1:1 une unité vaut un pixel, et tous les bords sont arrondis par la même conversion"
+  - id: "ZOOM-008"
+    severity: low
+    finding: "Sous le zoom 1, les bords deviennent flous : un liseré d'un pixel dessiné à 0,35 est filtré par le GPU"
+    suggested_action: "Inhérent, et le prix à payer pour voir 1920 unités dans 420 pixels. Les crans entiers et le bouton 1:1 restent nets, ce qui suffit pour juger un rendu ; les décorations du concepteur, elles, sont tracées HORS de la matrice et restent à un pixel à tous les zooms"
+  - id: "ZOOM-009"
+    severity: low
+    finding: "Ouvrir par défaut sur 1920×1080 expose à concevoir un menu que la plupart des joueurs ne peuvent pas afficher : c'est du 4K en échelle GUI 2, ou du 1080p en échelle 1"
+    suggested_action: "Choix explicite de l'utilisateur, assorti de sa contrepartie obligatoire : l'ancre automatique (ZOOM-002), sans laquelle ce défaut produirait des menus cassés partout ailleurs. Le cerne orange dit au moment du geste ce qui ne tiendra pas en 320×180, et le préréglage 320×180 reste à un clic pour vérifier"
+  - id: "ZOOM-010"
+    severity: low
+    finding: "Le rendu sous matrice de l'aperçu d'entité et de l'objet d'un emplacement n'est vérifié par aucun test — ces deux-là passent par InventoryScreen.renderEntityInInventoryFollowsMouse et g.renderItem, qui gèrent leur propre pose"
+    suggested_action: "Borné : le découpage a été vérifié au désassemblage (GuiGraphics.enableScissor applique bien la pose courante via ScreenRectangle.transformAxisAligned, donc le découpage interne de l'aperçu d'entité est correct à l'intérieur de la matrice, et le nôtre correct à l'extérieur). Le reste est à voir de ses yeux : VERIFY-10.11"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 3, low: 5 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "DesignCamera a été écrite et rendue verte SEULE (9 tests) avant que le widget ne bascule dessus : c'est le point unique de rupture, rendu et clic en dépendent tous deux."
+      - "Le zoom n'est pas persisté : rouvrir l'éditeur recadre. Volontaire pour l'instant — un zoom mémorisé rouvrirait sur une vue dont on ne se souvient pas."
+evidence:
+  tests_reviewed: 1026
+  gametests: 17
+  new_tests:
+    - "DesignCameraTest (9) — la caméra seule : pivot immobile sous le curseur, cadrage complet de 320×180 à 1920×1080, déplacement borné, réciprocité à chaque cran"
+    - "DesignerZoomGestureTest (10) — tolérances en pixels, panneaux repliés, dépôt centré, ancre automatique, conteneurs en pourcentage"
+    - "DesignSurfaceTest réécrit (11) — 1:1 exact, dérive sous le demi-pixel, bords arrondis par la même conversion"
+  risks_without_gate:
+    - "Sans la conversion des tolérances en pixels, le zoom aurait été livré avec des poignées insaisissables au large et envahissantes au serré : la fonction aurait paru cassée précisément là où on l'attendait le plus."
+    - "Sans l'ancre automatique, le canevas 1920×1080 par défaut aurait produit des menus hors écran chez tous les joueurs ordinaires, sans qu'aucun signal n'arrive avant l'ouverture du menu chez quelqu'un d'autre."
+quality_score: 90
+expires: "2026-08-18T00:00:00Z"

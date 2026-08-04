@@ -11,6 +11,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * La transformation entre la surface de conception et le widget (story 10.2).
  * Le rendu et le clic la partagent : une divergence ici et l'auteur clique à côté de
  * ce qu'il voit.
+ *
+ * <p>Le zoom était un <b>entier</b> par souci de netteté. L'argument tenait tant que le
+ * peintre multipliait des entiers ; il ne tient plus depuis que le dessin passe par une
+ * matrice — et il ne tenait de toute façon pas devant le besoin : aucun facteur entier ne
+ * montre 1920 unités dans les ~420 pixels que laissent les panneaux. Ce que ces tests
+ * verrouillent n'est donc plus « l'échelle est entière » mais ce qui compte vraiment :
+ * <b>à 1:1 une unité vaut un pixel</b>, et l'aller-retour ne dérive jamais de plus d'un
+ * demi-pixel.
  */
 class DesignSurfaceTest {
 
@@ -18,10 +26,17 @@ class DesignSurfaceTest {
     @Test
     void laSurfaceEstCentreeDansSaZoneMargeComprise() {
         DesignSurface surface = DesignSurface.fit(0, 0, 800, 500);
-        assertEquals(2, surface.scale(), "368×2 = 736 tient dans 800 ; ×3 non");
-        assertEquals(32 + DesignSurface.MARGIN * 2, surface.left(), "(800 − 736) / 2 + marge");
-        assertEquals(22 + DesignSurface.MARGIN * 2, surface.top(), "(500 − 456) / 2 + marge");
-        assertEquals(surface.left() - DesignSurface.MARGIN * 2, surface.outerLeft());
+
+        // 368 unités de large (320 + 2×24) contre 228 de haut : c'est la largeur qui
+        // borne, donc la zone est remplie exactement d'un bord à l'autre.
+        assertEquals(0, surface.outerLeft(), "le canevas commence au bord gauche de la zone");
+        assertEquals(800, surface.outerRight(), "et finit au bord droit");
+
+        int above = surface.outerTop();
+        int below = 500 - surface.outerBottom();
+        assertTrue(Math.abs(above - below) <= 1,
+                () -> "verticalement il doit être centré : " + above + " au-dessus, "
+                        + below + " au-dessous");
     }
 
     @Test
@@ -48,49 +63,48 @@ class DesignSurfaceTest {
                 "mais toujours dans la zone de travail");
     }
 
-    /** Une échelle fractionnaire donnerait des bords baveux et un texte flou. */
-    @Test
-    void lEchelleResteEntiere() {
-        for (int width = 320; width <= 2000; width += 37) {
-            DesignSurface surface = DesignSurface.fit(0, 0, width, width);
-            assertEquals(surface.scale(), Math.round(surface.scale()), "échelle entière");
-            assertTrue(surface.scale() >= 1);
-            assertTrue(surface.scale() <= DesignSurface.MAX_SCALE);
-        }
-    }
-
-    /** Une fenêtre minuscule ne doit pas produire une échelle nulle — ni une division. */
-    @Test
-    void uneZoneTropPetiteRetombeSurUnPourUn() {
-        DesignSurface surface = DesignSurface.fit(0, 0, 100, 60);
-        assertEquals(1, surface.scale());
-        assertEquals(Screen.SAFE_WIDTH, surface.width());
-    }
-
     /**
-     * Une unité entière retombe exactement sur elle-même : l'échelle est entière, donc
-     * {@code unité × échelle} l'est aussi. C'est ce qui garantit qu'un élément dessiné
-     * à 40 se clique à 40.
+     * À 1:1, une unité vaut <b>exactement</b> un pixel — c'est la taille du jeu, et le
+     * seul cran où l'aperçu est au pixel près ce que le joueur verra.
      */
     @Test
-    void uneUniteEntiereFaitUnAllerRetourExact() {
-        DesignSurface surface = DesignSurface.fit(0, 0, 1200, 800);
-        for (double unit : new double[]{0, 1, 40, 160, 319}) {
-            assertEquals(unit, surface.toDesignX(surface.toScreenX(unit)), 1e-9);
-            assertEquals(unit, surface.toDesignY(surface.toScreenY(unit)), 1e-9);
-        }
+    void aUnPourUnUneUniteVautUnPixel() {
+        DesignCamera camera = new DesignCamera();
+        camera.zoomTo(DesignCamera.ONE_TO_ONE, 0, 0);
+        DesignSurface surface = DesignSurface.of(camera, 0, 0,
+                Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+
+        assertEquals(Screen.SAFE_WIDTH, surface.width());
+        assertEquals(Screen.SAFE_HEIGHT, surface.height());
+        assertEquals(40, surface.toScreenX(40) - surface.left());
     }
 
     /**
-     * Une unité fractionnaire ne peut pas revenir exacte — l'écran n'a pas de demi-pixel.
-     * Ce qui compte est que l'écart reste sous le demi-pixel : au-delà, l'élément se
+     * Une zone minuscule ne produit ni échelle nulle ni division : le canevas se voit
+     * entier, simplement plus petit. Avant, il était dessiné au facteur 1 et débordait —
+     * on ne pouvait ni tout voir ni rien y faire.
+     */
+    @Test
+    void uneZoneTropPetiteMontreQuandMemeToutLeCanevas() {
+        DesignSurface surface = DesignSurface.fit(0, 0, 100, 60);
+
+        assertTrue(surface.zoom() >= DesignCamera.MIN_ZOOM);
+        assertTrue(surface.outerLeft() >= -1 && surface.outerRight() <= 101,
+                "le canevas entier tient dans les 100 pixels de large");
+        assertTrue(surface.width() > 0, "et il n'a pas disparu");
+    }
+
+    /**
+     * L'aller-retour ne peut plus être exact — l'écran n'a pas de fraction de pixel. Ce
+     * qui compte est que l'écart reste sous le demi-pixel : au-delà, l'élément se
      * dessinerait visiblement ailleurs qu'où il se clique.
      */
     @Test
-    void uneUniteFractionnaireNeDeriveQueDUnDemiPixel() {
+    void lAllerRetourNeDeriveJamaisDePlusDUnDemiPixel() {
         DesignSurface surface = DesignSurface.fit(0, 0, 1200, 800);
-        double tolerance = 0.5 / surface.scale() + 1e-9;
-        for (double unit : new double[]{0.5, 40.5, 160.25, 318.75}) {
+        double tolerance = 0.5 / surface.zoom() + 1e-9;
+
+        for (double unit : new double[]{0, 1, 40, 40.5, 160.25, 318.75, 319}) {
             assertEquals(unit, surface.toDesignX(surface.toScreenX(unit)), tolerance);
             assertEquals(unit, surface.toDesignY(surface.toScreenY(unit)), tolerance);
         }
@@ -99,10 +113,32 @@ class DesignSurfaceTest {
     @Test
     void lOrigineDeLaSurfaceEstLOrigineDesUnites() {
         DesignSurface surface = DesignSurface.fit(0, 0, 800, 500);
-        assertEquals(0, surface.toDesignX(surface.left()), 1e-9);
-        assertEquals(0, surface.toDesignY(surface.top()), 1e-9);
-        assertEquals(Screen.SAFE_WIDTH, surface.toDesignX(surface.right()), 1e-9);
-        assertEquals(Screen.SAFE_HEIGHT, surface.toDesignY(surface.bottom()), 1e-9);
+        double tolerance = 0.5 / surface.zoom() + 1e-9;
+
+        assertEquals(0, surface.toDesignX(surface.left()), tolerance);
+        assertEquals(0, surface.toDesignY(surface.top()), tolerance);
+        assertEquals(Screen.SAFE_WIDTH, surface.toDesignX(surface.right()), tolerance);
+        assertEquals(Screen.SAFE_HEIGHT, surface.toDesignY(surface.bottom()), tolerance);
+    }
+
+    /**
+     * Les bords dérivent tous de la MÊME conversion. {@code right()} vaut
+     * {@code toScreenX(largeur)} et non {@code left() + largeur × zoom} : deux arrondis
+     * séparés peuvent différer d'un pixel, et le cadre ne coïnciderait plus avec ce qu'il
+     * encadre — un écart d'un pixel qu'on passerait une soirée à chercher.
+     */
+    @Test
+    void lesBordsEtLesElementsSontArrondisEnsemble() {
+        for (double zoom : DesignCamera.LADDER) {
+            DesignCamera camera = new DesignCamera();
+            camera.zoomTo(zoom, 0, 0);
+            camera.panByScreen(7, 3);   // origine volontairement entre deux pixels
+            DesignSurface surface = DesignSurface.of(camera, 5, 5, 640, 360);
+
+            assertEquals(surface.toScreenX(640), surface.right());
+            assertEquals(surface.toScreenY(360), surface.bottom());
+            assertEquals(surface.toScreenX(-DesignSurface.MARGIN), surface.outerLeft());
+        }
     }
 
     /**
@@ -115,17 +151,18 @@ class DesignSurfaceTest {
 
         assertEquals(640, grand.unitsWidth());
         assertEquals(360, grand.unitsHeight());
-        assertEquals(640, grand.toDesignX(grand.right()), 1e-9,
+        assertEquals(640, grand.toDesignX(grand.right()), 0.5 / grand.zoom() + 1e-9,
                 "le bord droit vaut 640 unités, plus 320");
-        assertEquals(2, grand.scale(), "688×408 tient deux fois dans 1400×900");
     }
 
-    /** Un canevas plus grand que la fenêtre retombe sur 1 plutôt que sur 0. */
+    /** Un canevas plus grand que la fenêtre se voit entier — c'est tout l'objet du zoom. */
     @Test
-    void unCanevasTropGrandNeDisparaitPas() {
-        DesignSurface serre = DesignSurface.fit(0, 0, 400, 300, 960, 540);
-        assertEquals(1, serre.scale());
-        assertEquals(960, serre.width());
+    void unCanevasTropGrandTientQuandMeme() {
+        DesignSurface plein = DesignSurface.fit(0, 0, 420, 300, 1920, 1080);
+
+        assertTrue(plein.zoom() < 1, "1920 unités dans 420 pixels : il faut réduire");
+        assertTrue(plein.outerRight() <= 421 && plein.outerBottom() <= 301,
+                "et le tout doit rentrer");
     }
 
     @Test

@@ -80,8 +80,19 @@ public final class ScreenCanvasController {
         }
     }
 
-    /** Demi-côté d'une poignée, en unités. Assez grand pour se saisir sans loupe. */
-    public static final double HANDLE_RADIUS = 2.5;
+    /**
+     * Demi-côté d'une poignée, <b>en pixels</b>. Assez grand pour se saisir sans loupe.
+     *
+     * <p>Il valait 2,5 <i>unités</i>, ce qui ne veut dire quelque chose qu'à 1:1. Depuis
+     * que le concepteur zoome, une poignée exprimée en unités mesure 0,6 pixel au zoom le
+     * plus large — elle devient <b>insaisissable</b> — et vingt pixels au plus serré, où
+     * elle recouvre l'élément qu'elle sert à redimensionner. Une cible de souris se mesure
+     * là où la souris vit : à l'écran.
+     */
+    public static final double HANDLE_PIXELS = 2.5;
+
+    /** La taille de la poignée à 1:1, c'est-à-dire quand un pixel vaut une unité. */
+    public static final double HANDLE_RADIUS = HANDLE_PIXELS;
 
     /** Pas de la grille, en unités. Deux, pas seize : un écran fait 320 de large. */
     public static final double GRID_STEP = 2;
@@ -104,6 +115,17 @@ public final class ScreenCanvasController {
      */
     private double viewportWidth = Screen.SAFE_WIDTH;
     private double viewportHeight = Screen.SAFE_HEIGHT;
+    /**
+     * Combien d'unités vaut un pixel de l'écran, au zoom courant.
+     *
+     * <p>C'est une propriété de la VUE, comme la taille du canevas simulée juste au-dessus,
+     * et elle vit ici pour la même raison : les tolérances de geste — poignées, accroche —
+     * s'expriment en pixels et doivent être converties au même endroit pour tout le monde.
+     * Deux conversions séparées donneraient une poignée qui se dessine à un endroit et se
+     * saisit à un autre, précisément le défaut que {@link DesignSurface} existe pour
+     * empêcher.
+     */
+    private double unitsPerPixel = 1;
     private boolean snapEnabled = true;
     private @Nullable Runnable onMutation;
     private @Nullable Diagnostic lastRefusal;
@@ -179,7 +201,23 @@ public final class ScreenCanvasController {
         SMALL(Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT),
         MEDIUM(480, 270),
         LARGE(640, 360),
-        HUGE(960, 540);
+        HUGE(960, 540),
+        WIDE(1280, 720),
+        /** 1080p en échelle 1, ou un écran 4K en échelle 2 — la plus grande rencontrée. */
+        FULL(1920, 1080);
+
+        /**
+         * Ce sur quoi le <b>concepteur</b> s'ouvre. Ce n'est pas le défaut du modèle —
+         * celui-là reste 320×180, la fenêtre garantie, et c'est lui que le validateur
+         * mesure. C'est le défaut de l'<i>outil</i> : on dessine au large, puis on
+         * vérifie en réduisant.
+         *
+         * <p>Conçu au large, un menu ne tient chez personne d'autre si ses éléments
+         * restent ancrés en haut à gauche — c'est pourquoi l'ancre automatique de
+         * {@code addElement} n'est pas un agrément mais la contrepartie obligatoire de
+         * ce défaut.
+         */
+        public static final Viewport DESIGN_DEFAULT = FULL;
 
         private final int width;
         private final int height;
@@ -228,6 +266,28 @@ public final class ScreenCanvasController {
             }
         }
         return null;
+    }
+
+    /**
+     * Dit au contrôleur de combien la vue grossit, pour que ses tolérances de geste
+     * restent constantes <b>à l'écran</b>. Appelé par le widget, en un seul endroit.
+     */
+    public void setUnitsPerPixel(double units) {
+        this.unitsPerPixel = Math.max(1e-6, units);
+    }
+
+    public double unitsPerPixel() {
+        return unitsPerPixel;
+    }
+
+    /** Le demi-côté d'une poignée en unités, au zoom courant. */
+    public double handleRadius() {
+        return HANDLE_PIXELS * unitsPerPixel;
+    }
+
+    /** La distance d'accroche en unités, au zoom courant. */
+    public double snapTolerance() {
+        return AlignmentGuides.SNAP_PIXELS * unitsPerPixel;
     }
 
     public boolean snapEnabled() {
@@ -307,10 +367,11 @@ public final class ScreenCanvasController {
         if (rect == null) {
             return null;
         }
+        double radius = handleRadius();
         for (Handle handle : operableHandles(only)) {
             double hx = rect.x() + rect.width() * handle.fractionX();
             double hy = rect.y() + rect.height() * handle.fractionY();
-            if (Math.abs(x - hx) <= HANDLE_RADIUS && Math.abs(y - hy) <= HANDLE_RADIUS) {
+            if (Math.abs(x - hx) <= radius && Math.abs(y - hy) <= radius) {
                 return handle;
             }
         }
@@ -563,7 +624,8 @@ public final class ScreenCanvasController {
 
         // Les guides s'alignent sur ce qui NE bouge pas : inclure un élément déplacé
         // ferait s'accrocher la sélection à elle-même, donc ne plus bouger du tout.
-        AlignmentGuides.Result snapped = AlignmentGuides.snap(wanted, neighbours(screen));
+        AlignmentGuides.Result snapped =
+                AlignmentGuides.snap(wanted, neighbours(screen), snapTolerance());
         guides = snapped.guides();
         double dx = snapped.rect().x() - origin.x();
         double dy = snapped.rect().y() - origin.y();
@@ -692,7 +754,8 @@ public final class ScreenCanvasController {
                 activeHandle.freeX() && activeHandle.movesLeft(),
                 activeHandle.freeX() && !activeHandle.movesLeft(),
                 activeHandle.freeY() && activeHandle.movesTop(),
-                activeHandle.freeY() && !activeHandle.movesTop());
+                activeHandle.freeY() && !activeHandle.movesTop(),
+                snapTolerance());
         guides = snapped.guides();
         place(screen, element, snapped.rect());
     }
@@ -747,10 +810,26 @@ public final class ScreenCanvasController {
         }
         String name = freshName(screen.elements().keySet(),
                 kind.name().toLowerCase(java.util.Locale.ROOT));
-        double width = kind.container() ? 100 : 60;
-        double height = kind == ElementKind.LABEL ? 10 : 20;
-        ScreenElement element = ScreenElement.of(name, kind, snap(x), snap(y), width, height)
-                .withParent(hitContainer(screen, x, y));
+        String parent = hitContainer(screen, x, y);
+        ScreenLayout.Rect area = parent == null || rects().get(parent) == null
+                ? new ScreenLayout.Rect(0, 0, viewportWidth, viewportHeight)
+                : rects().get(parent);
+
+        fr.blueprint.core.graph.screen.Extent width = defaultWidth(kind);
+        fr.blueprint.core.graph.screen.Extent height = defaultHeight(kind);
+        // Le point donné est le CENTRE du dépôt, et non le coin : on pose « là », et un
+        // élément dont seul le coin obéit au geste paraît toujours décalé.
+        ScreenLayout.Rect target = new ScreenLayout.Rect(
+                snap(x - width.resolve(area.width()) / 2),
+                snap(y - height.resolve(area.height()) / 2),
+                width.resolve(area.width()), height.resolve(area.height()));
+
+        ScreenElement element = ScreenLayout.placedIn(area,
+                ScreenElement.of(name, kind, 0, 0, 1, 1)
+                        .resized(width, height)
+                        .withParent(parent)
+                        .withAnchor(anchorFor(area, target)),
+                target);
 
         history.beginGesture();
         try {
@@ -762,6 +841,60 @@ public final class ScreenCanvasController {
         }
         selection.selectAll(List.of(name), false);
         return name;
+    }
+
+    /**
+     * L'ancre d'un élément qu'on vient de poser : celle du <b>tiers</b> où il atterrit.
+     *
+     * <p>Tout élément neuf naissait ancré en haut à gauche ({@code ScreenElement.of}), ce
+     * qui ne se remarquait pas tant qu'on dessinait sur 320×180 — l'ancre y change peu de
+     * chose. Sur un canevas de 1920×1080, un bouton posé à droite s'écrit « à 1600 du bord
+     * gauche » : chez un joueur en 480×270, il est purement <b>hors écran</b>. L'auteur ne
+     * l'apprenait qu'à l'ouverture du menu, chez quelqu'un d'autre.
+     *
+     * <p>Ancré sur le tiers où il a été posé, il reste où l'auteur l'a mis à toutes les
+     * tailles de fenêtre. C'est ce que les ancres existent pour faire ; elles n'étaient
+     * simplement jamais posées à la création.
+     */
+    static fr.blueprint.core.graph.screen.Anchor anchorFor(ScreenLayout.Rect area,
+                                                           ScreenLayout.Rect target) {
+        return fr.blueprint.core.graph.screen.Anchor.of(
+                third(target.x() + target.width() / 2, area.x(), area.width()),
+                third(target.y() + target.height() / 2, area.y(), area.height()));
+    }
+
+    private static int third(double value, double start, double length) {
+        if (length <= 0) {
+            return 0;
+        }
+        double fraction = (value - start) / length;
+        return fraction < 1.0 / 3 ? 0 : (fraction < 2.0 / 3 ? 1 : 2);
+    }
+
+    /**
+     * La largeur d'un élément neuf.
+     *
+     * <p>Un <b>conteneur</b> naît en pourcentage : un panneau de fond doit épouser la
+     * fenêtre, et le poser en unités fixes sur un canevas de 1920 donnerait un cadre
+     * quatre fois trop grand chez la plupart des joueurs. Il naissait à 100 unités de
+     * large sur 20 de haut — une lamelle, quelle que soit la taille visée.
+     *
+     * <p>Tout le reste naît en <b>unités fixes</b>, et c'est délibéré : la police de
+     * Minecraft mesure 9 unités, toujours. Un bouton proportionnel au canevas serait
+     * illisible en 320×180 — son texte ne rapetisse pas avec lui. Ce partage n'est pas un
+     * compromis, c'est la conséquence directe d'une police de taille fixe.
+     */
+    private static fr.blueprint.core.graph.screen.Extent defaultWidth(ElementKind kind) {
+        return kind.container()
+                ? fr.blueprint.core.graph.screen.Extent.percent(0.4, 80, 0)
+                : fr.blueprint.core.graph.screen.Extent.of(60);
+    }
+
+    private static fr.blueprint.core.graph.screen.Extent defaultHeight(ElementKind kind) {
+        if (kind.container()) {
+            return fr.blueprint.core.graph.screen.Extent.percent(0.35, 40, 0);
+        }
+        return fr.blueprint.core.graph.screen.Extent.of(kind == ElementKind.LABEL ? 10 : 20);
     }
 
     /** Le conteneur le plus haut sous le point : poser dans un panneau y rattache. */

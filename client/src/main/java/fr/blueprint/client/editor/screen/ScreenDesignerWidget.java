@@ -27,17 +27,19 @@ import java.util.List;
  *
  * <p>Le widget ne décide rien. Il convertit pixels ↔ unités par {@link DesignSurface},
  * délègue tous les gestes à {@link ScreenCanvasController} et toute la peinture à
- * {@link ScreenPainter} — celui-là même que le rendu en jeu utilisera (10.3). Ce qui
+ * {@link ScreenPainter} — celui-là même que le rendu en jeu utilise (10.3). Ce qui
  * reste ici est ce qui ne se teste pas sans client : le chrome.
+ *
+ * <p>La vue vit dans {@link DesignCamera} et la place des panneaux dans
+ * {@link DesignerPanels}, pour la même raison : ce sont des calculs que le rendu et le
+ * clic doivent lire au même endroit.
  */
 public final class ScreenDesignerWidget {
 
-    /**
-     * Largeur de la palette. Élargie : à 76, « Progress bar » touchait déjà le bord, et
-     * sa traduction française — « Barre de progression » — le dépassait franchement.
-     * Aucun libellé n'y était tronqué, si bien qu'ils débordaient sur le canevas.
-     */
-    public static final int PALETTE_WIDTH = 92;
+    /** Largeur de la palette dépliée — voir {@link DesignerPanels}. */
+    public static final int PALETTE_WIDTH = DesignerPanels.PALETTE_WIDTH;
+
+    public static final int PROPERTIES_WIDTH = DesignerPanels.PROPERTIES_WIDTH;
 
     /** Place utile d'un libellé de palette, marges comprises. */
     private static final int PALETTE_LABEL = PALETTE_WIDTH - 12;
@@ -49,7 +51,6 @@ public final class ScreenDesignerWidget {
      * genre de défaut qu'on attribue à sa propre maladresse avant de le soupçonner.
      */
     private static final int SECTION_GAP = 10;
-    public static final int PROPERTIES_WIDTH = 128;
     private static final int ROW = 12;
 
     private static final int PANEL_BACKGROUND = 0xF01A1B1E;
@@ -69,11 +70,25 @@ public final class ScreenDesignerWidget {
     private final NodeTypeLookup lookup;
     private final ScreenCanvasController controller;
     private final ElementPropertiesState properties = new ElementPropertiesState();
+    private final DesignCamera camera = new DesignCamera();
 
+    private DesignerPanels panels = DesignerPanels.OPEN;
     private int top;
     private int width;
     private int height;
-    private DesignSurface surface = new DesignSurface(0, 0, 1, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+    /** La zone de dessin en pixels, une fois les panneaux et les barres retirés. */
+    private int areaLeft;
+    private int areaTop;
+    private int areaWidth = 1;
+    private int areaHeight = 1;
+    private DesignSurface surface =
+            new DesignSurface(0, 0, 1, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+    /** Recadrer à la prochaine image : à l'ouverture, au changement de taille, sur F. */
+    private boolean needsFit = true;
+    private boolean panning;
+    private boolean spaceDown;
+    private double mouseX;
+    private double mouseY;
     private @Nullable String message;
 
     public ScreenDesignerWidget(EditorSession session, NodeTypeLookup lookup, UndoStack history) {
@@ -81,6 +96,10 @@ public final class ScreenDesignerWidget {
         this.lookup = lookup;
         String first = session.blueprint().screens().keySet().stream().findFirst().orElse("");
         this.controller = new ScreenCanvasController(session.blueprint(), lookup, history, first);
+        // Le concepteur s'ouvre au large, et CADRÉ. Ouvrir grand sans cadrer reproduirait
+        // exactement le défaut qu'on corrige : un canevas immense dont on ne voit qu'un
+        // coin, sans savoir de quel côté chercher le reste.
+        this.controller.setViewport(ScreenCanvasController.Viewport.DESIGN_DEFAULT);
     }
 
     public ScreenCanvasController controller() {
@@ -91,10 +110,25 @@ public final class ScreenDesignerWidget {
         this.top = top;
         this.width = width;
         this.height = height;
-        this.surface = DesignSurface.fit(PALETTE_WIDTH, top + ROW,
-                Math.max(1, width - PALETTE_WIDTH - PROPERTIES_WIDTH),
-                Math.max(1, height - top - ROW * 3),
-                (int) controller.viewportWidth(), (int) controller.viewportHeight());
+        this.areaLeft = panels.canvasLeft();
+        this.areaTop = top + ROW;
+        this.areaWidth = panels.canvasWidth(width);
+        this.areaHeight = Math.max(1, height - areaTop - ROW * 2);
+
+        int unitsWidth = (int) controller.viewportWidth();
+        int unitsHeight = (int) controller.viewportHeight();
+        if (needsFit) {
+            camera.fit(areaWidth, areaHeight, unitsWidth, unitsHeight);
+            needsFit = false;
+        } else {
+            // Borné à chaque image, et pas seulement au relâchement : la fenêtre du jeu
+            // peut changer de taille pendant qu'on ne touche à rien, et le canevas se
+            // retrouverait hors de la zone sans qu'aucun geste ne l'ait déplacé.
+            camera.clampInto(areaWidth, areaHeight, unitsWidth, unitsHeight);
+        }
+        this.surface = DesignSurface.of(camera, areaLeft, areaTop, unitsWidth, unitsHeight);
+        // Les tolérances de geste du contrôleur suivent le zoom, en UN seul endroit.
+        controller.setUnitsPerPixel(1 / surface.zoom());
     }
 
     // ------------------------------------------------------------------- rendu
@@ -102,6 +136,8 @@ public final class ScreenDesignerWidget {
     public void render(GuiGraphics g, Font font, int mouseX, int mouseY) {
         playerViewportWidth = g.guiWidth();
         playerViewportHeight = g.guiHeight();
+        this.mouseX = mouseX;
+        this.mouseY = mouseY;
         Screen screen = controller.screen();
         properties.select(screen == null || controller.selection().size() != 1 ? null
                 : screen.element(controller.selection().ids().iterator().next()));
@@ -112,11 +148,15 @@ public final class ScreenDesignerWidget {
         renderProperties(g, font);
         renderViewportBar(g, font);
         if (message != null) {
-            g.drawString(font, message, PALETTE_WIDTH + 4, height - ROW, INVALID, false);
+            g.drawString(font, message, panels.canvasLeft() + 4, height - ROW, INVALID, false);
         }
     }
 
     private void renderSurface(GuiGraphics g, Font font, @Nullable Screen screen) {
+        // Le découpage suit la ZONE, pas le canevas : zoomé, le canevas déborde largement
+        // de la place disponible, et sans cela il peindrait par-dessus les panneaux.
+        g.enableScissor(areaLeft, areaTop, areaLeft + areaWidth, areaTop + areaHeight);
+
         // La marge est plus sombre que la zone garantie : on voit d'un coup d'œil ce qui
         // déborde, sans avoir à lire le cadre.
         g.fill(surface.outerLeft(), surface.outerTop(), surface.outerRight(),
@@ -135,15 +175,54 @@ public final class ScreenDesignerWidget {
         if (screen == null) {
             g.drawString(font, I18n.get("blueprint.designer.no_screen"),
                     surface.left() + 8, surface.top() + 8, DIM_TEXT, false);
+            g.disableScissor();
             return;
         }
 
-        g.enableScissor(surface.outerLeft(), surface.outerTop(),
-                surface.outerRight(), surface.outerBottom());
+        paintScreen(g, font, screen);
+        renderOverflow(g, screen);
+        renderSelection(g, screen);
+        renderGuides(g);
+        if (controller.gesture() == ScreenCanvasController.Gesture.RUBBER) {
+            ScreenLayout.Rect band = controller.rubberBand();
+            g.fill(surface.toScreenX(band.x()), surface.toScreenY(band.y()),
+                    surface.toScreenX(band.right()), surface.toScreenY(band.bottom()),
+                    RUBBER_FILL);
+        }
+        g.disableScissor();
+    }
+
+    /**
+     * L'écran, peint <b>exactement comme en jeu</b> puis mis à l'échelle par la matrice.
+     *
+     * <p>Le concepteur passait au peintre un facteur entier, que celui-ci multipliait sur
+     * les boîtes, les bordures et les marges — mais <b>pas sur le texte</b>, resté à sa
+     * taille de police. Au facteur 2, une étiquette montrait donc deux fois plus de
+     * caractères qu'en jeu, et l'auteur ne voyait pas la troncature qui l'attendait.
+     * C'était sans conséquence tant que le facteur dépassait rarement 2 ; avec un zoom
+     * jusqu'à 8, cela aurait rendu l'aperçu mensonger.
+     *
+     * <p>En appelant le peintre avec les paramètres du jeu — origine nulle, facteur 1 —
+     * et en laissant la matrice grossir le tout, l'aperçu redevient fidèle par
+     * construction. Le peintre, lui, n'est pas touché : c'est le fichier partagé avec le
+     * rendu en partie, et le laisser tranquille est ce qui garantit qu'ils ne divergent
+     * pas.
+     *
+     * <p><b>Et le dessin lit la table du contrôleur</b>, celle-là même que le hit-test
+     * interroge. Le concepteur passait au peintre les dimensions de la fenêtre
+     * <i>garantie</i> — 320×180 en dur — pendant que le clic, lui, résolvait à la taille
+     * simulée : dès qu'on quittait le préréglage le plus petit, on cliquait à côté de ce
+     * qu'on voyait, et les ancres comme les pourcentages étaient dessinés faux. Partager
+     * les mêmes paramètres n'aurait pas suffi ; partager la même table le garantit.
+     */
+    private void paintScreen(GuiGraphics g, Font font, Screen screen) {
+        g.pose().pushMatrix();
+        g.pose().translate((float) surface.originX(), (float) surface.originY());
+        g.pose().scale((float) surface.zoom(), (float) surface.zoom());
         // forceVisible : en conception, un élément masqué doit rester manipulable —
         // sinon le rendre invisible reviendrait à le perdre.
-        ScreenPainter.paint(g, font, screen, surface.left(), surface.top(), surface.scale(),
-                Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT, new ScreenPainter.Visuals() {
+        ScreenPainter.paint(g, font, screen, controller.rects(), 0, 0, 1,
+                new ScreenPainter.Visuals() {
                     @Override
                     public boolean forceVisible(String element) {
                         return true;
@@ -155,16 +234,7 @@ public final class ScreenDesignerWidget {
                         return previewOf(element);
                     }
                 });
-        renderOverflow(g, screen);
-        renderSelection(g, screen);
-        renderGuides(g);
-        if (controller.gesture() == ScreenCanvasController.Gesture.RUBBER) {
-            ScreenLayout.Rect band = controller.rubberBand();
-            g.fill(surface.toScreenX(band.x()), surface.toScreenY(band.y()),
-                    surface.toScreenX(band.right()), surface.toScreenY(band.bottom()),
-                    RUBBER_FILL);
-        }
-        g.disableScissor();
+        g.pose().popMatrix();
     }
 
     /**
@@ -199,24 +269,21 @@ public final class ScreenDesignerWidget {
      * verrait jamais. Or c'est ici, au moment du geste, que l'information sert — après
      * coup, elle arrive sous forme de rapport de bug d'un joueur en <i>GUI scale</i> 4.
      */
-
     private void renderOverflow(GuiGraphics g, Screen screen) {
         // La zone garantie se mesure toujours à 320×180, quelle que soit la taille
         // simulée du canevas : c'est la fenêtre du joueur le moins bien loti.
-        var placed = ScreenLayout.solve(screen, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+        var guaranteed = ScreenLayout.solve(screen, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+        // Le cerne se DESSINE là où l'élément est sur le canevas courant, alors qu'il se
+        // DÉCIDE sur la fenêtre garantie. Les deux tables sont donc nécessaires : le
+        // rectangle de la garantie servait aux deux, si bien qu'à 960×540 l'orange
+        // apparaissait à un endroit sans rapport avec l'élément qu'il désignait.
+        var current = controller.rects();
         for (ScreenElement element : screen.elements().values()) {
-            ScreenLayout.Rect rect = placed.get(element.name());
+            ScreenLayout.Rect rect = guaranteed.get(element.name());
             if (rect == null || !fr.blueprint.core.graph.ScreenRules.outsideSafeArea(rect)) {
                 continue;
             }
-            int left = surface.toScreenX(rect.x());
-            int topPx = surface.toScreenY(rect.y());
-            int right = surface.toScreenX(rect.right());
-            int bottom = surface.toScreenY(rect.bottom());
-            g.fill(left, topPx, right, topPx + 1, OVERFLOW);
-            g.fill(left, bottom - 1, right, bottom, OVERFLOW);
-            g.fill(left, topPx, left + 1, bottom, OVERFLOW);
-            g.fill(right - 1, topPx, right, bottom, OVERFLOW);
+            outline(g, current.get(element.name()), OVERFLOW);
         }
     }
 
@@ -225,18 +292,7 @@ public final class ScreenDesignerWidget {
         // vingt éléments sélectionnés en auraient donc lancé vingt par image.
         var placed = controller.rects();
         for (String name : controller.selection().ids()) {
-            ScreenLayout.Rect rect = placed.get(name);
-            if (rect == null) {
-                continue;
-            }
-            int left = surface.toScreenX(rect.x());
-            int topPx = surface.toScreenY(rect.y());
-            int right = surface.toScreenX(rect.right());
-            int bottom = surface.toScreenY(rect.bottom());
-            g.fill(left, topPx, right, topPx + 1, SELECTED);
-            g.fill(left, bottom - 1, right, bottom, SELECTED);
-            g.fill(left, topPx, left + 1, bottom, SELECTED);
-            g.fill(right - 1, topPx, right, bottom, SELECTED);
+            outline(g, placed.get(name), SELECTED);
         }
         if (controller.selection().size() != 1) {
             return;
@@ -256,6 +312,25 @@ public final class ScreenDesignerWidget {
         }
     }
 
+    /**
+     * Un liseré d'UN pixel, quel que soit le zoom — d'où le tracé hors de la matrice.
+     * À l'intérieur, il grossirait avec le reste : huit pixels d'épaisseur au zoom le
+     * plus serré, soit un cadre qui masque ce qu'il désigne.
+     */
+    private void outline(GuiGraphics g, ScreenLayout.@Nullable Rect rect, int colour) {
+        if (rect == null) {
+            return;
+        }
+        int left = surface.toScreenX(rect.x());
+        int topPx = surface.toScreenY(rect.y());
+        int right = surface.toScreenX(rect.right());
+        int bottom = surface.toScreenY(rect.bottom());
+        g.fill(left, topPx, right, topPx + 1, colour);
+        g.fill(left, bottom - 1, right, bottom, colour);
+        g.fill(left, topPx, left + 1, bottom, colour);
+        g.fill(right - 1, topPx, right, bottom, colour);
+    }
+
     private void renderGuides(GuiGraphics g) {
         for (AlignmentGuides.Guide guide : controller.guides()) {
             if (guide.vertical()) {
@@ -270,28 +345,75 @@ public final class ScreenDesignerWidget {
         }
     }
 
+    // ------------------------------------------------------------- barre du bas
+
     /**
-     * Le sélecteur de taille de fenêtre — le cœur de ce qui manquait.
+     * Une case cliquable de la barre du bas. Le rendu et le clic <b>partagent la même
+     * liste</b> : chacun recalculait ses abscisses de son côté, et le moindre libellé
+     * traduit plus long décalait les clics d'une case sans que rien ne le dise.
+     */
+    private record BarChip(String label, int x, int width, boolean active, Runnable onClick) {
+    }
+
+    /**
+     * Le sélecteur de taille de fenêtre, les commandes de zoom et les repères.
      *
      * <p>Une ancre et un pourcentage ne veulent rien dire tant qu'on ne les voit pas
      * bouger. Concevoir toujours à 320×180 revenait à écrire une mise en page adaptative
      * sans jamais redimensionner la fenêtre : on découvrait le résultat en jeu, chez
      * quelqu'un d'autre.
+     *
+     * <p>Les préréglages ne portent que leur <b>largeur</b> : six tailles écrites en
+     * entier n'entrent pas dans une fenêtre de 640, et la hauteur s'en déduit — elles sont
+     * toutes en 16:9. La taille courante, elle, est écrite en entier dans les repères.
      */
-    private void renderViewportBar(GuiGraphics g, Font font) {
-        int y = height - ROW - 2;
-        int x = PALETTE_WIDTH + 4;
-        g.drawString(font, I18n.get("blueprint.designer.viewport"), x, y, DIM_TEXT, false);
-        x += font.width(I18n.get("blueprint.designer.viewport")) + 6;
+    private List<BarChip> barChips(Font font) {
+        List<BarChip> chips = new java.util.ArrayList<>();
+        int x = panels.canvasLeft() + 4
+                + font.width(I18n.get("blueprint.designer.viewport")) + 6;
         var current = controller.viewportPreset();
         for (var viewport : ScreenCanvasController.Viewport.values()) {
-            String label = viewport.width() + "×" + viewport.height();
-            g.drawString(font, label, x, y, viewport == current ? SELECTED : TEXT, false);
-            x += font.width(label) + 8;
+            String label = String.valueOf(viewport.width());
+            int w = font.width(label) + 6;
+            chips.add(new BarChip(label, x, w, viewport == current,
+                    () -> setViewport(viewport)));
+            x += w;
         }
-        // « écran » : la taille réelle du joueur, celle qu'il a sous les yeux.
-        g.drawString(font, I18n.get("blueprint.designer.viewport_mine"), x, y,
-                current == null ? SELECTED : TEXT, false);
+        String mine = I18n.get("blueprint.designer.viewport_mine");
+        int mineWidth = font.width(mine) + 8;
+        chips.add(new BarChip(mine, x, mineWidth, current == null,
+                () -> setViewport(playerViewportWidth, playerViewportHeight)));
+        x += mineWidth + 6;
+
+        // Les commandes de zoom. Elles doublent la molette plutôt que de la remplacer :
+        // la molette se découvre en essayant, un bouton se découvre en regardant.
+        chips.add(new BarChip("−", x, font.width("−") + 6, false, () -> zoomBy(-1)));
+        x += font.width("−") + 6;
+        String percent = Math.round(surface.zoom() * 100) + "%";
+        chips.add(new BarChip(percent, x, font.width(percent) + 6, false,
+                () -> zoomTo(DesignCamera.ONE_TO_ONE)));
+        x += font.width(percent) + 6;
+        chips.add(new BarChip("+", x, font.width("+") + 6, false, () -> zoomBy(1)));
+        x += font.width("+") + 8;
+        String frame = I18n.get("blueprint.designer.zoom_fit");
+        chips.add(new BarChip(frame, x, font.width(frame) + 8, false, () -> needsFit = true));
+        return List.copyOf(chips);
+    }
+
+    private void renderViewportBar(GuiGraphics g, Font font) {
+        int y = height - ROW - 2;
+        g.drawString(font, I18n.get("blueprint.designer.viewport"),
+                panels.canvasLeft() + 4, y, DIM_TEXT, false);
+        for (BarChip chip : barChips(font)) {
+            g.drawString(font, chip.label(), chip.x(), y, chip.active() ? SELECTED : TEXT, false);
+        }
+
+        // Les repères : où est le curseur, et ce que mesure la sélection. Poser une
+        // valeur précise se faisait à l'aveugle, ou en ouvrant le panneau de droite.
+        int right = width - panels.propertiesWidth() - 4;
+        String readout = readout();
+        g.drawString(font, readout, Math.max(panels.canvasLeft() + 4,
+                right - font.width(readout)), y - ROW, DIM_TEXT, false);
 
         // Les packs dont l'écran dépend (10.5, AC5), déduits de ses textures. En rouge
         // ceux qui ne sont PAS installés ici : l'auteur voit ainsi, en concevant, ce que
@@ -299,8 +421,8 @@ public final class ScreenDesignerWidget {
         Screen screen = controller.screen();
         if (screen != null && !screen.requiredPacks().isEmpty()) {
             var installed = fr.blueprint.client.pack.PackTextures.packs().keySet();
-            int px = PALETTE_WIDTH + 4;
-            int py = y - ROW;
+            int px = panels.canvasLeft() + 4;
+            int py = y - ROW * 2;   // au-dessus des repères, qui occupent la ligne y − ROW
             String label = I18n.get("blueprint.designer.packs", "");
             g.drawString(font, label, px, py, DIM_TEXT, false);
             px += font.width(label) + 2;
@@ -311,36 +433,87 @@ public final class ScreenDesignerWidget {
         }
     }
 
-    /** Le clic dans la barre de tailles ; faux si le point est ailleurs. */
+    /** La taille simulée, la position du curseur, et le rectangle de la sélection. */
+    private String readout() {
+        StringBuilder out = new StringBuilder();
+        out.append((int) controller.viewportWidth()).append('×')
+                .append((int) controller.viewportHeight());
+        if (surface.contains(mouseX, mouseY)) {
+            out.append("   ").append((int) Math.floor(surface.toDesignX(mouseX)))
+                    .append(", ").append((int) Math.floor(surface.toDesignY(mouseY)));
+        }
+        if (controller.selection().size() == 1) {
+            ScreenLayout.Rect rect =
+                    controller.rects().get(controller.selection().ids().iterator().next());
+            if (rect != null) {
+                out.append("   ").append(Math.round(rect.width())).append('×')
+                        .append(Math.round(rect.height()));
+            }
+        }
+        return out.toString();
+    }
+
+    /** Le clic dans la barre du bas ; faux si le point est ailleurs. */
     private boolean clickViewport(double mx, double my, Font font) {
         int y = height - ROW - 2;
         if (my < y || my >= y + ROW) {
             return false;
         }
-        int x = PALETTE_WIDTH + 4 + font.width(I18n.get("blueprint.designer.viewport")) + 6;
-        for (var viewport : ScreenCanvasController.Viewport.values()) {
-            int w = font.width(viewport.width() + "×" + viewport.height()) + 8;
-            if (mx >= x && mx < x + w) {
-                controller.setViewport(viewport);
+        for (BarChip chip : barChips(font)) {
+            if (mx >= chip.x() && mx < chip.x() + chip.width()) {
+                chip.onClick().run();
                 return true;
             }
-            x += w;
-        }
-        int w = font.width(I18n.get("blueprint.designer.viewport_mine"));
-        if (mx >= x && mx < x + w) {
-            controller.setViewport(playerViewportWidth, playerViewportHeight);
-            return true;
         }
         return true;   // la barre absorbe le clic : rien derrière elle
+    }
+
+    private void setViewport(ScreenCanvasController.Viewport viewport) {
+        controller.setViewport(viewport);
+        needsFit = true;   // changer de fenêtre sans recadrer laisserait hors de la vue
+    }
+
+    private void setViewport(double w, double h) {
+        controller.setViewport(w, h);
+        needsFit = true;
+    }
+
+    /** Le zoom pivote sur le curseur s'il est sur la zone, sinon sur son centre. */
+    private void zoomBy(int steps) {
+        double[] pivot = pivot();
+        camera.zoomBy(steps, pivot[0], pivot[1]);
+    }
+
+    private void zoomTo(double target) {
+        double[] pivot = pivot();
+        camera.zoomTo(target, pivot[0], pivot[1]);
+    }
+
+    private double[] pivot() {
+        boolean onArea = mouseX >= areaLeft && mouseX < areaLeft + areaWidth
+                && mouseY >= areaTop && mouseY < areaTop + areaHeight;
+        return onArea
+                ? new double[]{mouseX - areaLeft, mouseY - areaTop}
+                : new double[]{areaWidth / 2.0, areaHeight / 2.0};
     }
 
     /** La taille réelle de la fenêtre du joueur, en unités — relevée à chaque image. */
     private int playerViewportWidth = Screen.SAFE_WIDTH;
     private int playerViewportHeight = Screen.SAFE_HEIGHT;
 
+    // ------------------------------------------------------------------ palette
+
     private void renderPalette(GuiGraphics g, Font font) {
-        g.fill(0, top, PALETTE_WIDTH, height, PANEL_BACKGROUND);
-        g.fill(PALETTE_WIDTH - 1, top, PALETTE_WIDTH, height, PANEL_BORDER);
+        int panelWidth = panels.paletteWidth();
+        g.fill(0, top, panelWidth, height, PANEL_BACKGROUND);
+        g.fill(panelWidth - 1, top, panelWidth, height, PANEL_BORDER);
+        // Le chevron : replié, un panneau qui ne laisse aucune prise ne se rouvre qu'en
+        // devinant qu'un raccourci existe.
+        g.drawString(font, panels.paletteOpen() ? "‹" : "›",
+                panelWidth - 5, top + 3, DIM_TEXT, false);
+        if (!panels.paletteOpen()) {
+            return;
+        }
 
         int y = top + 3;
         g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.screens"), PALETTE_LABEL), 4, y, DIM_TEXT, false);
@@ -446,6 +619,8 @@ public final class ScreenDesignerWidget {
     private static String kindKey(ElementKind kind) {
         return "blueprint.designer.kind." + kind.name().toLowerCase(java.util.Locale.ROOT);
     }
+
+    // -------------------------------------------------------------- propriétés
 
     /**
      * Une zone cliquable du panneau. Le rendu et le clic <b>partagent la même liste</b> :
@@ -693,9 +868,14 @@ public final class ScreenDesignerWidget {
     }
 
     private void renderProperties(GuiGraphics g, Font font) {
-        int left = width - PROPERTIES_WIDTH;
+        int left = width - panels.propertiesWidth();
         g.fill(left, top, width, height, PANEL_BACKGROUND);
         g.fill(left, top, left + 1, height, PANEL_BORDER);
+        g.drawString(font, panels.propertiesOpen() ? "›" : "‹", left + 1, top + 3,
+                DIM_TEXT, false);
+        if (!panels.propertiesOpen()) {
+            return;
+        }
 
         if (properties.element() == null) {
             g.drawString(font, I18n.get("blueprint.designer.no_selection"), left + 4, top + 4,
@@ -748,13 +928,28 @@ public final class ScreenDesignerWidget {
             return false;
         }
         message = null;
+        // Le bouton du milieu, ou Espace + gauche : le déplacement de vue, exactement
+        // comme dans l'onglet Graphe. Un seul jeu de réflexes pour les deux.
+        if (e.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
+                || (spaceDown && e.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)) {
+            panning = true;
+            return true;
+        }
         if (clickViewport(mx, my, net.minecraft.client.Minecraft.getInstance().font)) {
             return true;
         }
-        if (mx < PALETTE_WIDTH) {
+        if (panels.onPaletteToggle(mx)) {
+            panels = panels.withPalette(!panels.paletteOpen());
+            return true;
+        }
+        if (panels.onPropertiesToggle(mx, width)) {
+            panels = panels.withProperties(!panels.propertiesOpen());
+            return true;
+        }
+        if (panels.inPalette(mx)) {
             return clickPalette(my);
         }
-        if (mx >= width - PROPERTIES_WIDTH) {
+        if (panels.inProperties(mx, width)) {
             return clickProperties(mx, my);
         }
         if (!surface.contains(mx, my)) {
@@ -802,10 +997,7 @@ public final class ScreenDesignerWidget {
         y += SECTION_GAP + ROW;
         for (ElementKind kind : ElementKind.values()) {
             if (my >= y && my < y + ROW) {
-                // Posé au centre de la surface : l'auteur le traîne ensuite où il veut,
-                // plutôt que de deviner un point de dépôt qu'il n'a pas indiqué.
-                if (controller.addElement(kind, Screen.SAFE_WIDTH / 2.0,
-                        Screen.SAFE_HEIGHT / 2.0) == null) {
+                if (controller.addElement(kind, dropX(), dropY()) == null) {
                     reportRefusal();
                 }
                 return true;
@@ -825,6 +1017,22 @@ public final class ScreenDesignerWidget {
             }
         }
         return true;
+    }
+
+    /**
+     * Où poser un élément : le centre de ce qu'on <b>voit</b>.
+     *
+     * <p>C'était le centre des 320×180 garantis, en dur, quelle que soit la taille
+     * simulée. Sur un canevas de 1920×1080, l'élément atterrissait donc au douzième
+     * supérieur gauche — et zoomé sur un coin, hors de la vue, ce qui donne l'impression
+     * que le clic n'a rien fait.
+     */
+    private double dropX() {
+        return camera.toUnitX(areaWidth / 2.0);
+    }
+
+    private double dropY() {
+        return camera.toUnitY(areaHeight / 2.0);
     }
 
     /** L'écran en cours de renommage, et ce qui est tapé. */
@@ -854,7 +1062,7 @@ public final class ScreenDesignerWidget {
         if (properties.element() == null) {
             return true;
         }
-        double local = mx - (width - PROPERTIES_WIDTH);
+        double local = mx - (width - panels.propertiesWidth());
         for (Row row : propertyRows()) {
             if (my < row.y() - 1 || my >= row.y() + ROW - 1) {
                 continue;
@@ -875,6 +1083,10 @@ public final class ScreenDesignerWidget {
     }
 
     public boolean mouseDragged(MouseButtonEvent e, double dx, double dy) {
+        if (panning) {
+            camera.panByScreen(dx, dy);
+            return true;
+        }
         if (controller.gesture() == ScreenCanvasController.Gesture.NONE) {
             return false;
         }
@@ -883,11 +1095,29 @@ public final class ScreenDesignerWidget {
     }
 
     public boolean mouseReleased(MouseButtonEvent e) {
+        if (panning) {
+            panning = false;
+            return true;
+        }
         if (controller.gesture() == ScreenCanvasController.Gesture.NONE) {
             return false;
         }
         controller.release();
         reportRefusal();
+        return true;
+    }
+
+    /**
+     * La molette zoome, pivot sous le curseur. Elle n'arrivait pas jusqu'ici : l'écran
+     * de l'éditeur ne la routait que vers le canevas de nœuds.
+     */
+    public boolean mouseScrolled(double mx, double my, double amount) {
+        if (amount == 0 || my < top) {
+            return false;
+        }
+        this.mouseX = mx;
+        this.mouseY = my;
+        zoomBy(amount > 0 ? 1 : -1);
         return true;
     }
 
@@ -900,6 +1130,11 @@ public final class ScreenDesignerWidget {
     // ------------------------------------------------------------------ clavier
 
     public boolean keyPressed(KeyEvent e) {
+        if (e.key() == GLFW.GLFW_KEY_SPACE && renamingScreen == null
+                && properties.editing() == null) {
+            spaceDown = true;
+            return true;
+        }
         if (renamingScreen != null) {
             return screenNameKey(e);
         }
@@ -925,6 +1160,32 @@ public final class ScreenDesignerWidget {
                     yield false;
                 }
                 controller.selection().clear();
+                yield true;
+            }
+            // Le cadrage et les crans de zoom, aux mêmes touches que l'onglet Graphe.
+            case GLFW.GLFW_KEY_F -> {
+                needsFit = true;
+                yield true;
+            }
+            case GLFW.GLFW_KEY_EQUAL -> {
+                zoomBy(1);
+                yield true;
+            }
+            case GLFW.GLFW_KEY_MINUS -> {
+                zoomBy(-1);
+                yield true;
+            }
+            case GLFW.GLFW_KEY_0 -> {
+                if (!e.hasControlDown()) {
+                    yield false;
+                }
+                zoomTo(DesignCamera.ONE_TO_ONE);
+                yield true;
+            }
+            // Replier les deux panneaux : un tiers de la largeur rendu au canevas, le
+            // temps de placer, et retrouvé d'une même touche pour régler.
+            case GLFW.GLFW_KEY_TAB -> {
+                panels = panels.toggledBoth();
                 yield true;
             }
             case GLFW.GLFW_KEY_D -> control(e, controller::duplicateSelection);
@@ -969,6 +1230,15 @@ public final class ScreenDesignerWidget {
             }
             default -> false;
         };
+    }
+
+    /** Sans cela, Espace resterait enfoncé pour toujours et le clic ne poserait plus rien. */
+    public boolean keyReleased(KeyEvent e) {
+        if (e.key() == GLFW.GLFW_KEY_SPACE) {
+            spaceDown = false;
+            return true;
+        }
+        return false;
     }
 
     private boolean nudge(double dx, double dy) {

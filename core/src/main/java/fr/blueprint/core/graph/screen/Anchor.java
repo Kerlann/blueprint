@@ -32,6 +32,24 @@ public enum Anchor {
         this.fy = fy;
     }
 
+    /**
+     * L'ancre d'une case de la grille 3×3, {@code (0, 0)} en haut à gauche.
+     *
+     * <p>La formule {@code values()[ligne * 3 + colonne]} vivait recopiée dans le panneau
+     * de propriétés et dans le concepteur. Deux copies d'une correspondance entre un
+     * ordre d'énumération et une grille : il aurait suffi d'insérer une valeur dans
+     * l'énumération pour que l'une des deux désigne autre chose que l'autre, sans que
+     * rien ne le dise.
+     */
+    public static Anchor of(int column, int row) {
+        return values()[Math.clamp(row, 0, 2) * 3 + Math.clamp(column, 0, 2)];
+    }
+
+    /** La case de la grille 3×3 où cette ancre se trouve, {@code [colonne, ligne]}. */
+    public int[] cell() {
+        return new int[]{ordinal() % 3, ordinal() / 3};
+    }
+
     /** Fraction horizontale du parent : 0 à gauche, 0,5 au centre, 1 à droite. */
     public double fractionX() {
         return fx;

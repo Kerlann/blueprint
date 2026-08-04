@@ -11,19 +11,29 @@ import fr.blueprint.core.graph.screen.Screen;
  * l'auteur clique à côté de ce qu'il voit. C'est la leçon de la story 5.12, où le tracé
  * d'un fil et son hit-test partagent le même {@code controlOffset} pour cette raison.
  *
- * <p>Le facteur d'échelle est un <b>entier</b> : Minecraft dessine des textures et du
- * texte alignés sur les pixels, et une échelle fractionnaire donne des bords baveux et
- * un texte flou — l'aperçu cesserait de ressembler au résultat.
+ * <p>Le facteur d'échelle était un <b>entier</b>, au nom de la netteté : Minecraft aligne
+ * ses textures et son texte sur les pixels, et une échelle fractionnaire donne des bords
+ * baveux. L'argument tenait tant que le peintre multipliait des entiers ; il ne tient plus
+ * depuis que le dessin passe par une matrice, où tout est mis à l'échelle d'un bloc — et
+ * il ne tenait de toute façon pas devant le besoin réel : <b>aucun</b> facteur entier ne
+ * montre 1920 unités dans les ~420 pixels que laissent les panneaux. Le zoom est donc un
+ * réel, et {@link DesignCamera} le porte.
  *
  * <p>La taille du canevas, elle, est <b>choisie</b> : c'est la fenêtre qu'on simule.
  * Elle valait 320×180 en dur — la plus petite possible — donc on concevait toujours
  * dans le pire cas sans jamais voir ce que les ancres et les pourcentages donnent à la
  * taille réelle d'un joueur, alors que c'est précisément ce qu'ils expriment.
+ *
+ * <p>{@code originX}/{@code originY} sont le pixel <b>réel</b> de l'unité 0 — un réel,
+ * parce qu'à zoom 0,35 l'origine tombe entre deux pixels et l'arrondir à chaque image
+ * ferait vibrer tout le canevas d'un pixel pendant un déplacement de vue. Les bords
+ * publiés ({@link #left()}, {@link #right()}…) sont eux des entiers, tous dérivés de la
+ * <b>même</b> conversion : {@code right()} vaut {@code toScreenX(unitsWidth)} et non
+ * {@code left() + largeur}, sans quoi les deux arrondis pourraient différer d'un pixel et
+ * le cadre ne coïnciderait plus avec ce qu'il encadre.
  */
-public record DesignSurface(int left, int top, int scale, int unitsWidth, int unitsHeight) {
-
-    /** L'aperçu occupe la place disponible sans jamais dépasser ce grossissement. */
-    public static final int MAX_SCALE = 6;
+public record DesignSurface(double originX, double originY, double zoom,
+                            int unitsWidth, int unitsHeight) {
 
     /**
      * Marge visible autour de la zone garantie, en unités.
@@ -37,9 +47,16 @@ public record DesignSurface(int left, int top, int scale, int unitsWidth, int un
     public static final int MARGIN = 24;
 
     /**
-     * Centre la surface dans le rectangle donné, au plus grand facteur entier qui tient
-     * — <b>marge comprise</b>.
+     * La surface que donne cette caméra dans cette zone. C'est le seul chemin employé par
+     * le widget : la caméra décide, la surface convertit.
      */
+    public static DesignSurface of(DesignCamera camera, int areaLeft, int areaTop,
+                                   int unitsWidth, int unitsHeight) {
+        return new DesignSurface(areaLeft + camera.toLocalX(0), areaTop + camera.toLocalY(0),
+                camera.zoom(), unitsWidth, unitsHeight);
+    }
+
+    /** Centre la zone garantie dans le rectangle donné, marge comprise. */
     public static DesignSurface fit(int areaLeft, int areaTop, int areaWidth, int areaHeight) {
         return fit(areaLeft, areaTop, areaWidth, areaHeight,
                 Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
@@ -47,76 +64,91 @@ public record DesignSurface(int left, int top, int scale, int unitsWidth, int un
 
     /**
      * Centre un canevas de {@code unitsWidth} × {@code unitsHeight} unités, marge
-     * comprise, au plus grand facteur entier qui tient.
+     * comprise, au plus grand zoom qui tient.
      *
      * <p>La taille du canevas est CHOISIE : c'est la fenêtre qu'on simule. Elle valait
      * 320×180 en dur, donc on concevait toujours dans le pire cas sans jamais voir ce
      * que les ancres et les pourcentages donnent ailleurs.
-     *
-     * <p>Une échelle fractionnaire est possible ici, contrairement à avant : un canevas
-     * de 960 unités dans une fenêtre de 900 pixels ne tiendrait à aucun facteur entier.
-     * On retombe alors sur 1 et l'on découpe — mieux vaut voir une partie à la bonne
-     * taille qu'un tout à une taille fausse.
      */
     public static DesignSurface fit(int areaLeft, int areaTop, int areaWidth, int areaHeight,
                                     int unitsWidth, int unitsHeight) {
-        int outerUnitsW = unitsWidth + MARGIN * 2;
-        int outerUnitsH = unitsHeight + MARGIN * 2;
-        int scale = Math.clamp(Math.min(areaWidth / outerUnitsW, areaHeight / outerUnitsH),
-                1, MAX_SCALE);
-        return new DesignSurface(
-                areaLeft + Math.max(0, areaWidth - outerUnitsW * scale) / 2 + MARGIN * scale,
-                areaTop + Math.max(0, areaHeight - outerUnitsH * scale) / 2 + MARGIN * scale,
-                scale, unitsWidth, unitsHeight);
+        DesignCamera camera = new DesignCamera();
+        camera.fit(areaWidth, areaHeight, unitsWidth, unitsHeight);
+        return of(camera, areaLeft, areaTop, unitsWidth, unitsHeight);
+    }
+
+    // ------------------------------------------------------------------- les bords
+
+    public int left() {
+        return toScreenX(0);
+    }
+
+    public int top() {
+        return toScreenY(0);
+    }
+
+    public int right() {
+        return toScreenX(unitsWidth);
+    }
+
+    public int bottom() {
+        return toScreenY(unitsHeight);
     }
 
     /** Le bord de la zone dessinée, marge comprise — ce que le widget découpe. */
     public int outerLeft() {
-        return left - MARGIN * scale;
+        return toScreenX(-MARGIN);
     }
 
     public int outerTop() {
-        return top - MARGIN * scale;
+        return toScreenY(-MARGIN);
     }
 
     public int outerRight() {
-        return right() + MARGIN * scale;
+        return toScreenX(unitsWidth + MARGIN);
     }
 
     public int outerBottom() {
-        return bottom() + MARGIN * scale;
+        return toScreenY(unitsHeight + MARGIN);
     }
 
     public int width() {
-        return unitsWidth * scale;
+        return right() - left();
     }
 
     public int height() {
-        return unitsHeight * scale;
+        return bottom() - top();
     }
 
-    public int right() {
-        return left + width();
-    }
-
-    public int bottom() {
-        return top + height();
-    }
+    // ------------------------------------------------------------ les conversions
 
     public double toDesignX(double screenX) {
-        return (screenX - left) / (double) scale;
+        return (screenX - originX) / zoom;
     }
 
     public double toDesignY(double screenY) {
-        return (screenY - top) / (double) scale;
+        return (screenY - originY) / zoom;
     }
 
     public int toScreenX(double designX) {
-        return left + (int) Math.round(designX * scale);
+        return (int) Math.round(originX + designX * zoom);
     }
 
     public int toScreenY(double designY) {
-        return top + (int) Math.round(designY * scale);
+        return (int) Math.round(originY + designY * zoom);
+    }
+
+    /**
+     * Une longueur en unités, convertie en pixels. Sert aux tolérances de geste, qui se
+     * pensent en pixels — une poignée doit s'attraper aussi facilement à tous les zooms.
+     */
+    public double toPixels(double units) {
+        return units * zoom;
+    }
+
+    /** L'inverse : combien d'unités valent ce nombre de pixels au zoom courant. */
+    public double toUnits(double pixels) {
+        return pixels / zoom;
     }
 
     /**
@@ -140,6 +172,6 @@ public record DesignSurface(int left, int top, int scale, int unitsWidth, int un
      * orange du concepteur qui la montre.
      */
     public boolean insideCanvas(double screenX, double screenY) {
-        return screenX >= left && screenX < right() && screenY >= top && screenY < bottom();
+        return screenX >= left() && screenX < right() && screenY >= top() && screenY < bottom();
     }
 }

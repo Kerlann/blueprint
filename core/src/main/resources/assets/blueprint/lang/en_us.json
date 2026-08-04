@@ -510,6 +510,7 @@
   "blueprint.node.blueprint.hud/hide_all.name": "Hide all HUDs",
   "blueprint.designer.viewport": "Window:",
   "blueprint.designer.viewport_mine": "mine",
+  "blueprint.designer.zoom_fit": "fit",
   "blueprint.designer.field.gap": "Gap",
   "blueprint.designer.field.cross_gap": "Row gap",
   "blueprint.designer.field.columns": "Columns",

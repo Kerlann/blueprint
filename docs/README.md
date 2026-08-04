@@ -19,7 +19,7 @@ Dossier de planification suivant la **méthode BMAD** (Analyst → PM → Archit
 | [`bscript-spec.md`](bscript-spec.md) | Architect | Grammaire du langage généré et correspondance avec le graphe |
 | [`extension-api.md`](extension-api.md) | Architect | **Contrat d'intégration pour les mods tiers** |
 | [`stories/`](stories/) | SM | Stories prêtes pour l'agent Dev |
-| [`session-de-verification.md`](session-de-verification.md) | QA | **Ce qui reste à voir en jeu** : 30 points en quatre blocs, une heure |
+| [`session-de-verification.md`](session-de-verification.md) | QA | **Ce qui reste à voir en jeu** : 31 points en quatre blocs, une heure |
 
 Configuration : [`../.bmad-core/core-config.yaml`](../.bmad-core/core-config.yaml)
 
@@ -65,7 +65,7 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 8 | **Intégration des mods tiers** | 8.1 → 8.5 | **Complet** — 5 gates PASS (3 medium + 1 low corrigés en review dont une violation d'AC : un JSON au mauvais type emportait tout le rechargement) ; annotation `@BlueprintNode`, nœuds composites de datapack rechargeables, fantômes prouvés de bout en bout, couche de compatibilité et surface d'API verrouillée par un test |
 | 9 | **Débogage, performance, finition** | 9.1a, 9.1b, 9.2, 9.3, 9.4, 9.5 | **Complet** — 6 gates PASS (1 medium NFR11 + 3 medium débogueur corrigés en review) ; débogueur pas-à-pas visible dans l'éditeur, profileur par nœud, quotas configurables + audit ADMIN, i18n vérifiée par les sources, palette daltonienne à cinq formes, guide joueur et référence générée |
 | 4 | 4.2b (sucre BScript) | — | **Reste v1.1** — seul morceau du PRD non livré, consigné dans la story 4.1-4.3 |
-| 10 | **Interfaces graphiques** | 10.1 → 10.10 | **Complet** — 10 gates PASS. Modèle d'écran, concepteur, ouverture et rendu, boutons câblés, packs d'images échangeables, quotas et clavier, liaison de données, éléments riches, HUD permanent, et **10.10** née de l'usage : conteneurs qui rangent, tailles `fill`/`hug`, styles nommés. Deux défauts que seule la mesure a trouvés : une bordure par défaut invisible (1,74:1) et des libellés qui recouvraient déjà les champs |
+| 10 | **Interfaces graphiques** | 10.1 → 10.11 | **Complet** — 11 gates PASS. Modèle d'écran, concepteur, ouverture et rendu, boutons câblés, packs d'images échangeables, quotas et clavier, liaison de données, éléments riches, HUD permanent, **10.10** née de l'usage (conteneurs qui rangent, tailles `fill`/`hug`, styles nommés) et **10.11** de même (zoom sur le curseur, canevas 1920×1080, panneaux repliables). Quatre défauts que seule la mesure a trouvés : une bordure par défaut invisible (1,74:1), des libellés qui recouvraient déjà les champs, un concepteur qui **peignait à 320×180 pendant que le clic résolvait ailleurs**, et une ancre laissée en haut à gauche à la création — celle qui envoyait hors écran tout élément posé sur un grand canevas |
 
 **Feuille de route éditeur (ordre recommandé)** :
 1. **5.2b** littéraux inline (éditer les valeurs sur le nœud) → 2. **5.6a** annuler/rétablir (avant les grosses features, tout naît annulable) → 3. **5.9** éditer/enregistrer/tester un VRAI blueprint en solo (`Ctrl+S`, la story qui rend l'éditeur utile) → 4. **5.6b** barre d'outils + compilation à la volée + diagnostics cliquables → 5. **5.5** panneau des variables + nœuds var/get-set (⚠ touche `core`) → 6. **5.8** copier/coller/dupliquer via BScript (⚠ touche `core/script`) → 7. **5.10** panneau de détails → 8. **5.4b** palette récents/favoris/catégories/Espace → 9. **5.2c** sélecteurs riches (item, bloc, position) → 10. **5.11** vue script → 11. **5.7** confort (commentaires, alignement, minimap, thème JSON).
@@ -75,17 +75,21 @@ ci-dessous et dans le v1.1 consigné story par story (sucre BScript 4.2b, patchs
 opération et multi-éditeur 6.3, processeur d'annotations 8.1, corps BScript de
 datapack 8.2).
 
-**L'épic 10 (interfaces graphiques) est livré** : **dix** stories, de la structure de
+**L'épic 10 (interfaces graphiques) est livré** : **onze** stories, de la structure de
 données au concepteur à la souris, jusqu'aux listes défilantes, aux champs de saisie et
 au HUD permanent. Il ouvre un second type de document éditable dans le produit — c'est
 un épic, pas une story, et il a été découpé comme tel.
 
-La dixième, **10.10**, n'était pas au plan : l'usage réel a montré que tout se plaçait à
-la main, que rien ne suivait la taille d'écran et que le style se recopiait partout. Elle
-a remplacé la remontée par élément par une passe descendante sur tout l'arbre — le seul
-changement de l'épic qui touche à ce que la 10.1 avait posé.
+Les deux dernières n'étaient pas au plan, et viennent toutes deux de l'usage réel.
+**10.10** : tout se plaçait à la main, rien ne suivait la taille d'écran, le style se
+recopiait partout — elle a remplacé la remontée par élément par une passe descendante sur
+tout l'arbre, le seul changement de l'épic qui touche à ce que la 10.1 avait posé.
+**10.11** : on dessinait sur un timbre-poste sans pouvoir s'en approcher, et un élément
+posé sur un grand canevas partait hors écran chez les autres joueurs. Elle apporte le zoom
+et le déplacement de vue, un canevas de 1920×1080, des panneaux repliables — et l'ancre
+automatique, sans laquelle le grand canevas aurait été un piège.
 
-**Les 65 stories du projet sont closes**, chacune avec son gate PASS.
+**Les 66 stories du projet sont closes**, chacune avec son gate PASS.
 
 > **Relecture finale** : [`rapport-de-fin.md`](rapport-de-fin.md) — l'état complet, ce
 > que la QA a réellement trouvé, ce qui reste, et ce que le harnais ne peut pas garantir.
@@ -93,7 +97,7 @@ changement de l'épic qui touche à ce que la 10.1 avait posé.
 ## Prochaine action : la session en jeu
 
 > **Plan de session** : [`session-de-verification.md`](session-de-verification.md) — les
-> trente points restants, groupés par ce qu'il faut ouvrir plutôt que par numéro de story,
+> trente-et-un points restants, groupés par ce qu'il faut ouvrir plutôt que par numéro de story,
 > avec des cases à cocher. Le nécessaire est déjà en place dans `run/` : exemples, pack
 > d'images, configuration.
 
@@ -138,6 +142,7 @@ et l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | V28 | HUD permanent (10.9) | `hud/show` : le bandeau s'affiche et **on continue de jouer** — marcher, frapper, ouvrir son inventaire ; deux HUD à la fois ; **F7** les retire tous ; désactiver le blueprint retire le sien |
 | V31 | Liaison de données (10.7) | lier une étiquette à une variable `argent` avec le format « Or : %s » depuis le panneau (la variable se **choisit**, elle ne se tape pas) ; ouvrir l'écran → il montre déjà le **défaut** de la variable, sans qu'aucun graphe n'ait tourné ; changer la variable puis `gui/refresh` → le texte suit ; **sans** `gui/refresh`, rien ne bouge (c'est voulu) ; forcer par `gui/set_text` → tient jusqu'au rafraîchissement suivant ; lier une barre à `pv` avec mini 0 / maxi 20 ; renommer la variable dans l'éditeur → **erreur** de diagnostic, pas un écran vide |
 | V30 | Packs d'images (10.5) | copier `docs/examples/packs/ma_boutique/` dans `blueprint/scripts/`, `/blueprint-packs reload` → « 1 pack chargé » ; `/blueprint import boutique.bp` puis ouvrir l'écran → le fond et les boutons portent les images ; **renommer le dossier** et recharger → damiers magenta portant « pack ma_boutique absent », le reste du menu intact et cliquable ; remettre le dossier, recharger **sans fermer le menu** → les images reviennent ; déposer un dossier au nom majuscule et un PNG de 4000 px → tous deux écartés et **nommés** dans la commande, le bon pack chargeant quand même |
+| V36 | Zoom et grand canevas (10.11) | onglet **Écrans** : le canevas s'ouvre en **1920×1080 cadré entier**, pas tronqué ni minuscule dans un coin ; molette vers l'avant en visant un bouton → **il reste sous le curseur** en grossissant ; bouton du milieu (ou `Espace` + gauche) → la vue suit la souris et **ne peut pas perdre le canevas** (pousser à fond dans une direction, le canevas est toujours là) ; `F` recadre, `Ctrl+0` revient à 1:1 ; zoomé à 4×, poser un bouton depuis la palette → il atterrit **au centre de ce qu'on voit**, et ses poignées s'attrapent aussi facilement qu'à 1× ; poser un bouton en bas à droite puis basculer sur **320×180** → toujours en bas à droite et **dans l'écran** ; `Tab` replie les deux panneaux (le canevas double) et **cliquer là où était la palette atteint le canevas**, pas un panneau invisible ; zoomer à 2× sur une étiquette au texte tronqué → la troncature est **la même** qu'en jeu (`/blueprint open` pour comparer) ; un **aperçu d'entité** et un **emplacement d'objet** restent dans leur cadre à tous les zooms |
 | V29 | Dispositions et styles (10.10) | poser un panneau, le passer en **colonne**, y déposer trois boutons : ils se rangent seuls, espacés, **sans toucher une coordonnée** ; en insérer un quatrième au milieu → les suivants descendent tout seuls ; le tirer ailleurs dans la colonne le **réordonne** (et ses poignées de largeur ont disparu, elles ne feraient rien) ; basculer 320×180 → 960×540 dans la barre du bas → les proportions tiennent ; créer un style depuis un bouton, l'appliquer aux trois autres, changer sa couleur → les quatre changent ; un panneau en `ajuster` épouse ses enfants ; `Ctrl+S` puis `/blueprint export`, relire le `.bp` (dispositions et bloc `styles` lisibles), réimporter → écran identique |
 
 **Déjà clos** : VERIFY-001/002/003 (session du 2026-08-02, épic 1) et VERIFY-004

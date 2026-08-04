@@ -18,8 +18,19 @@ import java.util.List;
  */
 public final class AlignmentGuides {
 
-    /** Distance d'accroche, en unités d'interface. Au-delà, l'auteur veut vraiment décaler. */
-    public static final double SNAP_DISTANCE = 2.5;
+    /**
+     * Distance d'accroche <b>en pixels</b>. Au-delà, l'auteur veut vraiment décaler.
+     *
+     * <p>Elle valait 2,5 <i>unités</i>, ce qui n'a de sens qu'à 1:1. Depuis que le
+     * concepteur zoome, une accroche exprimée en unités est deux fois trop molle à 0,5
+     * — elle happe ce qu'on essaie de décaler — et quatre fois trop raide à 4, où elle
+     * ne s'attrape plus du tout. Une aide au geste se mesure à l'écran, où le geste a
+     * lieu : les appelants passent donc {@code SNAP_PIXELS / zoom}.
+     */
+    public static final double SNAP_PIXELS = 2.5;
+
+    /** L'accroche à 1:1, c'est-à-dire quand un pixel vaut une unité. */
+    public static final double SNAP_DISTANCE = SNAP_PIXELS;
 
     private AlignmentGuides() {
     }
@@ -40,6 +51,12 @@ public final class AlignmentGuides {
      * image, et l'auteur ne pourrait plus le poser.
      */
     public static Result snap(ScreenLayout.Rect moving, List<ScreenLayout.Rect> neighbours) {
+        return snap(moving, neighbours, SNAP_DISTANCE);
+    }
+
+    /** La même chose, avec la tolérance que le zoom courant impose. */
+    public static Result snap(ScreenLayout.Rect moving, List<ScreenLayout.Rect> neighbours,
+                              double tolerance) {
         Candidate bestX = null;
         Candidate bestY = null;
         for (ScreenLayout.Rect other : neighbours) {
@@ -52,7 +69,7 @@ public final class AlignmentGuides {
                     {moving.right(), other.x()},
                     {moving.right(), other.right()},
                     {moving.x() + moving.width() / 2, other.x() + other.width() / 2}}) {
-                bestX = better(bestX, pair[0], pair[1], other);
+                bestX = better(bestX, pair[0], pair[1], other, tolerance);
             }
             for (double[] pair : new double[][]{
                     {moving.y(), other.y()},
@@ -60,7 +77,7 @@ public final class AlignmentGuides {
                     {moving.bottom(), other.y()},
                     {moving.bottom(), other.bottom()},
                     {moving.y() + moving.height() / 2, other.y() + other.height() / 2}}) {
-                bestY = better(bestY, pair[0], pair[1], other);
+                bestY = better(bestY, pair[0], pair[1], other, tolerance);
             }
         }
 
@@ -93,23 +110,30 @@ public final class AlignmentGuides {
      */
     public static Result snapEdges(ScreenLayout.Rect moving, List<ScreenLayout.Rect> neighbours,
                                    boolean west, boolean east, boolean north, boolean south) {
+        return snapEdges(moving, neighbours, west, east, north, south, SNAP_DISTANCE);
+    }
+
+    /** La même chose, avec la tolérance que le zoom courant impose. */
+    public static Result snapEdges(ScreenLayout.Rect moving, List<ScreenLayout.Rect> neighbours,
+                                   boolean west, boolean east, boolean north, boolean south,
+                                   double tolerance) {
         Candidate bestX = null;
         Candidate bestY = null;
         for (ScreenLayout.Rect other : neighbours) {
             for (double edge : new double[]{other.x(), other.right()}) {
                 if (west) {
-                    bestX = better(bestX, moving.x(), edge, other);
+                    bestX = better(bestX, moving.x(), edge, other, tolerance);
                 }
                 if (east) {
-                    bestX = better(bestX, moving.right(), edge, other);
+                    bestX = better(bestX, moving.right(), edge, other, tolerance);
                 }
             }
             for (double edge : new double[]{other.y(), other.bottom()}) {
                 if (north) {
-                    bestY = better(bestY, moving.y(), edge, other);
+                    bestY = better(bestY, moving.y(), edge, other, tolerance);
                 }
                 if (south) {
-                    bestY = better(bestY, moving.bottom(), edge, other);
+                    bestY = better(bestY, moving.bottom(), edge, other, tolerance);
                 }
             }
         }
@@ -158,9 +182,9 @@ public final class AlignmentGuides {
     }
 
     private static Candidate better(Candidate current, double source, double target,
-                                    ScreenLayout.Rect other) {
+                                    ScreenLayout.Rect other, double tolerance) {
         double distance = Math.abs(target - source);
-        if (distance > SNAP_DISTANCE || (current != null && distance >= current.distance())) {
+        if (distance > tolerance || (current != null && distance >= current.distance())) {
             return current;
         }
         return new Candidate(source, target, distance, other);

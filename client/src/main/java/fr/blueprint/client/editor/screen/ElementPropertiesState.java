@@ -228,13 +228,12 @@ public final class ElementPropertiesState {
         if (element == null || column < 0 || column > 2 || row < 0 || row > 2) {
             return null;
         }
-        return element.withAnchor(Anchor.values()[row * 3 + column]);
+        return element.withAnchor(Anchor.of(column, row));
     }
 
     /** La case de la grille où l'ancre courante s'allume, {@code [colonne, ligne]}. */
     public int[] anchorCell() {
-        int index = element == null ? 0 : List.of(Anchor.values()).indexOf(element.anchor());
-        return new int[]{index % 3, index / 3};
+        return element == null ? new int[]{0, 0} : element.anchor().cell();
     }
 
     /**

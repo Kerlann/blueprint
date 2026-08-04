@@ -148,6 +148,12 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double hAmount, double vAmount) {
+        // La molette n'allait qu'au canevas de nœuds : dans l'onglet Écrans elle ne
+        // faisait donc rien du tout, y compris depuis que le concepteur sait zoomer.
+        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+            return designer.mouseScrolled(mouseX, mouseY, vAmount)
+                    || super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
+        }
         return canvas.mouseScrolled(mouseX, mouseY, vAmount)
                 || super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
     }
@@ -193,6 +199,11 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public boolean keyReleased(KeyEvent event) {
+        // Le concepteur en a besoin depuis qu'Espace y sert au déplacement de vue : sans
+        // le relâchement, la touche resterait enfoncée pour lui à jamais.
+        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+            return designer.keyReleased(event) || super.keyReleased(event);
+        }
         return canvas.keyReleased(event) || super.keyReleased(event);
     }
 
