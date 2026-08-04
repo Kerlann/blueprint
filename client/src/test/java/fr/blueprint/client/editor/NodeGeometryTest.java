@@ -45,6 +45,65 @@ class NodeGeometryTest {
         assertFalse(box.ghost());
     }
 
+    /** Une lecture de variable, nommée — la pastille à la manière d'Unreal. */
+    private static Node pill(String name) {
+        Node node = new Node(UUID.randomUUID(), fr.blueprint.core.graph.VarNodes.GET,
+                new Vec2d(0, 0));
+        fr.blueprint.core.graph.GraphLoader.setLiteral(node, "var",
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.STRING, name));
+        return node;
+    }
+
+    /**
+     * <b>Le test qui compte.</b> Une pastille n'a <b>pas d'en-tête</b>, et son pin tombe
+     * au milieu de sa seule rangée.
+     *
+     * <p>C'est la place du pin qui décide de tout : le fil s'y raccroche, le clic l'y
+     * cherche, et le dessin l'y pose. Les trois lisent la même fonction — quand ils
+     * calculaient chacun la leur, ce projet a passé une story à s'en apercevoir.
+     */
+    @Test
+    void unePastilleNAPasDEnTeteEtSonPinTombeAuMilieu() {
+        NodeGeometry.Box box = NodeGeometry.boxOf(pill("argent"), null);
+
+        assertTrue(NodeGeometry.titleHeight(box) < NodeGeometry.TITLE_HEIGHT / 2,
+                "une pastille n'a pas de bandeau, tout au plus un retrait");
+        double ordinaire = NodeGeometry.boxOf(
+                new Node(UUID.randomUUID(), TYPE, new Vec2d(0, 0)), SHAPE).height();
+        assertTrue(box.height() < ordinaire,
+                "elle doit être plus compacte qu'un nœud ordinaire : "
+                        + box.height() + " contre " + ordinaire);
+        assertEquals(box.y() + box.height() / 2,
+                NodeGeometry.outputPinCenter(box, 0).y(), 1.0,
+                "le pin doit tomber au milieu de la pastille, pas sous un en-tête absent");
+    }
+
+    /**
+     * La largeur suit le nom, entre deux bornes.
+     *
+     * <p>Une largeur fixe tronquerait les noms longs ou laisserait un vide ridicule
+     * derrière les courts — et c'est justement ce que la forme en pastille sert à éviter.
+     */
+    @Test
+    void laLargeurDUnePastilleSuitSonNom() {
+        double courte = NodeGeometry.boxOf(pill("or"), null).width();
+        double longue = NodeGeometry.boxOf(pill("solde_du_joueur_courant"), null).width();
+
+        assertTrue(longue > courte, "un nom long doit élargir la pastille");
+        assertEquals(NodeGeometry.PILL_MIN_WIDTH, courte,
+                "un nom court garde une largeur minimale");
+        assertTrue(longue <= NodeGeometry.WIDTH,
+                "et jamais plus large qu'un nœud ordinaire : " + longue);
+    }
+
+    /** Un nœud ordinaire garde son en-tête : la pastille est un cas, pas la règle. */
+    @Test
+    void unNoeudOrdinaireGardeSonEnTete() {
+        Node node = new Node(UUID.randomUUID(), TYPE, new Vec2d(0, 0));
+        NodeGeometry.Box box = NodeGeometry.boxOf(node, SHAPE);
+        assertEquals(NodeGeometry.TITLE_HEIGHT, NodeGeometry.titleHeight(box));
+    }
+
     @Test
     void formeInconnueDonneUnFantomeATailleParDefaut() {
         Node node = new Node(UUID.randomUUID(), Identifier.fromNamespaceAndPath("gone", "node"),

@@ -469,7 +469,7 @@ public final class CanvasWidget {
             NodeWidget.render(g, font, b, desc,
                     controller.selection().isSelected(uuid), z,
                     camera.toScreenX(b.x()), camera.toScreenY(b.y()), dimmer,
-                    literals, literalEdit, outline);
+                    literals, literalEdit, outline, variableTint(b.node()));
             if (debug.debugging()) {
                 renderDebugOverlay(g, font, b, uuid);
             }
@@ -670,6 +670,26 @@ public final class CanvasWidget {
 
     /** Vrai pendant qu'on tient le curseur de défilement de la palette. */
     private boolean draggingPaletteScroll;
+
+    /**
+     * La couleur du TYPE de la variable lue ou écrite par ce nœud, ou 0.
+     *
+     * <p>C'est ce qui fait qu'on distingue un booléen d'un flottant à travers tout un
+     * graphe, sans lire un seul nom — la teinte d'Unreal. Elle ne peut se calculer qu'ici :
+     * le nœud ne porte que le NOM de la variable, et son type vit dans le blueprint.
+     */
+    private int variableTint(fr.blueprint.core.graph.Node node) {
+        if (!fr.blueprint.core.graph.VarNodes.GET.equals(node.typeId())
+                && !fr.blueprint.core.graph.VarNodes.SET.equals(node.typeId())) {
+            return 0;
+        }
+        var literal = node.literal("var");
+        if (literal == null || !(literal.value() instanceof String name)) {
+            return 0;
+        }
+        var variable = session.blueprint().variables().get(name);
+        return variable == null ? 0 : variable.type().color();
+    }
 
     private boolean clickInPalette(MouseButtonEvent e) {
         if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {

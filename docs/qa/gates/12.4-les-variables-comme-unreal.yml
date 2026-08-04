@@ -1,0 +1,51 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "12.4"
+story_title: "Les variables, en pastilles et en couleurs"
+gate: "PASS"
+status_reason: "Demandé avec une capture d'Unreal. Une lecture de variable avait le châssis complet d'un nœud d'action — bandeau, titre, pictogramme, deux cents unités de large pour un nom de six lettres — et toutes les variables se ressemblaient. Elle est désormais une pastille teintée par le TYPE de la variable, et l'écriture porte la même teinte dans son bandeau. Le risque de la story n'était pas l'aspect mais la GÉOMÉTRIE : changer la forme d'un nœud, c'est déplacer ses pins."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "VAR-001"
+    severity: high
+    finding: "Changer la forme d'un nœud déplace ses pins — et un pin est trois choses qui doivent s'accorder : le fil qui s'y raccroche, le clic qui l'y cherche, et le dessin qui l'y pose. Le dessin calculait son décalage avec la constante TITLE_HEIGHT pendant que la géométrie allait en calculer un autre : exactement la divergence qui a coûté une story en 10.11, où le concepteur peignait à 320×180 pendant que le clic résolvait ailleurs. Tout AVAIT L'AIR juste"
+    suggested_action: "Une seule fonction, NodeGeometry.titleHeight(box), rend le décalage avant la première rangée. Le calcul des pins la lit, et le dessin la lit aussi — là où il utilisait la constante. Test dédié : le pin d'une pastille tombe au MILIEU de sa boîte"
+  - id: "VAR-002"
+    severity: medium
+    finding: "Le test du pin centré a échoué DEUX fois avant d'être vert : la pastille n'avait d'abord pas de retrait haut, puis ce retrait n'était pas compté dans le décalage. Sans lui, le pin se serait dessiné à huit unités du haut d'une boîte qui en fait vingt-deux — décentré de trois unités, ce qui se voit à peine et casse le raccord des fils"
+    suggested_action: "Corrigé dans la GÉOMÉTRIE et non dans le test : le décalage d'une pastille est son retrait, pas zéro. Le test est resté tel quel"
+  - id: "VAR-003"
+    severity: medium
+    finding: "Un graphe qui lit vingt variables consacrait la moitié de sa surface à répéter le mot « variable » : bandeau de vingt-deux unités, titre, pictogramme de catégorie, deux cents unités de large pour un nom de six lettres et un pin"
+    suggested_action: "Pastille : largeur ajustée au nom entre deux bornes, hauteur d'une rangée, ni bandeau ni titre. Un nœud de lecture n'a rien de plus à dire, et lui donner le châssis d'un nœud d'action annonçait une machinerie là où il n'y a qu'une valeur"
+  - id: "VAR-004"
+    severity: medium
+    finding: "Toutes les variables se ressemblaient : rien ne distinguait un booléen d'un nombre avant d'avoir lu son nom, puis d'être allé voir son type dans le panneau"
+    suggested_action: "La teinte vient du TYPE. Elle ne pouvait se calculer qu'au niveau du widget de canevas — le nœud ne porte que le NOM de la variable, et son type vit dans le blueprint — d'où un paramètre de plus au rendu plutôt qu'une résolution improvisée plus bas"
+  - id: "VAR-005"
+    severity: low
+    finding: "Un aplat de la couleur du type rendrait le nom illisible sur la moitié des types — les clairs"
+    suggested_action: "Dégradé partant de la gauche, franc puis s'éteignant, comme dans la capture. Le nom reste lisible sur toute sa longueur"
+  - id: "VAR-006"
+    severity: low
+    finding: "La largeur suit le nom, ce qui demanderait de mesurer le texte — donc la police, donc de rendre NodeGeometry invérifiable sans client, alors que c'est LA classe que le rendu et le clic partagent"
+    suggested_action: "Estimation à six unités par caractère, bornée. Un nom trop long est tronqué au dessin ; la boîte reste la même des deux côtés, ce qui est la seule chose qui compte. Le compromis est écrit sur place"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 3, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le SET garde son titre générique là où Unreal écrit « SET ». La teinte suffit à l'identifier ; composer le titre à partir du nom de la variable serait la suite naturelle."
+      - "Une variable sans type connu retombe sur la couleur de catégorie. Cela n'arrive que si la variable a été supprimée sous le nœud — cas que le validateur signale déjà."
+      - "La pastille est le premier nœud du produit dont la taille dépend de son CONTENU. Si d'autres suivent, l'estimation par caractère devra être revue une fois, au bon endroit."
+evidence:
+  tests_reviewed: 1184
+  gametests: 20
+  new_tests:
+    - "NodeGeometryTest (+3) — une pastille n'a pas d'en-tête et son pin tombe au milieu (le test qui compte, échoué deux fois avant d'être vert) ; la largeur suit le nom entre ses bornes ; un nœud ordinaire garde son en-tête"
+  risks_without_gate:
+    - "Sans VAR-001, les fils se seraient raccrochés trois unités au-dessus du pin dessiné, et le clic l'aurait cherché ailleurs encore — la famille de défaut la plus coûteuse de ce projet, parce qu'elle ne se voit pas."
+quality_score: 92
+expires: "2026-08-18T00:00:00Z"

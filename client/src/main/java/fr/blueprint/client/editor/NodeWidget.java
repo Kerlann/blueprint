@@ -22,6 +22,10 @@ import org.jetbrains.annotations.Nullable;
 public final class NodeWidget {
 
     // Les couleurs structurelles viennent du thème (5.7) ; le texte reste local.
+    /** Opacité du fond d'une pastille, et de son extrémité gauche plus franche. */
+    private static final int PILL_ALPHA = 0x66;
+    private static final int PILL_ALPHA_LEFT = 0x99;
+
     private static final int TITLE_COLOR = 0xFFE6E6E6;
     private static final int PIN_LABEL_COLOR = 0xFFABB2BF;
 
@@ -142,7 +146,7 @@ public final class NodeWidget {
                               @Nullable NodeDescriptor desc, boolean selected,
                               double zoom, double screenX, double screenY,
                               @Nullable PinDimmer dimmer, @Nullable LiteralProvider literals,
-                              @Nullable LiteralEditState edit, int outlineColor) {
+                              @Nullable LiteralEditState edit, int outlineColor, int tint) {
         int w = (int) Math.round(box.width());
         int h = (int) Math.round(box.height());
         g.pose().pushMatrix();
@@ -180,7 +184,7 @@ public final class NodeWidget {
         if (ghost) {
             renderGhostContent(g, font, box.node().typeId(), w, zoom);
         } else {
-            renderContent(g, font, box, desc, w, zoom, dimmer, literals, edit);
+            renderContent(g, font, box, desc, w, zoom, dimmer, literals, edit, tint);
         }
         g.pose().popMatrix();
     }
@@ -188,8 +192,19 @@ public final class NodeWidget {
     private static void renderContent(GuiGraphics g, Font font, NodeGeometry.Box box,
                                       NodeDescriptor desc, int w, double zoom,
                                       @Nullable PinDimmer dimmer, @Nullable LiteralProvider literals,
-                                      @Nullable LiteralEditState edit) {
-        int category = categoryColor(desc.category());
+                                      @Nullable LiteralEditState edit, int tint) {
+        // Une PASTILLE : la lecture d'une variable, à la manière d'Unreal. Ni bandeau ni
+        // titre — le nom et sa sortie, teintés par le type de la variable. Un nœud de
+        // lecture n'a rien de plus à dire, et lui donner le châssis complet d'un nœud
+        // d'action annonçait une machinerie là où il n'y a qu'une valeur.
+        if (NodeGeometry.isPill(box.node())) {
+            renderPill(g, font, box, desc, w, zoom, dimmer, literals, tint);
+            return;
+        }
+        // Le SET d'une variable prend la couleur de CETTE variable, pas celle de sa
+        // catégorie : c'est ce qui fait qu'on repère un booléen d'un flottant à travers
+        // tout un graphe, sans lire un seul nom.
+        int category = tint != 0 ? tint : categoryColor(desc.category());
         int header = (int) NodeGeometry.TITLE_HEIGHT;
         // Dégradé plutôt qu'aplat : c'est ce qui donne le relief de l'en-tête d'Unreal.
         // Le haut est arrondi comme le nœud, sinon le bandeau déborderait des coins.
@@ -222,7 +237,7 @@ public final class NodeWidget {
         }
         for (int i = 0; i < desc.inputs().size(); i++) {
             NodeDescriptor.PinDescriptor pin = desc.inputs().get(i);
-            int cy = rowCenterY(i);
+            int cy = rowCenterY(box, i);
             boolean dim = dimmer != null && dimmer.dimmed(pin.name(), false);
             drawPin(g, pin.type().shape(), dim(pin.type().color(), dim),
                     (int) NodeGeometry.PIN_INSET, cy);
@@ -248,7 +263,7 @@ public final class NodeWidget {
         }
         for (int i = 0; i < desc.outputs().size(); i++) {
             NodeDescriptor.PinDescriptor pin = desc.outputs().get(i);
-            int cy = rowCenterY(i);
+            int cy = rowCenterY(box, i);
             int cx = w - (int) NodeGeometry.PIN_INSET;
             boolean dim = dimmer != null && dimmer.dimmed(pin.name(), true);
             drawPin(g, pin.type().shape(), dim(pin.type().color(), dim), cx, cy);
@@ -260,6 +275,39 @@ public final class NodeWidget {
             g.drawString(font, label,
                     cx - (int) NodeGeometry.LABEL_GAP - font.width(label), cy - 4,
                     dim(PIN_LABEL_COLOR, dim), false);
+        }
+    }
+
+    /**
+     * La pastille d'une lecture de variable.
+     *
+     * <p>Le dégradé part de la gauche, comme dans Unreal : la teinte y est franche et
+     * s'éteint vers la droite, si bien que le nom reste lisible sur toute sa longueur.
+     * Un aplat de la couleur du type rendrait le texte illisible sur les types clairs.
+     */
+    private static void renderPill(GuiGraphics g, Font font, NodeGeometry.Box box,
+                                   NodeDescriptor desc, int w, double zoom,
+                                   @Nullable PinDimmer dimmer,
+                                   @Nullable LiteralProvider literals, int tint) {
+        int h = (int) Math.round(box.height());
+        int colour = tint != 0 ? tint : categoryColor(desc.category());
+        roundedFill(g, 1, 1, w - 1, h - 1, fade(colour, PILL_ALPHA), h / 2);
+        // Un second passage, plus étroit et plus opaque à gauche : c'est ce qui donne le
+        // dégradé sans avoir à peindre pixel par pixel.
+        roundedFill(g, 1, 1, w / 2, h - 1, fade(colour, PILL_ALPHA_LEFT), h / 2);
+        if (zoom < TITLE_FADE_ZOOM) {
+            return;
+        }
+        var literal = literals == null ? null : literals.literalOf("var");
+        String name = literal != null && literal.value() instanceof String s
+                ? s : I18n.get(desc.titleKey());
+        g.drawString(font, font.plainSubstrByWidth(name, w - 22), 8,
+                (h - font.lineHeight) / 2 + 1, TITLE_COLOR, false);
+        if (!desc.outputs().isEmpty()) {
+            var pin = desc.outputs().getFirst();
+            boolean dim = dimmer != null && dimmer.dimmed(pin.name(), true);
+            drawPin(g, pin.type().shape(), dim(pin.type().color(), dim),
+                    w - (int) NodeGeometry.PIN_INSET, h / 2);
         }
     }
 
@@ -282,7 +330,7 @@ public final class NodeWidget {
         // Le champ DESSINÉ et la zone CLIQUABLE partent du même calcul : les deux se
         // déduisaient chacune leurs bords, et toute marge ajoutée d'un côté faisait
         // cliquer à côté de ce qu'on voyait.
-        int rowTop = (int) (NodeGeometry.TITLE_HEIGHT + row * NodeGeometry.ROW_HEIGHT);
+        int rowTop = (int) (NodeGeometry.titleHeight(box) + row * NodeGeometry.ROW_HEIGHT);
         int top = rowTop + (int) NodeGeometry.FIELD_INSET_Y;
         int bottom = rowTop + (int) NodeGeometry.ROW_HEIGHT - (int) NodeGeometry.FIELD_INSET_Y;
         int cy = rowTop + (int) NodeGeometry.ROW_HEIGHT / 2;
@@ -352,8 +400,15 @@ public final class NodeWidget {
                 PIN_LABEL_COLOR, false);
     }
 
-    private static int rowCenterY(int row) {
-        return (int) (NodeGeometry.TITLE_HEIGHT + row * NodeGeometry.ROW_HEIGHT
+    /**
+     * Centre vertical LOCAL d'une rangée — la même formule que {@link NodeGeometry}, avec
+     * son décalage d'en-tête pris à la boîte plutôt qu'à la constante.
+     *
+     * <p>Le dessin et le clic doivent lire le même décalage : c'est là que ce projet a
+     * déjà vu diverger deux calculs qui avaient tous les deux l'air justes.
+     */
+    private static int rowCenterY(NodeGeometry.Box box, int row) {
+        return (int) (NodeGeometry.titleHeight(box) + row * NodeGeometry.ROW_HEIGHT
                 + NodeGeometry.ROW_HEIGHT / 2);
     }
 

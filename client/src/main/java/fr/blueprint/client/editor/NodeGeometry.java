@@ -64,12 +64,63 @@ public final class NodeGeometry {
         return boxes;
     }
 
+    /**
+     * Largeur estimée d'un caractère, pour ajuster une pastille à son nom.
+     *
+     * <p>Une <b>estimation</b>, et c'est délibéré : mesurer le texte demanderait la
+     * police, donc rendrait cette classe — celle que le rendu <i>et</i> le clic
+     * partagent — invérifiable sans client. Un nom trop long est tronqué au dessin ; la
+     * boîte, elle, reste la même des deux côtés, ce qui est la seule chose qui compte.
+     */
+    private static final double CHAR_WIDTH = 6;
+
+    /** Marge autour du nom d'une pastille : le pin de sortie et l'air autour. */
+    private static final double PILL_PADDING = 34;
+
+    public static final double PILL_MIN_WIDTH = 70;
+
+    /** Retrait vertical d'une pastille, au-dessus et au-dessous de sa rangée. */
+    private static final double PILL_INSET_Y = 3;
+
+    /**
+     * Une <b>pastille</b> : la lecture d'une variable, à la manière d'Unreal.
+     *
+     * <p>Ni en-tête ni titre — juste le nom et sa sortie. Un nœud de lecture n'a rien à
+     * dire de plus, et lui donner le châssis complet d'un nœud d'action revenait à
+     * annoncer une machinerie là où il n'y a qu'une valeur. Dans un graphe qui en compte
+     * vingt, c'est la moitié de la surface qui ne servait à rien.
+     */
+    public static boolean isPill(Node node) {
+        return fr.blueprint.core.graph.VarNodes.GET.equals(node.typeId());
+    }
+
     public static Box boxOf(Node node, @Nullable NodeShape shape) {
+        if (isPill(node)) {
+            var literal = node.literal("var");
+            String name = literal != null && literal.value() instanceof String s ? s : "";
+            double width = Math.clamp(PILL_PADDING + name.length() * CHAR_WIDTH,
+                    PILL_MIN_WIDTH, WIDTH);
+            return new Box(node, node.position().x(), node.position().y(),
+                    width, ROW_HEIGHT + 2 * PILL_INSET_Y, shape == null);
+        }
         int rows = shape == null
                 ? GHOST_ROWS
                 : Math.max(1, Math.max(shape.inputs().size(), shape.outputs().size()));
         return new Box(node, node.position().x(), node.position().y(),
                 WIDTH, TITLE_HEIGHT + rows * ROW_HEIGHT, shape == null);
+    }
+
+    /**
+     * Décalage vertical avant la première rangée de <b>cette</b> boîte : la hauteur de
+     * l'en-tête pour un nœud ordinaire, le simple retrait d'une pastille — qui n'en a pas.
+     *
+     * <p>Tout ce qui place quelque chose dans un nœud passe par ici plutôt que par la
+     * constante. C'est la règle que ce projet a apprise à ses dépens : quand le dessin et
+     * le clic calculent séparément la même coordonnée, ils finissent par diverger, et
+     * tout <i>a l'air</i> juste.
+     */
+    public static double titleHeight(Box box) {
+        return isPill(box.node()) ? PILL_INSET_Y : TITLE_HEIGHT;
     }
 
     /** Boîte englobante d'un ensemble de boîtes — vide → rectangle nul à l'origine. */
@@ -105,7 +156,10 @@ public final class NodeGeometry {
     }
 
     private static double rowCenterY(Box box, int row) {
-        return box.y() + TITLE_HEIGHT + row * ROW_HEIGHT + ROW_HEIGHT / 2;
+        // titleHeight(box) et non la constante : une pastille n'a pas de bandeau, et son
+        // pin doit tomber au milieu de sa seule rangée. Le dessin lit la même fonction —
+        // c'est la règle que ce projet a apprise à ses dépens.
+        return box.y() + titleHeight(box) + row * ROW_HEIGHT + ROW_HEIGHT / 2;
     }
 
     /** Bord gauche de la zone littérale, en fraction de la largeur du nœud. */
