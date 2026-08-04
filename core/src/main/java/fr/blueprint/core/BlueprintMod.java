@@ -31,6 +31,15 @@ public class BlueprintMod implements ModInitializer {
         return contentRejected;
     }
 
+    /** Les définitions retenues, pour dire lesquelles n'ont pas d'image (11.2). */
+    private static java.util.Map<net.minecraft.resources.Identifier,
+            fr.blueprint.core.content.ItemDefinition> contentDeclared = java.util.Map.of();
+
+    public static java.util.Map<net.minecraft.resources.Identifier,
+            fr.blueprint.core.content.ItemDefinition> contentDeclared() {
+        return contentDeclared;
+    }
+
     /**
      * Lit et enregistre les items déclarés.
      *
@@ -43,6 +52,10 @@ public class BlueprintMod implements ModInitializer {
         var rejected = new java.util.ArrayList<>(report.rejected());
         var registered = fr.blueprint.core.content.ContentRegistrar.registerAll(report, rejected);
         contentRejected = java.util.List.copyOf(rejected);
+        // Gardées pour la commande : un item sans image s'enregistre très bien et
+        // s'affiche en damier. C'est la question la plus posée d'un contenu déclaré, et
+        // seule la définition sait y répondre (11.2).
+        contentDeclared = report.items();
         if (!registered.isEmpty() || !rejected.isEmpty()) {
             LOGGER.info("Contenu déclaré : {} item(s) enregistré(s), {} écarté(s)",
                     registered.size(), rejected.size());

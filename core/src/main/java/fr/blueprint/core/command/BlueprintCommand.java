@@ -488,8 +488,18 @@ public final class BlueprintCommand {
 
         ctx.getSource().sendSuccess(() -> Component.translatable(
                 "blueprint.cmd.content", registered.size(), rejected.size()), false);
-        registered.keySet().forEach(id -> ctx.getSource().sendSuccess(
-                () -> Component.literal("- " + id), false));
+        var declared = fr.blueprint.core.BlueprintMod.contentDeclared();
+        registered.keySet().forEach(id -> {
+            var definition = declared.get(id);
+            // « sans image » est dit ICI, à côté de l'item, et non dans une seconde
+            // liste : un item enregistré qui s'affiche en damier est le cas le plus
+            // déroutant du contenu déclaré — il a l'air cassé alors qu'il ne manque
+            // qu'un PNG, et rien d'autre dans le jeu ne le dira.
+            boolean bare = definition != null && !definition.hasTexture();
+            ctx.getSource().sendSuccess(() -> bare
+                    ? Component.translatable("blueprint.cmd.content_no_texture", id.toString())
+                    : Component.literal("- " + id), false);
+        });
         // Le refus part en ÉCHEC : il se voit en rouge, et une console le distingue du
         // reste. Un item manquant se cherche longtemps quand la raison est en gris.
         rejected.forEach(reason -> ctx.getSource().sendFailure(

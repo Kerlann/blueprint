@@ -26,6 +26,14 @@ public class BlueprintClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        // Le pack du contenu déclaré (11.2), AVANT tout le reste : le jeu lit ses
+        // ressources une première fois pendant son démarrage, et écrire après lui
+        // reviendrait à imposer un rechargement à chaque lancement.
+        fr.blueprint.client.content.DeclaredPack.install(
+                fr.blueprint.core.BlueprintPaths.content(),
+                net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir()
+                        .resolve("resourcepacks"));
+
         KeyMapping.Category category = KeyMapping.Category.register(
                 Identifier.fromNamespaceAndPath(BlueprintMod.MOD_ID, "main"));
         KeyMapping openEditor = KeyBindingHelper.registerKeyBinding(new KeyMapping(
@@ -114,6 +122,9 @@ public class BlueprintClient implements ClientModInitializer {
                     done = true;
                     fr.blueprint.client.pack.PackTextures.reload(
                             fr.blueprint.core.BlueprintPaths.scripts());
+                    // Le dépôt de packs n'existe pas à l'initialisation du mod : c'est
+                    // ici, et pas plus tôt, qu'on peut activer celui du contenu déclaré.
+                    fr.blueprint.client.content.DeclaredPack.activate(client);
                 }
             }
         });
@@ -165,6 +176,19 @@ public class BlueprintClient implements ClientModInitializer {
         for (var rejection : fr.blueprint.client.pack.PackTextures.rejections()) {
             source.sendFeedback(Component.translatable("blueprint.pack.rejected",
                     rejection.pack(), rejection.detail()));
+        }
+        // Le pack du contenu déclaré (11.2) est de nature différente — il est généré, pas
+        // déposé — mais il vit sur le même disque et se diagnostique avec les mêmes yeux.
+        // Le taire ici obligerait à ouvrir le journal pour savoir pourquoi un item reste
+        // en damier, ce qui est exactement ce que ces commandes existent pour éviter.
+        source.sendFeedback(Component.translatable("blueprint.cmd.content_pack",
+                fr.blueprint.client.content.DeclaredPack.dressed()));
+        if (fr.blueprint.client.content.DeclaredPack.disabledByPlayer()) {
+            source.sendFeedback(Component.translatable("blueprint.cmd.content_pack_off"));
+        }
+        for (var notice : fr.blueprint.client.content.DeclaredPack.notices()) {
+            source.sendFeedback(Component.translatable("blueprint.cmd.content_pack_notice",
+                    notice));
         }
         return Command.SINGLE_SUCCESS;
     }

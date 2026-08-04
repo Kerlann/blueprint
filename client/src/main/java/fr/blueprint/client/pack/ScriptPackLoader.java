@@ -201,35 +201,13 @@ public final class ScriptPackLoader {
     /**
      * Les dimensions d'un PNG, lues dans son en-tête — {@code null} si ce n'en est pas un.
      *
-     * <p>Un PNG commence par une signature de huit octets, puis un bloc {@code IHDR} dont
-     * les deux premiers entiers sont la largeur et la hauteur. Vingt-quatre octets
-     * suffisent donc, là où décoder l'image entière demanderait de l'allouer d'abord —
-     * ce qui est précisément ce qu'on cherche à éviter.
+     * <p>Le lecteur lui-même vit maintenant dans {@code core} : le contenu déclaré (11.2)
+     * a exactement le même besoin, et deux copies auraient divergé au premier correctif.
+     * La méthode reste ici parce que les tests de la 10.5 l'appellent, et parce que le
+     * nom dit ce que ce fichier en fait.
      */
     static int @Nullable [] pngSize(Path file) {
-        byte[] header = new byte[24];
-        try (var in = Files.newInputStream(file)) {
-            if (in.readNBytes(header, 0, 24) < 24) {
-                return null;
-            }
-        } catch (IOException e) {
-            return null;
-        }
-        byte[] signature = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
-        for (int i = 0; i < signature.length; i++) {
-            if (header[i] != signature[i]) {
-                return null;
-            }
-        }
-        if (header[12] != 'I' || header[13] != 'H' || header[14] != 'D' || header[15] != 'R') {
-            return null;
-        }
-        return new int[]{intAt(header, 16), intAt(header, 20)};
-    }
-
-    private static int intAt(byte[] bytes, int offset) {
-        return ((bytes[offset] & 0xFF) << 24) | ((bytes[offset + 1] & 0xFF) << 16)
-                | ((bytes[offset + 2] & 0xFF) << 8) | (bytes[offset + 3] & 0xFF);
+        return fr.blueprint.core.content.PngHeader.size(file);
     }
 
     private static String string(JsonObject json, String key) {

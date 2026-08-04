@@ -1,0 +1,60 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.2"
+story_title: "Le pack de ressources généré"
+gate: "PASS"
+status_reason: "Un item déclaré s'affiche enfin avec l'image déposée à côté de son JSON. La story écrit dans resourcepacks/, c'est-à-dire chez le joueur, au milieu de ses propres packs — et c'est ce voisinage, et non le rendu, qui a dicté toute la conception : ne jamais écrire dans un dossier qu'on n'a pas créé, ne supprimer que ce qu'on a écrit, ne rien faire quand rien n'a changé. La question du mixin a été tranchée par la négative, avec ses raisons."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "PACK-001"
+    severity: high
+    finding: "Écrire dans resourcepacks/ implique de SUPPRIMER des fichiers dans un dossier que le joueur possède. Un pack téléchargé qui porterait le nom blueprint_content aurait été détruit sans que rien ne le dise, et sans qu'aucun historique puisse le rendre"
+    suggested_action: "Un dossier existant, non vide et sans notre empreinte est refusé — on le dit et on ne touche à rien. Test unDossierEtrangerNEstPasEcrase. Ce n'est pas une précaution théorique : un export du joueur a été écrasé dans cette même session, dans un dossier que git n'indexe pas. Le harnais tient désormais la leçon à la place de ma mémoire"
+  - id: "PACK-002"
+    severity: high
+    finding: "L'activation automatique reprenait au joueur une décision qu'il venait de prendre : le pack décoché dans le menu était recoché au démarrage suivant. Sa case n'aurait alors plus rien fait, sans aucune façon d'en sortir — un réglage qui ne tient pas est pire qu'un réglage absent"
+    suggested_action: "Trouvé en relecture adverse. L'activation n'a lieu qu'au démarrage qui CRÉE le pack ; un pack présent mais décoché est une décision, dite dans /blueprint-packs au lieu d'être défaite. Outcome.created() distingue création et réécriture, verrouillé par laCreationSeDistingueDeLaReecriture"
+  - id: "PACK-003"
+    severity: medium
+    finding: "Un rechargement de ressources fige le jeu plusieurs secondes. Réécrire le pack à chaque démarrage l'aurait imposé à chaque lancement, pour rien — une régression de confort déguisée en fonctionnalité"
+    suggested_action: "Empreinte SHA-256 comparée d'abord ; le cas courant coûte la lecture d'un fichier de soixante-quatre octets et zéro rechargement. Elle porte sur le CONTENU et non sur les dates : une horloge qui recule ou une copie de dossier feraient mentir une date, tandis qu'une image redessinée sans changer de taille doit être vue. Test lEmpreinteSuitLeContenuEtPasLesDates, qui vérifie les deux sens"
+  - id: "PACK-004"
+    severity: medium
+    finding: "Sans élagage, un item retiré laisserait son modèle et sa texture sur le disque : le jeu continuerait de les charger et l'item paraîtrait toujours là, alors qu'il n'est plus enregistré"
+    suggested_action: "L'élagage porte sur les chemins revendiqués par le plan, jamais sur le reste du dossier — ce qu'on n'a pas écrit n'est jamais effacé. Test unItemRetireNeLaissePasSesFichiers"
+  - id: "PACK-005"
+    severity: medium
+    finding: "Un modèle pointant vers une texture absente donnerait le damier QUAND MÊME, mais en le faisant passer pour un défaut du pack plutôt que pour un PNG oublié"
+    suggested_action: "Sans image, aucun des trois fichiers n'est écrit : le jeu produit son message habituel et /blueprint content nomme l'item à côté de sa raison. Un placeholder « joli » a été écarté — un item qui a l'air fini est un item qu'on oublie de finir"
+  - id: "PACK-006"
+    severity: medium
+    finding: "La voie « propre » pour un pack dynamique est un mixin injectant une source de packs. Ce projet n'a aucun mixin ; en introduire un ici ajouterait une configuration de compilation, une dépendance sur des noms internes du jeu et une fonctionnalité invérifiable en test"
+    suggested_action: "Écarté au profit d'un vrai dossier dans resourcepacks/. Le dossier visible est préférable et pas seulement moins cher : le joueur voit le pack, comprend d'où viennent ses textures, et peut le retirer. Rien n'est caché, rien n'est irréversible. La décision et ses raisons sont dans la story, pour qu'elle ne se rejoue pas"
+  - id: "PACK-007"
+    severity: low
+    finding: "SharedConstants.RESOURCE_PACK_FORMAT_MAJOR est déclaré obsolète par Mojang au profit d'une lecture à l'exécution"
+    suggested_action: "Conservé, avec sa raison : une lecture à l'exécution chargerait les métadonnées de version dans un test sans jeu, et rendrait la valeur variable — l'empreinte changerait alors sans que le pack ait changé, et le client rechargerait pour rien. Une constante figée à la compilation est ici la bonne sémantique, pas un raccourci"
+  - id: "PACK-008"
+    severity: low
+    finding: "Le lecteur d'en-tête PNG de la 10.5 allait être recopié : les deux stories ont le même besoin — refuser une image avant de l'allouer"
+    suggested_action: "Déplacé dans core (PngHeader), la 10.5 délègue. Une seconde copie aurait divergé au premier correctif, et c'est exactement le genre de divergence que ce projet a déjà payé sur les coordonnées de rendu"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 4, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le pack est écrit à l'initialisation du client. Si Fabric déplaçait un jour ce point après la première lecture des ressources, un rechargement supplémentaire apparaîtrait au démarrage — visible, jamais silencieux."
+      - "Un item déclaré ne FAIT toujours rien (story 11.5). L'épic ne tient sa promesse qu'à ce moment-là ; jusque-là ce sont de beaux objets décoratifs."
+      - "Les blocs (11.3) n'auront pas ce modèle : un état, un modèle de bloc et six faces, plus un item de bloc dont le modèle hérite du bloc. Le plan de pack devra grandir, pas être copié."
+evidence:
+  tests_reviewed: 1131
+  gametests: 17
+  new_tests:
+    - "ContentPackTest (12) — les trois fichiers par item, le pack_format du jeu compilé, l'item sans image, le faux PNG et le 4096 px écartés sans emporter les bons, le pack vide, le lecteur d'en-tête ; et les quatre qui comptent : l'empreinte par contenu, l'item retiré sans fantôme, le dossier étranger épargné, la création distinguée de la réécriture"
+  risks_without_gate:
+    - "Sans PACK-001, la story aurait pu détruire un pack du joueur en silence, dans un dossier qu'aucun historique ne couvre."
+    - "Sans PACK-002, le seul réglage laissé au joueur sur cette fonctionnalité aurait été inopérant — et la story prétendait explicitement le contraire dans son AC6."
+quality_score: 91
+expires: "2026-08-18T00:00:00Z"

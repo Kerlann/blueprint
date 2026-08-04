@@ -1,6 +1,6 @@
 # Session de vérification en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : **1118 tests headless** et **17 gametests**
+Tout ce qui se vérifie sans yeux l'est déjà : **1131 tests headless** et **17 gametests**
 dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
 seule une personne devant l'écran peut juger.
 
@@ -79,7 +79,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 
 ---
 
-## Bloc 3 — L'exécution (7 points, ~20 min)
+## Bloc 3 — L'exécution (8 points, ~25 min)
 
 | | À vérifier | Ce qui doit se produire |
 |---|---|---|
@@ -89,6 +89,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 | ☐ V23 | Bibliothèque élargie | Inventaire, tableau des scores, texte riche, raycast, barre de boss. |
 | ☐ V24 | Les cinq derniers | `has_item`, score visible en affichage latéral, message cliquable, `entity/looking_at`, barre de boss qui ne s'empile pas. |
 | ☐ V42 | **Items déclarés (11.1)** | Créer `run/blueprint/content/items/rubis.json` avec `{"name": "Rubis", "stackSize": 16, "rarity": "rare"}`, **puis redémarrer** (les registres gèlent au démarrage, il n'y a pas de rechargement possible). En jeu : `/blueprint content` liste `blueprint:rubis`. `/give @s blueprint:rubis 8` → l'objet arrive, **son nom est « Rubis » en bleu**, il ne s'empile pas au-delà de 16. Il s'affiche en **damier magenta** — c'est attendu tant que la 11.2 n'est pas là, l'item existe bel et bien. Puis déposer un `Mon Item.json` et un JSON avec une virgule en trop, redémarrer : **le jeu démarre**, `rubis` est toujours là, et `/blueprint content` affiche les deux refus **en rouge** avec leur nom de fichier. |
+| ☐ V43 | **Item habillé (11.2)** | Déposer `rubis.png` (16×16) à côté de `rubis.json` dans `run/blueprint/content/items/`, **redémarrer** : au lancement, `resourcepacks/blueprint_content/` apparaît, **coché tout seul**, et `/give @s blueprint:rubis` donne un objet **portant l'image** — en main, dans l'inventaire, jeté au sol. Relancer **sans rien toucher** : aucun rechargement de ressources au démarrage (le pack n'est pas réécrit). Supprimer `rubis.json` et redémarrer → plus d'item, et **plus aucun fichier `rubis`** dans le pack. Décocher le pack dans Options → Packs de ressources et redémarrer → **il reste décoché** (c'est le point : le réglage tient), et `/blueprint-packs` le dit. Enfin, remplacer le PNG par un fichier texte renommé → l'item est enregistré mais `/blueprint content` le marque **sans image**, et le jeu démarre. |
 | ☐ V18 | Quotas et audit | Baisser `maxNodes` dans `blueprint/config.json`, redémarrer → le dépassement est **signalé pendant qu'on dessine**. Un nœud ADMIN laisse une trace au log. |
 
 ---
@@ -114,4 +115,4 @@ Pour chaque défaut noté :
 3. S'il révèle un **manque de conception**, c'est une story — pas un correctif glissé dans
    un commit de finition.
 
-Le tableau des 42 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
+Le tableau des 43 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
