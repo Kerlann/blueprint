@@ -203,9 +203,19 @@ public final class PluginLoader {
             fr.blueprint.api.event.EventType event) {
         boolean player = false;
         boolean entity = false;
+        boolean block = false;
         for (fr.blueprint.api.event.EventType.OutDef out : event.outputs()) {
             player |= out.type().equals(fr.blueprint.api.pin.PinTypes.PLAYER);
             entity |= out.type().equals(fr.blueprint.api.pin.PinTypes.ENTITY);
+            block |= out.type().equals(fr.blueprint.api.pin.PinTypes.BLOCKPOS);
+        }
+        // Une POSITION l'emporte sur le joueur : « un joueur casse un bloc » se cherche
+        // sous « monde », pas sous « joueur » — on y va pour réagir au bloc, le joueur
+        // n'étant que celui qui passait par là. La règle a aussi rendu « événements du
+        // joueur » lisible : elle atteignait treize entrées, la borne au-delà de laquelle
+        // un repli de palette ne se lit plus d'un coup d'œil (11.5).
+        if (block) {
+            return fr.blueprint.api.node.NodeCategories.EVENT_WORLD;
         }
         if (player) {
             return fr.blueprint.api.node.NodeCategories.EVENT_PLAYER;

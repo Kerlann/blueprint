@@ -55,6 +55,34 @@ public class DeclaredBlock extends Block {
     }
 
     /**
+     * Le bloc vient d'être posé — story 11.5.
+     *
+     * <p>C'est le seul endroit d'où l'on puisse le savoir : Fabric expose la <b>casse</b>
+     * d'un bloc, pas sa <b>pose</b>. Ce qui rend l'événement possible malgré tout, c'est
+     * que les blocs déclarés sont les nôtres, et qu'un bloc sait quand on le pose.
+     *
+     * <p>Filtré sur le serveur et sur un joueur : la même méthode est appelée côté client
+     * pour l'affichage, et par un distributeur qui n'a pas de joueur derrière lui.
+     */
+    @Override
+    public void setPlacedBy(net.minecraft.world.level.Level level,
+                            net.minecraft.core.BlockPos pos, BlockState state,
+                            @org.jetbrains.annotations.Nullable
+                            net.minecraft.world.entity.LivingEntity placer,
+                            net.minecraft.world.item.ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (level.isClientSide()
+                || !(placer instanceof net.minecraft.server.level.ServerPlayer player)) {
+            return;
+        }
+        fr.blueprint.api.event.BlueprintEvents.fire(
+                fr.blueprint.core.event.StandardEvents.BLOCK_PLACED,
+                payload -> payload.set("player", player)
+                        .set("pos", pos.immutable())
+                        .set("block", definition.id()));
+    }
+
+    /**
      * Ce que l'objet tenu obtiendrait sur le bloc vanille représentatif de la famille.
      *
      * <p>Poser la question au jeu plutôt que de tenir une liste d'outils : une pioche d'un

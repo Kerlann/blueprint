@@ -4,7 +4,7 @@
 > registre par `NodeReferenceTest` ; la construction échoue s'il diverge.
 > Régénérer : `./gradlew :core:test --tests "*NodeReferenceTest" -Dblueprint.regenDocs=true`
 
-231 nœuds dans 40 catégories.
+236 nœuds dans 40 catégories.
 
 Légende : **P** = nœud pur (sans pin d'exécution) · **E** = point d'entrée (événement) · *fuel* = coût d'un passage.
 
@@ -297,16 +297,6 @@ permission `SAFE` · fuel 1 · E
 | `player` | `blueprint:player` | — |
 | `target` | `blueprint:entity` | — |
 
-### `blueprint:event/player_break_block` — Player breaks block
-
-permission `SAFE` · fuel 1 · E
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
-| `player` | `blueprint:player` | — |
-| `pos` | `blueprint:blockpos` | — |
-
 ### `blueprint:event/player_change_world` — Player changes dimension
 
 permission `SAFE` · fuel 1 · E
@@ -356,27 +346,6 @@ permission `SAFE` · fuel 1 · E
 | `player` | `blueprint:player` | — |
 | `end_portal` | `blueprint:bool` | — |
 
-### `blueprint:event/player_sleep` — Player goes to sleep
-
-permission `SAFE` · fuel 1 · E
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
-| `player` | `blueprint:player` | — |
-| `pos` | `blueprint:blockpos` | — |
-
-### `blueprint:event/player_use_block` — Player uses block
-
-permission `SAFE` · fuel 1 · E
-
-| Sorties | Type | Défaut |
-|---|---|---|
-| `exec_out` | exec | — |
-| `player` | `blueprint:player` | — |
-| `pos` | `blueprint:blockpos` | — |
-| `face` | `blueprint:direction` | — |
-
 ### `blueprint:event/player_use_entity` — Player uses entity
 
 permission `SAFE` · fuel 1 · E
@@ -395,6 +364,8 @@ permission `SAFE` · fuel 1 · E
 |---|---|---|
 | `exec_out` | exec | — |
 | `player` | `blueprint:player` | — |
+| `stack` | `blueprint:itemstack` | — |
+| `item` | `blueprint:resourcelocation` | — |
 
 ### `blueprint:event/player_wake_up` — Player wakes up
 
@@ -461,6 +432,17 @@ permission `SAFE` · fuel 1
 
 ## event/world
 
+### `blueprint:event/block_placed` — A declared block is placed
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `pos` | `blueprint:blockpos` | — |
+| `block` | `blueprint:resourcelocation` | — |
+
 ### `blueprint:event/entity_damaged` — Entity takes damage
 
 permission `SAFE` · fuel 1 · E
@@ -490,6 +472,38 @@ permission `SAFE` · fuel 1 · E
 | `exec_out` | exec | — |
 | `killer` | `blueprint:entity` | — |
 | `victim` | `blueprint:entity` | — |
+
+### `blueprint:event/player_break_block` — Player breaks block
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `pos` | `blueprint:blockpos` | — |
+| `block` | `blueprint:resourcelocation` | — |
+
+### `blueprint:event/player_sleep` — Player goes to sleep
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `pos` | `blueprint:blockpos` | — |
+
+### `blueprint:event/player_use_block` — Player uses block
+
+permission `SAFE` · fuel 1 · E
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `exec_out` | exec | — |
+| `player` | `blueprint:player` | — |
+| `pos` | `blueprint:blockpos` | — |
+| `face` | `blueprint:direction` | — |
 
 
 ## flow/branch
@@ -1354,6 +1368,18 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `stack` | `blueprint:itemstack` | — |
 
+### `blueprint:item/id` — Item identifier
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `stack` | `blueprint:itemstack` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `item` | `blueprint:resourcelocation` | — |
+
 ### `blueprint:item/matches` — Item matches
 
 permission `SAFE` · fuel 1 · P
@@ -1367,6 +1393,18 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `matches` | `blueprint:bool` | — |
 
+### `blueprint:item/name` — Item display name
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `stack` | `blueprint:itemstack` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `name` | `blueprint:text` | — |
+
 ### `blueprint:item/with_count` — With count
 
 permission `SAFE` · fuel 1 · P
@@ -1375,6 +1413,32 @@ permission `SAFE` · fuel 1 · P
 |---|---|---|
 | `stack` | `blueprint:itemstack` | — |
 | `count` | `blueprint:int` | `1` |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `stack` | `blueprint:itemstack` | — |
+
+### `blueprint:item/with_lore` — Item lore
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `stack` | `blueprint:itemstack` | — |
+| `lines` | `list<blueprint:text>` | — |
+
+| Sorties | Type | Défaut |
+|---|---|---|
+| `stack` | `blueprint:itemstack` | — |
+
+### `blueprint:item/with_name` — Rename item
+
+permission `SAFE` · fuel 1 · P
+
+| Entrées | Type | Défaut |
+|---|---|---|
+| `stack` | `blueprint:itemstack` | — |
+| `name` | `blueprint:text` | — |
 
 | Sorties | Type | Défaut |
 |---|---|---|

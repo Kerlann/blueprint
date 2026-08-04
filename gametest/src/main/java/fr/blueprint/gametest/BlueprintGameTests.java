@@ -923,6 +923,68 @@ public final class BlueprintGameTests {
     }
 
     /**
+     * VERIFY-11.5 automatisé : les nœuds qui <b>reconnaissent</b> et <b>habillent</b> une
+     * pile, exercés sur de vrais {@link net.minecraft.world.item.ItemStack}.
+     *
+     * <p>Ils n'ont aucun équivalent headless : construire une pile réelle demande les
+     * registres du jeu amorcés, et aucun test sans serveur de ce projet ne les amorce.
+     * C'est précisément pourquoi ce test existe — les composants d'objet sont l'endroit
+     * où un renommage chez Mojang casserait en silence.
+     *
+     * <p>Ce qu'il prouve et que la forme des nœuds ne prouve pas : <b>renommer rend une
+     * copie</b>. La pile reçue par un nœud peut être celle d'un événement, voire celle de
+     * l'inventaire d'un joueur ; la modifier sur place renommerait son objet à distance,
+     * sans que rien dans le graphe ne le laisse voir.
+     */
+    @GameTest(maxTicks = 60)
+    public void itemNodesReadAndDressRealStacks(GameTestHelper helper) {
+        var diamond = new net.minecraft.world.item.ItemStack(
+                net.minecraft.world.item.Items.DIAMOND, 3);
+
+        var identifier = runNode(helper, "item/id", java.util.Map.of("stack", diamond));
+        helper.assertTrue(Identifier.withDefaultNamespace("diamond")
+                        .equals(identifier.get("item")),
+                Component.literal("identifiant attendu minecraft:diamond, obtenu "
+                        + identifier.get("item")));
+
+        var renamed = runNode(helper, "item/with_name", java.util.Map.of(
+                "stack", diamond, "name", Component.literal("Éclat")));
+        var copy = (net.minecraft.world.item.ItemStack) renamed.get("stack");
+        helper.assertTrue(copy != null && Component.literal("Éclat").equals(
+                        copy.get(net.minecraft.core.component.DataComponents.CUSTOM_NAME)),
+                Component.literal("le nom personnalisé n'a pas été posé"));
+        // LE point du test : l'originale n'a pas bougé.
+        helper.assertTrue(
+                diamond.get(net.minecraft.core.component.DataComponents.CUSTOM_NAME) == null,
+                Component.literal("renommer a modifié la pile D'ORIGINE — un nœud pur qui "
+                        + "mute son entrée renomme l'objet d'un joueur à distance"));
+        helper.assertTrue(diamond.getCount() == 3,
+                Component.literal("la copie doit garder le nombre de l'originale"));
+
+        // item/name rend le nom RÉELLEMENT affiché, celui que le joueur lit.
+        var shown = runNode(helper, "item/name", java.util.Map.of("stack", copy));
+        helper.assertTrue(Component.literal("Éclat").equals(shown.get("name")),
+                Component.literal("nom affiché attendu « Éclat », obtenu " + shown.get("name")));
+
+        // Une description trop longue est TRONQUÉE, jamais refusée : une liste construite
+        // par une boucle peut déborder sans que l'auteur s'en doute.
+        java.util.List<Component> tooMany = new java.util.ArrayList<>();
+        for (int i = 0; i < net.minecraft.world.item.component.ItemLore.MAX_LINES + 5; i++) {
+            tooMany.add(Component.literal("ligne " + i));
+        }
+        var described = runNode(helper, "item/with_lore", java.util.Map.of(
+                "stack", diamond, "lines", tooMany));
+        var lore = ((net.minecraft.world.item.ItemStack) described.get("stack"))
+                .get(net.minecraft.core.component.DataComponents.LORE);
+        helper.assertTrue(lore != null
+                        && lore.lines().size() == net.minecraft.world.item.component.ItemLore.MAX_LINES,
+                Component.literal("la description devait être tronquée à "
+                        + net.minecraft.world.item.component.ItemLore.MAX_LINES + " lignes"));
+
+        helper.succeed();
+    }
+
+    /**
      * VERIFY requêtes : les nœuds qui LISENT le monde. Ils exigent un serveur vivant
      * (heure, dimension, joueurs connectés) et n'ont donc aucun équivalent headless —
      * un mauvais nom de méthode Mojang ne se verrait qu'ici.

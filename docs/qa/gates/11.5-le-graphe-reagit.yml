@@ -1,0 +1,57 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.5"
+story_title: "Le graphe réagit au contenu déclaré"
+gate: "PASS"
+status_reason: "Les stories 11.1 à 11.3 avaient livré des items et des blocs réels, enregistrés, habillés, posables — et parfaitement inertes. player_use_item ne disait pas QUEL objet avait été utilisé, player_break_block pas quel bloc : un graphe savait qu'on avait cliqué, et rien d'autre. Cette story ferme l'écart et rend l'épic entier utilisable. Elle est additive : aucun graphe existant ne casse."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "REAGIT-001"
+    severity: high
+    finding: "player_use_item ne disait pas quel objet avait été utilisé. Un graphe ne pouvait donc pas réagir à un item déclaré — ce qui vidait l'épic 11 de sa promesse — ni d'ailleurs à une pomme. Le même trou existait sur player_break_block, qui donnait la position sans dire le bloc"
+    suggested_action: "Deux sorties sur l'usage plutôt qu'une : stack porte tout, item donne l'identifiant, qui est ce qu'on compare neuf fois sur dix. Sans item, chaque graphe aurait dû le tirer de la pile par un nœud de plus, pour la comparaison la plus banale de toutes. Ajouts additifs : un graphe qui ignore item continue de l'ignorer"
+  - id: "REAGIT-002"
+    severity: high
+    finding: "La pile émise avec l'événement est celle que le joueur tient. Un graphe peut s'exécuter des ticks plus tard (flow/wait), et d'ici là le joueur aura pu consommer, jeter ou empiler ce qu'il tenait — le graphe lirait alors un objet différent de celui qui l'a déclenché, sans que rien ne le signale"
+    suggested_action: "La pile est COPIÉE à l'émission. Même famille de décision pour la casse : le bloc est lu dans l'ÉTAT REÇU et jamais à la position, puisque AFTER veut dire que le bloc n'y est plus et qu'une relecture rendrait de l'air"
+  - id: "REAGIT-003"
+    severity: high
+    finding: "Les nœuds d'habillage reçoivent une pile qui peut être celle d'un événement, voire celle de l'inventaire d'un joueur. La modifier sur place renommerait son objet, à distance, sans que rien dans le graphe ne le laisse voir. Un nœud déclaré PUR qui mute son entrée est en outre un défaut qui se propage à tout ce qui le suit"
+    suggested_action: "item/with_name et item/with_lore rendent une copie. Prouvé dans un VRAI serveur par le gametest itemNodesReadAndDressRealStacks — il n'a aucun équivalent headless, construire une pile réelle demandant les registres du jeu amorcés, qu'aucun test sans serveur de ce projet n'amorce"
+  - id: "REAGIT-004"
+    severity: medium
+    finding: "Fabric expose la casse d'un bloc, pas sa POSE. Un événement de pose général était donc hors d'atteinte sans mixin"
+    suggested_action: "block_placed part du bloc lui-même : les blocs déclarés sont les nôtres, et un bloc sait quand on le pose. Il ne vaut donc QUE pour eux, et son nom d'affichage le dit — « Un bloc déclaré est posé ». Le prétendre général aurait été pire que de ne rien livrer : l'auteur ne l'aurait découvert qu'en essayant sur de la pierre. EventCoverageTest a été étendu au fichier du bloc, sans quoi il aurait vu un point d'entrée mort"
+  - id: "REAGIT-005"
+    severity: medium
+    finding: "Les événements de bloc étaient rangés sous « joueur » : la règle de classement dit qu'un événement produisant un joueur est un événement de joueur. Or on va chercher « un joueur casse un bloc » pour réagir au BLOC — le joueur n'est que celui qui passait par là. La catégorie atteignait par ailleurs treize entrées, au-delà de la borne de NodeCategoryTest"
+    suggested_action: "Une position l'emporte désormais sur un joueur. Trois événements déménagent sous « monde », et « événements du joueur » redescend sous douze. La catégorie est de la présentation, pas du modèle : identifiants, pins et liens sont inchangés, aucun graphe ne bouge"
+  - id: "REAGIT-006"
+    severity: medium
+    finding: "item/name pouvait lire le composant de nom brut, qui est vide pour un objet renommé à l'enclume — alors que tout le monde le voit nommé"
+    suggested_action: "getHoverName : le nom RÉELLEMENT affiché, celui que le joueur lit"
+  - id: "REAGIT-007"
+    severity: low
+    finding: "Une description construite par une boucle peut dépasser ce que le jeu accepte sans que l'auteur s'en doute"
+    suggested_action: "Tronquée à ItemLore.MAX_LINES plutôt que refusée — perdre l'objet entier pour cela serait disproportionné. Même règle que les bornes de la 11.1 et de la 11.3. Vérifié dans le gametest, sur une vraie pile"
+risk_summary:
+  totals: { critical: 0, high: 3, medium: 3, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "block_placed ne verra jamais les blocs vanilla sans mixin. Si le besoin apparaît, c'est une décision d'architecture à prendre explicitement, pas un élargissement discret de cette story."
+      - "Nom et description seulement. Durabilité, enchantements et attributs sont une story à eux, et chacun a ses propres bornes."
+      - "custom_model_data est devenu quatre listes en 1.21.9 : l'exposer demanderait un nœud à quatre entrées, pour un usage que les modèles déclarés de la 11.2 rendent largement inutile."
+evidence:
+  tests_reviewed: 1157
+  gametests: 18
+  new_tests:
+    - "DeclaredContentNodesTest (8) — les sorties des trois événements, pureté et types des quatre nœuds, description tronquée, catégorie « item » lisible ; et les deux qui comptent : l'usage d'un item qui dit enfin lequel, et les événements de bloc rangés sous le monde"
+    - "Gametest itemNodesReadAndDressRealStacks — dans un vrai serveur : l'identifiant lu, le nom affiché, la description tronquée, et surtout que RENOMMER NE TOUCHE PAS À LA PILE D'ORIGINE. Il exerce au passage les composants d'objet de Mojang, où un renommage casserait en silence"
+  risks_without_gate:
+    - "Sans REAGIT-001, l'épic 11 aurait livré quatre stories de contenu que rien ne pouvait utiliser."
+    - "Sans REAGIT-003, un graphe qui renomme un objet aurait renommé celui de l'inventaire du joueur, à distance et en silence — la catégorie de défaut la plus coûteuse, puisqu'elle modifie une sauvegarde."
+quality_score: 92
+expires: "2026-08-18T00:00:00Z"

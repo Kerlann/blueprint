@@ -39,13 +39,48 @@ public final class StandardEvents {
             .out("face", PinTypes.DIRECTION)
             .dispatch(Dispatch.PER_PLAYER).build();
 
+    /**
+     * Un joueur se sert de ce qu'il tient.
+     *
+     * <p>{@code stack} et {@code item} sont arrivés avec la story 11.5. L'événement ne
+     * disait <b>pas quel objet</b> avait été utilisé : un graphe savait qu'on avait
+     * cliqué droit, et rien d'autre. Il ne pouvait donc pas réagir à un item déclaré, ce
+     * qui vidait l'épic 11 de sa promesse — et il ne pouvait pas davantage réagir à une
+     * pomme.
+     *
+     * <p>Deux sorties plutôt qu'une : {@code stack} porte tout (nombre, composants), et
+     * {@code item} donne l'identifiant, qui est ce qu'on compare neuf fois sur dix. Sans
+     * {@code item}, chaque graphe devrait le tirer de la pile par un nœud de plus, pour
+     * la comparaison la plus banale de toutes.
+     */
     public static final EventType PLAYER_USE_ITEM = EventType.builder(id("player_use_item"))
             .out("player", PinTypes.PLAYER)
+            .out("stack", PinTypes.ITEMSTACK)
+            .out("item", PinTypes.RESOURCE_LOCATION)
             .dispatch(Dispatch.PER_PLAYER).build();
 
+    /** Un joueur casse un bloc. {@code block} est arrivé avec la 11.5, même raison. */
     public static final EventType PLAYER_BREAK_BLOCK = EventType.builder(id("player_break_block"))
             .out("player", PinTypes.PLAYER)
             .out("pos", PinTypes.BLOCKPOS)
+            .out("block", PinTypes.RESOURCE_LOCATION)
+            .dispatch(Dispatch.PER_PLAYER).build();
+
+    /**
+     * Un <b>bloc déclaré</b> vient d'être posé par un joueur (story 11.5).
+     *
+     * <p>Déclaré, et pas n'importe lequel : il n'existe aucun point d'accroche public
+     * pour la pose d'un bloc quelconque — Fabric expose la casse, pas la pose. Ce qui le
+     * rend possible ici, c'est que les blocs déclarés sont <b>nos</b> blocs, et qu'un bloc
+     * sait quand on le pose.
+     *
+     * <p>Le nom du nœud le dit ; le prétendre général aurait été pire que de ne rien
+     * livrer, puisque l'auteur ne l'aurait découvert qu'en essayant sur de la pierre.
+     */
+    public static final EventType BLOCK_PLACED = EventType.builder(id("block_placed"))
+            .out("player", PinTypes.PLAYER)
+            .out("pos", PinTypes.BLOCKPOS)
+            .out("block", PinTypes.RESOURCE_LOCATION)
             .dispatch(Dispatch.PER_PLAYER).build();
 
     public static final EventType ENTITY_DEATH = EventType.builder(id("entity_death"))
@@ -247,5 +282,6 @@ public final class StandardEvents {
         registry.register(GUI_CLOSED);
         registry.register(GUI_ELEMENT_CLICKED);
         registry.register(KEY_PRESSED);
+        registry.register(BLOCK_PLACED);
     }
 }

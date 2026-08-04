@@ -37,7 +37,10 @@ class EventCoverageTest {
             "core/src/main/java/fr/blueprint/core/nodes/StandardNodes.java",
             "core/src/main/java/fr/blueprint/core/command/BlueprintCommand.java",
             // Les écrans (épic 10) : ouverture, fermeture et clics partent d'ici.
-            "core/src/main/java/fr/blueprint/core/net/ServerBlueprintNet.java");
+            "core/src/main/java/fr/blueprint/core/net/ServerBlueprintNet.java",
+            // La pose d'un bloc déclaré (11.5) ne peut partir que du bloc lui-même :
+            // Fabric expose la casse d'un bloc, pas sa pose.
+            "core/src/main/java/fr/blueprint/core/content/DeclaredBlock.java");
 
     private static Path repoRoot() {
         Path path = Path.of("").toAbsolutePath();

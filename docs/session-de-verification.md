@@ -1,6 +1,6 @@
 # Session de vérification en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : **1149 tests headless** et **17 gametests**
+Tout ce qui se vérifie sans yeux l'est déjà : **1157 tests headless** et **18 gametests**
 dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
 seule une personne devant l'écran peut juger.
 
@@ -79,7 +79,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 
 ---
 
-## Bloc 3 — L'exécution (10 points, ~35 min)
+## Bloc 3 — L'exécution (11 points, ~40 min)
 
 | | À vérifier | Ce qui doit se produire |
 |---|---|---|
@@ -92,6 +92,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 | ☐ V43 | **Item habillé (11.2)** | Déposer `rubis.png` (16×16) à côté de `rubis.json` dans `run/blueprint/content/items/`, **redémarrer** : au lancement, `resourcepacks/blueprint_content/` apparaît, **coché tout seul**, et `/give @s blueprint:rubis` donne un objet **portant l'image** — en main, dans l'inventaire, jeté au sol. Relancer **sans rien toucher** : aucun rechargement de ressources au démarrage (le pack n'est pas réécrit). Supprimer `rubis.json` et redémarrer → plus d'item, et **plus aucun fichier `rubis`** dans le pack. Décocher le pack dans Options → Packs de ressources et redémarrer → **il reste décoché** (c'est le point : le réglage tient), et `/blueprint-packs` le dit. Enfin, remplacer le PNG par un fichier texte renommé → l'item est enregistré mais `/blueprint content` le marque **sans image**, et le jeu démarre. |
 | ☐ V44 | **Bloc déclaré (11.3)** | `run/blueprint/content/blocks/granit.json` — `{"name": "Granit", "hardness": 3, "tool": "pickaxe", "requiresTool": true, "light": 7}` — plus `granit.png` à côté, puis **redémarrer**. `/give @s blueprint:granit` : l'objet montre un **cube**, pas une vignette plate. Le poser : il s'affiche avec sa texture sur les six faces, **éclaire** autour de lui, et fait le bruit de la pierre. Le miner **à la main** : c'est long, et **rien ne tombe** (outil exigé). Le miner **à la pioche** : nettement plus rapide, et **le bloc se ramasse**. En **créatif**, casser ne lâche rien. Enfin, déclarer `granit.json` **aussi** dans `items/` et redémarrer → le jeu démarre, l'**item** garde le nom, et `/blueprint content` explique en rouge que le bloc a été écarté. |
 | ☐ V45 | **Les touches (11.4)** | Options → Commandes : **huit « Action Blueprint »** y figurent, toutes **non assignées**. En assigner une à `K`. Dans un blueprint, poser **« Une touche Blueprint est pressée »** (palette → Événements → **Commandes du joueur**), laisser le numéro à **1**, câbler un message au joueur, `Ctrl+S`. Presser `K` en jeu → le message arrive. Presser une **autre** touche assignée à l'emplacement 2 → rien (le filtre marche). **Maintenir** `K` trois secondes → **un seul** message, pas soixante. Désactiver le blueprint → la touche ne fait plus rien. |
+| ☐ V46 | **Le contenu qui sert (11.5)** | Un graphe avec **« Un joueur utilise un objet »** : câbler sa sortie **item** vers un message. Clic droit avec un `blueprint:rubis` → le message dit `blueprint:rubis` ; clic droit avec une pomme → `minecraft:apple`. Puis **« Un bloc déclaré est posé »** : poser `blueprint:granit` → le graphe part avec la bonne position ; poser de la pierre → **rien** (c'est voulu, le nom du nœud le dit). Puis **« Un joueur casse un bloc »** → la sortie **block** donne l'identifiant du bloc cassé, pas de l'air. Enfin : `item/create` → `item/with_name` → `player/give_item` : l'objet arrive **renommé**, et celui de la pile d'origine ne l'est pas. |
 | ☐ V18 | Quotas et audit | Baisser `maxNodes` dans `blueprint/config.json`, redémarrer → le dépassement est **signalé pendant qu'on dessine**. Un nœud ADMIN laisse une trace au log. |
 
 ---
@@ -117,4 +118,4 @@ Pour chaque défaut noté :
 3. S'il révèle un **manque de conception**, c'est une story — pas un correctif glissé dans
    un commit de finition.
 
-Le tableau des 45 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
+Le tableau des 46 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.

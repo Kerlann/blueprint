@@ -369,9 +369,17 @@ public class BlueprintMod implements ModInitializer {
                 (player, world, hand) -> {
                     if (hand == net.minecraft.world.InteractionHand.MAIN_HAND
                             && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                        // La pile est COPIÉE : l'événement peut s'exécuter des ticks plus
+                        // tard (flow/wait), et d'ici là le joueur aura pu consommer,
+                        // jeter ou empiler ce qu'il tenait. Un graphe lirait alors un
+                        // objet différent de celui qui l'a déclenché.
+                        var held = serverPlayer.getMainHandItem().copy();
                         fr.blueprint.api.event.BlueprintEvents.fire(
                                 fr.blueprint.core.event.StandardEvents.PLAYER_USE_ITEM,
-                                payload -> payload.set("player", serverPlayer));
+                                payload -> payload.set("player", serverPlayer)
+                                        .set("stack", held)
+                                        .set("item", net.minecraft.core.registries
+                                                .BuiltInRegistries.ITEM.getKey(held.getItem())));
                     }
                     return net.minecraft.world.InteractionResult.PASS;
                 });
@@ -381,7 +389,12 @@ public class BlueprintMod implements ModInitializer {
                         fr.blueprint.api.event.BlueprintEvents.fire(
                                 fr.blueprint.core.event.StandardEvents.PLAYER_BREAK_BLOCK,
                                 payload -> payload.set("player", serverPlayer)
-                                        .set("pos", pos.immutable()));
+                                        .set("pos", pos.immutable())
+                                        // L'ÉTAT reçu, jamais le bloc relu à la position :
+                                        // AFTER veut dire que le bloc n'y est plus, et une
+                                        // relecture rendrait de l'air.
+                                        .set("block", net.minecraft.core.registries
+                                                .BuiltInRegistries.BLOCK.getKey(state.getBlock())));
                     }
                 });
         net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register(
