@@ -1,6 +1,6 @@
 # Session de vérification en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : **1184 tests headless** et **20 gametests**
+Tout ce qui se vérifie sans yeux l'est déjà : **1188 tests headless** et **20 gametests**
 dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
 seule une personne devant l'écran peut juger.
 
@@ -35,7 +35,7 @@ Puis en jeu : créer un monde en **créatif**, tricheurs activés.
 
 ---
 
-## Bloc 1 — L'éditeur de graphe (12 points, ~20 min)
+## Bloc 1 — L'éditeur de graphe (13 points, ~20 min)
 
 `/blueprint demo` puis `F6`.
 
@@ -45,6 +45,7 @@ Puis en jeu : créer un monde en **créatif**, tricheurs activés.
 | ☐ V32 | **Nœuds élargis** | Les champs de valeur montrent une dizaine de caractères, pas cinq. Deux champs voisins sont **détachés** — on voit à quelle entrée appartient chacun. Aucun libellé ne mord sur un champ. Un pin booléen au nom long (`through_fluids` sur `world/raycast`) s'affiche **en entier**. |
 | ☐ V33 | **Onglets dans la barre** | « Graphe » et « Écrans » sont dans la barre du haut, entre le titre et les boutons. Ils **ne bougent pas** quand le titre gagne son ● de modification. Un identifiant long ne passe pas dessous. |
 | ☐ V21 | Aspect | Châssis arrondi, en-tête en dégradé par catégorie, ombre portée, pictogramme de catégorie, pastille de permission. |
+| ☐ V48 | **L'éditeur à l'usage (12.1 → 12.5)** | `Ctrl+Espace` dans le graphe : le menu s'ouvre sur son **index replié** — une trentaine d'en-têtes, pas 184 nœuds — et **aucun** bloc « récents » ni « favoris ». Descendre jusqu'à la vingtième catégorie et la déplier : **la vue ne remonte pas**, l'en-tête cliqué reste sous le curseur (c'est le point de la 12.3). Saisir la **barre de défilement** à la souris : elle fait six pixels et se prend du premier coup. Tirer un fil depuis un pin puis ouvrir le menu → seuls les nœuds compatibles ; **décocher « Contextuel »** → la liste entière revient. Puis, sur le graphe : poser une **lecture de variable**. Ce doit être une **capsule** — extrémités **rondes** et non en pointe, **aucun coin sombre** qui dépasse derrière, **aucune arête verticale** au milieu — dont la couleur vient du **type** ; en poser deux de types différents (un booléen, un nombre) → on les distingue **sans lire leur nom**. La sélectionner : le **halo épouse la capsule**. Son fil doit partir exactement du **milieu** de son bord droit, et le clic l'attraper au même endroit. |
 | ☐ V2 | Éditer pour de vrai | `/blueprint create essai` → poser deux nœuds, câbler, taper un littéral, `Ctrl+S`. « Enregistré », le ● part **et ne revient pas**. |
 | ☐ V3 | Le confort | Palette `Espace`, `Ctrl+Z`/`Ctrl+Y`, `Ctrl+C`/`Ctrl+V`, `Q` aligner, `C` commenter, `Ctrl+F` chercher, vue Script, panneau Détails. |
 | ☐ V20 | Gestes d'Unreal | Clic droit sur un nœud / un pin / le vide → trois menus **différents**. Promouvoir un pin en variable. Lâcher un nœud **sur un fil** → il s'y insère. |
@@ -120,4 +121,4 @@ Pour chaque défaut noté :
 3. S'il révèle un **manque de conception**, c'est une story — pas un correctif glissé dans
    un commit de finition.
 
-Le tableau des 47 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
+Le tableau des 48 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.

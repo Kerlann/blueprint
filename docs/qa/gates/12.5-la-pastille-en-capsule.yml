@@ -1,0 +1,48 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "12.5"
+story_title: "La pastille, en capsule et non en hexagone"
+gate: "PASS"
+status_reason: "Retour d'usage sur la 12.4, capture à l'appui : « la pastille est moche ». Trois défauts, dont un qui n'est pas esthétique — la pastille était peinte APRÈS un châssis rectangulaire, dont les quatre coins dépassaient. La 12.4 avait pris soin de faire lire la même fonction au dessin, au clic et aux fils ; elle avait oublié que le châssis aussi décide d'une forme."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "PILL-001"
+    severity: high
+    finding: "La pastille était dessinée dans renderContent, donc APRÈS l'ombre portée, le liseré et le fond — tous rectangulaires, tous tracés par render(). Une capsule posée sur un rectangle laisse dépasser quatre coins sombres, et c'est ce que montrait la capture. Ce n'est pas un défaut d'esthétique mais la famille habituelle : deux endroits qui décident d'une même chose sans se parler"
+    suggested_action: "plate(…, pill) : l'ombre, le halo, le liseré et le fond passent tous par une seule fonction qui choisit la forme. render() calcule « pill » une fois, en haut, avec NodeGeometry.isPill — la fonction que la géométrie et le clic lisent déjà"
+  - id: "PILL-002"
+    severity: high
+    finding: "La forme réutilisait roundedFill, dont l'arrondi rentre d'un pixel par rangée. À un rayon de deux c'est un coin abattu ; à un rayon de onze — la moitié d'une pastille — c'est exactement la diagonale à 45°. Les « extrémités entièrement arrondies » annoncées par la story 12.4 étaient des pointes, et personne ne l'a vu avant la capture"
+    suggested_action: "capsuleInset(row, height) rend r − √(r² − dy²). Fonction pure de deux entiers, donc vérifiable sans client — c'est tout l'intérêt de l'avoir isolée du rendu"
+  - id: "PILL-003"
+    severity: medium
+    finding: "Le dégradé horizontal était simulé par deux passages superposés : la capsule entière à 40 % d'opacité puis sa moitié gauche à 60 %. La limite entre les deux était une arête franche en plein milieu, qui se lisait comme un défaut d'affichage plutôt que comme un dégradé"
+    suggested_action: "Dégradé vertical peint rangée par rangée — il n'y a plus deux passages à raccorder. Il ne coûte rien : la capsule calcule déjà un retrait par rangée. GuiGraphics n'expose pas de fillGradient horizontal (vérifié au javap sur le jar fusionné 1.21.11) ; le simuler était la seule voie, et deux passages n'étaient pas la bonne"
+  - id: "PILL-004"
+    severity: medium
+    finding: "La teinte du type était posée en transparence : la grille se voyait au travers et l'aspect de la pastille changeait selon ce qui passait dessous — un commentaire, un fil, une autre pastille"
+    suggested_action: "Teinte MÉLANGÉE au fond du nœud, 62 % en haut et 38 % en bas. Couleur stable, plus sourde, sur laquelle le nom blanc reste lisible quel que soit le type — y compris les clairs, ce que la 12.4 cherchait déjà à obtenir par son dégradé horizontal"
+  - id: "PILL-005"
+    severity: low
+    finding: "renderPill redessinait son propre liseré par-dessus celui du châssis : une pastille sélectionnée y perdait son halo, seul signe visible qu'elle l'est"
+    suggested_action: "renderPill ne dessine plus que le corps. Le liseré appartient au châssis, qui sait déjà s'il doit porter la sélection, la sévérité d'un diagnostic ou rien"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 2, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Pas d'anticrénelage : les extrémités restent en escalier, simplement circulaire. GuiGraphics.fill ne peint pas en sous-pixel et le zoom du canevas efface la différence."
+      - "Le rendu lui-même reste non testé — seule la géométrie qui le décide l'est. C'est la limite de tout ce qui touche à GuiGraphics ici, et la raison pour laquelle chaque décision de forme est extraite dans une fonction pure."
+      - "Le dégradé est vertical là où Unreal le fait partir de la gauche. L'effet recherché — un nom lisible sur toute la longueur — vient du mélange, pas du sens du dégradé."
+evidence:
+  tests_reviewed: 1188
+  gametests: 20
+  new_tests:
+    - "PillShapeTest (+4) — le test qui compte : sur toutes les rangées intermédiaires le retrait circulaire est STRICTEMENT inférieur au retrait diagonal, ce qui est la formulation exacte du défaut ; le retrait est nul au milieu, là où tombe le pin ; la capsule est symétrique haut/bas ; le retrait reste dans le rayon de 4 à 40 de haut"
+  risks_without_gate:
+    - "Sans PILL-001, chaque pastille du graphe traînait quatre coins sombres derrière elle — et la cause aurait été cherchée dans le dessin de la pastille, qui était correct, plutôt que dans le châssis."
+    - "Sans PILL-002, un futur correctif aurait pu revenir à roundedFill sans que rien ne le signale : le test le refuse désormais nommément."
+quality_score: 90
+expires: "2026-08-18T00:00:00Z"

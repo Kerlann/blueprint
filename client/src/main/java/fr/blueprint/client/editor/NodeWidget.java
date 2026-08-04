@@ -22,9 +22,16 @@ import org.jetbrains.annotations.Nullable;
 public final class NodeWidget {
 
     // Les couleurs structurelles viennent du thème (5.7) ; le texte reste local.
-    /** Opacité du fond d'une pastille, et de son extrémité gauche plus franche. */
-    private static final int PILL_ALPHA = 0x66;
-    private static final int PILL_ALPHA_LEFT = 0x99;
+    /**
+     * La teinte du type est MÉLANGÉE au fond du nœud plutôt que posée en transparence.
+     *
+     * <p>Un aplat translucide laisse voir la grille au travers et change d'aspect selon
+     * ce qui passe dessous ; un mélange donne une couleur stable, plus sourde, sur
+     * laquelle le nom reste lisible quel que soit le type — y compris les clairs.
+     */
+    private static final double PILL_MIX_TOP = 0.62;
+    private static final double PILL_MIX_BOTTOM = 0.38;
+    private static final int PILL_BORDER = 0xFF14171C;
 
     private static final int TITLE_COLOR = 0xFFE6E6E6;
     private static final int PIN_LABEL_COLOR = 0xFFABB2BF;
@@ -106,6 +113,34 @@ public final class NodeWidget {
         g.fillGradient(x1 - CORNER, y0 + CORNER, x1, y1, top, bottom);
     }
 
+    /**
+     * Plaque du châssis : rectangle abattu, ou capsule pour une pastille.
+     *
+     * <p>L'ombre, le halo de sélection, le liseré et le fond passent <b>tous</b> par ici.
+     * Une capsule posée sur une ombre rectangulaire laisse dépasser quatre coins — c'est
+     * exactement ce que montrait la capture, et la raison pour laquelle la décision de
+     * forme doit être prise à un seul endroit.
+     */
+    private static void plate(GuiGraphics g, int x0, int y0, int x1, int y1,
+                              int colour, int radius, boolean pill) {
+        if (pill) {
+            capsule(g, x0, y0, x1, y1, colour, colour);
+        } else {
+            roundedFill(g, x0, y0, x1, y1, colour, radius);
+        }
+    }
+
+    /** Mélange opaque de deux couleurs : {@code amount} = part de la première. */
+    private static int blend(int colour, int onto, double amount) {
+        int out = 0xFF000000;
+        for (int shift = 0; shift < 24; shift += 8) {
+            int a = (colour >>> shift) & 0xFF;
+            int b = (onto >>> shift) & 0xFF;
+            out |= (int) Math.round(b + (a - b) * amount) << shift;
+        }
+        return out;
+    }
+
     /** Même teinte, alpha imposé — pour les anneaux du halo. */
     private static int fade(int argb, int alpha) {
         return (argb & 0x00FFFFFF) | ((alpha & 0xFF) << 24);
@@ -154,31 +189,33 @@ public final class NodeWidget {
         g.pose().scale((float) zoom, (float) zoom);
 
         boolean ghost = desc == null;
+        // La forme est décidée UNE fois, ici, et tout le châssis la suit.
+        boolean pill = !ghost && NodeGeometry.isPill(box.node());
         // Ombre portée : c'est elle qui décolle le nœud de la grille et qui donne la
         // profondeur d'Unreal. Dessinée en premier, décalée, sous tout le reste.
         for (int i = 0; i < SHADOW_LAYERS; i++) {
-            roundedFill(g, -i, SHADOW_OFFSET + i, w + i, h + SHADOW_OFFSET + i,
-                    SHADOW_COLOR, CORNER + 1);
+            plate(g, -i, SHADOW_OFFSET + i, w + i, h + SHADOW_OFFSET + i,
+                    SHADOW_COLOR, CORNER + 1, pill);
         }
         if (selected) {
             // Halo : plusieurs anneaux de plus en plus transparents, plutôt qu'un
             // liseré d'un pixel qui se perdait sur un fond clair.
             for (int i = GLOW_RINGS; i >= 1; i--) {
-                roundedFill(g, -i, -i, w + i, h + i,
-                        fade(selectedBorder(), GLOW_ALPHA / i), CORNER + i);
+                plate(g, -i, -i, w + i, h + i,
+                        fade(selectedBorder(), GLOW_ALPHA / i), CORNER + i, pill);
             }
-            roundedFill(g, 0, 0, w, h, selectedBorder(), CORNER);
-            roundedFill(g, 1, 1, w - 1, h - 1, nodeBackground(), CORNER);
+            plate(g, 0, 0, w, h, selectedBorder(), CORNER, pill);
+            plate(g, 1, 1, w - 1, h - 1, nodeBackground(), CORNER, pill);
         } else if (outlineColor != 0) {
             // Nœud fautif : liseré de la couleur de la sévérité (UX §8).
-            roundedFill(g, 0, 0, w, h, outlineColor, CORNER);
-            roundedFill(g, 1, 1, w - 1, h - 1, nodeBackground(), CORNER);
+            plate(g, 0, 0, w, h, outlineColor, CORNER, pill);
+            plate(g, 1, 1, w - 1, h - 1, nodeBackground(), CORNER, pill);
         } else if (ghost) {
             roundedFill(g, 0, 0, w, h, nodeBackground(), CORNER);
             dashedBorder(g, w, h, ghostColor());
         } else {
-            roundedFill(g, 0, 0, w, h, nodeBorder(), CORNER);
-            roundedFill(g, 1, 1, w - 1, h - 1, nodeBackground(), CORNER);
+            plate(g, 0, 0, w, h, pill ? PILL_BORDER : nodeBorder(), CORNER, pill);
+            plate(g, 1, 1, w - 1, h - 1, nodeBackground(), CORNER, pill);
         }
 
         if (ghost) {
@@ -279,11 +316,59 @@ public final class NodeWidget {
     }
 
     /**
+     * Une <b>capsule</b> : des extrémités réellement demi-circulaires, dessinées rangée
+     * par rangée à partir de l'équation du cercle.
+     *
+     * <p>{@link #roundedFill} ne convient pas ici. Son escalier rentre d'un pixel par
+     * rangée, ce qui donne un joli coin abattu pour un rayon de deux — et un <b>biseau à
+     * quarante-cinq degrés</b> pour un rayon de onze. La première pastille livrée
+     * ressemblait ainsi à un hexagone, pas à une pastille.
+     *
+     * <p>Le dégradé est vertical, clair en haut et sombre en bas, comme les bandeaux des
+     * nœuds. Le premier essai le voulait horizontal et le simulait par deux passages
+     * superposés : cela laissait une <b>couture verticale</b> au milieu de la pastille,
+     * qui se lisait comme un défaut d'affichage plutôt que comme un dégradé.
+     */
+    private static void capsule(GuiGraphics g, int x0, int y0, int x1, int y1,
+                                int top, int bottom) {
+        int height = y1 - y0;
+        for (int row = 0; row < height; row++) {
+            int inset = capsuleInset(row, height);
+            int colour = lerp(top, bottom, row / Math.max(1.0, height - 1.0));
+            g.fill(x0 + inset, y0 + row, x1 - inset, y0 + row + 1, colour);
+        }
+    }
+
+    /**
+     * Retrait horizontal de la rangée {@code row} d'une capsule de {@code height} de haut.
+     *
+     * <p>C'est <b>toute</b> la forme de la pastille, isolée ici pour être vérifiable sans
+     * client. Le retrait suit le cercle — {@code r − √(r² − dy²)} — là où l'escalier de
+     * {@code roundedFill} rentrait d'un pixel par rangée, c'est-à-dire d'exactement 45°.
+     */
+    static int capsuleInset(int row, int height) {
+        double r = height / 2.0;
+        double dy = (row + 0.5) - r;
+        return (int) Math.round(r - Math.sqrt(Math.max(0, r * r - dy * dy)));
+    }
+
+    /** Interpolation composante par composante, alpha compris. */
+    private static int lerp(int from, int to, double t) {
+        int out = 0;
+        for (int shift = 0; shift < 32; shift += 8) {
+            int a = (from >>> shift) & 0xFF;
+            int b = (to >>> shift) & 0xFF;
+            out |= (int) Math.round(a + (b - a) * t) << shift;
+        }
+        return out;
+    }
+
+    /**
      * La pastille d'une lecture de variable.
      *
-     * <p>Le dégradé part de la gauche, comme dans Unreal : la teinte y est franche et
-     * s'éteint vers la droite, si bien que le nom reste lisible sur toute sa longueur.
-     * Un aplat de la couleur du type rendrait le texte illisible sur les types clairs.
+     * <p>Un liseré sombre puis le corps teinté : sans le liseré, la capsule se fond dans
+     * la grille dès que la teinte est sombre — un booléen rouge sur fond gris n'avait plus
+     * de contour du tout.
      */
     private static void renderPill(GuiGraphics g, Font font, NodeGeometry.Box box,
                                    NodeDescriptor desc, int w, double zoom,
@@ -291,10 +376,11 @@ public final class NodeWidget {
                                    @Nullable LiteralProvider literals, int tint) {
         int h = (int) Math.round(box.height());
         int colour = tint != 0 ? tint : categoryColor(desc.category());
-        roundedFill(g, 1, 1, w - 1, h - 1, fade(colour, PILL_ALPHA), h / 2);
-        // Un second passage, plus étroit et plus opaque à gauche : c'est ce qui donne le
-        // dégradé sans avoir à peindre pixel par pixel.
-        roundedFill(g, 1, 1, w / 2, h - 1, fade(colour, PILL_ALPHA_LEFT), h / 2);
+        // Le liseré et l'ombre ont déjà été posés par le châssis, en capsule : ne reste
+        // que le corps. Le redessiner ici écraserait le halo d'une pastille sélectionnée.
+        capsule(g, 1, 1, w - 1, h - 1,
+                blend(colour, nodeBackground(), PILL_MIX_TOP),
+                blend(colour, nodeBackground(), PILL_MIX_BOTTOM));
         if (zoom < TITLE_FADE_ZOOM) {
             return;
         }
@@ -306,8 +392,10 @@ public final class NodeWidget {
         if (!desc.outputs().isEmpty()) {
             var pin = desc.outputs().getFirst();
             boolean dim = dimmer != null && dimmer.dimmed(pin.name(), true);
+            // rowCenterY, et non h / 2 : les deux donnent 11 aujourd'hui, mais l'un lit
+            // la géométrie que le fil et le clic lisent aussi, l'autre la devine.
             drawPin(g, pin.type().shape(), dim(pin.type().color(), dim),
-                    w - (int) NodeGeometry.PIN_INSET, h / 2);
+                    w - (int) NodeGeometry.PIN_INSET, rowCenterY(box, 0));
         }
     }
 

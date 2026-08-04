@@ -26,7 +26,7 @@ reste**, et **qu'est-ce que je ne peux pas garantir**.
 | 11 | **Contenu déclaré** | 11.1 → 11.10 | 10 PASS |
 | 12 | **L'éditeur à l'usage** | 12.1 → 12.4 | 4 PASS |
 
-**Vérification automatique** : `./gradlew build` (1 184 tests headless, couverture
+**Vérification automatique** : `./gradlew build` (1 188 tests headless, couverture
 bloquante ≥ 80 % sur le cœur et ≥ 82 % sur la partie testable du client, référence
 des nœuds et surface d'API régénérées et comparées) et `./gradlew runGametest`
 (20 tests dans un serveur Minecraft réel). Les deux tournent en CI sur chaque push.
