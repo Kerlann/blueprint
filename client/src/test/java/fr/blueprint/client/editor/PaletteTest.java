@@ -376,11 +376,25 @@ class PaletteTest {
      * fixtures aveugles au repli.
      */
     private static PaletteState grande() {
+        return grande(2);
+    }
+
+    /**
+     * Idem, réparti sur {@code categories} catégories.
+     *
+     * <p>Le nombre importe : avec deux catégories, l'index replié fait deux lignes et
+     * <b>rien ne défile</b> — un test de défilement y passerait sans rien prouver. Avec
+     * plus de catégories que de lignes visibles, l'index lui-même déborde, ce qui est le
+     * cas réel (le produit en a une trentaine).
+     */
+    private static PaletteState grande(int categories) {
         List<NodeSearch.Entry> many = new ArrayList<>();
         Map<Identifier, NodeDescriptor> descs = new HashMap<>();
         for (int i = 0; i < PaletteState.VISIBLE_ROWS + 6; i++) {
             Identifier id = Identifier.fromNamespaceAndPath("blueprint", "n" + i);
-            String category = i % 2 == 0 ? "flow" : "math";
+            String category = categories == 2
+                    ? (i % 2 == 0 ? "flow" : "math")
+                    : "cat" + (i % categories);
             many.add(new NodeSearch.Entry(id, "Nœud " + i, "d", category));
             descs.put(id, new NodeDescriptor(id, category, "t." + i, "d." + i,
                     List.of(), List.of(pin("exec_out", PinKind.EXEC)),
@@ -497,6 +511,65 @@ class PaletteTest {
 
         p.type("node");
         assertTrue(p.showsCategoryColumn(), "en recherche, elle situe le résultat");
+    }
+
+    /**
+     * <b>Le test qui compte.</b> Déplier une catégorie ne renvoie pas la vue en haut.
+     *
+     * <p>Sur un index d'une trentaine de catégories, cela voulait dire que déplier la
+     * vingtième la faisait disparaître de l'écran <b>au moment même où on l'ouvrait</b> :
+     * il fallait redescendre pour retrouver ce qu'on venait de demander à voir.
+     *
+     * <p>La position se garde <i>exactement</i> : la ligne qu'on vient de cliquer est
+     * forcément visible, et un dépli n'insère des lignes qu'au-dessous d'elle.
+     */
+    @Test
+    void deplierUneCategorieGardeLaPosition() {
+        PaletteState p = grande(PaletteState.VISIBLE_ROWS + 4);
+        p.open(0, 0, 0, 0, null);
+        p.scrollBy(3);
+        int avant = p.scroll();
+        assertTrue(avant > 0, "il faut avoir défilé pour que le test prouve quelque chose");
+
+        p.toggleCategory("cat0");
+
+        assertEquals(avant, p.scroll(), "la vue est repartie du haut");
+    }
+
+    /**
+     * Replier garde aussi la position — mais la liste raccourcit, donc le défilement se
+     * borne à ce qui reste. Sans ce recadrage, la vue montrerait du vide.
+     */
+    @Test
+    void replierGardeLaPositionEtLaBorne() {
+        PaletteState p = grande(PaletteState.VISIBLE_ROWS + 4);
+        p.open(0, 0, 0, 0, null);
+        p.toggleCategory("cat0");
+        p.scrollBy(100);
+        assertTrue(p.scroll() > 0);
+
+        p.toggleCategory("cat0");
+
+        assertTrue(p.scroll() <= Math.max(0, p.items().size() - PaletteState.VISIBLE_ROWS),
+                "le défilement doit se borner à ce qui reste, sinon la vue montre du vide");
+    }
+
+    /**
+     * La sélection est retrouvée par son <b>entrée</b>, pas par son indice : les indices
+     * se décalent de tout ce qu'on vient d'ouvrir, et suivre l'indice ferait sauter le
+     * surlignage sur un nœud voisin.
+     */
+    @Test
+    void deplierGardeLeNoeudSelectionne() {
+        PaletteState p = grande(PaletteState.VISIBLE_ROWS + 4);
+        p.open(0, 0, 0, 0, null);
+        p.toggleCategory("cat5");
+        var choisi = p.results().get(0);
+        p.select(0);
+
+        p.toggleCategory("cat1");   // insère des lignes AVANT celles de cat5
+
+        assertEquals(choisi, p.selectedEntry(), "le surlignage a changé de nœud");
     }
 
     private static PaletteState arborescente() {

@@ -51,6 +51,17 @@ public final class PalettePopup {
     private static final int PLACEHOLDER_COLOR = 0xFF6A6F78;
     private static final int CHECK_COLOR = 0xFF7DCFFF;
 
+    /**
+     * Largeur de la barre de défilement. Six pixels : elle faisait UN, ce qui en faisait
+     * un témoin et non une barre — on voyait où l'on était sans jamais pouvoir s'en
+     * servir.
+     */
+    private static final int SCROLLBAR_WIDTH = 6;
+    /** Hauteur minimale du curseur, pour qu'il reste attrapable sur une longue liste. */
+    private static final int MIN_THUMB = 10;
+    private static final int SCROLL_TRACK = 0xFF141519;
+    private static final int SCROLL_THUMB = 0xFF5A606B;
+
     private PalettePopup() {
     }
 
@@ -214,14 +225,73 @@ public final class PalettePopup {
                 }
             }
         }
-        // Témoin de défilement : position dans la liste.
-        if (items.size() > rows) {
-            int track = rows * ROW_HEIGHT;
-            int thumb = Math.max(6, track * rows / items.size());
-            int offset = (track - thumb) * state.scroll() / Math.max(1, items.size() - rows);
-            g.fill(x + WIDTH - 2, y + HEADER_HEIGHT + offset,
-                    x + WIDTH - 1, y + HEADER_HEIGHT + offset + thumb, TITLE_COLOR);
+        renderScrollBar(g, state, x, y, rows);
+    }
+
+    /**
+     * La barre de défilement — <b>saisissable</b>.
+     *
+     * <p>Elle faisait un pixel de large : un témoin, pas une barre. On voyait où l'on
+     * était sans jamais pouvoir s'en servir, et la molette restait le seul moyen de
+     * parcourir deux cents lignes.
+     */
+    private static void renderScrollBar(GuiGraphics g, PaletteState state,
+                                        int x, int y, int rows) {
+        List<PaletteState.Item> items = state.items();
+        if (items.size() <= rows) {
+            return;
         }
+        int trackX = x + WIDTH - SCROLLBAR_WIDTH - 1;
+        int trackY = y + HEADER_HEIGHT;
+        int track = rows * ROW_HEIGHT;
+        g.fill(trackX, trackY, trackX + SCROLLBAR_WIDTH, trackY + track, SCROLL_TRACK);
+        g.fill(trackX, trackY + thumbTop(state, rows),
+                trackX + SCROLLBAR_WIDTH, trackY + thumbTop(state, rows) + thumbHeight(state, rows),
+                SCROLL_THUMB);
+    }
+
+    /** Hauteur du curseur : elle dit quelle part de la liste on voit. */
+    private static int thumbHeight(PaletteState state, int rows) {
+        int track = rows * ROW_HEIGHT;
+        // Un minimum : au-delà de quelques centaines de lignes, un curseur proportionnel
+        // deviendrait trop fin pour être attrapé — et c'est exactement quand on en a le
+        // plus besoin.
+        return Math.clamp(track * rows / Math.max(1, state.items().size()), MIN_THUMB, track);
+    }
+
+    private static int thumbTop(PaletteState state, int rows) {
+        int track = rows * ROW_HEIGHT;
+        int maxScroll = Math.max(1, state.items().size() - rows);
+        return (track - thumbHeight(state, rows)) * state.scroll() / maxScroll;
+    }
+
+    /** Le point est-il sur la barre de défilement ? */
+    public static boolean scrollBarAt(PaletteState state, double mx, double my,
+                                      int screenW, int screenH) {
+        int rows = visibleRows(state);
+        if (state.items().size() <= rows) {
+            return false;
+        }
+        int x = left(state, screenW);
+        int y = top(state, screenH);
+        return mx >= x + WIDTH - SCROLLBAR_WIDTH - 1 && mx < x + WIDTH
+                && my >= y + HEADER_HEIGHT && my < y + HEADER_HEIGHT + rows * ROW_HEIGHT;
+    }
+
+    /**
+     * Le défilement correspondant à une position verticale de souris sur la barre.
+     *
+     * <p>Le curseur est <b>centré</b> sur le doigt : sans cela, saisir un curseur par son
+     * bas le ferait sauter d'une demi-hauteur au premier pixel de mouvement.
+     */
+    public static int scrollForMouse(PaletteState state, double my, int screenH) {
+        int rows = visibleRows(state);
+        int track = rows * ROW_HEIGHT;
+        int thumb = thumbHeight(state, rows);
+        double within = my - top(state, screenH) - HEADER_HEIGHT - thumb / 2.0;
+        int travel = Math.max(1, track - thumb);
+        int maxScroll = Math.max(0, state.items().size() - rows);
+        return (int) Math.round(Math.clamp(within / travel, 0, 1) * maxScroll);
     }
 
     /** Indice de LIGNE (dans items) sous la souris, ou −1 (aussi −1 hors du popup). */

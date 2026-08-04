@@ -1,0 +1,51 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "12.3"
+story_title: "La place gardée, et une barre qu'on peut attraper"
+gate: "PASS"
+status_reason: "Deux gênes signalées d'une traite après usage de la palette refondue. Déplier une catégorie renvoyait la vue tout en haut — sur un index d'une trentaine d'entrées, déplier la vingtième la faisait disparaître de l'écran au moment même où on l'ouvrait. Et la barre de défilement faisait un pixel : un témoin, pas une barre."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "PLACE-001"
+    severity: high
+    finding: "Replier ou déplier remettait le défilement à zéro. La reconstruction de la liste est partagée avec la recherche, où repartir du haut est juste ; elle ne l'est pas pour un pli. Conséquence : déplier une catégorie basse la faisait sortir de l'écran à l'instant où on l'ouvrait, et il fallait redescendre pour retrouver ce qu'on venait de demander"
+    suggested_action: "Reconstruction qui garde la place, utilisée par la bascule seule. La position se garde EXACTEMENT et ce n'est pas une approximation : la ligne cliquée est forcément visible, et un dépli n'insère des lignes qu'au-dessous d'elle. Vérifié en remettant l'ancien comportement — les deux tests de position rougissent"
+  - id: "PLACE-002"
+    severity: medium
+    finding: "Un repli raccourcit la liste : garder le défilement tel quel aurait montré du vide sous la dernière ligne"
+    suggested_action: "Le défilement est borné à ce qui reste. Test dédié, parce qu'un vide en bas de liste se lit comme une panne d'affichage et non comme un défilement mal borné"
+  - id: "PLACE-003"
+    severity: medium
+    finding: "La sélection est un indice dans la liste des entrées, et les indices se décalent de tout ce qu'on vient d'ouvrir. La conserver telle quelle aurait fait sauter le surlignage sur un nœud voisin — une gêne plus sournoise que celle qu'on corrige, parce qu'elle a l'air d'un fonctionnement"
+    suggested_action: "La sélection est retrouvée par son ENTRÉE, pas par son numéro. Test dédié, qui déplie une catégorie AVANT celle du nœud choisi — le cas où l'indice change forcément"
+  - id: "PLACE-004"
+    severity: medium
+    finding: "La barre de défilement faisait un pixel de large : on voyait où l'on était sans jamais pouvoir s'en servir, et la molette restait le seul moyen de parcourir deux cents lignes"
+    suggested_action: "Six pixels, glissière et curseur, saisissable : tirer défile, cliquer sur la glissière y amène la vue d'un coup"
+  - id: "PLACE-005"
+    severity: low
+    finding: "Un curseur saisi par son bas sauterait d'une demi-hauteur au premier pixel de mouvement, et un curseur strictement proportionnel deviendrait insaisissable sur une longue liste — c'est-à-dire exactement quand on en a le plus besoin"
+    suggested_action: "Le curseur est centré sur le doigt, et sa hauteur ne descend jamais sous dix pixels"
+  - id: "PLACE-006"
+    severity: low
+    finding: "La barre recouvre les lignes sur ses six derniers pixels : cliquer là aurait inséré le nœud qui passe dessous"
+    suggested_action: "La barre est testée AVANT les lignes dans le traitement du clic. L'ordre est commenté sur place, parce qu'il se relit comme arbitraire"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 3, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "La fixture de test a dû être paramétrée par son nombre de catégories : avec deux, l'index replié fait deux lignes et RIEN NE DÉFILE — un test de défilement y serait passé sans rien prouver. C'est le genre de fixture qui rend un test vert sans qu'il vérifie quoi que ce soit."
+      - "Pas de flèches aux extrémités ni d'état survolé sur le curseur : ce sont des habitudes de bureau, et le jeu n'en met nulle part."
+evidence:
+  tests_reviewed: 1181
+  gametests: 20
+  new_tests:
+    - "PaletteTest (+3) — déplier une catégorie garde la position (le test qui compte) ; replier garde la position et la borne ; déplier garde le nœud sélectionné. Les deux premiers vérifiés en remettant l'ancien comportement"
+  risks_without_gate:
+    - "Sans PLACE-001, la refonte de la palette livrée la veille restait pénible à l'usage : l'index était devenu lisible, mais s'en servir renvoyait au point de départ à chaque dépli."
+    - "Sans PLACE-003, le correctif aurait remplacé une gêne visible par une gêne discrète — le surlignage qui change de nœud sans qu'on comprenne pourquoi."
+quality_score: 93
+expires: "2026-08-18T00:00:00Z"

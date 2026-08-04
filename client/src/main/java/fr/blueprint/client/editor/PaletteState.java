@@ -180,6 +180,11 @@ public final class PaletteState {
         return scroll;
     }
 
+    /** Positionne le défilement — la barre saisie s'en sert. */
+    public void scrollTo(int value) {
+        scroll = Math.clamp(value, 0, Math.max(0, items.size() - VISIBLE_ROWS));
+    }
+
     public void scrollBy(int delta) {
         scroll = Math.clamp(scroll + delta, 0, Math.max(0, items.size() - VISIBLE_ROWS));
     }
@@ -273,10 +278,40 @@ public final class PaletteState {
 
     public void toggleCategory(String name) {
         userState.put(name, !isExpanded(name));
-        refresh();
+        rebuildKeepingPlace();
     }
 
     // -------------------------------------------------------------------- contenu
+
+    /**
+     * Reconstruit la liste en <b>gardant la position</b> — pour un pli ou un dépli.
+     *
+     * <p>Replier ou déplier renvoyait la vue tout en haut. Sur un index d'une trentaine
+     * de catégories, cela veut dire que déplier la vingtième la faisait disparaître de
+     * l'écran au moment même où on l'ouvrait : il fallait redescendre pour retrouver ce
+     * qu'on venait de demander à voir.
+     *
+     * <p>La position se garde exactement, et ce n'est pas une approximation : la ligne
+     * qu'on vient de cliquer est forcément visible, et un dépli n'insère des lignes
+     * qu'<b>au-dessous</b> d'elle. Garder le décalage la laisse donc rigoureusement là où
+     * le doigt l'a laissée.
+     *
+     * <p>La sélection est retrouvée par son <b>entrée</b> et non par son indice : les
+     * indices se décalent de tout ce qu'on vient d'ouvrir, et suivre l'indice ferait
+     * sauter le surlignage sur un nœud voisin.
+     */
+    private void rebuildKeepingPlace() {
+        NodeSearch.Entry wasSelected = selectedEntry();
+        int wasScroll = scroll;
+        refresh();
+        scroll = Math.clamp(wasScroll, 0, Math.max(0, items.size() - VISIBLE_ROWS));
+        if (wasSelected != null) {
+            int again = entries.indexOf(wasSelected);
+            if (again >= 0) {
+                selected = again;
+            }
+        }
+    }
 
     private void refresh() {
         selected = 0;

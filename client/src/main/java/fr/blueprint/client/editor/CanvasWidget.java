@@ -668,9 +668,19 @@ public final class CanvasWidget {
         return true;
     }
 
+    /** Vrai pendant qu'on tient le curseur de défilement de la palette. */
+    private boolean draggingPaletteScroll;
+
     private boolean clickInPalette(MouseButtonEvent e) {
         if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             palette.close();
+            return true;
+        }
+        // La barre AVANT les lignes : elle les recouvre sur ses six derniers pixels,
+        // et cliquer là doit défiler plutôt qu'insérer le nœud qui passe dessous.
+        if (PalettePopup.scrollBarAt(palette, e.x(), e.y(), width, height)) {
+            draggingPaletteScroll = true;
+            palette.scrollTo(PalettePopup.scrollForMouse(palette, e.y(), height));
             return true;
         }
         // La case « Contextuel » vit dans l'en-tête, au-dessus des lignes : elle se
@@ -1251,6 +1261,10 @@ public final class CanvasWidget {
     }
 
     public boolean mouseReleased(MouseButtonEvent e) {
+        if (draggingPaletteScroll) {
+            draggingPaletteScroll = false;
+            return true;
+        }
         if (dragVar != null) {
             String name = dragVar;
             dragVar = null;
@@ -1278,6 +1292,10 @@ public final class CanvasWidget {
     }
 
     public boolean mouseDragged(MouseButtonEvent e, double dx, double dy) {
+        if (draggingPaletteScroll) {
+            palette.scrollTo(PalettePopup.scrollForMouse(palette, e.y(), height));
+            return true;
+        }
         if (dragVar != null) {
             return true; // le dépôt se joue au relâchement
         }

@@ -7,8 +7,8 @@ reste**, et **qu'est-ce que je ne peux pas garantir**.
 
 ## 1. État
 
-**Les neuf épics du PRD sont livrés, plus trois nés de l'usage.** 83 stories en statut
-*Done*, 82 gates QA (certaines couvrent des stories groupées) toutes en verdict *PASS*
+**Les neuf épics du PRD sont livrés, plus trois nés de l'usage.** 84 stories en statut
+*Done*, 83 gates QA (certaines couvrent des stories groupées) toutes en verdict *PASS*
 — aucune en *CONCERNS* ni en *FAIL*.
 
 | Épic | Titre | Stories | Verdict |
@@ -24,9 +24,9 @@ reste**, et **qu'est-ce que je ne peux pas garantir**.
 | 9 | Débogage, performance, finition | 9.1a → 9.5 | 6 PASS |
 | 10 | **Interfaces graphiques** | 10.1 → 10.16 | 16 PASS |
 | 11 | **Contenu déclaré** | 11.1 → 11.10 | 10 PASS |
-| 12 | **L'éditeur à l'usage** | 12.1 → 12.2 | 2 PASS |
+| 12 | **L'éditeur à l'usage** | 12.1 → 12.3 | 3 PASS |
 
-**Vérification automatique** : `./gradlew build` (1 178 tests headless, couverture
+**Vérification automatique** : `./gradlew build` (1 181 tests headless, couverture
 bloquante ≥ 80 % sur le cœur et ≥ 82 % sur la partie testable du client, référence
 des nœuds et surface d'API régénérées et comparées) et `./gradlew runGametest`
 (20 tests dans un serveur Minecraft réel). Les deux tournent en CI sur chaque push.
