@@ -1,6 +1,6 @@
 # Session de vérification en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : **1109 tests headless** et **17 gametests**
+Tout ce qui se vérifie sans yeux l'est déjà : **1118 tests headless** et **17 gametests**
 dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
 seule une personne devant l'écran peut juger.
 
@@ -79,7 +79,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 
 ---
 
-## Bloc 3 — L'exécution (6 points, ~15 min)
+## Bloc 3 — L'exécution (7 points, ~20 min)
 
 | | À vérifier | Ce qui doit se produire |
 |---|---|---|
@@ -88,6 +88,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 | ☐ V16 | Bibliothèque en monde réel | Un graphe qui lit le monde, requête des entités, donne un objet, écrit un score. |
 | ☐ V23 | Bibliothèque élargie | Inventaire, tableau des scores, texte riche, raycast, barre de boss. |
 | ☐ V24 | Les cinq derniers | `has_item`, score visible en affichage latéral, message cliquable, `entity/looking_at`, barre de boss qui ne s'empile pas. |
+| ☐ V42 | **Items déclarés (11.1)** | Créer `run/blueprint/content/items/rubis.json` avec `{"name": "Rubis", "stackSize": 16, "rarity": "rare"}`, **puis redémarrer** (les registres gèlent au démarrage, il n'y a pas de rechargement possible). En jeu : `/blueprint content` liste `blueprint:rubis`. `/give @s blueprint:rubis 8` → l'objet arrive, **son nom est « Rubis » en bleu**, il ne s'empile pas au-delà de 16. Il s'affiche en **damier magenta** — c'est attendu tant que la 11.2 n'est pas là, l'item existe bel et bien. Puis déposer un `Mon Item.json` et un JSON avec une virgule en trop, redémarrer : **le jeu démarre**, `rubis` est toujours là, et `/blueprint content` affiche les deux refus **en rouge** avec leur nom de fichier. |
 | ☐ V18 | Quotas et audit | Baisser `maxNodes` dans `blueprint/config.json`, redémarrer → le dépassement est **signalé pendant qu'on dessine**. Un nœud ADMIN laisse une trace au log. |
 
 ---
@@ -113,4 +114,4 @@ Pour chaque défaut noté :
 3. S'il révèle un **manque de conception**, c'est une story — pas un correctif glissé dans
    un commit de finition.
 
-Le tableau des 41 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
+Le tableau des 42 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.

@@ -24,6 +24,32 @@ public class BlueprintMod implements ModInitializer {
         return registries;
     }
 
+    /** Ce que le contenu déclaré a refusé, gardé pour {@code /blueprint content}. */
+    private static java.util.List<String> contentRejected = java.util.List.of();
+
+    public static java.util.List<String> contentRejected() {
+        return contentRejected;
+    }
+
+    /**
+     * Lit et enregistre les items déclarés.
+     *
+     * <p>Journalisé même quand il n'y a rien : sur un serveur où quelqu'un vient de
+     * déposer un fichier, savoir que zéro item a été lu vaut mieux qu'un silence dont on
+     * ne peut pas dire s'il signifie « tout va bien » ou « le dossier n'a pas été vu ».
+     */
+    private void registerDeclaredContent() {
+        var report = fr.blueprint.core.content.ContentLoader.load(BlueprintPaths.content());
+        var rejected = new java.util.ArrayList<>(report.rejected());
+        var registered = fr.blueprint.core.content.ContentRegistrar.registerAll(report, rejected);
+        contentRejected = java.util.List.copyOf(rejected);
+        if (!registered.isEmpty() || !rejected.isEmpty()) {
+            LOGGER.info("Contenu déclaré : {} item(s) enregistré(s), {} écarté(s)",
+                    registered.size(), rejected.size());
+            rejected.forEach(reason -> LOGGER.warn("Contenu écarté — {}", reason));
+        }
+    }
+
     @Override
     public void onInitialize() {
         LOGGER.info("Blueprint initialisé");
@@ -36,6 +62,11 @@ public class BlueprintMod implements ModInitializer {
         BlueprintCommand.register(config);
         // NFR15 : l'audit des nœuds ADMIN se coupe depuis la configuration serveur.
         fr.blueprint.core.debug.AdminAudit.enabled(config.auditAdminNodes());
+
+        // Le contenu déclaré (épic 11), AVANT tout le reste et surtout avant le gel des
+        // registres : c'est la seule fenêtre où Minecraft accepte un item neuf. Après,
+        // Registry.freeze() est passé et l'enregistrement lève.
+        registerDeclaredContent();
 
         int declared = FabricLoader.getInstance()
                 .getEntrypointContainers("blueprint", BlueprintPlugin.class)

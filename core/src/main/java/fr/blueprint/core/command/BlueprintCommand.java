@@ -132,6 +132,12 @@ public final class BlueprintCommand {
                 .then(literal("examples")
                         .requires(admin)
                         .executes(BlueprintCommand::examples))
+                // Le contenu déclaré (épic 11). Sans cette commande, un fichier écarté
+                // ne se saurait que dans le journal du serveur — c'est-à-dire nulle part,
+                // pour qui vient de déposer un JSON et se demande où est son item.
+                .then(literal("content")
+                        .requires(admin)
+                        .executes(BlueprintCommand::content))
                 // Signal (batch 1) : émettre depuis l'extérieur — une autre commande,
                 // un bloc de commande, un mod. Sans permission d'admin : un signal ne
                 // peut rien faire que le blueprint qui l'écoute n'ait déjà le droit
@@ -468,6 +474,29 @@ public final class BlueprintCommand {
      * dès sa création changerait le monde du joueur avant qu'il ait pu le lire — et
      * l'un d'eux pose des blocs. Il les active quand il a compris ce qu'ils font.
      */
+    /**
+     * Ce que le contenu déclaré a enregistré, et ce qu'il a écarté (épic 11).
+     *
+     * <p>La liste des <b>refus</b> est l'essentiel. Elle est décidée à l'initialisation du
+     * mod, longtemps avant qu'un joueur puisse lire quoi que ce soit : sans cette commande,
+     * un fichier écarté n'existerait que dans le journal du serveur — c'est-à-dire nulle
+     * part, pour qui vient de déposer un JSON et cherche son item dans le créatif.
+     */
+    private static int content(CommandContext<CommandSourceStack> ctx) {
+        var registered = fr.blueprint.core.content.ContentRegistrar.registered();
+        var rejected = fr.blueprint.core.BlueprintMod.contentRejected();
+
+        ctx.getSource().sendSuccess(() -> Component.translatable(
+                "blueprint.cmd.content", registered.size(), rejected.size()), false);
+        registered.keySet().forEach(id -> ctx.getSource().sendSuccess(
+                () -> Component.literal("- " + id), false));
+        // Le refus part en ÉCHEC : il se voit en rouge, et une console le distingue du
+        // reste. Un item manquant se cherche longtemps quand la raison est en gris.
+        rejected.forEach(reason -> ctx.getSource().sendFailure(
+                Component.translatable("blueprint.cmd.content_rejected", reason)));
+        return registered.size();
+    }
+
     private static int examples(CommandContext<CommandSourceStack> ctx) {
         var registries = fr.blueprint.core.BlueprintMod.registries();
         var manager = BlueprintManager.of(ctx.getSource().getServer());

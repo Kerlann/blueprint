@@ -1,0 +1,56 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.1"
+story_title: "Les items déclarés"
+gate: "PASS"
+status_reason: "Un item déclaré dans blueprint/content/items/ est réellement enregistré dans le registre du jeu : /give le connaît, une recette peut l'utiliser, il traverse le réseau. La contrainte qui décide de toute la forme de l'épic est nommée plutôt que contournée — les registres gèlent avant qu'un monde existe, donc les définitions sont des fichiers lus au démarrage, et ajouter un item demande un redémarrage. Le risque dominant n'est pas l'item manquant mais le JEU QUI NE DÉMARRE PAS, et c'est lui qui a dicté la tolérance aux fautes."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "CONTENU-001"
+    severity: high
+    finding: "Un identifiant invalide fait LEVER Minecraft à l'enregistrement — pendant l'initialisation du mod, avant l'écran titre. Un fichier nommé « Mon Item.json » déposé par quelqu'un qui découvre la fonctionnalité rendrait donc le jeu inlançable, avec une pile d'appels qui ne nomme pas le fichier fautif. C'est une classe de risque qu'aucune autre partie du produit ne porte : partout ailleurs, un JSON cassé donne un message rouge"
+    suggested_action: "Le nom de fichier est validé contre l'alphabet des identifiants AVANT d'atteindre le registre, et le refus nomme son fichier. Test unNomDeFichierInutilisableEstEcarte — c'est le test qui protège le démarrage, pas seulement la donnée"
+  - id: "CONTENU-002"
+    severity: high
+    finding: "Map.copyOf dans ContentLoader.Report détruisait l'ordre d'insertion que le rapport promettait : « a, b, c » revenait « c, b, a ». Les identifiants NUMÉRIQUES du réseau sont attribués dans l'ordre d'enregistrement — un ordre instable ferait rouvrir un monde avec les items permutés, un rubis devenu émeraude, en silence et sans erreur"
+    suggested_action: "Collections.unmodifiableMap(new LinkedHashMap<>(...)). Trouvé par mon propre test lOrdreDeLectureEstStable, au premier passage. C'est le MÊME Map.copyOf qui avait déjà piégé les textures d'un pack en 10.5 : le piège est désormais commenté aux deux endroits"
+  - id: "CONTENU-003"
+    severity: medium
+    finding: "Une pile de 0 ou de 1000, une rareté mal orthographiée : refuser l'item pour cela le ferait disparaître sans que l'auteur comprenne — et un item absent se cherche longtemps quand rien ne le distingue d'un item jamais déclaré"
+    suggested_action: "Borné plutôt que refusé : la pile est ramenée dans [1, 99], une rareté inconnue vaut COMMON. La règle est que la faute doit coûter le moins possible tant qu'elle ne casse rien — la couleur d'un nom ne vaut pas de perdre l'item. Deux tests"
+  - id: "CONTENU-004"
+    severity: medium
+    finding: "Les refus sont décidés à l'initialisation du mod, longtemps avant qu'un joueur puisse lire quoi que ce soit. Sans commande, un fichier écarté n'existerait que dans le journal du serveur — c'est-à-dire nulle part, pour qui vient de déposer un JSON et cherche son item dans le créatif"
+    suggested_action: "/blueprint content liste l'enregistré ET l'écarté avec sa raison. Les refus partent en sendFailure, donc en rouge : c'est la seule différence visuelle qui distingue « il manque quelque chose » de « voici la liste »"
+  - id: "CONTENU-005"
+    severity: medium
+    finding: "Un item qui échoue à l'enregistrement — identifiant déjà pris par un autre mod, par exemple — ne peut pas être prévu par la validation de fichier, qui ignore ce que les autres mods ont enregistré"
+    suggested_action: "registerAll attrape par item et poursuit : un conflit avec un autre mod coûte un item, pas la totalité du contenu déclaré ni le démarrage"
+  - id: "CONTENU-006"
+    severity: low
+    finding: "setId est obligatoire sur Item.Properties depuis 1.21.2 ; sans lui, la construction des composants lève à l'enregistrement et non à l'usage — donc au démarrage, à nouveau"
+    suggested_action: "Vérifié au javap sur le jar fusionné 1.21.11 avant d'écrire, comme l'exige tech-stack.md, et commenté sur place pour que le prochain qui touche ContentRegistrar ne le retire pas"
+  - id: "CONTENU-007"
+    severity: low
+    finding: "Un dossier blueprint/content/ vide apparaissant chez tous ceux qui n'ont jamais déclaré de contenu est du bruit dans le répertoire de jeu"
+    suggested_action: "BlueprintPaths.content() rend le chemin sans créer le dossier — il sera créé le jour où l'on y écrira. Un dossier absent rend un rapport vide, testé"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 3, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Sans la story 11.2, tout item déclaré s'affiche en damier magenta. L'item EXISTE et fonctionne — il est simplement laid, et quelqu'un pourrait le lire comme une panne plutôt que comme une story manquante."
+      - "Sans la story 11.5, un item déclaré ne FAIT rien : player_use_item n'indique pas quel item a été utilisé, et aucun nœud ne pose de composant. C'est ce qui manque pour que l'épic tienne sa promesse."
+      - "Le namespace est fixé à blueprint:. Un dossier par namespace, à la manière des datapacks, sera la bonne réponse si le besoin apparaît — pas un champ dans le JSON, qui rendrait l'identifiant imprévisible au moment de taper /give."
+evidence:
+  tests_reviewed: 1118
+  gametests: 17
+  new_tests:
+    - "ContentLoaderTest (9) — le fichier fautif qui n'emporte pas les autres (quatre fichiers dont deux cassés), le nom inutilisable écarté avant de faire lever le jeu, les bornes de pile et de rareté, la texture voisine, le doublon, le dossier absent, et l'ordre de lecture stable qui a trouvé CONTENU-002"
+  risks_without_gate:
+    - "Sans CONTENU-001, la première faute de frappe dans un nom de fichier aurait rendu le jeu inlançable — et le message n'aurait pas dit lequel."
+    - "Sans CONTENU-002, les items auraient pu changer d'identité d'un démarrage à l'autre dans un monde existant, en silence : c'est la catégorie de défaut la plus coûteuse du produit, parce qu'elle détruit des sauvegardes plutôt que des sessions."
+quality_score: 92
+expires: "2026-08-18T00:00:00Z"

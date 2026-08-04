@@ -45,6 +45,22 @@ public final class BlueprintPaths {
     }
 
     /**
+     * Le <b>contenu déclaré</b> : items et blocs réellement enregistrés (épic 11).
+     *
+     * <p>Lu à l'initialisation du mod, <b>avant le gel des registres</b> — donc bien avant
+     * qu'un monde existe. C'est ce qui l'oblige à vivre sur le disque et non dans un
+     * blueprint : un blueprint est chargé avec son monde, c'est-à-dire trop tard pour
+     * enregistrer quoi que ce soit.
+     *
+     * <p>Rendu <b>sans le créer</b>, contrairement aux deux autres : un dossier vide qui
+     * apparaît chez quelqu'un qui n'a jamais déclaré de contenu ne sert qu'à faire
+     * croire qu'il a raté une étape.
+     */
+    public static Path content() {
+        return root().resolve("content");
+    }
+
+    /**
      * L'ancien emplacement, {@code config/blueprint}. Conservé pour la <b>reprise</b> :
      * une mise à jour du mod ne doit pas faire disparaître les fichiers de quelqu'un
      * parce qu'on a changé d'avis sur le rangement.

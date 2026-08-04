@@ -19,7 +19,7 @@ Dossier de planification suivant la **méthode BMAD** (Analyst → PM → Archit
 | [`bscript-spec.md`](bscript-spec.md) | Architect | Grammaire du langage généré et correspondance avec le graphe |
 | [`extension-api.md`](extension-api.md) | Architect | **Contrat d'intégration pour les mods tiers** |
 | [`stories/`](stories/) | SM | Stories prêtes pour l'agent Dev |
-| [`session-de-verification.md`](session-de-verification.md) | QA | **Ce qui reste à voir en jeu** : 36 points en quatre blocs, une heure |
+| [`session-de-verification.md`](session-de-verification.md) | QA | **Ce qui reste à voir en jeu** : 37 points en quatre blocs, une heure |
 
 Configuration : [`../.bmad-core/core-config.yaml`](../.bmad-core/core-config.yaml)
 
@@ -67,6 +67,8 @@ brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md
 | 4 | 4.2b (sucre BScript) | — | **Reste v1.1** — seul morceau du PRD non livré, consigné dans la story 4.1-4.3 |
 | 10 | **Interfaces graphiques** | 10.1 → 10.16 | **Complet** — 16 gates PASS. Modèle d'écran, concepteur, ouverture et rendu, boutons câblés, packs d'images échangeables, quotas et clavier, liaison de données, éléments riches, HUD permanent, **10.10** née de l'usage (conteneurs qui rangent, tailles `fill`/`hug`, styles nommés) et **10.11** de même (zoom sur le curseur, canevas 1920×1080, panneaux repliables), puis **10.12** (infobulles, paragraphes, styles nommés basculés par le graphe, déclic au clic) et **10.13** (le panneau défilant), puis **10.14**, un audit à froid : le concepteur relançait la passe de disposition huit fois par image, et quatre stories de nouveautés n'étaient montrées par aucun exemple ; **10.15** enfin : deux bancs d'essai volumineux (110 éléments, 361 nœuds) et un dossier `run/` régénéré depuis le modèle, qui datait d'avant trois stories ; **10.16** enfin : `blueprint/exports/` devient un **reflet** fidèle du monde à chaque enregistrement, au lieu d'une photo du jour où l'on a pensé à exporter. Quatre défauts que seule la mesure a trouvés : une bordure par défaut invisible (1,74:1), des libellés qui recouvraient déjà les champs, un concepteur qui **peignait à 320×180 pendant que le clic résolvait ailleurs**, et une ancre laissée en haut à gauche à la création — celle qui envoyait hors écran tout élément posé sur un grand canevas |
 
+| 11 | **Contenu déclaré** | 11.1 → | **En cours** — 1 gate PASS. **11.1** : de vrais items, réellement enregistrés dans le registre du jeu depuis `blueprint/content/items/*.json` — `/give` les connaît, une recette peut les utiliser. Trois contraintes assumées et nommées, parce qu'elles viennent de Minecraft et non du mod : les registres **gèlent** avant qu'un monde existe (donc des fichiers lus au démarrage, donc un redémarrage pour ajouter un item), le mod et les mêmes fichiers **des deux côtés** en multijoueur, et les textures par un **resource pack** (11.2). Le risque dominant n'était pas l'item manquant mais le **jeu qui ne démarre pas** : un identifiant invalide fait lever Minecraft avant l'écran titre, sans nommer le fichier fautif. Et `Map.copyOf`, qui ne préserve pas l'ordre d'insertion, a repiégé le projet exactement comme en 10.5 — ici l'ordre décide des identifiants numériques du réseau, donc un ordre instable aurait permuté les items d'un monde existant, en silence |
+
 **Feuille de route éditeur (ordre recommandé)** :
 1. **5.2b** littéraux inline (éditer les valeurs sur le nœud) → 2. **5.6a** annuler/rétablir (avant les grosses features, tout naît annulable) → 3. **5.9** éditer/enregistrer/tester un VRAI blueprint en solo (`Ctrl+S`, la story qui rend l'éditeur utile) → 4. **5.6b** barre d'outils + compilation à la volée + diagnostics cliquables → 5. **5.5** panneau des variables + nœuds var/get-set (⚠ touche `core`) → 6. **5.8** copier/coller/dupliquer via BScript (⚠ touche `core/script`) → 7. **5.10** panneau de détails → 8. **5.4b** palette récents/favoris/catégories/Espace → 9. **5.2c** sélecteurs riches (item, bloc, position) → 10. **5.11** vue script → 11. **5.7** confort (commentaires, alignement, minimap, thème JSON).
 
@@ -97,7 +99,16 @@ puis demandé — une page de réglages ou un règlement tient enfin dans un éc
 d'être découpé en « suivant ». Le décalage est appliqué **dans la passe de disposition
 unique**, seule façon d'être sûr que le clic et le dessin s'accordent.
 
-**Les 71 stories du projet sont closes**, chacune avec son gate PASS.
+**L'épic 11 (contenu déclaré) est ouvert.** Il répond à une demande simple à énoncer et
+lourde à tenir : créer de *vrais* blocs et items, pas des items vanilla renommés. J'avais
+recommandé l'inverse ; la demande a été réaffirmée, et l'épic la prend telle quelle. Ce
+qui rendait la chose coûteuse n'a pas disparu pour autant — c'est écrit en tête de la
+story 11.1, en trois contraintes, dont celle qui décide de toute la forme de l'épic : les
+registres du jeu **gèlent** avant qu'un monde soit chargé, si bien qu'un blueprint, qui
+vit dans une sauvegarde, ne peut structurellement pas enregistrer un item. Les définitions
+sont donc des fichiers sur le disque, lus au démarrage.
+
+**Les 72 stories du projet sont closes**, chacune avec son gate PASS.
 
 > **Relecture finale** : [`rapport-de-fin.md`](rapport-de-fin.md) — l'état complet, ce
 > que la QA a réellement trouvé, ce qui reste, et ce que le harnais ne peut pas garantir.
@@ -105,7 +116,7 @@ unique**, seule façon d'être sûr que le clic et le dessin s'accordent.
 ## Prochaine action : la session en jeu
 
 > **Plan de session** : [`session-de-verification.md`](session-de-verification.md) — les
-> trente-six points restants, groupés par ce qu'il faut ouvrir plutôt que par numéro de story,
+> trente-sept points restants, groupés par ce qu'il faut ouvrir plutôt que par numéro de story,
 > avec des cases à cocher. Le nécessaire est déjà en place dans `run/` : exemples, pack
 > d'images, configuration.
 
@@ -150,6 +161,7 @@ et l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | V28 | HUD permanent (10.9) | `hud/show` : le bandeau s'affiche et **on continue de jouer** — marcher, frapper, ouvrir son inventaire ; deux HUD à la fois ; **F7** les retire tous ; désactiver le blueprint retire le sien |
 | V31 | Liaison de données (10.7) | lier une étiquette à une variable `argent` avec le format « Or : %s » depuis le panneau (la variable se **choisit**, elle ne se tape pas) ; ouvrir l'écran → il montre déjà le **défaut** de la variable, sans qu'aucun graphe n'ait tourné ; changer la variable puis `gui/refresh` → le texte suit ; **sans** `gui/refresh`, rien ne bouge (c'est voulu) ; forcer par `gui/set_text` → tient jusqu'au rafraîchissement suivant ; lier une barre à `pv` avec mini 0 / maxi 20 ; renommer la variable dans l'éditeur → **erreur** de diagnostic, pas un écran vide |
 | V30 | Packs d'images (10.5) | copier `docs/examples/packs/ma_boutique/` dans `blueprint/scripts/`, `/blueprint-packs reload` → « 1 pack chargé » ; `/blueprint import boutique.bp` puis ouvrir l'écran → le fond et les boutons portent les images ; **renommer le dossier** et recharger → damiers magenta portant « pack ma_boutique absent », le reste du menu intact et cliquable ; remettre le dossier, recharger **sans fermer le menu** → les images reviennent ; déposer un dossier au nom majuscule et un PNG de 4000 px → tous deux écartés et **nommés** dans la commande, le bon pack chargeant quand même |
+| V42 | Items déclarés (11.1) | créer `blueprint/content/items/rubis.json` — `{"name": "Rubis", "stackSize": 16, "rarity": "rare"}` — puis **redémarrer** : les registres du jeu gèlent au démarrage, il n'existe aucun rechargement possible et c'est ce qui décide de toute la forme de l'épic 11 ; `/blueprint content` liste `blueprint:rubis` ; `/give @s blueprint:rubis 8` → l'objet arrive, **son nom est « Rubis » en bleu**, il ne s'empile pas au-delà de 16, et il s'affiche en **damier magenta** — attendu tant que la 11.2 n'est pas là, l'item existe bel et bien ; puis déposer un `Mon Item.json` et un JSON à la virgule en trop et redémarrer → **le jeu démarre** (c'est le point), `rubis` est toujours là, et `/blueprint content` affiche les deux refus **en rouge** avec leur nom de fichier |
 | V41 | Reflet sur disque (10.16) | éditer un blueprint, `Ctrl+S`, puis regarder `blueprint/exports/<id>.bp` **sans rien exporter** : il contient la modification, et il suit à chaque enregistrement ; supprimer le blueprint → **le fichier reste** (c'est souvent la dernière copie) ; `autoExport: false` dans `blueprint/config.json` puis redémarrage → le fichier ne bouge plus |
 | V40 | Bancs d'essai (10.15) | `/blueprint import banc_ecran` puis `/blueprint run banc_ecran` : **110 éléments** s'affichent d'un coup — les onze types, trois panneaux défilants (vertical, horizontal, les deux), dix-huit paragraphes qui reviennent à la ligne, des infobulles partout. Le menu **s'ouvre** (c'est le paquet réseau qui est en jeu), il **ne rame pas**, et le HUD `bandeau` s'affiche à côté. Ouvrir le même écran dans le concepteur : il reste **maniable** au zoom et au déplacement. Puis `/blueprint import banc_graphe`, `F6` : **361 nœuds**, la minimap montre la chaîne entière, le déplacement de vue et le zoom restent fluides, `Ctrl+F` retrouve un nœud, et la vue Script affiche le tout sans broncher |
 | V39 | Page qui se lit (10.14) | `/blueprint examples` → `reglement`, `Ctrl+S`, `/blueprint run reglement` : les cinq règles **reviennent à la ligne** (aucune coupée au milieu d'un mot), le panneau **défile** à la molette et au clavier, les deux boutons ont leur **infobulle**, « Haut de page » remonte d'un coup ; ouvrir le même écran dans le concepteur montre exactement la même chose ; sur un écran chargé, le concepteur reste **fluide** au déplacement de la souris — c'est la passe de disposition qui n'est plus refaite huit fois par image |

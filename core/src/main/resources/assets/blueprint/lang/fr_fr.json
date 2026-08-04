@@ -80,6 +80,8 @@
   "blueprint.fault.signal_budget": "Budget de signaux épuisé (%s par tick) — boucle probable",
   "blueprint.cmd.examples_created": "%s blueprint(s) d'exemple créés — désactivés : lis-les dans l'éditeur, puis /blueprint enable",
   "blueprint.cmd.examples_exist": "Les %s exemples existent déjà",
+  "blueprint.cmd.content": "Contenu déclaré : %s item(s) enregistré(s), %s écarté(s)",
+  "blueprint.cmd.content_rejected": "Écarté — %s",
   "blueprint.cmd.demo_created": "Blueprint de démo %s créé et exporté — reconnecte-toi pour le message d'accueil, ou écris un message contenant « ping » dans le chat",
   "blueprint.cmd.demo_created_no_file": "Blueprint de démo %s créé, mais SANS pouvoir écrire le fichier (voir le log serveur) — il fonctionne quand même en jeu",
   "blueprint.cmd.debug_on": "Débogage de %s — points d'arrêt et valeurs enregistrés",
