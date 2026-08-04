@@ -1,0 +1,51 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.16"
+story_title: "Le reflet sur disque"
+gate: "PASS"
+status_reason: "Le dossier blueprint/exports/ suit désormais ce que le monde contient, au lieu de n'être qu'une photo du jour où l'on a pensé à exporter. La source de vérité ne change PAS — la sauvegarde du monde reste seule autorité, et c'est ce qui permet au reflet d'échouer sans conséquence. Trois décisions défendues : au mieux jamais au prix de l'enregistrement, rien d'écrit pour un enregistrement refusé, et une suppression qui n'efface pas le fichier."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "MIROIR-001"
+    severity: high
+    finding: "Le risque central d'une écriture ajoutée dans le chemin d'enregistrement : qu'elle puisse le faire échouer. Un disque plein, un dossier en lecture seule, un antivirus qui verrouille le fichier — et la commodité qu'on vient d'ajouter devient une nouvelle façon de perdre une heure d'édition, sur un chemin qui n'échouait pas avant"
+    suggested_action: "Le reflet est au mieux, jamais au prix de l'enregistrement : catch large et journalisation, sur le seul endroit du produit où un catch large est correct. Test unRefletQuiEchoueNeCoutePasLEnregistrement, qui fait explicitement lever le miroir et vérifie que le verdict reste SAVED"
+  - id: "MIROIR-002"
+    severity: medium
+    finding: "Écrire le fichier pour un enregistrement REFUSÉ donnerait un fichier plus récent que le monde. Le verrou optimiste refuse quand la révision a bougé (6.3) : le disque affirmerait alors l'existence d'une version que le serveur a rejetée"
+    suggested_action: "Le reflet est appelé APRÈS l'adoption de l'instantané, donc jamais sur un refus. Test unEnregistrementRefuseNeLaissePasDeReflet"
+  - id: "MIROIR-003"
+    severity: medium
+    finding: "Fallait-il effacer le fichier quand un blueprint est supprimé ? Un miroir fidèle le dirait ; mais le dossier d'exports est justement ce qu'on ouvre pour RÉCUPÉRER, et effacer détruirait la dernière copie de ce que le joueur vient de retirer du monde"
+    suggested_action: "Asymétrie délibérée et documentée : le reflet suit les écritures, pas les suppressions. Un fichier orphelin ne coûte rien, il reste réimportable. Test supprimerUnBlueprintNEffacePasSonFichier"
+  - id: "MIROIR-004"
+    severity: medium
+    finding: "Écrire un fichier demande le dossier du jeu, donc FabricLoader, qui n'existe pas dans un test headless. Un appel en dur aurait rendu BlueprintManager.save() non vérifiable — sur le chemin le plus sensible du produit"
+    suggested_action: "Miroir injecté par mirrorWith, câblé par BlueprintMod au démarrage du serveur. Le gestionnaire n'a pas à connaître le disque pour être vérifiable, et les neuf tests tournent sans jeu"
+  - id: "MIROIR-005"
+    severity: low
+    finding: "Un réglage de plus dans config.json, et une configuration écrite avant lui ne le contient pas"
+    suggested_action: "autoExport actif par défaut, y compris pour un fichier antérieur : celui-ci ne doit pas priver son serveur d'une commodité qu'il n'a pas eu l'occasion de refuser. Quatrième constructeur de compatibilité, exactement comme les trois qui existaient déjà pour les vagues de réglages précédentes. Deux tests"
+  - id: "MIROIR-006"
+    severity: low
+    finding: "La question de fond — charger les blueprints DEPUIS le dossier — a été écartée, et il faut dire pourquoi pour qu'elle ne revienne pas"
+    suggested_action: "Écartée avec trois raisons : un blueprint porte de l'état (variables @player/@graph persistées dans le monde), le serveur doit trancher en multijoueur, et le verrou optimiste repose sur un seul modèle en mémoire. Livrer des blueprints avec un serveur reste un besoin légitime, mais sa bonne réponse est un dossier EN LECTURE SEULE chargé au démarrage — jamais exports/, sous peine de créer les deux écrivains qu'on vient d'éviter"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 3, low: 2 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Le reflet ne suit que ce qui passe par BlueprintManager.save(). Toute future écriture qui adopterait un blueprint par un autre chemin devrait s'y brancher aussi, ou le dossier recommencerait à dériver — silencieusement, comme avant."
+      - "Chaque enregistrement écrit maintenant un fichier. Sur un serveur où plusieurs personnes éditent en continu, c'est une écriture disque par Ctrl+S : autoExport existe pour cela, et c'est le premier réglage à couper si le disque devient un point chaud."
+evidence:
+  tests_reviewed: 1109
+  gametests: 17
+  new_tests:
+    - "AutoExportTest (9) — l'échec sans conséquence, le rafraîchissement à chaque enregistrement, le refus qui n'écrit rien, la suppression qui n'efface pas, le réglage et sa compatibilité"
+  risks_without_gate:
+    - "Sans MIROIR-001, on aurait transformé le chemin d'enregistrement — le seul qu'un auteur ne peut pas se permettre de voir échouer — en dépendance du système de fichiers."
+    - "Sans le reflet lui-même, le dossier d'exports aurait continué de dériver : c'est déjà ce qui a rendu run/ périmé de trois stories, et ce qui a permis d'y écraser un fichier sans que rien ne le signale."
+quality_score: 93
+expires: "2026-08-18T00:00:00Z"

@@ -119,6 +119,19 @@ Tout graphe s'écrit en **BScript**, un texte lisible :
 
 La vue **Script** (bouton de la barre d'outils) montre le texte du graphe en direct.
 
+> **Chaque `Ctrl+S` rafraîchit le fichier.** Le dossier `blueprint/exports/` est donc un
+> reflet fidèle de ce que contient votre monde, pas une photo du jour où vous avez pensé à
+> exporter — vous pouvez le suivre dans git, l'ouvrir dans un éditeur de texte, en envoyer
+> un fichier à quelqu'un, sans rien avoir à faire d'abord.
+>
+> C'est un **reflet**, dans un seul sens : rien n'est relu depuis ce dossier au démarrage,
+> et vos blueprints vivent dans la **sauvegarde du monde** — copier un monde les emporte,
+> le restaurer les restaure. Modifier un `.bp` à la main ne change donc rien tant que vous
+> ne l'avez pas réimporté. Et **supprimer un blueprint n'efface pas son fichier** : c'est
+> souvent la dernière copie, et c'est là qu'on vient la rechercher.
+>
+> Sur un serveur, `autoExport: false` dans `blueprint/config.json` coupe le reflet.
+
 ---
 
 ## 8. Faire un menu

@@ -99,6 +99,19 @@ public class BlueprintMod implements ModInitializer {
                     storage, BlueprintManager.of(server), schedulerOf(server), registries,
                     new fr.blueprint.core.storage.ServerRefResolver(server), envFactory(server));
             storage.bindLive(BlueprintManager.of(server), schedulerOf(server));
+            // Le dossier `blueprint/exports/` devient un REFLET de ce que le monde
+            // contient, et non plus une photo du jour où l'on a pensé à exporter. Sans
+            // cela il dérive dès l'enregistrement suivant — et l'on croit relire son
+            // travail alors qu'on relit une version d'avant.
+            //
+            // Un reflet, pas une seconde source de vérité : rien ne relit ce dossier au
+            // démarrage, et un blueprint SUPPRIMÉ n'y est pas effacé. Effacer le fichier
+            // détruirait la dernière copie de quelque chose que le joueur vient de retirer
+            // du monde ; le laisser ne coûte qu'un fichier réimportable.
+            if (config().autoExport()) {
+                BlueprintManager.of(server).mirrorWith(bp ->
+                        BlueprintFiles.export(bp, BlueprintPaths.exports(), registries));
+            }
             LOGGER.info("Persistance : {} blueprint(s) chargé(s), {} préservé(s) brut(s), "
                             + "{} exécution(s) reprise(s), {} annulée(s)",
                     report.blueprintsLoaded(), report.blueprintsCorrupt(),

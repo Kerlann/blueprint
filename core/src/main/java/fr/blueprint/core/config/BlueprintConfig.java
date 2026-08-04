@@ -21,7 +21,7 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                               int maxNodes, int maxGraphKilobytes, int savesPerWindow,
                               int requestsPerWindow, boolean auditAdminNodes,
                               int maxScreens, int maxElementsPerScreen,
-                              int clicksPerWindow, int opensPerWindow) {
+                              int clicksPerWindow, int opensPerWindow, boolean autoExport) {
 
     public static final BlueprintConfig DEFAULT = new BlueprintConfig(2);
 
@@ -48,7 +48,22 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                 fr.blueprint.core.graph.GraphLimits.DEFAULT.maxScreens(),
                 fr.blueprint.core.graph.GraphLimits.DEFAULT.maxElementsPerScreen(),
                 fr.blueprint.core.net.NetLimits.DEFAULT.clicksPerWindow(),
-                fr.blueprint.core.net.NetLimits.DEFAULT.opensPerWindow());
+                fr.blueprint.core.net.NetLimits.DEFAULT.opensPerWindow(), true);
+    }
+
+    /**
+     * Compatibilité : la configuration d'avant le reflet sur disque (story 10.16). Elle
+     * le reçoit <b>actif</b> — un fichier antérieur ne doit pas priver son serveur d'une
+     * commodité qu'il n'a pas eu l'occasion de refuser.
+     */
+    public BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int maxOverBudgetTicks,
+                           int maxNodes, int maxGraphKilobytes, int savesPerWindow,
+                           int requestsPerWindow, boolean auditAdminNodes,
+                           int maxScreens, int maxElementsPerScreen,
+                           int clicksPerWindow, int opensPerWindow) {
+        this(commandPermissionLevel, fuelPerTick, maxOverBudgetTicks, maxNodes,
+                maxGraphKilobytes, savesPerWindow, requestsPerWindow, auditAdminNodes,
+                maxScreens, maxElementsPerScreen, clicksPerWindow, opensPerWindow, true);
     }
 
     /** Bornes structurelles d'un graphe (validateur, opérations d'édition). */
@@ -116,6 +131,7 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                 defaults.addProperty("maxElementsPerScreen", DEFAULT.maxElementsPerScreen());
                 defaults.addProperty("clicksPerWindow", DEFAULT.clicksPerWindow());
                 defaults.addProperty("opensPerWindow", DEFAULT.opensPerWindow());
+                defaults.addProperty("autoExport", DEFAULT.autoExport());
                 Files.writeString(file, GSON.toJson(defaults));
                 return DEFAULT;
             }
@@ -135,7 +151,11 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
                     intOr(json, "maxScreens", DEFAULT.maxScreens()),
                     intOr(json, "maxElementsPerScreen", DEFAULT.maxElementsPerScreen()),
                     intOr(json, "clicksPerWindow", DEFAULT.clicksPerWindow()),
-                    intOr(json, "opensPerWindow", DEFAULT.opensPerWindow()));
+                    intOr(json, "opensPerWindow", DEFAULT.opensPerWindow()),
+                    // Le reflet sur disque (10.16). Vrai par défaut : sans lui le dossier
+                    // d'exports dérive dès l'enregistrement suivant, et l'on relit une
+                    // version d'avant en croyant relire son travail.
+                    boolOr(json, "autoExport", DEFAULT.autoExport()));
         } catch (IOException | RuntimeException e) {
             BlueprintMod.LOGGER.warn("Config illisible ({}), valeurs par défaut appliquées", file, e);
             return DEFAULT;

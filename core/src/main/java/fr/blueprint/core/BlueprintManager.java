@@ -3,6 +3,7 @@ package fr.blueprint.core;
 import fr.blueprint.core.graph.Blueprint;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -139,6 +140,7 @@ public final class BlueprintManager {
         snapshot.setEnabled(current.enabled());
         snapshot.adoptRevision(baseRevision + 1);
         blueprints.put(snapshot.id(), snapshot);
+        mirror(snapshot);
         // Les écrans ouverts pointent maintenant une version qui n'existe plus telle
         // quelle (10.4, AC5d) : leur renvoyer la description à jour, ou les fermer si
         // l'écran a disparu. Un menu fantôme dont les clics visent des éléments
@@ -160,6 +162,39 @@ public final class BlueprintManager {
             closeItsScreens(id);
         }
         return true;
+    }
+
+    /**
+     * Ce qui reflète un enregistrement sur le disque, ou {@code null} — personne.
+     *
+     * <p>Injecté plutôt qu'appelé en dur : écrire un fichier demande le dossier du jeu,
+     * donc {@code FabricLoader}, qui n'existe pas dans un test headless. Le manager n'a
+     * pas à connaître le disque pour être vérifiable.
+     */
+    private @Nullable java.util.function.Consumer<Blueprint> mirror;
+
+    public void mirrorWith(@Nullable java.util.function.Consumer<Blueprint> mirror) {
+        this.mirror = mirror;
+    }
+
+    /**
+     * Reflète un enregistrement dans {@code blueprint/exports/}.
+     *
+     * <p><b>Au mieux</b>, jamais au prix de l'enregistrement : la vérité est dans la
+     * sauvegarde du monde, le fichier n'en est qu'un reflet. Un disque plein ou en lecture
+     * seule doit faire perdre le reflet, pas le travail — d'où le {@code catch} large, qui
+     * serait injustifiable partout ailleurs.
+     */
+    private void mirror(Blueprint snapshot) {
+        if (mirror == null) {
+            return;
+        }
+        try {
+            mirror.accept(snapshot);
+        } catch (RuntimeException e) {
+            BlueprintMod.LOGGER.warn("Reflet de « {} » sur le disque impossible ;"
+                    + " l'enregistrement, lui, a bien eu lieu", snapshot.id(), e);
+        }
     }
 
     public Collection<Blueprint> all() {

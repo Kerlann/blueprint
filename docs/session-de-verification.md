@@ -1,6 +1,6 @@
 # Session de vérification en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : **1100 tests headless** et **17 gametests**
+Tout ce qui se vérifie sans yeux l'est déjà : **1109 tests headless** et **17 gametests**
 dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
 seule une personne devant l'écran peut juger.
 
@@ -55,7 +55,7 @@ Puis en jeu : créer un monde en **créatif**, tricheurs activés.
 
 ---
 
-## Bloc 2 — Les écrans (14 points, ~33 min)
+## Bloc 2 — Les écrans (15 points, ~35 min)
 
 Restez dans le même blueprint, onglet **Écrans**.
 
@@ -71,6 +71,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 | ☐ V27 | Boutons vivants | Cliquer « acheter » déclenche le graphe. Masquer un bouton depuis le graphe le rend **vraiment** incliquable. Désactiver le blueprint referme le menu ouvert. |
 | ☐ V31 | Liaison de données | Lier une étiquette à une variable (elle se **choisit** dans la liste, ne se tape pas), format `Or : %s`. À l'ouverture, l'étiquette montre déjà le **défaut** de la variable. Changer la variable puis `gui/refresh` → le texte suit. **Sans** `gui/refresh`, rien ne bouge — c'est voulu. Renommer la variable dans l'éditeur → **erreur** de diagnostic, pas un écran vide. |
 | ☐ V35 | **Éléments riches** | Alimenter une liste par `gui/set_lines` → les lignes s'affichent, la molette défile, ce qui dépasse est **découpé** (rien ne déborde). Cliquer la troisième ligne → le graphe reçoit l'**indice 2**, et toujours 2 **après avoir défilé**. Taper dans un champ → un caractère hors filtre est refusé à la frappe ; `Entrée` valide ; `Échap` relâche le champ **avant** de fermer l'écran. `gui/set_item` affiche un objet avec son nombre. Un **aperçu d'entité** (`minecraft:pig`) montre la créature qui tourne — ouvrir/fermer vingt fois ne fait pas saccader. |
+| ☐ V41 | **Reflet sur disque** | Éditer un blueprint, `Ctrl+S`, puis regarder `blueprint/exports/<id>.bp` **sans rien exporter** : il contient la modification. Recommencer : il suit. Supprimer le blueprint → **le fichier reste**. Mettre `autoExport: false` dans `blueprint/config.json`, redémarrer, réenregistrer → le fichier ne bouge plus. |
 | ☐ V40 | **Bancs d'essai** | `/blueprint import banc_ecran`, `/blueprint run banc_ecran` : **110 éléments** d'un coup — onze types, trois panneaux défilants, dix-huit paragraphes enveloppés, infobulles partout. Le menu **s'ouvre** (c'est le paquet réseau qui est en jeu) et **ne rame pas** ; le HUD `bandeau` s'affiche à côté. Le même écran dans le concepteur reste **maniable** au zoom et au déplacement. Puis `banc_graphe` et `F6` : **361 nœuds**, minimap lisible, vue fluide, `Ctrl+F` qui retrouve, vue Script complète. |
 | ☐ V39 | **Page qui se lit** | `/blueprint examples` → `reglement`, `Ctrl+S`, puis `/blueprint run reglement`. La page s'ouvre : les cinq règles **reviennent à la ligne** (aucune coupée au milieu d'un mot), le panneau **défile** à la molette **et** au clavier, les deux boutons ont leur **infobulle** au survol, et « Haut de page » remonte d'un coup. Dans l'éditeur, ouvrir le même écran : le concepteur montre exactement la même chose. |
 | ☐ V30 | Packs d'images | Le pack est déjà dans `run/blueprint/scripts/`. `/blueprint-packs` → il est listé. `/blueprint import boutique.bp`, ouvrir l'écran → fond et boutons portent les images. **Renommer le dossier** et `/blueprint-packs reload` → damiers portant « pack ma_boutique absent », le menu reste cliquable. Le remettre, recharger **sans fermer le menu** → les images reviennent. |
@@ -112,4 +113,4 @@ Pour chaque défaut noté :
 3. S'il révèle un **manque de conception**, c'est une story — pas un correctif glissé dans
    un commit de finition.
 
-Le tableau des 40 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
+Le tableau des 41 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
