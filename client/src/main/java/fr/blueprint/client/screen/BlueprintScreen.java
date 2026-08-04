@@ -83,6 +83,8 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             }
             model = model.replacing(update.element(), switch (update.kind()) {
                 case TEXT -> element.withText(update.screenText());
+                case TOOLTIP -> element.withTooltip(update.screenText());
+                case STYLE -> element.withStyleName(update.text());
                 case TEXTURE -> element.withTexture(update.textureId());
                 case VISIBLE -> element.withVisible(update.flag());
                 case ENABLED -> element.withEnabled(update.flag());
@@ -402,6 +404,9 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             return super.mouseReleased(event);
         }
         var element = model.element(was);
+        if (element != null && element.kind().interactive() && element.enabled()) {
+            playClick();
+        }
         if (element != null && onValue != null) {
             var rect = layout().get(was);
             switch (element.kind()) {
@@ -439,6 +444,24 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         return true;
     }
 
+    /**
+     * Le déclic d'un bouton du jeu (story 10.12).
+     *
+     * <p>Un menu de blueprint ne faisait <b>aucun bruit</b>. Chaque bouton de Minecraft
+     * en fait un, et son absence ne se lit pas comme un choix : elle se lit comme un clic
+     * qui n'a pas été pris en compte. Le joueur reclique, et le graphe reçoit deux fois
+     * ce qu'il devait recevoir une.
+     *
+     * <p>Réservé aux éléments <b>interactifs et activés</b> : un bouton grisé qui claque
+     * dirait le contraire de ce qu'il montre.
+     */
+    private void playClick() {
+        var client = net.minecraft.client.Minecraft.getInstance();
+        client.getSoundManager().play(
+                net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
+                        net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1));
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
@@ -446,6 +469,50 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         // c'est contre elle que se résolvent les pourcentages et les ancres.
         ScreenPainter.paint(graphics, font, model, layout(), 0, 0, 1,
                 visuals(mouseX, mouseY));
+        renderTooltip(graphics, mouseX, mouseY);
+    }
+
+    /**
+     * Ce que le survol explique (story 10.12).
+     *
+     * <p>Dessiné <b>après</b> l'écran et par le mécanisme du jeu : une infobulle peinte
+     * dans la passe des éléments passerait sous ceux dessinés plus tard, et une infobulle
+     * près du bord droit sortirait de la fenêtre — {@code setTooltipForNextFrame} sait la
+     * replier, ce qu'il aurait fallu réécrire ici pour un résultat moins bon.
+     *
+     * <p>Un élément <b>désactivé</b> garde son infobulle : c'est même là qu'elle sert le
+     * plus, puisque c'est le moment où le joueur se demande pourquoi il ne peut pas
+     * cliquer. Un élément masqué, lui, n'en a pas — il n'est pas sous le curseur.
+     */
+    private void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        // PAS elementAt : celui-là ne rend que les éléments interactifs ET activés, parce
+        // que c'est ce dont le CLIC a besoin. Une infobulle, non — une étiquette et une
+        // image en portent une, et un bouton grisé est précisément l'endroit où elle sert
+        // le plus, puisque c'est là que le joueur se demande pourquoi il ne peut pas
+        // cliquer. Réutiliser le hit-test du clic aurait rendu l'infobulle muette dans
+        // les trois cas où on la cherche.
+        var placed = layout();
+        var elements = java.util.List.copyOf(model.elements().values());
+        for (int i = elements.size() - 1; i >= 0; i--) {
+            var element = elements.get(i);
+            if (!element.hasTooltip()
+                    || !ScreenPainter.visible(model, element, ScreenPainter.Visuals.NONE)) {
+                continue;
+            }
+            var rect = placed.get(element.name());
+            if (rect != null && rect.contains(mouseX, mouseY)) {
+                graphics.setTooltipForNextFrame(font, componentOf(element.tooltip()),
+                        mouseX, mouseY);
+                return;
+            }
+        }
+    }
+
+    private static net.minecraft.network.chat.Component componentOf(
+            fr.blueprint.core.graph.screen.ScreenText text) {
+        return text.translate()
+                ? net.minecraft.network.chat.Component.translatable(text.value())
+                : net.minecraft.network.chat.Component.literal(text.value());
     }
 
     /**

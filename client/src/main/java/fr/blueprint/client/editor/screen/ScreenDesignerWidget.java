@@ -62,6 +62,8 @@ public final class ScreenDesignerWidget {
     private static final int SURFACE_BACKGROUND = 0xFF101114;
     private static final int SAFE_BORDER = 0xFF4A4F58;
     private static final int GUIDE = 0xFFE0AF68;
+    /** Assez visible pour se compter, assez discret pour ne pas concurrencer le menu. */
+    private static final int GRID = 0x22FFFFFF;
     private static final int OVERFLOW = 0xFFE0AF68;
     private static final int HANDLE = 0xFFE6E6E6;
     private static final int RUBBER_FILL = 0x337AA2F7;
@@ -147,10 +149,77 @@ public final class ScreenDesignerWidget {
         renderPalette(g, font);
         renderProperties(g, font);
         renderViewportBar(g, font);
+        renderHoverTooltip(g, font, screen);
+        renderHelp(g, font);
         if (message != null) {
             g.drawString(font, message, panels.canvasLeft() + 4, height - ROW, INVALID, false);
         }
     }
+
+    /**
+     * L'infobulle de l'élément survolé, telle que le joueur la verra.
+     *
+     * <p>Écrire une infobulle sans la voir revient à l'écrire à l'aveugle : on ne peut
+     * juger ni sa longueur, ni si la clé de traduction existe. Elle est montrée pendant
+     * la conception, mais <b>pas pendant un geste</b> — une infobulle qui suit la souris
+     * en plein déplacement masque précisément ce qu'on est en train de placer.
+     */
+    private void renderHoverTooltip(GuiGraphics g, Font font, @Nullable Screen screen) {
+        if (screen == null || controller.gesture() != ScreenCanvasController.Gesture.NONE
+                || !surface.contains(mouseX, mouseY)) {
+            return;
+        }
+        String hovered = controller.hitTest(surface.toDesignX(mouseX), surface.toDesignY(mouseY));
+        ScreenElement element = hovered == null ? null : screen.element(hovered);
+        if (element == null || !element.hasTooltip()) {
+            return;
+        }
+        g.setTooltipForNextFrame(font, element.tooltip().translate()
+                        ? net.minecraft.network.chat.Component.translatable(
+                                element.tooltip().value())
+                        : net.minecraft.network.chat.Component.literal(element.tooltip().value()),
+                (int) mouseX, (int) mouseY);
+    }
+
+    /**
+     * La liste des raccourcis, à la touche F1.
+     *
+     * <p>Le concepteur en porte une vingtaine — alignement au pavé numérique, repli des
+     * panneaux, cadrage, accroche, ordre de superposition — et ne les écrivait <b>nulle
+     * part</b>. Un raccourci qu'on ne peut pas découvrir n'existe que pour celui qui l'a
+     * écrit ; les six touches d'alignement, en particulier, ne se devinent pas.
+     */
+    private void renderHelp(GuiGraphics g, Font font) {
+        if (!helpVisible) {
+            return;
+        }
+        List<String> lines = List.of(
+                "molette : zoom      milieu / Espace+clic : déplacer la vue",
+                "F : cadrer          Ctrl+0 : 1:1          + / − : un cran",
+                "Tab : replier les panneaux                G : grille",
+                "flèches : décaler d'une unité (Maj : dix)",
+                "pavé num. 4/5/6 : gauche / centre / droite",
+                "pavé num. 8/0/2 : haut / milieu / bas",
+                "pavé num. + / − : répartir (3 éléments et plus)",
+                "un seul élément sélectionné : l'alignement se fait sur son PARENT",
+                "Ctrl+D dupliquer   Ctrl+C/V copier-coller   Ctrl+A tout",
+                "Ctrl+H masquer     Suppr supprimer          Pg↑/Pg↓ ordre",
+                "Ctrl+S enregistrer                          F1 : fermer cette aide");
+        int boxWidth = 0;
+        for (String line : lines) {
+            boxWidth = Math.max(boxWidth, font.width(line));
+        }
+        int left = panels.canvasLeft() + 8;
+        int topPx = top + ROW * 2;
+        g.fill(left - 4, topPx - 4, left + boxWidth + 4, topPx + lines.size() * ROW + 2,
+                0xF01A1B1E);
+        g.fill(left - 4, topPx - 4, left + boxWidth + 4, topPx - 3, PANEL_BORDER);
+        for (int i = 0; i < lines.size(); i++) {
+            g.drawString(font, lines.get(i), left, topPx + i * ROW, TEXT, false);
+        }
+    }
+
+    private boolean helpVisible;
 
     private void renderSurface(GuiGraphics g, Font font, @Nullable Screen screen) {
         // Le découpage suit la ZONE, pas le canevas : zoomé, le canevas déborde largement
@@ -179,6 +248,7 @@ public final class ScreenDesignerWidget {
             return;
         }
 
+        renderGrid(g);
         paintScreen(g, font, screen);
         renderOverflow(g, screen);
         renderSelection(g, screen);
@@ -331,6 +401,38 @@ public final class ScreenDesignerWidget {
         g.fill(right - 1, topPx, right, bottom, colour);
     }
 
+    /**
+     * La grille d'accroche, <b>visible</b>.
+     *
+     * <p>L'accroche existait depuis la 10.2 et se basculait à la touche G, mais rien ne
+     * la montrait : les éléments sautaient de deux en deux sans qu'on sache pourquoi, et
+     * l'auteur qui trouvait le pas trop grossier n'avait aucun moyen de deviner qu'une
+     * grille l'expliquait — ni qu'une touche l'éteignait.
+     *
+     * <p>Un trait tous les huit crans seulement : à deux unités de pas et au zoom serré,
+     * dessiner chaque cran remplirait le canevas d'un damier qui masquerait le menu. Sous
+     * quatre pixels d'écart, la grille disparaît — elle ne servirait qu'à griser le fond.
+     */
+    private void renderGrid(GuiGraphics g) {
+        if (!controller.snapEnabled()) {
+            return;
+        }
+        double step = ScreenCanvasController.GRID_STEP * 8;
+        if (surface.toPixels(step) < 4) {
+            return;
+        }
+        int units = (int) controller.viewportWidth();
+        int tall = (int) controller.viewportHeight();
+        for (double x = step; x < units; x += step) {
+            int px = surface.toScreenX(x);
+            g.fill(px, surface.top(), px + 1, surface.bottom(), GRID);
+        }
+        for (double y = step; y < tall; y += step) {
+            int py = surface.toScreenY(y);
+            g.fill(surface.left(), py, surface.right(), py + 1, GRID);
+        }
+    }
+
     private void renderGuides(GuiGraphics g) {
         for (AlignmentGuides.Guide guide : controller.guides()) {
             if (guide.vertical()) {
@@ -397,6 +499,11 @@ public final class ScreenDesignerWidget {
         x += font.width("+") + 8;
         String frame = I18n.get("blueprint.designer.zoom_fit");
         chips.add(new BarChip(frame, x, font.width(frame) + 8, false, () -> needsFit = true));
+        x += font.width(frame) + 8;
+        // Un raccourci qu'on ne peut pas découvrir n'existe que pour celui qui l'a écrit.
+        String help = I18n.get("blueprint.designer.help");
+        chips.add(new BarChip(help, x, font.width(help) + 8, helpVisible,
+                () -> helpVisible = !helpVisible));
         return List.copyOf(chips);
     }
 
@@ -683,6 +790,20 @@ public final class ScreenDesignerWidget {
                     editing ? properties.buffer() + "_" : properties.valueOf(field)));
             y += ROW;
         }
+
+        // Le retour à la ligne. Une case et non un champ : c'est un oui/non, et le taper
+        // demanderait de connaître une syntaxe qu'aucun panneau n'affiche.
+        boolean wraps = element.style().wrap();
+        // Les deux clés sont passées EN DUR à I18n.get, et non choisies avant l'appel :
+        // le détecteur de clés mortes lit les sources, et une clé calculée lui paraît
+        // inutilisée — il l'aurait signalée à chaque build (leçon du même test en 9.4).
+        String wrapLabel = wraps ? I18n.get("blueprint.designer.wrap.on")
+                : I18n.get("blueprint.designer.wrap.off");
+        rows.add(new Row(y, I18n.get("blueprint.designer.wrap"), java.util.List.of(
+                new Chip(wrapLabel, 52, 24, wraps,
+                        () -> apply(element.styled(element.style().withWrap(!wraps))))),
+                null, null));
+        y += ROW;
 
         if (element.kind().container()) {
             rows.add(new Row(y, I18n.get("blueprint.designer.layout"),
@@ -1160,6 +1281,10 @@ public final class ScreenDesignerWidget {
                     yield false;
                 }
                 controller.selection().clear();
+                yield true;
+            }
+            case GLFW.GLFW_KEY_F1 -> {
+                helpVisible = !helpVisible;
                 yield true;
             }
             // Le cadrage et les crans de zoom, aux mêmes touches que l'onglet Graphe.

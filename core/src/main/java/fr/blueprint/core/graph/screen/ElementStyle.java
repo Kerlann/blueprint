@@ -13,7 +13,7 @@ package fr.blueprint.core.graph.screen;
  */
 public record ElementStyle(int background, int border, int borderWidth, int textColor,
                            int hoverBackground, int pressedBackground, int disabledBackground,
-                           int padding, TextAlign align) {
+                           int padding, TextAlign align, boolean wrap) {
 
     /** Alignement horizontal du texte dans l'élément. */
     public enum TextAlign {
@@ -33,7 +33,28 @@ public record ElementStyle(int background, int border, int borderWidth, int text
     public static final ElementStyle DEFAULT = new ElementStyle(
             0xC0141519, 0xFF6B7280, 1, 0xFFE6E6E6,
             0xC02F3A55, 0xC01F2735, 0x60141519,
-            2, TextAlign.LEFT);
+            2, TextAlign.LEFT, false);
+
+    /**
+     * Le texte revient-il à la ligne dans son cadre ?
+     *
+     * <p>Faux par défaut, et c'est le bon défaut : un libellé de bouton doit tenir sur une
+     * ligne, et le tronquer dit à l'auteur que son texte est trop long. Mais un menu
+     * complet a besoin de <b>paragraphes</b> — une description d'objet, une règle du
+     * serveur, une réponse de dialogue — et sans retour à la ligne il fallait les découper
+     * à la main en autant d'étiquettes empilées, à repositionner à chaque changement de
+     * texte. Une traduction plus longue que l'original cassait la mise en page, ce que
+     * l'auteur ne voyait pas puisqu'il ne lit pas les vingt langues de son serveur.
+     *
+     * <p>Vit dans le style et non dans les options : c'est une propriété d'apparence, au
+     * même titre que l'alignement, et un style nommé « paragraphe » doit pouvoir la
+     * porter pour tous les textes qui le suivent.
+     */
+    public ElementStyle withWrap(boolean newWrap) {
+        return new ElementStyle(background, border, borderWidth, textColor,
+                hoverBackground, pressedBackground, disabledBackground, padding, align,
+                newWrap);
+    }
 
     public ElementStyle {
         if (borderWidth < 0 || padding < 0) {

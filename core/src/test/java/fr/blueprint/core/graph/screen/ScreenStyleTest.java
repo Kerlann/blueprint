@@ -29,10 +29,10 @@ class ScreenStyleTest {
 
     private static final ElementStyle ROUGE = new ElementStyle(
             0xFFAA0000, 0xFF550000, 1, 0xFFFFFFFF,
-            0xFFCC0000, 0xFF880000, 0x40555555, 2, ElementStyle.TextAlign.CENTER);
+            0xFFCC0000, 0xFF880000, 0x40555555, 2, ElementStyle.TextAlign.CENTER, false);
     private static final ElementStyle BLEU = new ElementStyle(
             0xFF0000AA, 0xFF000055, 1, 0xFFFFFFFF,
-            0xFF0000CC, 0xFF000088, 0x40555555, 2, ElementStyle.TextAlign.LEFT);
+            0xFF0000CC, 0xFF000088, 0x40555555, 2, ElementStyle.TextAlign.LEFT, false);
 
     private static ScreenElement bouton(String name) {
         return ScreenElement.of(name, ElementKind.BUTTON, 0, 0, 60, 20)

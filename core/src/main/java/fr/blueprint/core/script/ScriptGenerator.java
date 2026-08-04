@@ -168,6 +168,10 @@ public final class ScriptGenerator {
             sb.append(element.text().translate() ? " @key(" : " @text(")
                     .append(quote(element.text().value())).append(')');
         }
+        if (element.hasTooltip()) {
+            sb.append(element.tooltip().translate() ? " @tipkey(" : " @tip(")
+                    .append(quote(element.tooltip().value())).append(')');
+        }
         if (element.texture() != null) {
             // L'écriture COURTE pour un pack (« ma_boutique/fond ») : c'est celle que
             // l'auteur reconnaît dans son dossier, et le parseur la relit à l'identique.
@@ -302,12 +306,16 @@ public final class ScriptGenerator {
     }
 
     private String renderStyle(fr.blueprint.core.graph.screen.ElementStyle style) {
-        return String.join(", ",
+        String base = String.join(", ",
                 hex(style.background()), hex(style.border()), num(style.borderWidth()),
                 hex(style.textColor()), hex(style.hoverBackground()),
                 hex(style.pressedBackground()), hex(style.disabledBackground()),
                 num(style.padding()),
                 style.align().name().toLowerCase(java.util.Locale.ROOT));
+        // Écrit seulement quand il est vrai : un `.bp` exporté avant l'existence du
+        // retour à la ligne se relit sans changement, et un style qui ne l'utilise pas
+        // ne gagne pas un champ que personne ne lira.
+        return style.wrap() ? base + ", wrap" : base;
     }
 
     private static String hex(int argb) {

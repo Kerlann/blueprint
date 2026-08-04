@@ -41,16 +41,18 @@ class ScreenLayoutTest {
     @Test
     void unElementCentreEstVraimentCentre() {
         ScreenElement e = new ScreenElement("a", ElementKind.PANEL, null, Anchor.CENTER,
-                0, 0, Extent.of(100), Extent.of(50), ScreenText.EMPTY, null,
-                ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true);
+                0, 0, Extent.of(100), Extent.of(50), ScreenText.EMPTY, ScreenText.EMPTY, null,
+                        ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE,
+                        ElementBinding.NONE, ElementOptions.NONE, true, true);
         assertRect(ScreenLayout.resolve(screen(e), e, 320, 180), 110, 65, 100, 50);
     }
 
     @Test
     void uneAncreDeCoinColleAuCoin() {
         ScreenElement e = new ScreenElement("a", ElementKind.LABEL, null, Anchor.BOTTOM_RIGHT,
-                -4, -4, Extent.of(60), Extent.of(20), ScreenText.EMPTY, null,
-                ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true);
+                -4, -4, Extent.of(60), Extent.of(20), ScreenText.EMPTY, ScreenText.EMPTY, null,
+                        ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE,
+                        ElementBinding.NONE, ElementOptions.NONE, true, true);
         // Bord droit à 320 - 4, bord bas à 180 - 4 : l'écart demandé, pas la position.
         assertRect(ScreenLayout.resolve(screen(e), e, 320, 180), 256, 156, 60, 20);
     }
@@ -61,7 +63,9 @@ class ScreenLayoutTest {
         ScreenElement panel = ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 40, 40);
         ScreenElement child = new ScreenElement("x", ElementKind.LABEL, "cadre",
                 Anchor.TOP_LEFT, 0, 0, Extent.percent(0.5, 0, 0), Extent.percent(0.5, 0, 0),
-                ScreenText.EMPTY, null, ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true);
+                ScreenText.EMPTY, ScreenText.EMPTY, null,
+                        ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE,
+                        ElementBinding.NONE, ElementOptions.NONE, true, true);
         assertRect(ScreenLayout.resolve(screen(panel, child), child, 320, 180),
                 0, 0, 20, 20);
     }

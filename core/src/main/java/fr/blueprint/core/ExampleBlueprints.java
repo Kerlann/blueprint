@@ -111,7 +111,7 @@ public final class ExampleBlueprints {
         var bouton = new fr.blueprint.core.graph.screen.ElementStyle(
                 0xC01F2735, 0xFF6B7280, 1, 0xFFE6E6E6,
                 0xC02F3A55, 0xC0141519, 0x60141519, 3,
-                fr.blueprint.core.graph.screen.ElementStyle.TextAlign.CENTER);
+                fr.blueprint.core.graph.screen.ElementStyle.TextAlign.CENTER, false);
 
         var elements = java.util.List.of(
                 fr.blueprint.core.graph.screen.ScreenElement.of("cadre",

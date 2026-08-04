@@ -1201,11 +1201,20 @@ public final class ScreenCanvasController {
      */
     public boolean alignSelection(Align align) {
         Screen screen = screen();
-        if (screen == null || selection.size() < 2) {
+        if (screen == null || selection.isEmpty()) {
             return false;
         }
         List<String> targets = List.copyOf(movable());
-        ScreenLayout.Rect bounds = boundsOf(screen, targets);
+        // Un SEUL élément s'aligne sur son PARENT — l'écran s'il n'en a pas.
+        //
+        // Aligner un élément sur lui-même ne fait rien, et c'est ce que le concepteur
+        // faisait : les six raccourcis d'alignement étaient muets tant qu'on n'avait pas
+        // sélectionné deux éléments. Or « centre ce bouton dans son cadre » est le geste
+        // le plus courant d'une mise en page, et il fallait le calculer à la main.
+        ScreenLayout.Rect bounds = targets.size() == 1
+                ? ScreenLayout.parentRect(screen, screen.element(targets.getFirst()),
+                        viewportWidth, viewportHeight)
+                : boundsOf(screen, targets);
         if (bounds == null) {
             return false;
         }

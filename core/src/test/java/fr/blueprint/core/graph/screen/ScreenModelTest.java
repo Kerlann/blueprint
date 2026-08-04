@@ -200,7 +200,7 @@ class ScreenModelTest {
         assertFalse(normal == style.backgroundFor(false, false, false), "et le grisé");
 
         ElementStyle inert = new ElementStyle(0xFF102030, 0, 0, 0xFFFFFFFF,
-                0, 0, 0, 0, ElementStyle.TextAlign.LEFT);
+                0, 0, 0, 0, ElementStyle.TextAlign.LEFT, false);
         assertEquals(0xFF102030, inert.backgroundFor(true, true, true),
                 "sans état déclaré, tout retombe sur le fond normal");
     }
@@ -208,7 +208,7 @@ class ScreenModelTest {
     @Test
     void unePermissionDeStyleNegativeEstRefusee() {
         assertThrows(IllegalArgumentException.class, () -> new ElementStyle(
-                0, 0, -1, 0, 0, 0, 0, 0, ElementStyle.TextAlign.LEFT));
+                0, 0, -1, 0, 0, 0, 0, 0, ElementStyle.TextAlign.LEFT, false));
     }
 
     // --------------------------------------------------------------- traduction

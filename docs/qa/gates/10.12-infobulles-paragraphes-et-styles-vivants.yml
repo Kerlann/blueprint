@@ -1,0 +1,68 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "10.12"
+story_title: "Infobulles, paragraphes et styles vivants"
+gate: "PASS"
+status_reason: "Quatre manques du modèle comblés — un élément peut s'expliquer, un texte revient à la ligne, un style change en cours de route, et un bouton fait enfin du bruit — plus trois irritants du concepteur. Un défaut introduit pendant la story a été trouvé en revue avant le gate : l'infobulle réutilisait le hit-test du CLIC, qui n'accepte que les éléments interactifs et activés, si bien qu'elle aurait été muette sur une étiquette, sur une image, et sur un bouton grisé — les trois cas où on la cherche."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "LOOK-001"
+    severity: high
+    finding: "Introduit pendant la story : renderTooltip réutilisait elementAt, le hit-test du clic. Celui-ci écarte délibérément tout ce qui n'est ni interactif ni activé — c'est ce dont le clic a besoin, ce n'est pas ce dont une infobulle a besoin. L'infobulle aurait donc été muette sur une étiquette, sur une image, et sur un bouton DÉSACTIVÉ, alors que c'est précisément là qu'elle sert le plus : c'est le moment où le joueur se demande pourquoi il ne peut pas cliquer. La javadoc que je venais d'écrire promettait l'inverse de ce que le code faisait"
+    suggested_action: "Corrigé — un parcours propre à l'infobulle, qui ne filtre que sur la visibilité. Le commentaire dit pourquoi les deux hit-tests ne peuvent pas être le même"
+  - id: "LOOK-002"
+    severity: medium
+    finding: "gui/update portait déjà douze nœuds, le plafond par catégorie que NodeCategoryTest défend depuis la 5.14. Y ajouter le style et l'infobulle aurait donné dix-huit entrées dans un même repli, et un auteur cherchant « comment changer ce texte » aurait dû traverser tout ce qui concerne l'apparence"
+    suggested_action: "Nouvelle catégorie gui/look, sur le précédent explicite de gui/bind (10.7) et gui/rich (10.8) : celles-ci disent QUOI afficher, celle-là COMMENT"
+  - id: "LOOK-003"
+    severity: medium
+    finding: "Le retour à la ligne, ajouté au bloc @style de BScript, aurait rendu illisible tout `.bp` déjà exporté s'il avait été un dixième champ OBLIGATOIRE — le parseur attendait exactement neuf valeurs"
+    suggested_action: "Champ FACULTATIF : émis seulement quand il est vrai, et le parseur ne le lit que si une virgule suit l'alignement. Test unStyleSansLeDixiemeChampSeRelitEncore, sur un style à neuf champs écrit à la main"
+  - id: "LOOK-004"
+    severity: medium
+    finding: "ScreenElement passe à dix-huit composants et treize méthodes withX, chacune réénumérant les dix-sept autres à la main. C'est exactement le mécanisme par lequel la 10.10 a perdu la table de styles d'un écran : une copie oublie un champ, rien ne compile de travers, et le défaut ne se voit qu'après avoir renommé un élément"
+    suggested_action: "Verrouillé par toutesLesCopiesEmportentLInfobulle, qui exerce les treize. Le regroupement en Placement/Look reste écarté, comme en 10.10 : le renommage mécanique de element.x() sur ~80 sites enfouirait le fond sous le bruit"
+  - id: "LOOK-005"
+    severity: low
+    finding: "Les deux clés blueprint.designer.wrap.on/off étaient d'abord choisies AVANT l'appel à I18n.get. Le détecteur de clés mortes lit les sources et ne reconnaît que I18n.get(\"…\") littéral : il les a signalées comme inutilisées au premier build"
+    suggested_action: "Corrigé en passant les deux clés en dur à deux appels distincts — plus lisible au passage. Le garde a fait son travail : c'est la même leçon qu'en 9.4"
+  - id: "LOOK-006"
+    severity: low
+    finding: "L'alignement d'un seul élément ne faisait RIEN, et un test défendait ce comportement. Les six raccourcis étaient donc muets tant qu'on n'avait pas sélectionné deux éléments, alors que « centre ce bouton dans son cadre » est le geste le plus courant d'une mise en page"
+    suggested_action: "Un seul élément s'aligne désormais sur son PARENT — l'écran s'il n'en a pas. Le test qui défendait l'ancien comportement est remplacé par deux qui prouvent le nouveau"
+  - id: "LOOK-007"
+    severity: low
+    finding: "Un paragraphe dans un cadre plus bas qu'une ligne : faut-il ne rien dessiner, ou déborder ?"
+    suggested_action: "Une ligne est dessinée quoi qu'il arrive. Un cadre vide ne dirait pas « texte trop long », il dirait « vide », et l'auteur chercherait la panne ailleurs. Les lignes SUIVANTES, elles, sont coupées : un paragraphe qui déborde passerait par-dessus l'élément voisin"
+  - id: "LOOK-008"
+    severity: low
+    finding: "Aucun conteneur défilant : une liste défile (10.8), un panneau non"
+    suggested_action: "Hors périmètre et documenté. Cela demande un état d'exécution par joueur, un découpage, un décalage du hit-test et le routage de la molette — une story à part, pas un ajout"
+  - id: "LOOK-009"
+    severity: low
+    finding: "wrap ne s'applique pas aux lignes d'une LISTE"
+    suggested_action: "Délibéré. Les lignes d'une liste sont un gabarit répété : les envelopper changerait le nombre de lignes visibles, donc la correspondance entre la ligne cliquée et l'indice envoyé au graphe — le défaut le plus pénible à diagnostiquer de la 10.8, refermé par un gametest"
+  - id: "LOOK-010"
+    severity: low
+    finding: "Le rendu enveloppé, l'infobulle et le son ne sont vérifiés par aucun test — ils ne se testent pas headless"
+    suggested_action: "Borné : le MODÈLE est testé (8 tests, aller-retour NBT et BScript compris) et le hit-test de l'infobulle est le seul code de décision, écrit à part et commenté. Le reste est à voir et à entendre : VERIFY-10.12"
+risk_summary:
+  totals: { critical: 0, high: 1, medium: 3, low: 6 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "ScreenElement approche de la limite de lisibilité d'un record positionnel : dix-huit composants, treize copies manuelles. Le prochain champ devrait déclencher le regroupement en sous-records, avec le renommage de ~80 sites qu'il implique."
+      - "Les deux hit-tests (clic et infobulle) filtrent différemment À DESSEIN. Toute règle de visibilité ajoutée doit être répercutée dans les deux, ou l'un montrera ce que l'autre ignore."
+evidence:
+  tests_reviewed: 1036
+  gametests: 17
+  new_tests:
+    - "ScreenTooltipAndWrapTest (8) — infobulle, retour à la ligne, les treize copies, aller-retour NBT et BScript sur le CONTENU, relecture d'un style à neuf champs"
+    - "ScreenDesignerActionsTest (+1, 1 réécrit) — l'alignement d'un seul élément sur son parent, et sur l'écran sans parent"
+  risks_without_gate:
+    - "Sans le correctif LOOK-001, la fonction la plus visible de la story aurait été livrée muette dans les trois cas où on la cherche — et le code aurait porté une javadoc affirmant le contraire, ce qui est pire qu'un silence."
+    - "Sans le champ BScript facultatif, tout `.bp` exporté avant cette story aurait cessé d'être relisible : une perte de travail silencieuse à l'import."
+quality_score: 91
+expires: "2026-08-18T00:00:00Z"

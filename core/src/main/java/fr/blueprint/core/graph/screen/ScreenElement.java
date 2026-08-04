@@ -22,6 +22,10 @@ import org.jetbrains.annotations.Nullable;
  * @param width   largeur, fixe ou relative au parent
  * @param height  hauteur, fixe ou relative au parent
  * @param text    libellé, littéral ou clé de traduction
+ * @param tooltip ce que le survol explique, littéral ou clé ; vide = pas d'infobulle.
+ *                Un menu qui ne s'explique pas oblige son auteur à tout dire dans des
+ *                libellés, qui n'en ont pas la place — c'est le seul endroit d'une
+ *                interface où l'on peut être bavard sans encombrer.
  * @param texture texture d'un {@code IMAGE}, ou {@code null}
  * @param style   apparence par état, quand aucun style nommé n'est suivi
  * @param styleName nom d'un style de l'écran, ou vide pour le style en ligne
@@ -34,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
 public record ScreenElement(String name, ElementKind kind, @Nullable String parent,
                             Anchor anchor, double x, double y,
                             Extent width, Extent height,
-                            ScreenText text, @Nullable Identifier texture,
+                            ScreenText text, ScreenText tooltip, @Nullable Identifier texture,
                             ElementStyle style, String styleName, LayoutSpec layout,
                             ElementBinding binding, ElementOptions options,
                             boolean visible, boolean enabled) {
@@ -57,6 +61,9 @@ public record ScreenElement(String name, ElementKind kind, @Nullable String pare
         }
         if (text == null) {
             text = ScreenText.EMPTY;
+        }
+        if (tooltip == null) {
+            tooltip = ScreenText.EMPTY;
         }
         if (style == null) {
             style = ElementStyle.DEFAULT;
@@ -89,67 +96,89 @@ public record ScreenElement(String name, ElementKind kind, @Nullable String pare
     public static ScreenElement of(String name, ElementKind kind, double x, double y,
                                    double width, double height) {
         return new ScreenElement(name, kind, null, Anchor.TOP_LEFT, x, y,
-                Extent.of(width), Extent.of(height), ScreenText.EMPTY, null,
+                Extent.of(width), Extent.of(height), ScreenText.EMPTY, ScreenText.EMPTY, null,
                 ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE,
                 ElementOptions.NONE, true, true);
     }
 
     public ScreenElement withParent(@Nullable String newParent) {
         return new ScreenElement(name, kind, newParent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, options, visible, enabled);
+                text, tooltip, texture, style, styleName, layout, binding, options,
+                visible, enabled);
     }
 
     public ScreenElement withAnchor(Anchor newAnchor) {
         return new ScreenElement(name, kind, parent, newAnchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, options, visible, enabled);
+                text, tooltip, texture, style, styleName, layout, binding, options,
+                visible, enabled);
     }
 
     public ScreenElement movedTo(double newX, double newY) {
         return new ScreenElement(name, kind, parent, anchor, newX, newY, width, height,
-                text, texture, style, styleName, layout, binding, options, visible, enabled);
+                text, tooltip, texture, style, styleName, layout, binding, options,
+                visible, enabled);
     }
 
     public ScreenElement resized(Extent newWidth, Extent newHeight) {
         return new ScreenElement(name, kind, parent, anchor, x, y, newWidth, newHeight,
-                text, texture, style, styleName, layout, binding, options, visible, enabled);
+                text, tooltip, texture, style, styleName, layout, binding, options,
+                visible, enabled);
     }
 
     public ScreenElement renamed(String newName) {
         return new ScreenElement(newName, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, options, visible, enabled);
+                text, tooltip, texture, style, styleName, layout, binding, options,
+                visible, enabled);
     }
 
     public ScreenElement styled(ElementStyle newStyle) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, newStyle, styleName, layout, binding, options, visible, enabled);
+                text, tooltip, texture, newStyle, styleName, layout, binding, options,
+                visible, enabled);
     }
 
     public ScreenElement withText(ScreenText newText) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                newText, texture, style, styleName, layout, binding, options, visible, enabled);
+                newText, tooltip, texture, style, styleName, layout, binding, options,
+                visible, enabled);
+    }
+
+    /** Ce que le survol explique ; {@link ScreenText#EMPTY} retire l'infobulle. */
+    public ScreenElement withTooltip(ScreenText newTooltip) {
+        return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
+                text, newTooltip, texture, style, styleName, layout, binding, options,
+                visible, enabled);
+    }
+
+    /** Vrai si le survol de cet élément a quelque chose à dire. */
+    public boolean hasTooltip() {
+        return !tooltip.isEmpty();
     }
 
     public ScreenElement withTexture(@Nullable Identifier newTexture) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, newTexture, style, styleName, layout, binding, options, visible, enabled);
+                text, tooltip, newTexture, style, styleName, layout, binding, options,
+                visible, enabled);
     }
 
     /** Suit un style nommé de l'écran ; une chaîne vide repasse au style en ligne. */
     public ScreenElement withStyleName(String newStyleName) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, newStyleName, layout, binding, options, visible, enabled);
+                text, tooltip, texture, style, newStyleName, layout, binding, options,
+                visible, enabled);
     }
 
     /** Lie l'élément à une variable ; {@link ElementBinding#NONE} l'en détache. */
     public ScreenElement withBinding(ElementBinding newBinding) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, newBinding, options, visible, enabled);
+                text, tooltip, texture, style, styleName, layout, newBinding, options,
+                visible, enabled);
     }
 
     /** Change les réglages propres au type (10.8). */
     public ScreenElement withOptions(ElementOptions newOptions) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, newOptions,
+                text, tooltip, texture, style, styleName, layout, binding, newOptions,
                 visible, enabled);
     }
 
@@ -161,16 +190,19 @@ public record ScreenElement(String name, ElementKind kind, @Nullable String pare
     /** Change la disposition — n'a d'effet visible que sur un conteneur. */
     public ScreenElement withLayout(LayoutSpec newLayout) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, newLayout, binding, options, visible, enabled);
+                text, tooltip, texture, style, styleName, newLayout, binding, options,
+                visible, enabled);
     }
 
     public ScreenElement withVisible(boolean newVisible) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, options, newVisible, enabled);
+                text, tooltip, texture, style, styleName, layout, binding, options,
+                newVisible, enabled);
     }
 
     public ScreenElement withEnabled(boolean newEnabled) {
         return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                text, texture, style, styleName, layout, binding, options, visible, newEnabled);
+                text, tooltip, texture, style, styleName, layout, binding, options,
+                visible, newEnabled);
     }
 }

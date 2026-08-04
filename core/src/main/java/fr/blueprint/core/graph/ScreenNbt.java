@@ -96,6 +96,10 @@ public final class ScreenNbt {
             tag.putString("text", element.text().value());
             tag.putBoolean("translate", element.text().translate());
         }
+        if (element.hasTooltip()) {
+            tag.putString("tip", element.tooltip().value());
+            tag.putBoolean("tipTranslate", element.tooltip().translate());
+        }
         if (element.texture() != null) {
             tag.putString("texture", element.texture().toString());
         }
@@ -223,6 +227,11 @@ public final class ScreenNbt {
         tag.putInt("disabled", style.disabledBackground());
         tag.putInt("padding", style.padding());
         tag.putString("align", style.align().name().toLowerCase(Locale.ROOT));
+        // Écrit seulement quand il est vrai : un style qui ne renvoie pas à la ligne pèse
+        // exactement ce qu'il pesait, et une version antérieure le relit sans rien voir.
+        if (style.wrap()) {
+            tag.putBoolean("wrap", true);
+        }
         return tag;
     }
 
@@ -285,6 +294,10 @@ public final class ScreenNbt {
                 ? ScreenText.EMPTY
                 : new ScreenText(tag.getStringOr("text", ""),
                         tag.getBooleanOr("translate", false));
+        ScreenText tooltip = tag.getStringOr("tip", "").isEmpty()
+                ? ScreenText.EMPTY
+                : new ScreenText(tag.getStringOr("tip", ""),
+                        tag.getBooleanOr("tipTranslate", false));
         Identifier texture = tag.getStringOr("texture", "").isEmpty()
                 ? null : Identifier.tryParse(tag.getStringOr("texture", ""));
         return new ScreenElement(name, kind,
@@ -293,7 +306,7 @@ public final class ScreenNbt {
                 tag.getDoubleOr("x", 0), tag.getDoubleOr("y", 0),
                 decodeExtent(tag.getCompoundOrEmpty("w")),
                 decodeExtent(tag.getCompoundOrEmpty("h")),
-                text, texture,
+                text, tooltip, texture,
                 decodeStyle(tag.getCompoundOrEmpty("style")),
                 tag.getStringOr("styleName", ""),
                 decodeLayout(tag.getCompoundOrEmpty("layout")),
@@ -369,7 +382,8 @@ public final class ScreenNbt {
                 tag.getIntOr("hover", 0), tag.getIntOr("pressed", 0),
                 tag.getIntOr("disabled", 0),
                 Math.max(0, tag.getIntOr("padding", ElementStyle.DEFAULT.padding())),
-                alignOf(tag.getStringOr("align", "")));
+                alignOf(tag.getStringOr("align", "")),
+                tag.getBooleanOr("wrap", false));
     }
 
     private static @Nullable ElementKind kindOf(String raw) {

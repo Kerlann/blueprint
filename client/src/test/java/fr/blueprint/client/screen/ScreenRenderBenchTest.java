@@ -46,7 +46,7 @@ class ScreenRenderBenchTest {
             elements.add(new ScreenElement("page" + page, ElementKind.PANEL, null,
                     fr.blueprint.core.graph.screen.Anchor.CENTER, 0, 0,
                     Extent.percent(0.8, 200, 600), Extent.percent(0.8, 120, 400),
-                    ScreenText.EMPTY, null,
+                    ScreenText.EMPTY, ScreenText.EMPTY, null,
                     fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "",
                     LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, page == 0, true));
             for (int i = 0; i < 15; i++) {
@@ -55,7 +55,7 @@ class ScreenRenderBenchTest {
                         fr.blueprint.core.graph.screen.Anchor.values()[i % 9],
                         i % 5 * 12, i * 6,
                         Extent.percent(0.3, 40, 120), Extent.of(16),
-                        ScreenText.literal("Bouton " + i), null,
+                        ScreenText.literal("Bouton " + i), ScreenText.EMPTY, null,
                         fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true));
             }
         }

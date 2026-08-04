@@ -221,7 +221,7 @@ class ScriptPackLoaderTest {
     void unEcranEntierementStyleNexigeAucunPack() {
         var style = new fr.blueprint.core.graph.screen.ElementStyle(
                 0xFF1E2430, 0xFF3A4453, 2, 0xFFE6E6E6, 0xFF2A3242, 0xFF141922, 0x40303030, 4,
-                fr.blueprint.core.graph.screen.ElementStyle.TextAlign.CENTER);
+                fr.blueprint.core.graph.screen.ElementStyle.TextAlign.CENTER, false);
         var screen = new fr.blueprint.core.graph.screen.Screen("menu", false, List.of(
                 fr.blueprint.core.graph.screen.ScreenElement.of("cadre",
                                 fr.blueprint.core.graph.screen.ElementKind.PANEL, 0, 0, 160, 90)

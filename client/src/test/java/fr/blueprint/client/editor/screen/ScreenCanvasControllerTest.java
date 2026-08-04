@@ -257,6 +257,7 @@ class ScreenCanvasControllerTest {
         put(new ScreenElement("a", ElementKind.PANEL, null,
                 fr.blueprint.core.graph.screen.Anchor.TOP_LEFT, 0, 0,
                 Extent.percent(0.5, 0, 0), Extent.of(40),
+                fr.blueprint.core.graph.screen.ScreenText.EMPTY,
                 fr.blueprint.core.graph.screen.ScreenText.EMPTY, null,
                 fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true));
         controller.press(80, 20, false);

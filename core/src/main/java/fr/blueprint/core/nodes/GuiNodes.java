@@ -75,6 +75,21 @@ public final class GuiNodes {
         modifier(r, NodeCategories.GUI_RICH, "set_input", "text", PinTypes.STRING, "",
                 (screen, element, ctx) -> ScreenUpdate.value(screen, element, 0, false,
                         String.valueOf(ctx.<Object>in("text"))));
+
+        // L'apparence en cours de route (10.12). Le style NOMMÉ plutôt que neuf
+        // couleurs : un nœud à neuf entrées serait impraticable, et rien n'y garantirait
+        // que deux onglets « actifs » se ressemblent. Décrit une fois dans le concepteur,
+        // il bascule ici d'un seul fil — c'est ce qui rend un menu à onglets possible
+        // sans dupliquer les éléments.
+        modifier(r, NodeCategories.GUI_LOOK, "set_style", "style", PinTypes.STRING, "",
+                (screen, element, ctx) -> ScreenUpdate.style(screen, element,
+                        String.valueOf(ctx.<Object>in("style"))));
+        modifier(r, NodeCategories.GUI_LOOK, "set_tooltip", "text", PinTypes.STRING, "",
+                (screen, element, ctx) -> ScreenUpdate.tooltip(screen, element,
+                        ScreenText.literal(ctx.in("text"))));
+        modifier(r, NodeCategories.GUI_LOOK, "set_tooltip_key", "key", PinTypes.STRING, "",
+                (screen, element, ctx) -> ScreenUpdate.tooltip(screen, element,
+                        ScreenText.key(ctx.in("key"))));
     }
 
     /** Une liste de n'importe quoi devient une liste de lignes : rien n'est jeté. */

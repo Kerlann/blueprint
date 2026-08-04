@@ -42,12 +42,16 @@ class HudRenderBenchTest {
         List<ScreenElement> elements = new ArrayList<>();
         elements.add(new ScreenElement("cadre_" + name, ElementKind.PANEL, null, anchor,
                 -4, 4, Extent.percent(0.25, 80, 160), Extent.of(120),
-                ScreenText.EMPTY, null, ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true));
+                ScreenText.EMPTY, ScreenText.EMPTY, null,
+                    ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE,
+                    ElementOptions.NONE, true, true));
         for (int i = 0; i < PER_HUD - 1; i++) {
             elements.add(new ScreenElement("l" + i, ElementKind.LABEL, "cadre_" + name,
                     Anchor.values()[i % 9], 0, i * 4,
                     Extent.percent(0.9, 40, 150), Extent.of(9),
-                    ScreenText.literal("Ligne " + i), null, ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true));
+                    ScreenText.literal("Ligne " + i), ScreenText.EMPTY, null,
+                    ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE,
+                    ElementOptions.NONE, true, true));
         }
         return new Screen(name, true, elements);
     }

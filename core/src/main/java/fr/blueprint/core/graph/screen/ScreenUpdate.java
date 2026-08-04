@@ -35,7 +35,19 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
         /** L'objet d'un emplacement : identifiant dans le texte, quantité dans le nombre. */
         ITEM,
         /** La valeur d'un curseur, ou le texte d'un champ de saisie. */
-        VALUE
+        VALUE,
+        /** Ce que le survol explique — texte, et {@code flag} = clé de traduction. */
+        TOOLTIP,
+        /**
+         * Le style NOMMÉ que suit l'élément ; texte vide = retour à son style en ligne.
+         *
+         * <p>C'est ce qui rend un menu à onglets possible sans dupliquer les éléments :
+         * « onglet actif » et « onglet inactif » sont décrits une fois dans le concepteur,
+         * et le graphe bascule les six boutons. Envoyer les neuf couleurs à la place
+         * aurait demandé un nœud à neuf entrées, et rien n'aurait garanti que deux onglets
+         * « actifs » se ressemblent.
+         */
+        STYLE
     }
 
     public ScreenUpdate {
@@ -61,6 +73,16 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
 
     public static ScreenUpdate text(String screen, String element, ScreenText value) {
         return new ScreenUpdate(screen, element, Kind.TEXT, value.value(), value.translate(), 0);
+    }
+
+    public static ScreenUpdate tooltip(String screen, String element, ScreenText value) {
+        return new ScreenUpdate(screen, element, Kind.TOOLTIP, value.value(),
+                value.translate(), 0);
+    }
+
+    /** Fait suivre à l'élément un style nommé de l'écran ; vide = son style en ligne. */
+    public static ScreenUpdate style(String screen, String element, String styleName) {
+        return new ScreenUpdate(screen, element, Kind.STYLE, styleName, false, 0);
     }
 
     public static ScreenUpdate texture(String screen, String element, @Nullable Identifier value) {

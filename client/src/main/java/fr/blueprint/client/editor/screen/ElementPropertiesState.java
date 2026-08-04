@@ -27,7 +27,15 @@ public final class ElementPropertiesState {
 
     /** Les champs éditables, dans l'ordre du panneau. */
     public enum Field {
-        NAME, X, Y, WIDTH, HEIGHT, TEXT, TEXTURE,
+        NAME, X, Y, WIDTH, HEIGHT, TEXT,
+        /**
+         * Ce que le survol explique (story 10.12). Comme {@code TEXT}, un « # » en tête
+         * en fait une CLÉ de traduction : un menu qu'on traduit se traduit en entier,
+         * infobulles comprises, et deux syntaxes pour la même chose seraient à retenir
+         * deux fois.
+         */
+        TOOLTIP,
+        TEXTURE,
         BACKGROUND, BORDER, TEXT_COLOR, HOVER, PADDING,
         /** Réglages de disposition d'un conteneur (story 10.10). */
         GAP, CROSS_GAP, COLUMNS,
@@ -112,6 +120,8 @@ public final class ElementPropertiesState {
             case WIDTH -> extent(element.width());
             case HEIGHT -> extent(element.height());
             case TEXT -> element.text().value();
+            case TOOLTIP -> element.tooltip().translate()
+                    ? "#" + element.tooltip().value() : element.tooltip().value();
             // L'écriture COURTE d'un pack : « ma_boutique/fond », pas
             // « blueprint:pack/ma_boutique/fond ». C'est celle que l'auteur tape.
             case TEXTURE -> element.texture() == null ? ""
@@ -159,7 +169,7 @@ public final class ElementPropertiesState {
             case TEXTURE -> buffer.isBlank()
                     || fr.blueprint.core.graph.screen.PackRef.texture(buffer) != null;
             case BACKGROUND, BORDER, TEXT_COLOR, HOVER -> parseHex(buffer) != null;
-            case TEXT, BIND_FORMAT, PLACEHOLDER -> true;
+            case TEXT, TOOLTIP, BIND_FORMAT, PLACEHOLDER -> true;
             case ENTITY -> buffer.isBlank() || Identifier.tryParse(buffer.trim()) != null;
         };
     }
@@ -179,6 +189,8 @@ public final class ElementPropertiesState {
             case WIDTH -> element.resized(parseExtent(buffer, element.width()), element.height());
             case HEIGHT -> element.resized(element.width(), parseExtent(buffer, element.height()));
             case TEXT -> element.withText(buffer.startsWith("#")
+                    ? ScreenText.key(buffer.substring(1)) : ScreenText.literal(buffer));
+            case TOOLTIP -> element.withTooltip(buffer.startsWith("#")
                     ? ScreenText.key(buffer.substring(1)) : ScreenText.literal(buffer));
             case TEXTURE -> element.withTexture(buffer.isBlank() ? null
                     : fr.blueprint.core.graph.screen.PackRef.texture(buffer));
@@ -417,29 +429,30 @@ public final class ElementPropertiesState {
     private static ElementStyle withBackground(ElementStyle s, int value) {
         return new ElementStyle(value, s.border(), s.borderWidth(), s.textColor(),
                 s.hoverBackground(), s.pressedBackground(), s.disabledBackground(),
-                s.padding(), s.align());
+                s.padding(), s.align(), s.wrap());
     }
 
     private static ElementStyle withBorder(ElementStyle s, int value) {
         return new ElementStyle(s.background(), value, s.borderWidth(), s.textColor(),
                 s.hoverBackground(), s.pressedBackground(), s.disabledBackground(),
-                s.padding(), s.align());
+                s.padding(), s.align(), s.wrap());
     }
 
     private static ElementStyle withTextColor(ElementStyle s, int value) {
         return new ElementStyle(s.background(), s.border(), s.borderWidth(), value,
                 s.hoverBackground(), s.pressedBackground(), s.disabledBackground(),
-                s.padding(), s.align());
+                s.padding(), s.align(), s.wrap());
     }
 
     private static ElementStyle withHover(ElementStyle s, int value) {
         return new ElementStyle(s.background(), s.border(), s.borderWidth(), s.textColor(),
-                value, s.pressedBackground(), s.disabledBackground(), s.padding(), s.align());
+                value, s.pressedBackground(), s.disabledBackground(), s.padding(),
+                s.align(), s.wrap());
     }
 
     private static ElementStyle withPadding(ElementStyle s, int value) {
         return new ElementStyle(s.background(), s.border(), s.borderWidth(), s.textColor(),
                 s.hoverBackground(), s.pressedBackground(), s.disabledBackground(),
-                value, s.align());
+                value, s.align(), s.wrap());
     }
 }

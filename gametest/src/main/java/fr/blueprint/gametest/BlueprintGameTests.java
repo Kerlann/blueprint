@@ -287,7 +287,7 @@ public final class BlueprintGameTests {
         var style = new fr.blueprint.core.graph.screen.ElementStyle(
                 0xFF1E2430, 0xFF3A4453, 1, 0xFFE6E6E6,
                 0xFF2A3242, 0xFF141922, 0x40303030, 3,
-                fr.blueprint.core.graph.screen.ElementStyle.TextAlign.CENTER);
+                fr.blueprint.core.graph.screen.ElementStyle.TextAlign.CENTER, false);
         var colonne = fr.blueprint.core.graph.screen.ScreenElement.of("colonne",
                         fr.blueprint.core.graph.screen.ElementKind.PANEL, 0, 0, 160, 120)
                 .withLayout(fr.blueprint.core.graph.screen.LayoutSpec.column(4)

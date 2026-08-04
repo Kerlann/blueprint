@@ -71,10 +71,10 @@ class ExamplePackTest {
 
     private static final ElementStyle INVISIBLE = new ElementStyle(
             0x00000000, 0x00000000, 0, 0xFFE6E6E6,
-            0x00000000, 0x00000000, 0x00000000, 0, ElementStyle.TextAlign.LEFT);
+            0x00000000, 0x00000000, 0x00000000, 0, ElementStyle.TextAlign.LEFT, false);
     private static final ElementStyle BOUTON = new ElementStyle(
             0xFF262E42, 0xFF7AA2F7, 1, 0xFFE6E6E6,
-            0xFF3A4868, 0xFF141922, 0x40303030, 3, ElementStyle.TextAlign.CENTER);
+            0xFF3A4868, 0xFF141922, 0x40303030, 3, ElementStyle.TextAlign.CENTER, false);
 
     /**
      * L'écran de l'exemple : un fond en image, une colonne qui range trois boutons, un
@@ -85,7 +85,7 @@ class ExamplePackTest {
         Identifier fond = PackRef.texture(PACK + "/fond");
         List<ScreenElement> elements = new ArrayList<>();
         elements.add(new ScreenElement("fond", ElementKind.IMAGE, null, Anchor.CENTER,
-                0, 0, Extent.of(160), Extent.of(96), ScreenText.EMPTY, fond,
+                0, 0, Extent.of(160), Extent.of(96), ScreenText.EMPTY, ScreenText.EMPTY, fond,
                 INVISIBLE, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE,
                 fr.blueprint.core.graph.screen.ElementOptions.NONE, true, true));
         elements.add(ScreenElement.of("colonne", ElementKind.PANEL, 8, 8, 144, 80)

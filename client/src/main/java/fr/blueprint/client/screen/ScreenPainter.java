@@ -466,6 +466,10 @@ public final class ScreenPainter {
         if (inner <= 0) {
             return;
         }
+        if (element.style().wrap()) {
+            paintWrapped(g, font, element, text, left, top, right, bottom, padding, inner);
+            return;
+        }
         // Le texte n'est pas mis à l'échelle : agrandir la police d'un facteur entier
         // dans le concepteur donnerait un aperçu trompeur, puisqu'en jeu elle garde sa
         // taille. Mieux vaut un texte petit et juste qu'un texte gros et faux.
@@ -477,6 +481,46 @@ public final class ScreenPainter {
             case RIGHT -> right - padding - font.width(plain);
         };
         g.drawString(font, plain, x, y, element.style().textColor(), false);
+    }
+
+    /**
+     * Le texte coupé aux mots, centré verticalement dans son cadre.
+     *
+     * <p>Sans lui, un paragraphe — description d'objet, règle de serveur, réplique de
+     * dialogue — devait être découpé à la main en autant d'étiquettes empilées, qu'il
+     * fallait repositionner à chaque retouche du texte. Et une traduction plus longue que
+     * l'original cassait la mise en page sans que l'auteur le voie : il ne lit pas les
+     * vingt langues de son serveur.
+     *
+     * <p>Les lignes qui ne tiennent pas en hauteur sont <b>coupées</b> plutôt que
+     * débordées : un paragraphe qui dépasse de son cadre passerait par-dessus l'élément
+     * voisin, et l'on chercherait longtemps d'où vient la ligne de texte qui traverse le
+     * menu. Une ligne est dessinée quoi qu'il arrive, même dans un cadre trop bas — un
+     * cadre vide ne dirait pas qu'il contient un texte trop long, il dirait qu'il est
+     * vide, et l'auteur chercherait la panne ailleurs.
+     */
+    private static void paintWrapped(GuiGraphics g, Font font, ScreenElement element,
+                                     Component text, int left, int top, int right,
+                                     int bottom, int padding, int inner) {
+        var lines = font.split(text, inner);
+        if (lines.isEmpty()) {
+            return;
+        }
+        int room = bottom - top - padding * 2;
+        int fits = Math.max(1, Math.min(lines.size(), room / font.lineHeight));
+        int blockHeight = fits * font.lineHeight;
+        int y = top + (bottom - top - blockHeight) / 2;
+        for (int i = 0; i < fits; i++) {
+            var line = lines.get(i);
+            int width = font.width(line);
+            int x = switch (element.style().align()) {
+                case LEFT -> left + padding;
+                case CENTER -> left + padding + (inner - width) / 2;
+                case RIGHT -> right - padding - width;
+            };
+            g.drawString(font, line, x, y + i * font.lineHeight,
+                    element.style().textColor(), false);
+        }
     }
 
     /** Le rectangle d'un élément converti en pixels — le concepteur en a besoin aussi. */

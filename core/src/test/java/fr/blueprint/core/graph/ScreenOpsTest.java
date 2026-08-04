@@ -380,8 +380,9 @@ class ScreenOpsTest {
         Blueprint centered = new Blueprint(Identifier.fromNamespaceAndPath("test", "centre"));
         centered.putScreen(new Screen("menu", false, List.of(
                 new ScreenElement("cadre", ElementKind.PANEL, null, Anchor.CENTER,
-                        -10, -5, Extent.of(200), Extent.of(120), ScreenText.EMPTY, null,
-                        ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true))));
+                        -10, -5, Extent.of(200), Extent.of(120), ScreenText.EMPTY, ScreenText.EMPTY, null,
+                                ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE,
+                                ElementBinding.NONE, ElementOptions.NONE, true, true))));
 
         assertTrue(GraphValidator.validate(centered, LOOKUP).diagnostics().stream()
                         .noneMatch(d -> d.code() == DiagnosticCode.ELEMENT_OUTSIDE_SAFE_AREA),
@@ -400,7 +401,9 @@ class ScreenOpsTest {
                 ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 40, 40),
                 new ScreenElement("miette", ElementKind.BUTTON, "cadre", Anchor.TOP_LEFT,
                         0, 0, Extent.percent(0.05, 0, 0), Extent.of(20),
-                        ScreenText.EMPTY, null, ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true))));
+                        ScreenText.EMPTY, ScreenText.EMPTY, null,
+                                ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE,
+                                ElementBinding.NONE, ElementOptions.NONE, true, true))));
 
         assertTrue(GraphValidator.validate(nested, LOOKUP).diagnostics().stream()
                         .anyMatch(d -> d.code() == DiagnosticCode.ELEMENT_TOO_SMALL),

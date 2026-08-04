@@ -377,6 +377,7 @@ public final class ScriptParser {
         Extent width = Extent.of(ScreenElement.MIN_SIZE);
         Extent height = Extent.of(ScreenElement.MIN_SIZE);
         ScreenText text = ScreenText.EMPTY;
+        ScreenText tooltip = ScreenText.EMPTY;
         Identifier texture = null;
         ElementStyle style = ElementStyle.DEFAULT;
         String styleName = "";
@@ -429,6 +430,16 @@ public final class ScriptParser {
                     text = ScreenText.key(expect("string", null).text());
                     expect("sym", ")");
                 }
+                case "tip" -> {
+                    expect("sym", "(");
+                    tooltip = ScreenText.literal(expect("string", null).text());
+                    expect("sym", ")");
+                }
+                case "tipkey" -> {
+                    expect("sym", "(");
+                    tooltip = ScreenText.key(expect("string", null).text());
+                    expect("sym", ")");
+                }
                 case "texture" -> {
                     expect("sym", "(");
                     Token raw = expect("string", null);
@@ -458,7 +469,7 @@ public final class ScriptParser {
         }
         try {
             return new ScreenElement(name, kind, parent, anchor, x, y, width, height,
-                    text, texture, style, styleName, layout, binding, options,
+                    text, tooltip, texture, style, styleName, layout, binding, options,
                     visible, enabled);
         } catch (IllegalArgumentException e) {
             throw new ParseError(kindToken.line(), e.getMessage());
@@ -668,9 +679,22 @@ public final class ScriptParser {
             throw new ParseError(alignToken.line(),
                     "alignement inconnu « " + alignToken.text() + " »");
         }
+        // Le retour à la ligne est un DIXIÈME champ facultatif : l'ajouter comme
+        // obligatoire aurait rendu illisible tout `.bp` déjà exporté, alors que rien ne
+        // l'exige — un style qui ne renvoie pas à la ligne ne l'écrit tout simplement pas.
+        boolean wrap = false;
+        if (peek().kind().equals("sym") && ",".equals(peek().text())) {
+            next();
+            Token wrapToken = expect("word", null);
+            if (!"wrap".equals(wrapToken.text())) {
+                throw new ParseError(wrapToken.line(),
+                        "attendu « wrap » après l'alignement, lu « " + wrapToken.text() + " »");
+            }
+            wrap = true;
+        }
         try {
             return new ElementStyle(background, border, borderWidth, textColor,
-                    hover, pressed, disabled, padding, align);
+                    hover, pressed, disabled, padding, align, wrap);
         } catch (IllegalArgumentException e) {
             throw new ParseError(open.line(), e.getMessage());
         }

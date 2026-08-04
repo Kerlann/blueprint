@@ -114,6 +114,19 @@ public final class NodeCategories {
      * « comment changer ce texte » aurait dû traverser tout ce qui concerne les listes.
      */
     public static final NodeCategory GUI_RICH = new NodeCategory("gui/rich");
+    /**
+     * Changer l'APPARENCE d'un élément en cours de route : son infobulle, son style
+     * nommé (story 10.12).
+     *
+     * <p>Le style nommé changeable à l'exécution est ce qui rend un menu à onglets
+     * possible sans dupliquer les éléments : on décrit « onglet actif » et « onglet
+     * inactif » une fois dans le concepteur, et le graphe bascule les six boutons d'un
+     * nœud. Sans lui, il fallait un élément par état et les masquer tour à tour.
+     *
+     * <p>À part des modificateurs simples, qui portent déjà douze nœuds, et à part des
+     * riches : ceux-là disent QUOI afficher, ceux-ci COMMENT.
+     */
+    public static final NodeCategory GUI_LOOK = new NodeCategory("gui/look");
 
     /** Tick, commande, signal : ce qui ne vient ni d'un joueur ni du monde. */
     public static final NodeCategory EVENT_SERVER = new NodeCategory("event/server");

@@ -57,11 +57,12 @@ class ScreenNbtTest {
         ScreenElement panel = new ScreenElement("cadre", ElementKind.PANEL, null,
                 Anchor.CENTER, 10, 20,
                 Extent.percent(0.8, 100, 400), Extent.of(180),
-                ScreenText.key("menu.titre"),
+                ScreenText.key("menu.titre"), ScreenText.EMPTY,
                 Identifier.withDefaultNamespace("textures/gui/fond.png"),
                 new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
                         0xFF203040, 0xFF001020, 0x40101010, 4,
-                        ElementStyle.TextAlign.CENTER), "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE,
+                        ElementStyle.TextAlign.CENTER, false),
+                "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE,
                 true, false);
         ScreenElement child = ScreenElement.of("ok", ElementKind.BUTTON, 5, 5, 60, 20)
                 .withParent("cadre")
@@ -82,7 +83,7 @@ class ScreenNbtTest {
     @Test
     void dispositionsEtStylesNommesSurviventAuRoundTrip() {
         ElementStyle style = new ElementStyle(0xFF102030, 0xFF405060, 2, 0xFFFFFFFF,
-                0xFF203040, 0xFF001020, 0x40101010, 4, ElementStyle.TextAlign.CENTER);
+                0xFF203040, 0xFF001020, 0x40101010, 4, ElementStyle.TextAlign.CENTER, false);
         ScreenElement colonne = ScreenElement.of("colonne", ElementKind.PANEL, 0, 0, 200, 160)
                 .withLayout(LayoutSpec.column(6)
                         .withMain(LayoutSpec.Distribute.SPACE_BETWEEN)

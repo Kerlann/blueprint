@@ -127,11 +127,38 @@ class ScreenDesignerActionsTest {
                 controller.rectOf("etroit").x() + 10, 1e-9);
     }
 
+    /**
+     * Un SEUL élément s'aligne sur son <b>parent</b> — l'écran s'il n'en a pas.
+     *
+     * <p>Les six raccourcis d'alignement étaient muets tant qu'on n'avait pas sélectionné
+     * deux éléments : aligner un élément sur lui-même ne fait rien, et c'est ce qu'ils
+     * calculaient. Or « centre ce bouton dans son cadre » est le geste le plus courant
+     * d'une mise en page, et il fallait le poser à la coordonnée près.
+     */
     @Test
-    void alignerUnSeulElementNeFaitRien() {
+    void alignerUnSeulElementLeCadreSurSonParent() {
+        put(ScreenElement.of("cadre", ElementKind.PANEL, 40, 20, 200, 100));
+        put(ScreenElement.of("bouton", ElementKind.BUTTON, 5, 5, 60, 20)
+                .withParent("cadre"));
+        controller.selection().selectAll(List.of("bouton"), false);
+
+        assertTrue(controller.alignSelection(ScreenCanvasController.Align.CENTER_X));
+        assertEquals(40 + (200 - 60) / 2.0, controller.rectOf("bouton").x(), 1e-9,
+                "centré dans son CADRE, pas dans l'écran");
+
+        assertTrue(controller.alignSelection(ScreenCanvasController.Align.BOTTOM));
+        assertEquals(20 + 100, controller.rectOf("bouton").bottom(), 1e-9,
+                "collé au bas de son cadre");
+    }
+
+    /** Sans parent, la référence est l'écran simulé : « centrer » veut encore dire quelque chose. */
+    @Test
+    void alignerUnElementRacineLeCadreSurLEcran() {
         put(ScreenElement.of("a", ElementKind.LABEL, 10, 10, 40, 10));
         controller.selection().selectAll(List.of("a"), false);
-        assertFalse(controller.alignSelection(ScreenCanvasController.Align.LEFT));
+
+        assertTrue(controller.alignSelection(ScreenCanvasController.Align.RIGHT));
+        assertEquals(controller.viewportWidth(), controller.rectOf("a").right(), 1e-9);
     }
 
     /** L'axe non concerné ne bouge pas : aligner à gauche ne remonte personne. */
@@ -350,6 +377,7 @@ class ScreenDesignerActionsTest {
                 fr.blueprint.core.graph.screen.Anchor.TOP_RIGHT, -4, 4,
                 fr.blueprint.core.graph.screen.Extent.of(60),
                 fr.blueprint.core.graph.screen.Extent.of(10),
+                fr.blueprint.core.graph.screen.ScreenText.EMPTY,
                 fr.blueprint.core.graph.screen.ScreenText.EMPTY, null,
                 fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true));
 
@@ -394,6 +422,7 @@ class ScreenDesignerActionsTest {
                 fr.blueprint.core.graph.screen.Anchor.TOP_RIGHT, -4, 4,
                 fr.blueprint.core.graph.screen.Extent.of(60),
                 fr.blueprint.core.graph.screen.Extent.of(20),
+                fr.blueprint.core.graph.screen.ScreenText.EMPTY,
                 fr.blueprint.core.graph.screen.ScreenText.EMPTY, null,
                 fr.blueprint.core.graph.screen.ElementStyle.DEFAULT, "", LayoutSpec.ABSOLUTE, ElementBinding.NONE, ElementOptions.NONE, true, true));
         controller.setViewport(ScreenCanvasController.Viewport.LARGE);

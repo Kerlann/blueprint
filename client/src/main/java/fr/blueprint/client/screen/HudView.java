@@ -95,6 +95,11 @@ public final class HudView {
             shown.put(screen.name(), screen.replacing(update.element(),
                     switch (update.kind()) {
                         case TEXT -> element.withText(update.screenText());
+                        // L'infobulle d'un HUD ne se verra jamais — il ne capte pas la
+                        // souris — mais l'appliquer coûte moins que de s'en souvenir : un
+                        // écran passé de modal à HUD garde ainsi ce qu'il portait.
+                        case TOOLTIP -> element.withTooltip(update.screenText());
+                        case STYLE -> element.withStyleName(update.text());
                         case TEXTURE -> element.withTexture(update.textureId());
                         case VISIBLE -> element.withVisible(update.flag());
                         case ENABLED -> element.withEnabled(update.flag());
