@@ -8,9 +8,13 @@ lisible (**BScript**) et tout BScript se re-parse en graphe. Les autres mods dé
 leurs propres nœuds sans dépendance dure, et un mod retiré ne casse jamais un graphe
 existant : ses nœuds deviennent des **fantômes** qui reprennent vie à la réinstallation.
 
-> **État : les neuf épics du PRD sont livrés** — 49 stories, 48 gates QA, ~250 tests
-> headless et 5 gametests dans un serveur réel. Reste la session de vérification
-> visuelle, listée dans [`docs/README.md`](docs/README.md).
+> **État : v1.0.0 publiée.** Les neuf épics du PRD, plus trois nés de l'usage réel —
+> les **interfaces graphiques** (épic 10), le **contenu déclaré** (épic 11) et
+> **l'éditeur à l'usage** (épic 12). 86 documents de story, 85 gates QA, **1188 tests
+> headless**
+> et **20 gametests** dans un serveur réel. Reste la session de vérification visuelle,
+> listée dans [`docs/README.md`](docs/README.md) : elle ne couvre que ce qu'aucun test
+> ne peut juger — l'aspect et l'ergonomie.
 
 ---
 

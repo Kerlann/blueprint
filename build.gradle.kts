@@ -17,7 +17,7 @@ base {
 allprojects {
     apply(plugin = "fabric-loom")
 
-    version = "0.1.0"
+    version = "1.0.0"
     group = "fr.blueprint"
 
     repositories {
@@ -69,6 +69,10 @@ tasks.jar {
     listOf(":api", ":core", ":client", ":compat").forEach { path ->
         from(provider { project(path).extensions.getByType<SourceSetContainer>()["main"].output })
     }
+    // La licence MIT exige que son texte accompagne toute redistribution — et un JAR
+    // téléchargé est une redistribution. Le champ "license" du fabric.mod.json l'annonce
+    // sans le fournir : le déclarer sans le joindre ne remplit pas la condition.
+    from(rootProject.file("LICENSE"))
 }
 
 loom {

@@ -122,22 +122,27 @@ class EventDispatchPerfTest {
         return new TriggerContextImpl(StandardEvents.SIGNAL, Map.of("payload", ""));
     }
 
-    /** Meilleur de cinq séries de {@link #EMISSIONS} émissions vers personne, en ns. */
-    private static long cost(Fixture fixture) {
-        for (int i = 0; i < 200; i++) {
-            fixture.bridge().launchSignal("inconnu", trigger());
-            fixture.bridge().endTick();
-        }
-        long best = Long.MAX_VALUE;
-        for (int round = 0; round < 5; round++) {
-            long begin = System.nanoTime();
+    /** Séries mesurées, alternées entre les deux tailles. */
+    private static final int ROUNDS = 40;
+    /** Ticks par série : {@link #EMISSIONS} émissions chacun. Assez pour sortir du bruit. */
+    private static final int TICKS_PER_ROUND = 50;
+
+    /** Une série de {@link #TICKS_PER_ROUND} ticks pleins d'émissions vers personne, en ns. */
+    private static long round(Fixture fixture) {
+        long begin = System.nanoTime();
+        for (int tick = 0; tick < TICKS_PER_ROUND; tick++) {
             for (int i = 0; i < EMISSIONS; i++) {
                 assertEquals(0, fixture.bridge().launchSignal("inconnu", trigger()));
             }
-            best = Math.min(best, System.nanoTime() - begin);
             fixture.bridge().endTick();
         }
-        return best;
+        return System.nanoTime() - begin;
+    }
+
+    private static void warmUp(Fixture fixture) {
+        for (int i = 0; i < 5; i++) {
+            round(fixture);
+        }
     }
 
     /**
@@ -151,16 +156,52 @@ class EventDispatchPerfTest {
      * <p>La borne est fixée à <b>deux</b>, à mi-chemin : assez lâche pour absorber le
      * bruit d'une machine chargée, assez serrée pour qu'un retour au parcours par nœud la
      * franchisse sans ambiguïté.
+     *
+     * <h2>La marge, mesurée</h2>
+     * <p>Les standards de code (§7.1) demandent qu'un banc ait été <b>vu échouer</b> et que
+     * sa marge ait été <b>mesurée</b>. Les deux l'ont été, en contournant l'index dans
+     * {@code entriesFor} :
+     *
+     * <ul>
+     *   <li>index en place : rapport <b>0,95 à 1,01</b> sur six exécutions ;</li>
+     *   <li>index contourné : rapport <b>4,30</b> — soit le rapport des tailles, comme
+     *       attendu d'un parcours par nœud.</li>
+     * </ul>
+     *
+     * <p>Le seuil de 2,0 laisse donc un facteur deux de chaque côté.
+     *
+     * <p>La première version de ce banc mesurait les deux tailles <b>l'une après l'autre</b>
+     * et n'observait qu'un tick. Elle rendait 0,6 — le grand paraissait plus rapide que le
+     * petit, ce qui aurait dû alerter : le second bénéficiait du JIT chauffé par le premier.
+     * Cinquante microsecondes de mesure suffisaient à ce qu'un ramasse-miettes tombant dans
+     * l'une des deux fenêtres la fasse bondir à 3,2 et rougir la CI sans qu'aucun code n'ait
+     * changé. Les séries sont désormais <b>alternées</b> et chacune dure cinquante ticks.
      */
     @Test
     void leCoutNeSuitPasLeNombreDeNoeudsQuiNEcoutentPas() {
-        long small = cost(build(SMALL));
-        long large = cost(build(LARGE));
+        Fixture small = build(SMALL);
+        Fixture large = build(LARGE);
+        warmUp(small);
+        warmUp(large);
 
-        double ratio = (double) large / Math.max(1, small);
-        LOGGER.info("{} émissions filtrées : {} µs à {} nœuds, {} µs à {} nœuds — rapport {}",
-                EMISSIONS, small / 1000, BLUEPRINTS * SMALL, large / 1000,
-                BLUEPRINTS * LARGE, String.format(java.util.Locale.ROOT, "%.2f", ratio));
+        // Séries ALTERNÉES, et non l'une après l'autre. Mesurer petit puis grand donnait
+        // au second le bénéfice du JIT chauffé par le premier : le rapport tombait à 0,6
+        // — le GRAND paraissait plus rapide que le petit, ce qui aurait dû alerter — et
+        // un ramasse-miettes tombant dans l'une des deux fenêtres suffisait à le faire
+        // bondir à 3,2, au-dessus du seuil, sans qu'aucun code n'ait changé.
+        long bestSmall = Long.MAX_VALUE;
+        long bestLarge = Long.MAX_VALUE;
+        for (int i = 0; i < ROUNDS; i++) {
+            bestSmall = Math.min(bestSmall, round(small));
+            bestLarge = Math.min(bestLarge, round(large));
+        }
+
+        double ratio = (double) bestLarge / Math.max(1, bestSmall);
+        LOGGER.info("{} ticks de {} émissions filtrées : {} µs à {} nœuds, {} µs à {} nœuds"
+                        + " — rapport {}",
+                TICKS_PER_ROUND, EMISSIONS, bestSmall / 1000, BLUEPRINTS * SMALL,
+                bestLarge / 1000, BLUEPRINTS * LARGE,
+                String.format(java.util.Locale.ROOT, "%.2f", ratio));
 
         assertTrue(ratio < 2.0, String.format(java.util.Locale.ROOT,
                 "quadrupler les nœuds a multiplié le coût par %.2f — le parcours par nœud "

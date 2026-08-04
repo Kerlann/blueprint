@@ -6,9 +6,61 @@ versionnage [SemVer](https://semver.org/lang/fr/). Les dates sont celles du dép
 L'**API d'extension** (module `api`) porte sa propre version, indépendante de celle du
 mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par un test.
 
-## [Non publié]
+## [1.0.0] — 2026-08-04
 
-### Ajouté
+Première version **publiée**. Aux neuf épics du PRD s'ajoutent trois épics nés de
+l'usage réel : les interfaces graphiques, le contenu déclaré, et l'éditeur repris là
+où il gênait. 86 documents de story, 85 gates QA, **1188 tests headless** et
+**20 gametests** dans un serveur réel.
+
+### Ajouté — interfaces graphiques (épic 10)
+
+- **Concepteur d'écrans** dans l'éditeur : onze types d'éléments, dispositions en
+  ligne/colonne/grille, ancres sur neuf cellules, styles nommés et réutilisables,
+  guides d'alignement, calques, et un canevas **1920×1080** qu'on cadre et dans
+  lequel on zoome à la molette.
+- **Écrans ouverts en jeu** par le graphe, redimensionnés avec la fenêtre et l'échelle
+  GUI du joueur, avec leurs événements en retour (clic, liste, saisie, fermeture).
+- **HUD permanent** : un bandeau qui s'affiche pendant qu'on continue de jouer.
+- **Liaison de données** : une étiquette suit une variable, format compris.
+- **Panneaux défilants** (vertical, horizontal, les deux), avec curseurs qu'on tire,
+  découpage au bord du cadre, molette, clavier — et **le clic qui ne traverse pas** ce
+  que le cadre a coupé.
+- **Packs d'images** échangeables pour habiller un menu sans toucher au graphe.
+- **Reflet sur disque** : chaque enregistrement écrit aussi le `.bp` dans
+  `blueprint/exports/`, qui survit à la suppression du blueprint.
+
+### Ajouté — contenu déclaré (épic 11)
+
+- **Items et blocs déclarés par fichiers** dans `blueprint/content/` : réellement
+  enregistrés dans les registres du jeu — `/give` les connaît, une recette les utilise.
+  Un fichier invalide est **écarté avec son nom en rouge** au lieu d'empêcher le jeu
+  de démarrer.
+- **Textures** : le PNG déposé à côté du JSON génère un pack de ressources dans
+  `resourcepacks/blueprint_content/`, activé une fois — et **jamais réactivé** si le
+  joueur l'a décoché.
+- **Blocs réels** : dureté, outil exigé, lumière, son, butin, et une vitesse de minage
+  obtenue en **posant la question au jeu**, ce qui répond juste pour les outils des
+  mods qu'on ne connaît pas.
+- **Huit touches** qu'un graphe écoute — par **emplacement**, jamais par code de
+  touche : le joueur décide de la touche, et un conflit se règle là où le jeu règle
+  déjà tous les conflits de touches.
+- **Trois événements complétés** (quel objet, quel bloc) et quatre nœuds pour
+  reconnaître et habiller une pile.
+- **Démonstration « banque »** livrée : un distributeur qu'on pose et qu'on clique,
+  deux coupures de monnaie, un compte par joueur, un retrait qui fait l'appoint.
+
+### Ajouté — l'éditeur à l'usage (épic 12)
+
+- **Menu d'ajout repensé** à la manière d'Unreal : il s'ouvre sur son **index replié**
+  et non sur 184 nœuds, avec un vrai champ de recherche et une case « Contextuel ».
+- **Déplier une catégorie ne perd plus la place** où l'on était, et la barre de
+  défilement se saisit.
+- **Les variables comme Unreal** : une lecture est une **capsule** teintée par le
+  **type** de la variable — on distingue un booléen d'un flottant à travers tout un
+  graphe sans lire un seul nom.
+
+### Ajouté — éditeur et bibliothèque de nœuds (épics 5 et 7)
 
 - Licence **MIT** (© 2026 Kerlann). Le dépôt n'en avait aucune, donc restait sous
   droit d'auteur par défaut : ni fork ni redistribution possibles. Le champ
@@ -49,21 +101,43 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
   - **Barre de boss** (3) — le seul affichage persistant du jeu, avec réutilisation
     par nom, plafond et nettoyage à l'arrêt.
 
-### Corrigé
+### Corrigé — depuis la 0.1.0
 
 - **`event/signal` ne se déclenchait jamais.** Il apparaissait dans la palette, se
   posait, se câblait, se sauvegardait — et rien au monde ne l'émettait. C'était la
   primitive « un blueprint en appelle un autre ». Il a désormais son nœud
   `signal/emit`, sa commande `/blueprint signal`, un filtre par nom et une borne
   anti-récursion.
+- **`world/raycast` et `world/raycast_entity` levaient à chaque exécution** — dans la
+  palette et dans la référence générée, indiscernables d'un nœud sain, parce que
+  **rien ne les avait jamais exécutés**. Un gametest fait désormais tourner les 99
+  nœuds non purs dans un vrai serveur.
+- **Quatre nœuds purs à sorties multiples n'étaient jamais émis en BScript**
+  (`vec/split`, `pos/split`, `map/get`, `convert/to_number`) : perdus à la relecture,
+  donc perte de données répétée et silencieuse sur la garantie centrale du produit.
+- **`player/remove_item` mentait sur ce qu'il avait retiré.** Mojang traite
+  `maxCount == 0` comme un **comptage** et rend le total possédé ; le premier clic sur
+  un bouton « déposer » créditait donc tout l'inventaire sans rien prendre.
+- **Un nœud de touche posé et jamais édité était muet** — le point d'entrée mort.
+- **Un pack de ressources vide** apparaissait chez tous ceux qui n'avaient jamais rien
+  déclaré.
+- **Répartition des événements** : le pont tenait un index que quatre chemins filtrés
+  ignoraient. À 12 000 nœuds, le budget d'un tick coûtait **8,5 ms** pour ne rien
+  trouver, contre **0,15 ms** désormais.
 
-### Modifié
+### Modifié — depuis la 0.1.0
 
-- **API 1.0.0 → 1.1.0** : `NodeCategory` accepte un chemin à deux niveaux et gagne
-  `parent()`, `leaf()`, `isSub()` ; `NodeCategories` gagne 13 constantes. Rien de
-  retiré ni de modifié — `isCompatibleWith(1, 0)` reste vrai.
+- **Dépendance Minecraft resserrée** de `~1.21` à `>=1.21.11 <1.22`. La borne large
+  laissait le mod se charger sur 1.21.0 à 1.21.10, où il est compilé contre des
+  signatures qui n'existent pas : le joueur récoltait une pile d'appels au démarrage
+  au lieu d'un refus lisible.
+- **Le texte de la licence MIT est joint au JAR.** Le `fabric.mod.json` l'annonçait
+  sans le fournir, ce qui ne remplit pas la condition de redistribution.
+- **API 1.0.0 → 1.2.0** : `NodeCategory` accepte un chemin à deux niveaux et gagne
+  `parent()`, `leaf()`, `isSub()` ; `NodeCategories` gagne 13 constantes puis
+  `EVENT_INPUT`. Rien de retiré ni de modifié — `isCompatibleWith(1, 0)` reste vrai.
 
-## [0.1.0] — 2026-08-03
+## 0.1.0 — 2026-08-03 *(jalon interne, jamais publié)*
 
 Première version complète : les neuf épics du PRD sont livrés. Un mod Fabric 1.21.11
 qui ajoute un éditeur de logique par nœuds, à la manière des Blueprints d'Unreal, avec
@@ -140,5 +214,4 @@ son modèle de graphe, son compilateur, sa machine virtuelle bornée en carburan
   points intermédiaires persistés et synchronisés.
 - Câblage complet au clavier sans souris.
 
-[Non publié]: https://github.com/Kerlann/blueprint/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/Kerlann/blueprint/releases/tag/v0.1.0
+[1.0.0]: https://github.com/Kerlann/blueprint/releases/tag/v1.0.0

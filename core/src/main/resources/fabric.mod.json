@@ -3,10 +3,15 @@
   "id": "blueprint",
   "version": "${version}",
   "name": "Blueprint",
-  "description": "Mod Fabric Blueprint",
+  "description": "Un éditeur de logique par nœuds, en jeu, à la manière des Blueprints d'Unreal. On pose des nœuds, on les relie, on déclare des variables typées, et le graphe s'exécute côté serveur sur de vrais événements du monde. Comprend un concepteur d'écrans, la déclaration d'items et de blocs par fichiers, un format texte lisible (BScript) et une API pour que les autres mods ajoutent leurs propres nœuds.",
   "authors": [
     "Kerlann"
   ],
+  "contact": {
+    "homepage": "https://github.com/Kerlann/blueprint",
+    "sources": "https://github.com/Kerlann/blueprint",
+    "issues": "https://github.com/Kerlann/blueprint/issues"
+  },
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
@@ -22,8 +27,11 @@
   },
   "depends": {
     "fabricloader": ">=0.16.0",
-    "minecraft": "~1.21",
+    "minecraft": [
+      ">=1.21.11",
+      "<1.22"
+    ],
     "java": ">=21",
-    "fabric-api": "*"
+    "fabric-api": ">=0.139.4"
   }
 }
