@@ -587,5 +587,6 @@
   "blueprint.event.blueprint.event/gui_list_clicked.name": "Ligne de liste cliquée",
   "blueprint.event.blueprint.event/gui_input_changed.name": "Saisie modifiée",
   "blueprint.event.blueprint.event/gui_value_changed.name": "Valeur modifiée",
-  "blueprint.category.gui/rich": "GUI — éléments riches"
+  "blueprint.category.gui/rich": "GUI — éléments riches",
+  "blueprint.editor.vars.empty": "Aucune — cliquez + pour en créer"
 }

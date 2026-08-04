@@ -6,9 +6,15 @@ import net.minecraft.client.gui.GuiGraphics;
 import java.util.List;
 
 /**
- * Minimap (story 5.7, UX §2) : vue d'ensemble en bas à droite, nœuds en points,
- * rectangle de la vue courante, clic = téléportation de la caméra. La projection
- * monde↔minimap est pure et testée.
+ * Minimap (story 5.7, UX §2) : vue d'ensemble en bas à droite, rectangle de la vue
+ * courante, clic = téléportation de la caméra. La projection monde↔minimap est pure et
+ * testée.
+ *
+ * <p>Les nœuds y sont des <b>rectangles à l'échelle reliés par leurs fils</b>, et non des
+ * points isolés comme au premier jet. Un point ne dit ni la taille d'un nœud ni ce qui le
+ * relie : la minimap montrait huit taches dispersées dans un cadre, où l'on ne
+ * reconnaissait pas le graphe qu'on venait de dessiner. Or c'est exactement à cela qu'elle
+ * sert — se repérer dans ce qu'on ne voit plus.
  */
 public final class Minimap {
 
@@ -18,7 +24,26 @@ public final class Minimap {
     /** Marge monde autour des bornes pour que les points ne collent pas aux bords. */
     private static final double PAD = 80;
 
+    private static final int NODE_COLOR = 0xFFAFB6C0;
+    private static final int LINK_COLOR = 0x60AFB6C0;
+
     private Minimap() {
+    }
+
+    /**
+     * Un segment, tracé point par point. Le moteur ne dessine que des rectangles ; une
+     * ligne oblique se compose donc à la main, comme les fils du canevas.
+     */
+    private static void line(GuiGraphics g, double x1, double y1, double x2, double y2,
+                             int color) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        int steps = (int) Math.max(1, Math.max(Math.abs(dx), Math.abs(dy)));
+        for (int i = 0; i <= steps; i++) {
+            int px = (int) Math.round(x1 + dx * i / steps);
+            int py = (int) Math.round(y1 + dy * i / steps);
+            g.fill(px, py, px + 1, py + 1, color);
+        }
     }
 
     public static int left(int width, int rightPanel) {
@@ -52,21 +77,59 @@ public final class Minimap {
         return new double[]{cx + (mx - W / 2.0) / s, cy + (my - H / 2.0) / s};
     }
 
+    /**
+     * Au-dessous de ce nombre de nœuds, la minimap ne s'affiche pas.
+     *
+     * <p>Elle sert à se repérer dans ce qui dépasse de l'écran. Trois nœuds tiennent
+     * toujours dans la vue : un cadre en bas à droite ne montrerait alors rien qu'on ne
+     * voie déjà, tout en masquant un morceau de canevas.
+     */
+    public static final int MIN_NODES = 4;
+
+    /** La minimap a-t-elle quelque chose à montrer ? Le rendu ET le clic s'y fient. */
+    public static boolean useful(List<NodeGeometry.Box> boxes) {
+        return boxes.size() >= MIN_NODES;
+    }
+
     public static void render(GuiGraphics g, Camera camera, List<NodeGeometry.Box> boxes,
+                              java.util.Collection<fr.blueprint.core.graph.Link> links,
+                              java.util.Set<java.util.UUID> selected,
                               int left, int top, int canvasWidth, int canvasHeight) {
+        if (!useful(boxes)) {
+            return;
+        }
         Theme theme = Theme.current();
         g.fill(left - 1, top - 1, left + W + 1, top + H + 1, theme.nodeBorder());
         g.fill(left, top, left + W, top + H, (theme.canvasBackground() & 0x00FFFFFF) | 0xE0000000);
-        if (boxes.isEmpty()) {
-            return;
-        }
+
         Camera.Rect bounds = NodeGeometry.boundsOf(boxes);
-        for (int i = 0; i < boxes.size(); i++) {
-            NodeGeometry.Box b = boxes.get(i);
-            double[] p = toMini(bounds, b.x() + b.width() / 2, b.y() + b.height() / 2);
-            int px = left + (int) p[0];
-            int py = top + (int) p[1];
-            g.fill(px - 1, py - 1, px + 1, py + 1, 0xFFAFB6C0);
+        // Les FILS d'abord, sous les nœuds : ce sont eux qui donnent sa forme au graphe,
+        // et les dessiner par-dessus les rectangles brouillerait les deux.
+        java.util.Map<java.util.UUID, NodeGeometry.Box> byId = new java.util.HashMap<>();
+        for (NodeGeometry.Box box : boxes) {
+            byId.put(box.node().uuid(), box);
+        }
+        for (var link : links) {
+            NodeGeometry.Box from = byId.get(link.fromNode());
+            NodeGeometry.Box to = byId.get(link.toNode());
+            if (from == null || to == null) {
+                continue;
+            }
+            double[] a = toMini(bounds, from.x() + from.width(), from.y() + from.height() / 2);
+            double[] b = toMini(bounds, to.x(), to.y() + to.height() / 2);
+            line(g, left + a[0], top + a[1], left + b[0], top + b[1], LINK_COLOR);
+        }
+        for (NodeGeometry.Box box : boxes) {
+            double[] a = toMini(bounds, box.x(), box.y());
+            double[] b = toMini(bounds, box.x() + box.width(), box.y() + box.height());
+            int x1 = left + (int) a[0];
+            int y1 = top + (int) a[1];
+            // Au moins deux pixels : à l'échelle d'un grand graphe, un nœud tomberait
+            // sous le pixel et disparaîtrait — c'est le repère qu'on cherchait.
+            int x2 = Math.max(x1 + 2, left + (int) b[0]);
+            int y2 = Math.max(y1 + 2, top + (int) b[1]);
+            boolean isSelected = selected.contains(box.node().uuid());
+            g.fill(x1, y1, x2, y2, isSelected ? theme.nodeSelected() : NODE_COLOR);
         }
         // Rectangle de la vue courante, borné à la minimap.
         Camera.Rect view = camera.visibleRect(canvasWidth, canvasHeight);
@@ -82,7 +145,13 @@ public final class Minimap {
         g.fill(x2 - 1, y1, x2, y2, theme.nodeSelected());
     }
 
-    public static boolean contains(double mx, double my, int left, int top) {
-        return mx >= left && mx < left + W && my >= top && my < top + H;
+    /**
+     * Le clic n'atteint la minimap que si elle est DESSINÉE. Sans cette condition, un
+     * cadre invisible en bas à droite avalerait les clics du canevas — et rien à l'écran
+     * n'expliquerait pourquoi ce coin ne répond pas.
+     */
+    public static boolean contains(double mx, double my, int left, int top,
+                                   List<NodeGeometry.Box> boxes) {
+        return useful(boxes) && mx >= left && mx < left + W && my >= top && my < top + H;
     }
 }

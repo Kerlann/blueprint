@@ -587,5 +587,6 @@
   "blueprint.event.blueprint.event/gui_list_clicked.name": "List line clicked",
   "blueprint.event.blueprint.event/gui_input_changed.name": "Input changed",
   "blueprint.event.blueprint.event/gui_value_changed.name": "Value changed",
-  "blueprint.category.gui/rich": "GUI — rich elements"
+  "blueprint.category.gui/rich": "GUI — rich elements",
+  "blueprint.editor.vars.empty": "None yet — click + to add one"
 }

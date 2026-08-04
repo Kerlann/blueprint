@@ -42,13 +42,25 @@ public final class VariablePanel {
     public static void render(GuiGraphics g, Font font, VariablePanelState state,
                               int height, int scroll) {
         int top = ToolbarWidget.HEIGHT;
-        int bottom = height - DiagnosticsPanel.BAR_HEIGHT;
+        int bottom = bottom(state, height);
         g.fill(0, top, WIDTH, bottom, BACKGROUND);
         g.fill(WIDTH - 1, top, WIDTH, bottom, BORDER);
+        // Un filet SOUS le panneau : rétracté, il n'atteint plus la barre du bas, et
+        // sans ce trait son bord inférieur se confondrait avec le canevas.
+        g.fill(0, bottom - 1, WIDTH, bottom, BORDER);
         g.drawString(font, I18n.get("blueprint.editor.vars.title"), 4, top + 3, TITLE_COLOR, false);
         g.drawString(font, "+", WIDTH - 10, top + 3, ACTION_COLOR, false);
 
         List<Variable> rows = state.rows();
+        if (rows.isEmpty()) {
+            // Dire quoi faire plutôt que de laisser un vide. Un panneau vide sans un mot
+            // ne se distingue pas d'un panneau cassé, et le « + » de l'en-tête est trop
+            // discret pour qu'on le cherche.
+            g.drawString(font, font.plainSubstrByWidth(
+                            I18n.get("blueprint.editor.vars.empty"), WIDTH - 8),
+                    4, top + HEADER_HEIGHT + 2, TITLE_COLOR, false);
+            return;
+        }
         int visible = visibleRows(height);
         int first = PanelScroll.clamp(scroll, rows.size(), visible);
         for (int i = first; i < rows.size() && i < first + visible; i++) {
@@ -95,9 +107,26 @@ public final class VariablePanel {
         return v.scope().name().substring(0, 1).toUpperCase(Locale.ROOT);
     }
 
-    public static boolean contains(double mx, double my, int height) {
-        return mx < WIDTH && my >= ToolbarWidget.HEIGHT
-                && my < height - DiagnosticsPanel.BAR_HEIGHT;
+    /**
+     * Bas du panneau : il s'arrête après sa dernière ligne au lieu de descendre jusqu'à
+     * la barre du bas.
+     *
+     * <p>Un blueprint sans variable peignait une colonne noire sur toute la hauteur de
+     * l'écran pour deux mots — elle amputait le canevas d'autant, sans rien montrer. Le
+     * panneau prend maintenant la place qu'il occupe réellement.
+     *
+     * <p>Rendu ET hit-test lisent cette méthode : deux calculs séparés auraient laissé
+     * une bande invisible avalant les clics sous le panneau rétracté.
+     */
+    public static int bottom(VariablePanelState state, int height) {
+        int full = height - DiagnosticsPanel.BAR_HEIGHT;
+        int used = ToolbarWidget.HEIGHT + HEADER_HEIGHT
+                + Math.max(1, state.rows().size()) * ROW_HEIGHT + 4;
+        return Math.min(full, used);
+    }
+
+    public static boolean contains(double mx, double my, VariablePanelState state, int height) {
+        return mx < WIDTH && my >= ToolbarWidget.HEIGHT && my < bottom(state, height);
     }
 
     public static boolean plusAt(double mx, double my) {

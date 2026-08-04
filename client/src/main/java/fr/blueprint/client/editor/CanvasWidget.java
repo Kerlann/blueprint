@@ -213,8 +213,9 @@ public final class CanvasWidget {
                 : panelVisible ? DetailsPanel.WIDTH : 0;
         minimapLeft = Minimap.left(width, rightPanel);
         minimapTop = Minimap.top(height);
-        Minimap.render(g, camera, controller.boxes(), minimapLeft, minimapTop,
-                canvasWidth(), height);
+        Minimap.render(g, camera, controller.boxes(),
+                controller.blueprint().links(), controller.selection().ids(),
+                minimapLeft, minimapTop, canvasWidth(), height);
         renderGoto(g, font);
         renderEnumOptions(g, font);
         PalettePopup.render(g, font, palette, width, height);
@@ -286,7 +287,7 @@ public final class CanvasWidget {
         // minimap flotte au-dessus du canevas : dans les deux cas le monde sous le
         // curseur n'est pas ce que le joueur regarde.
         if (my >= height - DiagnosticsPanel.BAR_HEIGHT - DiagnosticsPanel.expandedHeight(diagnostics)
-                || Minimap.contains(mx, my, minimapLeft, minimapTop)
+                || Minimap.contains(mx, my, minimapLeft, minimapTop, controller.boxes())
                 || (panelVisible && (mx < VariablePanel.WIDTH || mx >= width - DetailsPanel.WIDTH))) {
             return List.of();
         }
@@ -658,7 +659,7 @@ public final class CanvasWidget {
 
     private boolean clickOnMinimap(MouseButtonEvent e) {
         if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT
-                || !Minimap.contains(e.x(), e.y(), minimapLeft, minimapTop)
+                || !Minimap.contains(e.x(), e.y(), minimapLeft, minimapTop, controller.boxes())
                 || controller.boxes().isEmpty()) {
             return false;
         }
@@ -737,7 +738,7 @@ public final class CanvasWidget {
         if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
         }
-        if (panelVisible && VariablePanel.contains(e.x(), e.y(), height)) {
+        if (panelVisible && VariablePanel.contains(e.x(), e.y(), varPanel, height)) {
             handleVariablePanelClick(e, doubled);
             return true;
         }
@@ -1318,7 +1319,7 @@ public final class CanvasWidget {
         }
         // Molette AU-DESSUS d'un panneau : elle le fait défiler, elle ne zoome pas.
         int step = vAmount > 0 ? -1 : 1;
-        if (panelVisible && VariablePanel.contains(mouseX, mouseY, height)) {
+        if (panelVisible && VariablePanel.contains(mouseX, mouseY, varPanel, height)) {
             varScroll.scrollBy(step, varPanel.rows().size(), VariablePanel.visibleRows(height));
             return true;
         }
