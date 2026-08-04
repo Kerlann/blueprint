@@ -46,6 +46,21 @@ joueur**.
 | [`guichet.bp`](guichet.bp) | `/blueprint run guichet` : un menu avec un compteur de jetons et deux boutons | Un **écran** de bout en bout : une colonne qui range ses enfants sans qu'aucune coordonnée soit écrite, un **style nommé** porté par les deux boutons, une étiquette **liée** à une variable, et le clic qui repart dans le graphe |
 | [`reglement.bp`](reglement.bp) | `/blueprint run reglement` : une page de règles qu'on parcourt | Un écran qu'on **lit** plutôt qu'on manipule : un **panneau défilant**, du texte qui **revient à la ligne** (porté par le style, donc un sixième paragraphe n'a qu'à être écrit), des **infobulles**, et `gui/set_scroll` pour le bouton « Haut de page » |
 
+## Le contenu déclaré
+
+[`content/`](content/) n'est pas un blueprint : c'est un **item et un bloc**, prêts à
+déposer. Copiez le dossier dans `blueprint/content/` et **redémarrez** — les registres du
+jeu gèlent au démarrage, il n'existe aucun rechargement possible.
+
+| | Ce que ça montre |
+|---|---|
+| `items/rubis.json` + `rubis.png` | Le minimum : un nom, une taille de pile, une rareté. Le **nom du fichier** devient `blueprint:rubis`, et l'image est le PNG **du même nom, à côté** |
+| `blocks/granit_bleu.json` + `granit_bleu.png` | Dureté, famille d'outil **exigée**, lumière émise, bruit — un bloc qu'on pose, qui éclaire, et que la main ne récupère pas |
+
+Puis `/blueprint content` pour voir ce qui a été enregistré, et **en rouge** ce qui a été
+écarté avec sa raison. Ces fichiers sont générés par `ContentExamplesTest`, comme les
+`.bp` : à copier, jamais à modifier sur place.
+
 ## Les modifier
 
 Ils sont à toi une fois créés : renomme-les, change les valeurs, recâble. Deux réflexes

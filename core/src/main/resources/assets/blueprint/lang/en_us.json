@@ -87,6 +87,7 @@
   "blueprint.cmd.content_pack_notice": "Pack — %s",
   "blueprint.cmd.content_pack_off": "§7The generated pack is present but unchecked in Options → Resource packs — declared items will stay untextured until you re-enable it",
   "blueprint.cmd.content_block": "- %s  §7(block, hardness %s, %s)",
+  "blueprint.cmd.content_none": "No declared content — drop a JSON into %s/items/ or %s/blocks/ (with a PNG of the same name), then restart: the game registries freeze at startup.",
   "blueprint.cmd.demo_created": "Demo blueprint %s created and exported — rejoin the world for the welcome message, or type a chat message containing \"ping\"",
   "blueprint.cmd.demo_created_no_file": "Demo blueprint %s created, but could NOT be written to disk (see the server log) — it still works in game",
   "blueprint.cmd.debug_on": "Debugging %s — breakpoints and values are now recorded",

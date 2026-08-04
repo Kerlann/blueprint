@@ -315,7 +315,83 @@ n'empêche jamais les autres de fonctionner, ni le jeu de démarrer.
 
 ---
 
-## 10. Pour aller plus loin
+## 10. Déclarer vos propres items et blocs
+
+Un blueprint pilote le jeu ; il peut aussi **y ajouter des objets**. Pas des items vanilla
+renommés — de vrais items et de vrais blocs, que `/give` connaît et qu'on pose.
+
+### En deux minutes
+
+Copiez [`examples/content/`](examples/content/) dans `blueprint/content/`, puis
+**redémarrez le jeu**. Ensuite :
+
+```
+/blueprint content
+/give @s blueprint:rubis 8
+/give @s blueprint:granit_bleu
+```
+
+Le rubis a un nom bleu et ne s'empile qu'à seize ; le granit bleu se pose, éclaire autour
+de lui, et demande une pioche pour être récupéré.
+
+### Ce que contient un fichier
+
+`blueprint/content/items/rubis.json` — **rien n'est obligatoire** :
+
+```json
+{ "name": "Rubis", "stackSize": 16, "rarity": "rare" }
+```
+
+`blueprint/content/blocks/granit_bleu.json` :
+
+```json
+{ "name": "Granit bleu", "hardness": 3.0, "tool": "pickaxe",
+  "requiresTool": true, "light": 7, "sound": "stone" }
+```
+
+**Le nom du fichier devient l'identifiant** (`blueprint:rubis`), et l'image est le **PNG du
+même nom, à côté** — `rubis.json` et `rubis.png`. Rien d'autre à écrire : pas de chemin,
+donc pas de chemin à écrire faux.
+
+### Le redémarrage, et pourquoi il n'y a pas moyen de faire autrement
+
+Minecraft **gèle** ses registres à la fin du chargement des mods, avant qu'aucun monde ne
+soit ouvert. Ajouter un item après, c'est-à-dire depuis un blueprint — qui vit dans une
+sauvegarde — est structurellement impossible, pour ce mod comme pour tous les autres.
+
+Deux conséquences à connaître avant de compter dessus :
+
+- **Ajouter ou modifier un item demande un redémarrage.** `/reload` n'y peut rien.
+- **En multijoueur, chaque joueur a besoin du mod et des mêmes fichiers.** C'est vrai de
+  tout mod qui ajoute du contenu ; un client vanilla ne verra pas vos items.
+
+### Quand ça ne marche pas
+
+`/blueprint content` est fait pour ça. Il liste ce qui est enregistré et, **en rouge**, ce
+qui a été écarté avec la raison — un JSON mal formé, un nom de fichier impossible, un nom
+déclaré deux fois. Un fichier fautif n'emporte jamais les autres et n'empêche jamais le jeu
+de démarrer.
+
+Un item marqué **sans image** s'affichera en damier magenta : il lui manque son PNG voisin.
+Les textures passent par un pack de ressources que Blueprint génère tout seul dans
+`resourcepacks/blueprint_content/` et coche à sa création. Si vous le décochez, il **reste**
+décoché — c'est votre réglage, et `/blueprint-packs` vous le rappellera.
+
+### Les faire agir
+
+Un item déclaré ne *fait* rien par lui-même. C'est le graphe qui lui donne un rôle :
+
+- **« Un joueur utilise un objet »** → sa sortie `item` dit lequel ; comparez-la à
+  `blueprint:rubis` et branchez la suite.
+- **« Un bloc déclaré est posé »** et **« Un joueur casse un bloc »** → la position et
+  l'identifiant.
+- **Les huit « Action Blueprint »** dans Options → Commandes : non assignées au départ,
+  et le nœud **« Une touche Blueprint est pressée »** écoute leur numéro. C'est le joueur
+  qui choisit la touche, pas vous — donc pas de conflit avec ses autres mods.
+
+---
+
+## 11. Pour aller plus loin
 
 - [`node-reference.md`](node-reference.md) — tous les nœuds livrés, leurs pins et leur coût.
 - [`bscript-spec.md`](bscript-spec.md) — la grammaire du texte généré.

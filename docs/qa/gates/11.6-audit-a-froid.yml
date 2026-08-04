@@ -1,0 +1,53 @@
+# <!-- Powered by BMAD™ Core -->
+schema: 1
+story: "11.6"
+story_title: "Ce que l'épic 11 a laissé derrière lui"
+gate: "PASS"
+status_reason: "Audit à froid après cinq stories livrées coup sur coup, même exercice que la 10.14 — et il a trouvé la même famille de choses, ce qui est en soi une information. Un index existait depuis plusieurs stories et quatre chemins chauds l'ignoraient ; l'épic 11 n'existait dans aucune documentation joueur ; et ses quatre points de vérification commençaient tous par « écrire un JSON à la main »."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-08-04T00:00:00Z"
+waiver: { active: false }
+top_issues:
+  - id: "AUDIT-001"
+    severity: high
+    finding: "Le pont d'événements tient un index des points d'entrée, construit précisément pour ne pas parcourir tous les nœuds à chaque émission (QA BRIDGE-001) — et les chemins FILTRÉS l'ignoraient. Signal, commande, touche et clic parcouraient chaque nœud de chaque graphe à chaque émission, pour n'en retenir presque jamais aucun. La 11.4 a ajouté le cinquième sans remarquer que les quatre premiers faisaient déjà fausse route. Mesuré : à 12 000 nœuds, le budget de soixante-quatre signaux d'un tick coûtait 8,5 ms, soit 17 % du tick, pour ne rien trouver"
+    suggested_action: "entriesOf(blueprint, événement) : un seul point d'entrée vers l'index, les cinq chemins y passent. 8,5 ms → 0,15 ms. La règle « un blueprint désactivé n'écoute plus », recopiée dans chacun des cinq, y vit désormais une fois — et un test dédié la re-vérifie, parce qu'une règle déplacée est une règle à re-vérifier"
+  - id: "AUDIT-002"
+    severity: high
+    finding: "Un budget de performance en millisecondes mesure la machine autant que le code. CompilerPerfTest a rougi pour cette raison dans cette même session ; sa conversion au temps processeur du fil s'est révélée inutilisable ici — la granularité de cette horloge rendait ZÉRO sur ce banc"
+    suggested_action: "Le test mesure une PENTE : quadrupler les nœuds qui n'écoutent pas ne doit pas quadrupler le coût. Vrai sur n'importe quelle machine, à n'importe quelle charge. Et VÉRIFIÉ : relancé avec l'ancien parcours remis en place, il échoue avec un rapport de 4,43 contre une borne de 2. Un test de performance qu'on n'a pas vu échouer ne prouve rien"
+  - id: "AUDIT-003"
+    severity: medium
+    finding: "blueprint/content/ n'est pas créé tant qu'on n'y écrit pas — décision de la 11.1, et la bonne. Mais /blueprint content répondait alors « 0 item, 0 bloc, 0 écarté » : cela ressemble autant à une panne qu'à un dossier vide, et ne disait pas OÙ déposer les fichiers. La 10.5 avait déjà réglé exactement cette question pour les packs d'images"
+    suggested_action: "Un message dédié quand il n'y a rien : le chemin, ce qu'on y met, et le fait qu'il faudra redémarrer. La contrainte la plus surprenante de l'épic est ainsi dite à l'endroit où l'on se pose la question"
+  - id: "AUDIT-004"
+    severity: medium
+    finding: "L'épic 11 n'existait dans AUCUNE documentation destinée au joueur : ni la déclaration d'un item, ni le redémarrage obligatoire, ni les touches, ni la commande qui explique les refus. C'est mot pour mot la trouvaille nº 3 de la 10.14, un épic plus tard — le défaut se reproduit à chaque épic livré d'affilée"
+    suggested_action: "getting-started.md §10 : déclarer un item et un bloc, le redémarrage et POURQUOI il n'y a pas moyen de faire autrement, le diagnostic, et comment les faire agir. Le README des exemples décrit le dossier de contenu"
+  - id: "AUDIT-005"
+    severity: medium
+    finding: "Les quatre points de vérification en jeu de l'épic 11 commençaient tous par « écrire un JSON à la main » — PNG compris, qu'on ne fabrique pas dans un bloc-notes. La 10.5 livre son pack tout fait, et c'est ce qui rend sa vérification tenable"
+    suggested_action: "docs/examples/content/ : un item et un bloc avec leurs PNG, GÉNÉRÉS par ContentExamplesTest et copiés dans run/blueprint/content/. Générés et non déposés à la main : c'est la leçon de la 10.15, où un run/ rempli par copie avait dérivé de trois stories sans que personne ne le voie. Un test vérifie en outre que l'exemple passe le vrai chargeur sans un seul refus — un exemple qui ne se charge pas est pire qu'aucun exemple"
+  - id: "AUDIT-006"
+    severity: low
+    finding: "Deux choses ont été regardées et laissées telles quelles, et il faut dire pourquoi pour qu'elles ne reviennent pas"
+    suggested_action: "Les sélecteurs d'item et de bloc de l'éditeur parcourent le registre vivant : le contenu déclaré y apparaît déjà, sans une ligne. Et ContentLoader.load est appelé deux fois par démarrage — serveur pour enregistrer, client pour le pack — ce qui coûte deux lectures d'une poignée de petits fichiers sur des chemins qui n'ont aucune raison d'être couplés ; les fusionner coûterait plus en dépendance qu'en microsecondes"
+risk_summary:
+  totals: { critical: 0, high: 2, medium: 3, low: 1 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "L'index reste par ÉVÉNEMENT, pas par littéral : cent nœuds event/signal dans un même graphe seraient encore parcourus l'un après l'autre. C'est une constante, pas une pente, et personne n'écrit cela — mais c'est la prochaine marche si quelqu'un le fait."
+      - "launchMatching n'a pas été factorisé avec entriesOf : il itère des UUID sans charger les nœuds, ce qui est un peu moins cher. Deux lignes qui se ressemblent valent mieux qu'une abstraction qui fait payer le chemin le plus fréquent."
+      - "Le trou de documentation joueur s'est reproduit à l'identique entre la 10.14 et ici. Il se reproduira au prochain épic livré d'affilée : c'est un audit de fin d'épic qu'il faut, pas une bonne résolution."
+evidence:
+  tests_reviewed: 1163
+  gametests: 18
+  new_tests:
+    - "EventDispatchPerfTest (3) — le test qui compte : le coût ne suit pas le nombre de nœuds qui n'écoutent pas, vérifié DANS LES DEUX SENS (4,43 avant, 0,65 après) ; plus l'écouteur unique perdu dans douze mille nœuds, et le blueprint désactivé dont la règle vient d'être déplacée"
+    - "ContentExamplesTest (3) — les fichiers commités correspondent au modèle, le contenu d'exemple passe le vrai chargeur sans un seul refus, et le pack de ressources se construit pour lui"
+  risks_without_gate:
+    - "Sans AUDIT-001, la 11.4 aurait ajouté une cinquième source de charge sur un chemin déjà mal servi, et le coût aurait continué de croître avec la taille de chaque serveur — invisiblement, puisque rien ne le mesurait."
+    - "Sans AUDIT-005, la session de vérification en jeu aurait demandé de fabriquer un PNG à la main avant de pouvoir tester quoi que ce soit de l'épic 11."
+quality_score: 93
+expires: "2026-08-18T00:00:00Z"

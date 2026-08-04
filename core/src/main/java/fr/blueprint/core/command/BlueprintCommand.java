@@ -492,6 +492,16 @@ public final class BlueprintCommand {
         // Un bloc pose son propre item, du même identifiant : le compter dans les items
         // ferait annoncer deux déclarations là où l'auteur n'en a écrit qu'une.
         int itemCount = registered.size() - blocks.size();
+        // Rien de déclaré : dire OÙ déposer les fichiers, pas « 0, 0, 0 ». Le dossier
+        // n'est pas créé tant qu'on n'y écrit pas (11.1), si bien que personne ne peut
+        // le trouver en explorant — et un compteur à zéro ressemble à une panne autant
+        // qu'à un dossier vide. C'est ce que blueprint.pack.none fait déjà pour la 10.5.
+        if (registered.isEmpty() && rejected.isEmpty()) {
+            String where = fr.blueprint.core.BlueprintPaths.content().toString();
+            ctx.getSource().sendSuccess(() -> Component.translatable(
+                    "blueprint.cmd.content_none", where, where), false);
+            return 0;
+        }
         ctx.getSource().sendSuccess(() -> Component.translatable(
                 "blueprint.cmd.content", itemCount, blocks.size(), rejected.size()), false);
         registered.keySet().forEach(id -> {

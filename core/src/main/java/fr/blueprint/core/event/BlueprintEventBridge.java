@@ -86,16 +86,53 @@ public final class BlueprintEventBridge {
         entryCache.keySet().removeIf(id -> manager.get(id).isEmpty());
     }
 
+    /**
+     * Les nœuds d'entrée de <b>ce</b> blueprint pour <b>cet</b> événement, par l'index.
+     *
+     * <p>L'index existait déjà — construit pour la répartition générique, reconstruit
+     * seulement quand un blueprint change de révision — et les <b>chemins filtrés</b>
+     * l'ignoraient : signal, commande, touche et clic parcouraient chaque nœud de chaque
+     * graphe à chaque émission, pour n'en retenir presque jamais aucun.
+     *
+     * <p>Le coût n'était pas théorique. Le budget autorise soixante-quatre signaux par
+     * tick, et vingt graphes de cent cinquante nœuds coûtaient <b>1,6 ms par tick</b> à
+     * n'en trouver aucun — soit trois pour cent du budget d'un tick, croissant avec la
+     * taille du serveur. Le voici mesuré et borné par {@code EventDispatchPerfTest}.
+     *
+     * <p>Un blueprint désactivé rend une liste vide : c'est la règle de tous les chemins
+     * filtrés, et la mettre ici évite de la répéter cinq fois.
+     */
+    private java.util.List<Node> entriesOf(Blueprint bp, Identifier eventId) {
+        if (!bp.enabled()) {
+            return java.util.List.of();
+        }
+        EntryIndex index = entryCache.get(bp.id());
+        if (index == null || index.revision() != bp.revision()) {
+            index = scan(bp);
+            entryCache.put(bp.id(), index);
+        }
+        var uuids = index.byEvent().get(eventId);
+        if (uuids == null || uuids.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<Node> found = new java.util.ArrayList<>(uuids.size());
+        for (java.util.UUID uuid : uuids) {
+            Node node = bp.nodes().get(uuid);
+            if (node != null) {
+                found.add(node);
+            }
+        }
+        return found;
+    }
+
     // ------------------------------------------------ événement command (7.7)
 
     /** Les noms de commandes déclarés par les blueprints ACTIFS (suggestions /bpc). */
     public java.util.Set<String> commandNames() {
+        // Un blueprint désactivé rend une liste vide : commande retirée (AC 7.7).
         java.util.Set<String> names = new java.util.LinkedHashSet<>();
         for (Blueprint bp : manager.all()) {
-            if (!bp.enabled()) {
-                continue; // désactivé = commande retirée (AC 7.7)
-            }
-            for (Node node : bp.nodes().values()) {
+            for (Node node : entriesOf(bp, StandardEvents.COMMAND.id())) {
                 String name = commandNameOf(node);
                 if (name != null) {
                     names.add(name);
@@ -112,10 +149,7 @@ public final class BlueprintEventBridge {
     public int launchCommand(String name, TriggerContext trigger) {
         int launched = 0;
         for (Blueprint bp : manager.all()) {
-            if (!bp.enabled()) {
-                continue;
-            }
-            for (Node node : bp.nodes().values()) {
+            for (Node node : entriesOf(bp, StandardEvents.COMMAND.id())) {
                 if (name.equals(commandNameOf(node))) {
                     Ir ir = compiled(bp, node.uuid());
                     if (ir != null) {
@@ -167,10 +201,7 @@ public final class BlueprintEventBridge {
         signalsThisTick++;
         int launched = 0;
         for (Blueprint bp : manager.all()) {
-            if (!bp.enabled()) {
-                continue;
-            }
-            for (Node node : bp.nodes().values()) {
+            for (Node node : entriesOf(bp, StandardEvents.SIGNAL.id())) {
                 if (name.equals(signalNameOf(node))) {
                     Ir ir = compiled(bp, node.uuid());
                     if (ir != null) {
@@ -191,10 +222,7 @@ public final class BlueprintEventBridge {
     public int signalListeners(String name) {
         int count = 0;
         for (Blueprint bp : manager.all()) {
-            if (!bp.enabled()) {
-                continue;
-            }
-            for (Node node : bp.nodes().values()) {
+            for (Node node : entriesOf(bp, StandardEvents.SIGNAL.id())) {
                 if (name.equals(signalNameOf(node))) {
                     count++;
                 }
@@ -227,11 +255,11 @@ public final class BlueprintEventBridge {
     public int launchGuiEvent(Identifier blueprintId, EventType event, String element,
                               TriggerContext trigger) {
         Blueprint bp = manager.get(blueprintId).orElse(null);
-        if (bp == null || !bp.enabled()) {
+        if (bp == null) {
             return 0;
         }
         int launched = 0;
-        for (Node node : bp.nodes().values()) {
+        for (Node node : entriesOf(bp, event.id())) {
             if (element.equals(literalName(node, event.id(), "element"))) {
                 Ir ir = compiled(bp, node.uuid());
                 if (ir != null) {
@@ -245,11 +273,11 @@ public final class BlueprintEventBridge {
 
     public int launchGuiClick(Identifier blueprintId, String element, TriggerContext trigger) {
         Blueprint bp = manager.get(blueprintId).orElse(null);
-        if (bp == null || !bp.enabled()) {
+        if (bp == null) {
             return 0;
         }
         int launched = 0;
-        for (Node node : bp.nodes().values()) {
+        for (Node node : entriesOf(bp, StandardEvents.GUI_ELEMENT_CLICKED.id())) {
             if (element.equals(literalName(node, StandardEvents.GUI_ELEMENT_CLICKED.id(),
                     "element"))) {
                 Ir ir = compiled(bp, node.uuid());
@@ -277,10 +305,7 @@ public final class BlueprintEventBridge {
     public int launchKeyPress(int slot, TriggerContext trigger) {
         int launched = 0;
         for (Blueprint bp : manager.all()) {
-            if (!bp.enabled()) {
-                continue;
-            }
-            for (Node node : bp.nodes().values()) {
+            for (Node node : entriesOf(bp, StandardEvents.KEY_PRESSED.id())) {
                 Integer listened = keyOf(node);
                 if (listened != null && listened == slot) {
                     Ir ir = compiled(bp, node.uuid());

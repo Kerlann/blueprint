@@ -87,6 +87,7 @@
   "blueprint.cmd.content_pack_notice": "Pack — %s",
   "blueprint.cmd.content_pack_off": "§7Le pack généré est présent mais décoché dans Options → Packs de ressources — les items déclarés resteront sans texture tant qu'il ne sera pas réactivé",
   "blueprint.cmd.content_block": "- %s  §7(bloc, dureté %s, %s)",
+  "blueprint.cmd.content_none": "Aucun contenu déclaré — déposez un JSON dans %s/items/ ou %s/blocks/ (avec un PNG du même nom), puis redémarrez : les registres du jeu gèlent au démarrage.",
   "blueprint.cmd.demo_created": "Blueprint de démo %s créé et exporté — reconnecte-toi pour le message d'accueil, ou écris un message contenant « ping » dans le chat",
   "blueprint.cmd.demo_created_no_file": "Blueprint de démo %s créé, mais SANS pouvoir écrire le fichier (voir le log serveur) — il fonctionne quand même en jeu",
   "blueprint.cmd.debug_on": "Débogage de %s — points d'arrêt et valeurs enregistrés",

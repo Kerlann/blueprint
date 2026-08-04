@@ -1,0 +1,9 @@
+{
+  "name": "Granit bleu",
+  "hardness": 3.0,
+  "resistance": 6.0,
+  "tool": "pickaxe",
+  "requiresTool": true,
+  "light": 7,
+  "sound": "stone"
+}
