@@ -86,6 +86,23 @@ public final class ScreenPainter {
             return null;
         }
 
+        /**
+         * Ce qu'un élément LIÉ montrera, pour le concepteur seul (story 10.7).
+         *
+         * <p>Un élément lié n'a pas de texte dans le modèle : c'est la variable qui le
+         * fournit, à l'exécution. En conception il apparaissait donc <b>vide</b> — une
+         * ligne blanche au milieu du menu, dont rien ne disait qu'elle afficherait
+         * quelque chose. L'auteur ne pouvait ni juger la place qu'elle prendrait, ni
+         * vérifier son format.
+         *
+         * <p>{@code null} en jeu : là, la valeur réelle arrive du serveur, et montrer un
+         * aperçu à sa place serait montrer une valeur inventée.
+         */
+        default @Nullable fr.blueprint.core.graph.screen.ScreenText preview(
+                ScreenElement element) {
+            return null;
+        }
+
         /** Un élément masqué par le graphe (10.4) ne se dessine pas… sauf en conception. */
         default boolean forceVisible(String element) {
             return false;
@@ -253,7 +270,10 @@ public final class ScreenPainter {
             default -> fillBox(g, left, top, right, bottom, background, style, scale);
         }
 
-        if (!element.text().isEmpty()) {
+        var preview = visuals.preview(element);
+        if (preview != null && !preview.isEmpty()) {
+            paintText(g, font, element.withText(preview), left, top, right, bottom, scale);
+        } else if (!element.text().isEmpty()) {
             paintText(g, font, element, left, top, right, bottom, scale);
         }
     }

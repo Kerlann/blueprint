@@ -11,7 +11,13 @@ import java.util.List;
  */
 public final class DetailsPanel {
 
-    public static final int WIDTH = 130;
+    /**
+     * Largeur du panneau. Élargie : à 130, la colonne des libellés n'en laissait que 44
+     * et coupait « Description » en « Descrip », « Permission cap » en « Permissi ». Un
+     * libellé tronqué au milieu d'un mot ne dit plus ce qu'il désigne — et c'est
+     * justement ce que le panneau est là pour dire.
+     */
+    public static final int WIDTH = 164;
     public static final int ROW_HEIGHT = 12;
 
     private static final int BACKGROUND = 0xF0141519;
@@ -28,7 +34,14 @@ public final class DetailsPanel {
     private static final int FIELD_INVALID_BORDER = 0xFFF7768E;
 
     /** Bord gauche des champs de valeur, aligné pour toutes les lignes. */
-    private static final int FIELD_LEFT = 48;
+    private static final int FIELD_LEFT = 72;
+
+    /**
+     * Place laissée au libellé, DÉDUITE du bord du champ plutôt qu'écrite à côté. Les
+     * deux valeurs vivaient séparément — 40 ici, 44 là, 48 pour le champ — et la
+     * troncature ne correspondait à aucune des deux.
+     */
+    private static final int LABEL_WIDTH = FIELD_LEFT - 8;
 
     private DetailsPanel() {
     }
@@ -76,7 +89,7 @@ public final class DetailsPanel {
                 case NOTE -> g.drawString(font, font.plainSubstrByWidth(row.value(), WIDTH - 8),
                         left + 4, y, NOTE_COLOR, false);
                 case WIRED -> {
-                    g.drawString(font, font.plainSubstrByWidth(row.label(), 44),
+                    g.drawString(font, font.plainSubstrByWidth(row.label(), LABEL_WIDTH),
                             left + 4, y, LABEL_COLOR, false);
                     g.drawString(font, font.plainSubstrByWidth(row.value(), WIDTH - 54),
                             left + 50, y, LINK_COLOR, false);
@@ -86,7 +99,7 @@ public final class DetailsPanel {
                 case LITERAL, META_AUTHOR, META_DESCRIPTION, META_CAP ->
                         editableRow(g, font, row, left, y, edit);
                 default -> {
-                    g.drawString(font, font.plainSubstrByWidth(row.label(), 44),
+                    g.drawString(font, font.plainSubstrByWidth(row.label(), LABEL_WIDTH),
                             left + 4, y, LABEL_COLOR, false);
                     g.drawString(font, font.plainSubstrByWidth(row.value(), WIDTH - 54),
                             left + 50, y, VALUE_COLOR, false);
@@ -113,7 +126,7 @@ public final class DetailsPanel {
     private static void editableRow(GuiGraphics g, Font font, DetailsPanelState.Row row,
                                     int left, int y, @org.jetbrains.annotations.Nullable
                                     LiteralEditState edit) {
-        g.drawString(font, font.plainSubstrByWidth(row.label(), 40),
+        g.drawString(font, font.plainSubstrByWidth(row.label(), LABEL_WIDTH),
                 left + 4, y, LABEL_COLOR, false);
 
         int x1 = left + FIELD_LEFT;

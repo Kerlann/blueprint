@@ -32,7 +32,23 @@ import java.util.List;
  */
 public final class ScreenDesignerWidget {
 
-    public static final int PALETTE_WIDTH = 76;
+    /**
+     * Largeur de la palette. Élargie : à 76, « Progress bar » touchait déjà le bord, et
+     * sa traduction française — « Barre de progression » — le dépassait franchement.
+     * Aucun libellé n'y était tronqué, si bien qu'ils débordaient sur le canevas.
+     */
+    public static final int PALETTE_WIDTH = 92;
+
+    /** Place utile d'un libellé de palette, marges comprises. */
+    private static final int PALETTE_LABEL = PALETTE_WIDTH - 12;
+
+    /**
+     * Écart entre deux sections de la palette, filet compris. UNE constante, lue par le
+     * rendu ET par le clic : les deux recalculaient leurs ordonnées chacun de leur côté,
+     * et tout espace ajouté d'un seul côté aurait décalé les clics d'une ligne — le
+     * genre de défaut qu'on attribue à sa propre maladresse avant de le soupçonner.
+     */
+    private static final int SECTION_GAP = 10;
     public static final int PROPERTIES_WIDTH = 128;
     private static final int ROW = 12;
 
@@ -132,6 +148,12 @@ public final class ScreenDesignerWidget {
                     public boolean forceVisible(String element) {
                         return true;
                     }
+
+                    @Override
+                    public fr.blueprint.core.graph.screen.ScreenText preview(
+                            ScreenElement element) {
+                        return previewOf(element);
+                    }
                 });
         renderOverflow(g, screen);
         renderSelection(g, screen);
@@ -146,6 +168,30 @@ public final class ScreenDesignerWidget {
     }
 
     /**
+     * Ce qu'un élément lié montrera, avec la valeur PAR DÉFAUT de sa variable.
+     *
+     * <p>Le défaut et non un exemple inventé : c'est exactement ce que le joueur verra à
+     * l'ouverture, puisque le serveur retombe dessus quand la variable n'a pas encore été
+     * écrite (10.7). Le concepteur montre donc le premier état réel du menu, pas une
+     * approximation.
+     *
+     * <p>Sans cela, un élément lié apparaissait vide — une ligne blanche dont rien ne
+     * disait qu'elle afficherait quelque chose, et dont on ne pouvait juger ni la place
+     * ni le format.
+     */
+    private fr.blueprint.core.graph.screen.ScreenText previewOf(ScreenElement element) {
+        if (!element.isBound()
+                || element.binding().target()
+                        != fr.blueprint.core.graph.screen.ElementBinding.Target.TEXT) {
+            return null;
+        }
+        var variable = session.blueprint().variables().get(element.binding().variable());
+        Object value = variable == null || variable.defaultValue() == null
+                ? null : variable.defaultValue().value();
+        return fr.blueprint.core.net.ScreenBindings.previewText(element.binding(), value);
+    }
+
+    /**
      * Cerne d'orange ce qui sort des 320×180 garantis (AC3b).
      *
      * <p>Le validateur produit bien l'avertissement, mais il ne s'affiche que dans le
@@ -153,6 +199,7 @@ public final class ScreenDesignerWidget {
      * verrait jamais. Or c'est ici, au moment du geste, que l'information sert — après
      * coup, elle arrive sous forme de rapport de bug d'un joueur en <i>GUI scale</i> 4.
      */
+
     private void renderOverflow(GuiGraphics g, Screen screen) {
         // La zone garantie se mesure toujours à 320×180, quelle que soit la taille
         // simulée du canevas : c'est la fenêtre du joueur le moins bien loti.
@@ -296,15 +343,15 @@ public final class ScreenDesignerWidget {
         g.fill(PALETTE_WIDTH - 1, top, PALETTE_WIDTH, height, PANEL_BORDER);
 
         int y = top + 3;
-        g.drawString(font, I18n.get("blueprint.designer.screens"), 4, y, DIM_TEXT, false);
+        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.screens"), PALETTE_LABEL), 4, y, DIM_TEXT, false);
         y += ROW;
         for (String name : session.blueprint().screens().keySet()) {
             boolean active = name.equals(controller.screenName());
-            g.drawString(font, font.plainSubstrByWidth(name, PALETTE_WIDTH - 8), 6, y,
+            g.drawString(font, font.plainSubstrByWidth(name, PALETTE_LABEL), 6, y,
                     active ? SELECTED : TEXT, false);
             y += ROW;
         }
-        g.drawString(font, I18n.get("blueprint.designer.add_screen"), 6, y, DIM_TEXT, false);
+        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.add_screen"), PALETTE_LABEL), 6, y, DIM_TEXT, false);
         y += ROW;
         // Les actions de l'écran COURANT, sous sa liste : renommer, supprimer, et le
         // passage modal ↔ HUD, qui n'existaient nulle part — on pouvait créer un écran
@@ -313,21 +360,33 @@ public final class ScreenDesignerWidget {
         boolean hud = current != null && current.hud();
         String mode = hud ? I18n.get("blueprint.designer.screen_hud")
                 : I18n.get("blueprint.designer.screen_modal");
-        g.drawString(font, mode, 6, y, hud ? SELECTED : DIM_TEXT, false);
+        g.drawString(font, font.plainSubstrByWidth(mode, PALETTE_LABEL), 6, y,
+                hud ? SELECTED : DIM_TEXT, false);
         y += ROW;
-        g.drawString(font, I18n.get("blueprint.designer.rename_screen"), 6, y, DIM_TEXT, false);
+        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.rename_screen"), PALETTE_LABEL), 6, y, DIM_TEXT, false);
         y += ROW;
-        g.drawString(font, I18n.get("blueprint.designer.remove_screen"), 6, y, DIM_TEXT, false);
-        y += ROW + 4;
+        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.remove_screen"), PALETTE_LABEL), 6, y, DIM_TEXT, false);
+        y = separator(g, y);
 
-        g.drawString(font, I18n.get("blueprint.designer.elements"), 4, y, DIM_TEXT, false);
+        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.elements"),
+                PALETTE_LABEL), 4, y, DIM_TEXT, false);
         y += ROW;
         for (ElementKind kind : ElementKind.values()) {
-            g.drawString(font, I18n.get(kindKey(kind)), 6, y, TEXT, false);
+            g.drawString(font, font.plainSubstrByWidth(I18n.get(kindKey(kind)),
+                    PALETTE_LABEL), 6, y, TEXT, false);
             y += ROW;
         }
-        y += 4;
-        renderLayers(g, font, y);
+        renderLayers(g, font, separator(g, y));
+    }
+
+    /**
+     * Un filet entre deux sections de la palette. Elles se suivaient sans respiration :
+     * « Screens », « Elements » et « Layers » formaient une seule colonne de mots qu'il
+     * fallait lire en entier pour trouver où l'une finissait.
+     */
+    private int separator(GuiGraphics g, int y) {
+        g.fill(4, y + SECTION_GAP / 2, PALETTE_WIDTH - 5, y + SECTION_GAP / 2 + 1, PANEL_BORDER);
+        return y + SECTION_GAP;
     }
 
     /**
@@ -344,7 +403,7 @@ public final class ScreenDesignerWidget {
         if (screen == null) {
             return;
         }
-        g.drawString(font, I18n.get("blueprint.designer.layers"), 4, startY, DIM_TEXT, false);
+        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.layers"), PALETTE_LABEL), 4, startY, DIM_TEXT, false);
         int y = startY + ROW;
         for (String name : layerOrder(screen)) {
             if (y + ROW > height) {
@@ -740,7 +799,7 @@ public final class ScreenDesignerWidget {
             controller.removeCurrentScreen();
             return true;
         }
-        y += ROW + 4 + ROW;
+        y += SECTION_GAP + ROW;
         for (ElementKind kind : ElementKind.values()) {
             if (my >= y && my < y + ROW) {
                 // Posé au centre de la surface : l'auteur le traîne ensuite où il veut,
@@ -753,7 +812,7 @@ public final class ScreenDesignerWidget {
             }
             y += ROW;
         }
-        y += 4 + ROW;
+        y += SECTION_GAP + ROW;
         // La liste des calques : sélectionner, et basculer la visibilité par l'œil.
         Screen screen = controller.screen();
         if (screen != null) {
