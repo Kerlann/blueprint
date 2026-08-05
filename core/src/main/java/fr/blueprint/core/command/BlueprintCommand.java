@@ -126,13 +126,11 @@ public final class BlueprintCommand {
                                         com.mojang.brigadier.arguments.StringArgumentType.word())
                                 .suggests(EXPORT_FILES)
                                 .executes(BlueprintCommand::importFile)))
-                .then(literal("demo")
+                // Le banc de performance : le seul blueprint livré. Il ne s'active pas
+                // tout seul — il se déclenche à la commande /bpc bench.
+                .then(literal("bench")
                         .requires(admin)
-                        .executes(BlueprintCommand::demo))
-                // Les exemples : six graphes prêts à lire, désactivés à la création.
-                .then(literal("examples")
-                        .requires(admin)
-                        .executes(BlueprintCommand::examples))
+                        .executes(BlueprintCommand::bench))
                 // Le contenu déclaré (épic 11). Sans cette commande, un fichier écarté
                 // ne se saurait que dans le journal du serveur — c'est-à-dire nulle part,
                 // pour qui vient de déposer un JSON et se demande où est son item.
@@ -534,30 +532,6 @@ public final class BlueprintCommand {
         return registered.size();
     }
 
-    private static int examples(CommandContext<CommandSourceStack> ctx) {
-        var registries = fr.blueprint.core.BlueprintMod.registries();
-        var manager = BlueprintManager.of(ctx.getSource().getServer());
-        int created = 0;
-        int existing = 0;
-        for (var blueprint : fr.blueprint.core.ExampleBlueprints.buildAll(registries.nodes())) {
-            if (manager.adopt(blueprint)) {
-                created++;
-            } else {
-                existing++;
-            }
-        }
-        final int made = created;
-        final int already = existing;
-        if (created == 0) {
-            ctx.getSource().sendFailure(Component.translatable(
-                    "blueprint.cmd.examples_exist", already));
-            return 0;
-        }
-        ctx.getSource().sendSuccess(() -> Component.translatable(
-                "blueprint.cmd.examples_created", made), true);
-        return created;
-    }
-
     private static int signal(CommandContext<CommandSourceStack> ctx, String payload) {
         String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
         var server = ctx.getSource().getServer();
@@ -578,21 +552,26 @@ public final class BlueprintCommand {
         return listeners;
     }
 
-    private static int demo(CommandContext<CommandSourceStack> ctx) {
+    /**
+     * Installe le banc de performance et l'ACTIVE — sans quoi {@code /bpc bench} ne
+     * trouverait rien à déclencher, et l'on chercherait longtemps pourquoi.
+     */
+    private static int bench(CommandContext<CommandSourceStack> ctx) {
         var registries = fr.blueprint.core.BlueprintMod.registries();
         var manager = BlueprintManager.of(ctx.getSource().getServer());
-        var bp = fr.blueprint.core.DemoBlueprint.build(registries.nodes());
+        var bp = fr.blueprint.core.BenchBlueprint.build(registries.nodes());
         if (!manager.adopt(bp)) {
             ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.exists", bp.id().toString()));
             return 0;
         }
+        manager.setEnabled(bp.id(), true);
         // Le blueprint existe en mémoire quoi qu'il arrive ; l'export sur disque, lui,
         // peut échouer (droits, disque plein). Annoncer « créé et exporté » dans ce cas
         // envoyait le joueur chercher un fichier absent, l'échec n'étant qu'au log.
         var file = fr.blueprint.core.BlueprintFiles.export(bp, exportsDir(),
                 fr.blueprint.core.BlueprintMod.registries());
         ctx.getSource().sendSuccess(() -> Component.translatable(
-                file != null ? "blueprint.cmd.demo_created" : "blueprint.cmd.demo_created_no_file",
+                file != null ? "blueprint.cmd.bench_created" : "blueprint.cmd.bench_created_no_file",
                 bp.id().toString()), true);
         return 1;
     }

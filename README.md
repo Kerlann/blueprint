@@ -27,7 +27,7 @@ Puis, en jeu :
 
 | | |
 |---|---|
-| `/blueprint demo` puis `/blueprint-edit blueprint:demo` | voir un exemple qui marche |
+| `/blueprint bench` puis `/bpc bench` | lancer le banc de performance livré |
 | `/blueprint-edit create mon_premier` | créer le sien |
 | `F6` | rouvrir le dernier édité |
 
@@ -149,7 +149,7 @@ stories et gates QA.
 | Pour | Lire |
 |---|---|
 | Jouer | [`docs/getting-started.md`](docs/getting-started.md) |
-| Copier un exemple qui marche | [`docs/examples/`](docs/examples/README.md) |
+| Mesurer les performances en jeu | [`docs/examples/`](docs/examples/README.md) |
 | Chercher un nœud | [`docs/node-reference.md`](docs/node-reference.md) *(généré)* |
 | Écrire un mod compagnon | [`docs/extension-api.md`](docs/extension-api.md) |
 | Comprendre les choix | [`docs/architecture.md`](docs/architecture.md) |

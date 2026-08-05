@@ -1,0 +1,37 @@
+blueprint blueprint:bench {
+  meta {
+    author "Blueprint"
+    description "Banc de performance : trois formes de boucle, variables et collections"
+    version "1.0.0"
+    permission GAMEPLAY
+  }
+  var double reste = 0.0 @graph
+  var double somme = 0.0 @graph
+  var string texte = "" @graph
+  on blueprint:event/command(player, name, arg) @id("c25393b6-7b5a-39b6-b235-9a637b10d9e0") @pos(-700, 0) @with(name: "bench") {
+    blueprint:var/set(var: "somme", value: blueprint:math/add(a: 0.0, b: 0.0) @id("da3e8e13-ae9d-3a5d-952d-cba4eaa34cf2") @pos(-700, -200)) @id("38d4ffa9-1cc2-3d2f-b57c-83de466e9ec2") @pos(-450, -120)
+    blueprint:var/set(var: "reste", value: blueprint:math/add(a: 200.0, b: 0.0) @id("44c1af8c-bd45-3b40-97c1-8d2bdd197be6") @pos(-450, -220)) @id("68cb716c-5614-3e70-8bc7-64505a5fa21b") @pos(-250, -120)
+    blueprint:flow/for(first: 1, last: 200) @id("252e711b-73be-3518-a872-cc4da57d3cf3") @pos(0, 0) {
+      body: {
+        blueprint:var/set(var: "somme", value: blueprint:math/add(a: blueprint:var/get(var: "somme") @id("df17b647-a7f7-3a9a-b016-b47d475c3886") @pos(200, 160), b: $node("252e711b-73be-3518-a872-cc4da57d3cf3").index) @id("5298d473-edee-3a64-8d23-a7d67ea98b37") @pos(400, 160)) @id("bab7e1ce-88dc-3c63-bac8-5fbf632dff7f") @pos(620, 90)
+      }
+      completed: {
+        blueprint:flow/while(condition: blueprint:logic/greater(a: blueprint:var/get(var: "reste") @id("b9d73271-80c3-3354-9fa9-438b71a9ec89") @pos(-450, 420), b: 0.0) @id("51103f99-ea35-3481-bc83-fad9d330c73f") @pos(-220, 420)) @id("6f13cc23-5064-3e1c-b824-68dd3251745e") @pos(0, 320) {
+          body: {
+            blueprint:var/set(var: "reste", value: blueprint:math/sub(a: blueprint:var/get(var: "reste") @id("f56a65ae-ea76-3c5f-bc5c-87da25118131") @pos(200, 470), b: 1.0) @id("5ea2df39-5616-3fc7-99c1-24e5cedd5df2") @pos(400, 470)) @id("c8323955-486b-33b6-ade0-3455ffb0a309") @pos(620, 400)
+          }
+          completed: {
+            blueprint:flow/for_each(list: blueprint:string/split(text: "alpha,beta,gamma", separator: ",") @id("3d59e044-009a-3704-bcf0-20447fee00da") @pos(-450, 700)) @id("c3ff29e4-b68c-30c9-bd5f-d5b49dbd4dc1") @pos(0, 640) {
+              body: {
+                blueprint:var/set(var: "texte", value: blueprint:string/concat(a: blueprint:var/get(var: "texte") @id("defb9ca3-3bd0-3b0b-a2bc-1027e687a7fc") @pos(200, 800), b: blueprint:convert/to_string(value: $node("c3ff29e4-b68c-30c9-bd5f-d5b49dbd4dc1").element) @id("9da33b8e-ee74-389e-bbad-765e179b9170") @pos(200, 880)) @id("e3d3b0cd-33ed-3272-b267-3179179a64b2") @pos(420, 820)) @id("f5382fe9-c502-3536-b86d-0234bb858b4a") @pos(640, 740)
+              }
+              completed: {
+                blueprint:player/send_message(player: $player, text: blueprint:string/concat(a: blueprint:string/concat(a: "Banc terminé. Somme = ", b: blueprint:convert/to_string(value: blueprint:var/get(var: "somme") @id("5ba3b220-499f-3043-9ed6-6c26eadd725b") @pos(900, 900)) @id("8265067d-8420-3c9e-85f8-ee4e7dede58e") @pos(1100, 900)) @id("d850d542-8613-329f-b950-0d8ebc57c424") @pos(1100, 1020), b: blueprint:convert/to_string(value: blueprint:var/get(var: "texte") @id("049bab29-1ac3-3e11-b412-ade4342f7513") @pos(900, 1140)) @id("1d6631bf-2bf4-34ff-a5cd-3d07c65c2057") @pos(1100, 1140)) @id("03287838-3929-36f0-9024-6431ad7294fa") @pos(1320, 1020)) @id("dff9b2fb-a4ca-3f6a-99b8-eb1af41fc30b") @pos(1560, 640)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

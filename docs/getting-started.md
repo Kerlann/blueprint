@@ -27,7 +27,7 @@ commande est tapée…) et s'exécute **côté serveur**.
 
 | Ce que vous voulez | Ce que vous tapez |
 |---|---|
-| Voir un exemple qui marche | `/blueprint demo` puis `/blueprint edit blueprint:demo` |
+| Lancer le banc de performance | `/blueprint bench` puis `/bpc bench` |
 | Créer le vôtre | `/blueprint create mon_premier` |
 | Ouvrir le navigateur | Touche **F6** — double-clic pour ouvrir, Ctrl+N pour créer |
 | Voir ce qui existe | **F6**, ou `/blueprint edit` — dossiers, création, import |
@@ -215,8 +215,9 @@ réseau. En contrepartie, un écran qui ne se met pas à jour est presque toujou
 boutons et `Entrée` active : un joueur qui ne vise pas bien à la souris doit pouvoir s'en
 servir.
 
-L'exemple complet est livré : [`examples/guichet.bp`](examples/guichet.bp), ou
-`/blueprint examples` pour le créer directement en jeu.
+Il n'y a plus d'exemple livré pour ce cas : le dossier `examples/` ne contient désormais
+que le [banc de performance](examples/README.md). Ce guide se suit donc les mains dans le
+cambouis, ce qui est de toute façon la meilleure façon d'apprendre l'éditeur.
 
 ### Une page qu'on lit
 
@@ -245,7 +246,7 @@ une image, et surtout un bouton **désactivé**, où c'est le moment exact où l
 demande pourquoi il ne peut pas cliquer. Un `#` en tête en fait une clé de traduction,
 comme pour le texte.
 
-L'exemple complet est livré : [`examples/reglement.bp`](examples/reglement.bp).
+Là encore, plus d'exemple livré — seul le banc de performance l'est.
 
 ### Changer l'apparence en cours de partie
 

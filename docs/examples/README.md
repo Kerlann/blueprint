@@ -1,101 +1,78 @@
-# Blueprints d'exemple
+# Le banc de performance
 
-Huit graphes courts, une démonstration complète, et un dossier de contenu déclaré.
-Chaque exemple tient en moins de douze nœuds et montre **un** mécanisme ; la
-démonstration les assemble.
+Un seul blueprint livré : [`bench.bp`](bench.bp), un **banc de performance jouable**.
 
-> **Fichiers générés** — ne pas modifier à la main. Ils sont produits depuis
-> `ExampleBlueprints.java` par `ExampleBlueprintsTest`, qui les valide un par un et
-> fait échouer la construction s'ils divergent. Un exemple qui ne compile pas est pire
-> que pas d'exemple : il apprend une erreur, et il l'apprend avec autorité.
+Il ne cherche pas à enseigner. Il cherche à faire travailler la VM là où les bancs
+headless ne vont pas — dans une partie, sur un serveur, avec quelqu'un qui tape une
+commande et lit le résultat.
+
+> **Fichier généré** — ne pas modifier à la main. Il est produit depuis
+> `BenchBlueprint.java` par `StressBlueprintTest`. Un `.bp` écrit à la main ne se parse pas
+> toujours : le projet l'a déjà appris avec le pack `ma_boutique`.
 >
-> Régénérer : `./gradlew :core:test --tests "*ExampleBlueprintsTest" -Dblueprint.regenDocs=true`
+> Régénérer : `./gradlew :core:test --tests "*StressBlueprintTest" -Dblueprint.regenDocs=true`
 
-## Les charger
+## L'utiliser
 
-**En jeu**, tous d'un coup :
-
-```
-/blueprint examples
-```
-
-Ils arrivent **désactivés** — l'un d'eux pose des blocs, et un exemple qui se met à
-tourner avant qu'on l'ait lu changerait le monde sans prévenir. Ouvre-les dans
-l'éditeur (`/blueprint-edit blueprint:example/<nom>`), lis-les, puis :
+En jeu, deux commandes :
 
 ```
-/blueprint enable blueprint:example/jour_et_nuit
+/blueprint bench      # crée le banc, l'active, et l'exporte dans blueprint/exports/
+/bpc bench            # le lance ; il répond par un message
 ```
 
-**Depuis un fichier** : copie le `.bp` dans `blueprint/exports/`, puis
-`/blueprint import <nom>`. C'est du texte — tu peux aussi le coller dans la vue script
-de l'éditeur.
+Puis, pour voir où le temps est passé :
 
-## Les huit
+```
+/blueprint profile on
+/bpc bench
+/blueprint profile show
+```
 
-Les six premiers enseignent le **graphe** ; les deux derniers, ce qu'on met **devant le
-joueur**.
+Pour le lire ou le modifier : `/blueprint-edit blueprint:bench`.
 
-| Fichier | Ce qu'il fait | Ce qu'il apprend |
-|---|---|---|
-| [`jour_et_nuit.bp`](jour_et_nuit.bp) | À la connexion : « Bonjour » ou « Bonne nuit » en titre | Le plus simple des huit — un événement, une lecture du monde, un choix |
-| [`porte_secrete.bp`](porte_secrete.bp) | Clic droit sur un bloc → pose de la pierre sur la face touchée | `pos/relative`, `world/block_state`, plafond `WORLD` |
-| [`compteur_de_blocs.bp`](compteur_de_blocs.bp) | Compte les blocs cassés, affiche le total en barre d'action | Le **scoreboard** plutôt qu'une variable : `/scoreboard` et l'affichage latéral le voient aussi |
-| [`balise_de_soin.bp`](balise_de_soin.bp) | Toutes les 5 s, soigne le joueur le plus proche d'un point | Requête → branchement → action : le squelette de la plupart des scripts |
-| [`relais_de_signal.bp`](relais_de_signal.bp) | « alerte » dans le chat → titre d'alarme pour tout le monde | Le **signal** : les deux moitiés ne sont reliées que par une chaîne de caractères, donc l'une peut vivre dans un autre blueprint |
-| [`annonce_de_mort.bp`](annonce_de_mort.bp) | Annonce la mort d'un joueur, avec une infobulle au survol | `entity/as_player` (l'événement rend une *entité*) et le **texte riche** |
-| [`guichet.bp`](guichet.bp) | `/blueprint run guichet` : un menu avec un compteur de jetons et deux boutons | Un **écran** de bout en bout : une colonne qui range ses enfants sans qu'aucune coordonnée soit écrite, un **style nommé** porté par les deux boutons, une étiquette **liée** à une variable, et le clic qui repart dans le graphe |
-| [`reglement.bp`](reglement.bp) | `/blueprint run reglement` : une page de règles qu'on parcourt | Un écran qu'on **lit** plutôt qu'on manipule : un **panneau défilant**, du texte qui **revient à la ligne** (porté par le style, donc un sixième paragraphe n'a qu'à être écrit), des **infobulles**, et `gui/set_scroll` pour le bouton « Haut de page » |
+## Ce qu'il exerce
 
-## La démonstration
+Les **trois formes de boucle** du langage, parce que chacune s'abaisse en un jeu
+d'instructions différent et qu'aucune n'exerce les mêmes chemins de la VM :
 
-Un exemple enseigne **une** chose et tient en douze nœuds. Celle-ci en porte
-trente-cinq : elle assemble ce que les huit précédents enseignent, et montre à quoi
-ressemble quelque chose de **fini**.
-
-| Fichier | Ce qu'il fait |
+| Boucle | Ce qu'elle met sous tension |
 |---|---|
-| [`banque.bp`](banque.bp) | Un **distributeur** qu'on pose et qu'on clique droit : un compte par joueur, un champ où taper la somme, et de l'argent qui va et vient entre le compte et l'inventaire |
+| `flow/for` | bornes fixes — compteur, comparaison, saut arrière ; le fuel s'y consomme le plus régulièrement |
+| `flow/while` | condition **recalculée** à chaque tour, par une chaîne de nœuds purs |
+| `flow/for_each` | parcours d'une liste, un élément par tour |
 
-Il lui faut le contenu déclaré ci-dessous — `distributeur`, `piece`, `lingot` — et donc un
-redémarrage. Puis : poser le distributeur, clic droit, taper un montant, **Déposer** ou
-**Retirer**.
+Autour d'elles, ce qui coûte vraiment dans un graphe réel : des **variables** lues et
+écrites à chaque tour, de l'arithmétique, une concaténation bornée, une découpe de chaîne,
+et une conversion finale en texte — pour que le résultat des boucles remonte jusqu'au
+joueur, sans quoi rien ne prouverait qu'elles ont tourné.
 
-Ce qu'il montre et qu'aucun autre ne montre :
+La boucle `while` est aussi un **test de non-régression du compilateur** : sa condition est
+une chaîne de purs ré-évaluée à chaque tour, et si la mémoïsation des purs la figeait, la
+boucle ne s'arrêterait jamais.
 
-- un **bloc déclaré** qui sert de porte d'entrée à un écran ;
-- le montant qui passe par une **variable** — rien ne permet de *lire* un champ de saisie à
-  la demande, `gui_input_changed` est la seule façon d'en connaître le contenu, et c'est le
-  modèle que tout formulaire suivra ;
-- un dépôt qui crédite ce que `player/remove_item` dit avoir **réellement** retiré, et non
-  le montant demandé — c'est toute la différence entre une banque et une imprimerie ;
-- un retrait qui **fait l'appoint** : deux lingots et cinquante pièces pour 250.
+## Le régler
 
-## Le contenu déclaré
+Les bornes sont modestes à dessein — deux cents tours — pour mesurer sans déclencher la
+police du dépassement de budget. Pour éprouver **celle-là**, il suffit de monter le
+littéral `last` du nœud `flow/for` dans l'éditeur : le serveur coupe le graphe au bout de
+quelques ticks en dépassement, et le dit.
 
-[`content/`](content/) n'est pas un blueprint : c'est un **item et un bloc**, prêts à
-déposer. Copiez le dossier dans `blueprint/content/` et **redémarrez** — les registres du
-jeu gèlent au démarrage, il n'existe aucun rechargement possible.
+## Le modifier
 
-| | Ce que ça montre |
-|---|---|
-| `items/rubis.json` + `rubis.png` | Le minimum : un nom, une taille de pile, une rareté. Le **nom du fichier** devient `blueprint:rubis`, et l'image est le PNG **du même nom, à côté** |
-| `blocks/granit_bleu.json` + `granit_bleu.png` | Dureté, famille d'outil **exigée**, lumière émise, bruit — un bloc qu'on pose, qui éclaire, et que la main ne récupère pas |
-| `items/piece.json`, `items/lingot.json` | La monnaie de `banque.bp`. **Deux** coupures, parce qu'une seule ne demande aucun calcul : le lingot vaut cent, et le retrait doit faire l'appoint |
-| `blocks/distributeur.json` | Le bloc qu'on clique pour ouvrir la banque |
+Il est à toi une fois créé : renomme-le, change les bornes, recâble. Deux réflexes qui
+évitent les surprises :
 
-Puis `/blueprint content` pour voir ce qui a été enregistré, et **en rouge** ce qui a été
-écarté avec sa raison. Ces fichiers sont générés par `ContentExamplesTest`, comme les
-`.bp` : à copier, jamais à modifier sur place.
-
-## Les modifier
-
-Ils sont à toi une fois créés : renomme-les, change les valeurs, recâble. Deux réflexes
-qui évitent les surprises :
-
-- **`/blueprint disable` avant de modifier** un graphe qui tourne sur `server_tick`.
+- **`/blueprint disable` avant de modifier** un graphe qui tourne.
 - La **barre de diagnostics** en bas de l'éditeur dit ce qui bloque ; un pin obligatoire
   non câblé y apparaît avant même d'essayer d'activer.
 
-Pour comprendre un nœud que tu ne connais pas, **survole-le** — l'infobulle donne son
-rôle, et l'infobulle d'un pin donne son type.
+Pour comprendre un nœud que tu ne connais pas, **survole-le** — l'infobulle donne son rôle,
+et l'infobulle d'un pin donne son type.
+
+## Le reste du dossier
+
+| | |
+|---|---|
+| [`content/`](content/) | contenu déclaré — blocs et items en JSON, à copier dans `blueprint/content/`, puis `/blueprint content` |
+| [`packs/`](packs/) | pack d'images d'exemple, à copier dans `blueprint/scripts/`, puis `/blueprint-packs reload` |

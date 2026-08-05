@@ -252,12 +252,7 @@ class StressBlueprintTest {
         Path dir = repoRoot().resolve(OUTPUT_DIR);
         try {
             Files.createDirectories(dir);
-            for (var example : ExampleBlueprints.allAndShowcases()) {
-                write(dir.resolve(example.id().getPath().replace("example/", "") + ".bp"),
-                        example.build(LOADED.nodes()));
-            }
-            write(dir.resolve("blueprint_demo.bp"),
-                    DemoBlueprint.build(LOADED.nodes()));
+            write(dir.resolve("bench.bp"), BenchBlueprint.build(LOADED.nodes()));
             write(dir.resolve("banc_ecran.bp"), screenBench());
             write(dir.resolve("banc_graphe.bp"), graphBench());
         } catch (IOException e) {

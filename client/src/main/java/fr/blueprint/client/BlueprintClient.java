@@ -5,7 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import fr.blueprint.client.editor.BlueprintEditorScreen;
 import fr.blueprint.client.editor.EditorSession;
 import fr.blueprint.core.BlueprintMod;
-import fr.blueprint.core.DemoBlueprint;
+import fr.blueprint.core.BenchBlueprint;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -243,7 +243,7 @@ public class BlueprintClient implements ClientModInitializer {
     private static void openDemoEditor(Minecraft mc) {
         var registries = BlueprintMod.registries();
         mc.setScreen(new BlueprintEditorScreen(
-                EditorSession.scratch(DemoBlueprint.build(registries.nodes())),
+                EditorSession.scratch(BenchBlueprint.build(registries.nodes())),
                 registries, fr.blueprint.client.net.RegistrySync.descriptors(),
                 fr.blueprint.client.net.RegistrySync.lookup()));
     }

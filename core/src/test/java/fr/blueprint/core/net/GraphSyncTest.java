@@ -2,7 +2,7 @@ package fr.blueprint.core.net;
 
 import fr.blueprint.api.pin.PinType;
 import fr.blueprint.core.BlueprintManager;
-import fr.blueprint.core.DemoBlueprint;
+import fr.blueprint.core.BenchBlueprint;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.EditOperation;
 import fr.blueprint.core.registry.PluginLoader;
@@ -27,7 +27,7 @@ class GraphSyncTest {
             id -> LOADED.pinTypes().get(id).orElse(null);
 
     private static Blueprint demo() {
-        return DemoBlueprint.build(LOADED.nodes());
+        return BenchBlueprint.build(LOADED.nodes());
     }
 
     /** Une édition quelconque : la révision monte, le contenu change. */

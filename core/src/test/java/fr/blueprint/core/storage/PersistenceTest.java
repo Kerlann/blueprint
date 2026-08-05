@@ -3,7 +3,7 @@ package fr.blueprint.core.storage;
 import fr.blueprint.api.pin.LiteralValue;
 import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.core.BlueprintManager;
-import fr.blueprint.core.DemoBlueprint;
+import fr.blueprint.core.BenchBlueprint;
 import fr.blueprint.core.event.BlueprintEventBridge;
 import fr.blueprint.core.event.EventDispatcher;
 import fr.blueprint.core.event.StandardEvents;
@@ -124,7 +124,7 @@ class PersistenceTest {
     @Test
     void fullWorldRestartCycle() {
         // 1. Le monde tourne : démo + un blueprint en attente au milieu d'un wait.
-        manager.adopt(DemoBlueprint.build(LOADED.nodes()));
+        manager.adopt(BenchBlueprint.build(LOADED.nodes()));
         Blueprint sleeper = waitingBlueprint();
         var dispatcher = new EventDispatcher(new EventDispatcher.ThreadGate() {
             @Override
@@ -162,7 +162,7 @@ class PersistenceTest {
         assertEquals(0, report.blueprintsCorrupt());
         assertEquals(1, report.executionsResumed());
         assertEquals(0, report.executionsCancelled());
-        assertTrue(manager2.get(DemoBlueprint.ID).isPresent());
+        assertTrue(manager2.get(BenchBlueprint.ID).isPresent());
 
         // 4. L'attente reprend là où elle en était, et finit.
         for (int i = 0; i < 25; i++) {
@@ -236,13 +236,13 @@ class PersistenceTest {
         // suivant — si le mod manquant est revenu, le blueprint revit (P4).
         var storage = new BlueprintStorage();
         storage.corruptTags().add(
-                fr.blueprint.core.graph.GraphNbt.encode(DemoBlueprint.build(LOADED.nodes())));
+                fr.blueprint.core.graph.GraphNbt.encode(BenchBlueprint.build(LOADED.nodes())));
         var report = PersistenceHooks.restore(storage, manager, scheduler, LOADED,
                 RefResolver.NONE, envFactory);
         assertEquals(1, report.blueprintsLoaded(), "le préservé redevenu décodable revit");
         assertEquals(0, report.blueprintsCorrupt());
         assertTrue(storage.corruptTags().isEmpty(), "plus rien à préserver");
-        assertTrue(manager.get(DemoBlueprint.ID).isPresent());
+        assertTrue(manager.get(BenchBlueprint.ID).isPresent());
     }
 
     @Test

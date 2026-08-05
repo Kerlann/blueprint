@@ -2,7 +2,7 @@ package fr.blueprint.core.script;
 
 import fr.blueprint.api.pin.LiteralValue;
 import fr.blueprint.api.pin.PinTypes;
-import fr.blueprint.core.DemoBlueprint;
+import fr.blueprint.core.BenchBlueprint;
 import fr.blueprint.core.event.StandardEvents;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.EditOperation;
@@ -55,7 +55,7 @@ class ScriptRoundTripTest {
     @Test
     void demoRoundTripsExactly() {
         // Le pivot : 7 nœuds, 2 événements, branche, purs, littéraux, wait.
-        Blueprint demo = DemoBlueprint.build(LOADED.nodes());
+        Blueprint demo = BenchBlueprint.build(LOADED.nodes());
         Blueprint back = roundTrip(demo);
         assertTrue(demo.contentEquals(back),
                 () -> "round-trip non identique :\n" + ScriptGenerator.generate(demo, LOADED.nodes()).text());
@@ -63,7 +63,7 @@ class ScriptRoundTripTest {
 
     @Test
     void generationIsDeterministic() {
-        Blueprint demo = DemoBlueprint.build(LOADED.nodes());
+        Blueprint demo = BenchBlueprint.build(LOADED.nodes());
         String first = ScriptGenerator.generate(demo, LOADED.nodes()).text();
         String second = ScriptGenerator.generate(demo, LOADED.nodes()).text();
         assertEquals(first, second, "même graphe → mêmes octets (FR23)");
@@ -74,13 +74,17 @@ class ScriptRoundTripTest {
 
     @Test
     void outputIsReadable() {
-        String text = ScriptGenerator.generate(DemoBlueprint.build(LOADED.nodes()), LOADED.nodes()).text();
-        assertTrue(text.contains("on blueprint:event/player_join(player)"), text);
-        assertTrue(text.contains("blueprint:flow/wait(ticks: 20)")
-                || text.contains("blueprint:flow/wait(ticks: 40)"), text);
-        assertTrue(text.contains("true: {"), "les branches sont des blocs par pin");
+        String text = ScriptGenerator.generate(BenchBlueprint.build(LOADED.nodes()), LOADED.nodes()).text();
+        assertTrue(text.contains("on blueprint:event/command"), text);
+        // Les trois formes de boucle, chacune avec son bloc de corps : c'est ce qui rend
+        // un BScript lisible plutôt qu'une liste d'arêtes.
+        assertTrue(text.contains("blueprint:flow/for("), text);
+        assertTrue(text.contains("blueprint:flow/while("), text);
+        assertTrue(text.contains("blueprint:flow/for_each("), text);
+        assertTrue(text.contains("body: {"), "le corps d'une boucle est un bloc par pin");
         assertTrue(text.contains("$player"), "les sorties d'événement se lisent $nom");
-        assertTrue(text.contains("blueprint:string/contains("), "les purs sont inlinés");
+        assertTrue(text.contains("blueprint:var/get("), "les purs sont inlinés");
+        assertTrue(text.contains("var double somme"), "les variables sont déclarées en tête");
     }
 
     @Test
@@ -482,7 +486,7 @@ class ScriptRoundTripTest {
     /** Un blueprint sans écran n'en gagne pas, et le texte ne mentionne pas « screen ». */
     @Test
     void unBlueprintSansEcranNeGagneRien() {
-        Blueprint demo = DemoBlueprint.build(LOADED.nodes());
+        Blueprint demo = BenchBlueprint.build(LOADED.nodes());
         assertFalse(ScriptGenerator.generate(demo, LOADED.nodes()).text().contains("screen "));
         assertTrue(roundTrip(demo).screens().isEmpty());
     }

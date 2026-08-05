@@ -1,7 +1,7 @@
 package fr.blueprint.core.storage;
 
 import fr.blueprint.core.BlueprintManager;
-import fr.blueprint.core.DemoBlueprint;
+import fr.blueprint.core.BenchBlueprint;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.EditOperation;
 import fr.blueprint.core.graph.Vec2d;
@@ -68,7 +68,7 @@ class StorageEncodeCacheTest {
 
     private static Fixture fixture() {
         BlueprintManager manager = new BlueprintManager();
-        Blueprint demo = DemoBlueprint.build(LOADED.nodes());
+        Blueprint demo = BenchBlueprint.build(LOADED.nodes());
         assertTrue(manager.adopt(demo));
         BlueprintStorage storage = new BlueprintStorage();
         storage.bindLive(manager, newScheduler());

@@ -4,7 +4,7 @@ import fr.blueprint.api.node.Permission;
 import fr.blueprint.api.pin.PinKind;
 import fr.blueprint.api.pin.PinType;
 import fr.blueprint.api.pin.PinTypes;
-import fr.blueprint.core.DemoBlueprint;
+import fr.blueprint.core.BenchBlueprint;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.EditOperation;
 import fr.blueprint.core.graph.GraphLimits;
@@ -46,7 +46,7 @@ class NetSecurityTest {
     private static final Identifier ID = Identifier.fromNamespaceAndPath("blueprint", "demo");
 
     private static Blueprint demo() {
-        return DemoBlueprint.build(LOADED.nodes());
+        return BenchBlueprint.build(LOADED.nodes());
     }
 
     private static byte[] compress(CompoundTag tag) {

@@ -7,7 +7,7 @@ Dossier de planification suivant la **méthode BMAD** (Analyst → PM → Archit
 | Document | Agent | Rôle |
 |---|---|---|
 | [`getting-started.md`](getting-started.md) | — | **Guide joueur** : premier blueprint en dix minutes, raccourcis, dépannage |
-| [`examples/`](examples/README.md) | — | **Huit exemples + la démonstration « banque »** et le contenu déclaré : `/blueprint examples` |
+| [`examples/`](examples/README.md) | — | **Le banc de performance livré** et le contenu déclaré : `/blueprint bench` |
 | [`node-reference.md`](node-reference.md) | — | **Généré** depuis le registre : tous les nœuds, leurs pins, leur coût |
 | [`brief.md`](brief.md) | Analyst | Problème, personas, périmètre MVP, risques |
 | [`prd.md`](prd.md) | PM | 52 exigences fonctionnelles, 15 non fonctionnelles, **11 épics**, stories |
@@ -129,8 +129,14 @@ graphe, et le graphe sait enfin de quoi on lui parle.
 
 > **Plan de session** : [`session-de-verification.md`](session-de-verification.md) — les
 > quarante-deux points restants, groupés par ce qu'il faut ouvrir plutôt que par numéro de story,
-> avec des cases à cocher. Le nécessaire est déjà en place dans `run/` : exemples, pack
-> d'images, configuration.
+> avec des cases à cocher.
+>
+> ⚠️ **Ces fiches datent d'avant le nettoyage des exemples.** Les huit blueprints livrés
+> (`guichet`, `reglement`, `banque`…) et la commande `/blueprint examples` n'existent plus :
+> le dossier `examples/` ne contient que le [banc de performance](examples/README.md). Les
+> points qui les nomment (V34, V39, V47…) demandent donc de **construire soi-même** le cas à
+> vérifier, ou d'être réécrits avant la session. Le pack d'images et le contenu déclaré,
+> eux, sont toujours livrés.
 
 Tout ce qui se vérifie sans yeux l'est déjà : **996 tests headless** (build vert) et
 `./gradlew runGametest` (**17 tests** dans un vrai serveur). **Il ne reste que le visuel
