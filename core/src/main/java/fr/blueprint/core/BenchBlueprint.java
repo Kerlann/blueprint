@@ -171,27 +171,20 @@ public final class BenchBlueprint {
         link(bp, lookup, forEach, "body", writeText, "exec_in");
 
         // ------------------------------------------------------------- le verdict
-        // Le message est CALCULÉ, pas écrit en dur : il faut que le résultat des boucles
-        // remonte jusqu'au joueur, sinon rien ne prouve qu'elles ont réellement tourné.
-        UUID finalSum = add(bp, lookup, "finalSum", node("var/get"), 900, 900);
-        literal(bp, lookup, finalSum, "var", LiteralValue.of(PinTypes.STRING, "somme"));
-        UUID sumAsText = add(bp, lookup, "sumAsText", node("convert/to_string"), 1100, 900);
-        link(bp, lookup, finalSum, "value", sumAsText, "value");
+        // Le message est CALCULÉ, pas écrit en dur, et il rend compte des TROIS boucles.
+        //
+        // La deuxième version de ce graphe n'affichait que la somme et la liste : le
+        // « while » tournait sans laisser de trace, et rien dans la sortie ne distinguait
+        // « il a décrémenté deux cents fois » de « il n'est jamais entré ». Un banc dont
+        // un tiers du travail est invisible ne dit pas s'il a tourné.
+        //
+        // « reste » doit valoir 0 à l'arrivée : c'est la preuve que la condition a bien
+        // été RÉ-ÉVALUÉE à chaque tour. Figée, la boucle ne se serait jamais arrêtée.
+        UUID message = report(bp, lookup, "somme", "Banc terminé — somme ", 900, 900, null);
+        message = report(bp, lookup, "reste", ", reste ", 900, 1060, message);
+        message = report(bp, lookup, "texte", ", liste ", 900, 1220, message);
 
-        UUID prefix = add(bp, lookup, "prefix", node("string/concat"), 1100, 1020);
-        literal(bp, lookup, prefix, "a", LiteralValue.of(PinTypes.STRING, "Banc terminé. Somme = "));
-        link(bp, lookup, sumAsText, "result", prefix, "b");
-
-        UUID finalText = add(bp, lookup, "finalText", node("var/get"), 900, 1140);
-        literal(bp, lookup, finalText, "var", LiteralValue.of(PinTypes.STRING, "texte"));
-        UUID textAsText = add(bp, lookup, "textAsText", node("convert/to_string"), 1100, 1140);
-        link(bp, lookup, finalText, "value", textAsText, "value");
-
-        UUID message = add(bp, lookup, "message", node("string/concat"), 1320, 1020);
-        link(bp, lookup, prefix, "result", message, "a");
-        link(bp, lookup, textAsText, "result", message, "b");
-
-        UUID report = add(bp, lookup, "report", node("player/send_message"), 1560, 640);
+        UUID report = add(bp, lookup, "report", node("player/send_message"), 1700, 640);
         link(bp, lookup, forEach, "completed", report, "exec_in");
         link(bp, lookup, command, "player", report, "player");
         link(bp, lookup, message, "result", report, "text");
@@ -217,6 +210,33 @@ public final class BenchBlueprint {
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
         apply(bp, lookup, new EditOperation.AddNode(uuid, type, new Vec2d(x, y)));
         return uuid;
+    }
+
+    /**
+     * Ajoute « {@code <étiquette><valeur de la variable>} » au message en construction.
+     *
+     * <p>Rend le nœud de concaténation à chaîner au suivant, ou le premier morceau si
+     * {@code previous} est nul. Écrire les trois à la main donnait douze nœuds quasi
+     * identiques — c'est là que les divergences se glissent.
+     */
+    private static UUID report(Blueprint bp, NodeTypeLookup lookup, String variable,
+                               String label, double x, double y,
+                               @org.jetbrains.annotations.Nullable UUID previous) {
+        UUID read = add(bp, lookup, "read-" + variable, node("var/get"), x, y);
+        literal(bp, lookup, read, "var", LiteralValue.of(PinTypes.STRING, variable));
+        UUID asText = add(bp, lookup, "text-" + variable, node("convert/to_string"), x + 200, y);
+        link(bp, lookup, read, "value", asText, "value");
+
+        UUID labelled = add(bp, lookup, "label-" + variable, node("string/concat"), x + 400, y);
+        literal(bp, lookup, labelled, "a", LiteralValue.of(PinTypes.STRING, label));
+        link(bp, lookup, asText, "result", labelled, "b");
+        if (previous == null) {
+            return labelled;
+        }
+        UUID joined = add(bp, lookup, "join-" + variable, node("string/concat"), x + 600, y);
+        link(bp, lookup, previous, "result", joined, "a");
+        link(bp, lookup, labelled, "result", joined, "b");
+        return joined;
     }
 
     /** Un {@code var/set} déjà pointé sur sa variable — le geste le plus répété ici. */
