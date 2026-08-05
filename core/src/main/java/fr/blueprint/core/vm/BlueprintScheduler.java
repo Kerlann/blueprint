@@ -140,8 +140,35 @@ public final class BlueprintScheduler {
                 ticks, e.state, e.env.trigger().eventId(), triggerValues);
     }
 
+    /**
+     * Temps cumulé passé dans {@link #tick}, <b>comptabilité comprise</b>.
+     *
+     * <p>Les statistiques par blueprint ne chronomètrent que {@code BlueprintVm.runMeasured} :
+     * le round-robin, la compaction et la police des dépassements tombent hors du bracket.
+     * Or c'est précisément là qu'un parcours superlinéaire se cacherait — le tick a
+     * longtemps été quadratique en nombre d'exécutions simultanées sans qu'aucune mesure
+     * ne puisse le voir.
+     *
+     * <p>Une lecture d'horloge par tick, pas par exécution : le coût est négligeable et il
+     * rend le banc de charge capable de rougir.
+     */
+    private long tickNanos;
+
+    public long tickNanos() {
+        return tickNanos;
+    }
+
     /** Un tick serveur : échéances, round-robin budgété, police des dépassements. */
     public void tick(int globalFuelBudget) {
+        long begin = System.nanoTime();
+        try {
+            tickInternal(globalFuelBudget);
+        } finally {
+            tickNanos += System.nanoTime() - begin;
+        }
+    }
+
+    private void tickInternal(int globalFuelBudget) {
         // 1. Échéances des suspendues.
         Iterator<Execution> it = delayed.iterator();
         while (it.hasNext()) {

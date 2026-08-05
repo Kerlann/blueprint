@@ -1419,4 +1419,159 @@ public final class BlueprintGameTests {
             throw new IllegalStateException("échec du nœud " + path, e);
         }
     }
+
+    // ------------------------------------------------------------- charge (épic 16)
+
+    /**
+     * Un graphe qui travaille à chaque tick sans rien changer au monde : une chaîne de
+     * lectures d'heure. Chaque nœud est un {@code Call} réel pour la VM, et la lecture
+     * n'a aucun effet observable — un test de charge ne doit pas se salir le monde.
+     */
+    private static Blueprint tickWorker(Identifier blueprintId, int nodes) {
+        Blueprint bp = new Blueprint(blueprintId);
+        UUID event = uuid(blueprintId + ":event");
+        apply(bp, new EditOperation.AddNode(event, StandardEvents.SERVER_TICK.id(), Vec2d.ZERO));
+        UUID previous = event;
+        String previousPin = "exec_out";
+        for (int i = 0; i < nodes; i++) {
+            UUID step = uuid(blueprintId + ":n" + i);
+            apply(bp, new EditOperation.AddNode(step,
+                    Identifier.fromNamespaceAndPath("blueprint", "world/get_time"),
+                    new Vec2d((i + 1) * 200, 0)));
+            apply(bp, new EditOperation.AddLink(new Link(previous, previousPin, step, "exec_in")));
+            previous = step;
+            previousPin = "exec_out";
+        }
+        return bp;
+    }
+
+    /**
+     * Temps cumulé passé dans le tick de l'ordonnanceur, <b>comptabilité comprise</b>.
+     *
+     * <p>Et non la somme des statistiques par blueprint : celles-ci ne chronomètrent que
+     * l'exécution de la VM, si bien qu'un ordonnanceur redevenu quadratique n'y
+     * apparaîtrait pas du tout. Ce banc mesurait exactement cela dans sa première version,
+     * et il aurait été incapable de rougir sur la régression qu'il prétendait surveiller.
+     */
+    private static long schedulerNanos(GameTestHelper helper) {
+        return BlueprintMod.schedulerOf(helper.getLevel().getServer()).tickNanos();
+    }
+
+    private static void adoptWorkers(GameTestHelper helper, String prefix, int count) {
+        var manager = BlueprintManager.of(helper.getLevel().getServer());
+        for (int i = 0; i < count; i++) {
+            Identifier blueprintId = id(prefix + i);
+            manager.delete(blueprintId);
+            manager.adopt(tickWorker(blueprintId, 1));
+            manager.setEnabled(blueprintId, true);
+        }
+    }
+
+    private static void dropWorkers(GameTestHelper helper, String prefix, int count) {
+        var manager = BlueprintManager.of(helper.getLevel().getServer());
+        for (int i = 0; i < count; i++) {
+            manager.delete(id(prefix + i));
+        }
+    }
+
+    private static final int LIGHT = 50;
+    private static final int HEAVY = LIGHT * 4;
+    /** Ticks d'échauffement avant chaque relevé, puis ticks mesurés. */
+    private static final int WARM = 20;
+    private static final int WINDOW = 40;
+
+    /**
+     * <b>Le banc de charge.</b> Ce que le mod coûte réellement au tick d'un serveur, avec
+     * cinquante puis deux cents graphes branchés sur {@code server_tick}.
+     *
+     * <p>C'est le seul banc du dépôt qui mesure la chaîne entière dans un <b>vrai
+     * serveur</b> — événement du jeu, pont, ordonnanceur, VM. Tous les autres isolent un
+     * morceau, et leurs gains ne valent au tick réel que par inférence.
+     *
+     * <h2>Ce qu'il mesure, et ce qu'il ne prouve pas</h2>
+     *
+     * <p>Il mesure le temps passé dans {@link BlueprintScheduler#tick}, <b>comptabilité
+     * comprise</b> — pas la somme des statistiques par blueprint, qui ne chronomètrent que
+     * l'exécution de la VM. La première version de ce banc faisait cette erreur : elle
+     * aurait été incapable de voir quoi que ce soit de l'ordonnanceur lui-même.
+     *
+     * <h2>Pourquoi PAS un rapport, contrairement aux autres bancs</h2>
+     *
+     * <p>La forme préférée du §7.1 — comparer deux charges au même moment — a été essayée
+     * et <b>écartée sur mesure</b>, pour deux raisons qui se cumulent.
+     *
+     * <p>D'abord, <b>elle ne discrimine pas</b>. Le parcours de tick a longtemps été
+     * quadratique ({@code contains} et {@code remove} linéaires appelés dans la boucle) ;
+     * ce défaut a été réintroduit exprès pour voir le rapport rougir. Il ne rougit pas :
+     * <b>0,64 avec le défaut</b> contre <b>0,70 et 0,78 sans</b>. À deux cents exécutions,
+     * le terme quadratique pèse quelques pour cent contre le lancement et la VM, qui
+     * dominent d'un facteur vingt. La correction de l'épic 16f reste juste — elle supprime
+     * une croissance qui compterait à plusieurs milliers d'exécutions — mais aucun banc de
+     * ce dépôt n'en est le témoin, et il ne faut pas prétendre le contraire.
+     *
+     * <p>Ensuite, <b>les deux charges ne sont pas comparables ici</b> : la première tourne à
+     * froid, la seconde profite du JIT qu'elle vient de chauffer. Une exécution a rendu
+     * 724 µs/tick à cinquante graphes et 511 µs/tick à deux cents — le gros cas moins cher
+     * que le petit. {@code EventDispatchPerfTest} raconte exactement ce piège et le résout
+     * en <b>alternant</b> ses séries ; l'alterner ici demanderait d'adopter et de retirer
+     * deux cents graphes en boucle à travers les ticks, pour une discrimination dont on
+     * vient de voir qu'elle est nulle.
+     *
+     * <h2>Ce que ce banc est, alors</h2>
+     *
+     * <p>Une <b>mesure</b>, journalisée, avec un garde-fou en temps mural à un ordre de
+     * grandeur — la troisième forme du §7.1, celle des bancs de rendu, qui n'ont jamais
+     * rougi. Elle apporte un chiffre qui n'existait nulle part : l'ordonnanceur consomme
+     * moins d'une milliseconde par tick avec deux cents graphes actifs, soit <b>moins de 2 %
+     * du budget de cinquante millisecondes</b>. Le plafond est posé à 10 ms — dix fois
+     * au-dessus — pour n'attraper qu'une dérive d'ordre de grandeur, jamais du bruit.
+     */
+    @GameTest(maxTicks = 400)
+    public void quadruplerLesGraphesNeQuadruplePasLeCoutParGraphe(GameTestHelper helper) {
+        long[] samples = new long[4];
+
+        adoptWorkers(helper, "charge_a", LIGHT);
+        helper.runAfterDelay(WARM, () -> samples[0] = schedulerNanos(helper));
+        helper.runAfterDelay(WARM + WINDOW, () -> {
+            samples[1] = schedulerNanos(helper);
+            dropWorkers(helper, "charge_a", LIGHT);
+            adoptWorkers(helper, "charge_b", HEAVY);
+        });
+        helper.runAfterDelay(2L * WARM + WINDOW,
+                () -> samples[2] = schedulerNanos(helper));
+        helper.runAfterDelay(2L * WARM + 2L * WINDOW, () -> {
+            samples[3] = schedulerNanos(helper);
+            dropWorkers(helper, "charge_b", HEAVY);
+
+            long light = samples[1] - samples[0];
+            long heavy = samples[3] - samples[2];
+
+            // §7.1 : une mesure nulle ferait passer le banc À VIDE, ce qui est pire que
+            // rouge. Le piège s'est déjà refermé quatre fois dans ce travail.
+            helper.assertTrue(light > 0 && heavy > 0, Component.literal(
+                    "mesure nulle (" + light + " / " + heavy + " ns) : les graphes n'ont pas"
+                            + " tourné, ou le comptage de l'ordonnanceur est cassé"));
+
+            long lightPerTick = light / WINDOW;
+            long heavyPerTick = heavy / WINDOW;
+            double ratio = ((double) heavy / HEAVY) / ((double) light / LIGHT);
+
+            BlueprintMod.LOGGER.info(
+                    "Charge : ordonnanceur à {} graphes → {} µs/tick, à {} graphes →"
+                            + " {} µs/tick (sur {} ticks) — coût par graphe × {}"
+                            + " · budget d'un tick : 50 000 µs",
+                    LIGHT, light / 1000 / WINDOW, HEAVY, heavy / 1000 / WINDOW, WINDOW,
+                    String.format(java.util.Locale.ROOT, "%.2f", ratio));
+
+            // Garde-fou en temps mural, à un ordre de grandeur de la mesure (§7.1, forme 3).
+            // Il n'attrape qu'une dérive massive — c'est tout ce qu'un banc de ce genre peut
+            // honnêtement promettre, et c'est déjà mieux que rien : personne ne mesurait
+            // jusqu'ici ce que le mod coûte à un serveur chargé.
+            helper.assertTrue(heavyPerTick < 10_000, Component.literal(
+                    "l'ordonnanceur prend " + heavyPerTick + " µs par tick avec " + HEAVY
+                            + " graphes actifs, soit plus d'un cinquième du budget d'un tick"
+                            + " — c'était moins d'une milliseconde"));
+            helper.succeed();
+        });
+    }
 }
