@@ -97,6 +97,50 @@ class ProfilerTest {
         assertNull(Profiler.of(BLUEPRINT), "aucun profileur n'apparaît tout seul");
     }
 
+    /**
+     * <b>Un nœud abaissé ne ment pas sur ce qu'il a exécuté.</b>
+     *
+     * <p>Une boucle n'existe pas à l'exécution : le compilateur l'abaisse en plusieurs
+     * instructions qui gardent toutes l'identifiant du nœud source. Le compteur ne
+     * retenant que la PREMIÈRE sorte vue, le rapport affichait onze appels de
+     * {@code list/size} pour un {@code flow/for_each} sur trois éléments — un chiffre
+     * juste sous une étiquette fausse, ce qui est pire qu'un chiffre absent.
+     *
+     * <p>Vu en jeu sur le banc de performance, pas en test : aucun test n'exécutait de
+     * nœud abaissé sous profileur.
+     */
+    @Test
+    void unNoeudAbaisseAnnonceSesPlusieursSortesDInstructions() {
+        Profiler profiler = Profiler.enable(BLUEPRINT);
+        UUID lowered = UUID.randomUUID();
+        Identifier first = Identifier.fromNamespaceAndPath("blueprint", "list/size");
+        Identifier second = Identifier.fromNamespaceAndPath("blueprint", "logic/less");
+        Identifier third = Identifier.fromNamespaceAndPath("blueprint", "list/get");
+
+        profiler.record(lowered, first, 10, 1);
+        profiler.record(lowered, second, 10, 1);
+        profiler.record(lowered, second, 10, 1);
+        profiler.record(lowered, third, 10, 1);
+
+        var cost = profiler.top(1).get(0);
+        assertEquals(4, cost.calls(), "les quatre instructions comptent pour le même nœud");
+        assertTrue(cost.label().startsWith("blueprint:list/size"), cost.label());
+        assertTrue(cost.label().endsWith(" +2"),
+                "deux AUTRES sortes ont tourné, l'étiquette doit le dire : " + cost.label());
+    }
+
+    /** Un nœud d'une seule sorte garde une étiquette nue — pas de bruit inutile. */
+    @Test
+    void unNoeudOrdinaireGardeSonNomSeul() {
+        Profiler profiler = Profiler.enable(BLUEPRINT);
+        UUID plain = UUID.randomUUID();
+        Identifier type = Identifier.fromNamespaceAndPath("blueprint", "math/add");
+        profiler.record(plain, type, 10, 1);
+        profiler.record(plain, type, 10, 1);
+
+        assertEquals("blueprint:math/add", profiler.top(1).get(0).label());
+    }
+
     @Test
     void everyNodeIsCountedTimedAndFuelled() {
         Profiler profiler = Profiler.enable(BLUEPRINT);

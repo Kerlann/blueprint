@@ -54,7 +54,8 @@ public final class Profiler {
     // ------------------------------------------------------------------ mesures
 
     /** Coût cumulé d'un nœud. {@code nanos} est le temps passé DANS son action. */
-    public record NodeCost(UUID node, Identifier type, long calls, long nanos, long fuel) {
+    public record NodeCost(UUID node, Identifier type, String label,
+                           long calls, long nanos, long fuel) {
 
         public long averageNanos() {
             return calls == 0 ? 0 : nanos / calls;
@@ -67,8 +68,31 @@ public final class Profiler {
         final AtomicLong nanos = new AtomicLong();
         final AtomicLong fuel = new AtomicLong();
 
+        /**
+         * Les <b>autres</b> sortes d'instructions portant le même nœud source.
+         *
+         * <p>Un nœud abaissé par le compilateur — boucle, séquence, porte — n'existe pas
+         * à l'exécution : il devient plusieurs instructions qui gardent toutes son
+         * identifiant. Un {@code flow/for_each} sur trois éléments produit ainsi une
+         * taille de liste, quatre comparaisons, trois lectures et trois incréments : onze
+         * appels, de quatre sortes.
+         *
+         * <p>Le compteur ne retenait que la PREMIÈRE sorte vue et l'affichait pour les
+         * onze. Le rapport annonçait donc « list/size 11× » là où l'auteur n'a posé aucun
+         * nœud de ce nom — un chiffre juste sous une étiquette fausse, ce qui est pire
+         * qu'un chiffre absent.
+         */
+        final java.util.Set<Identifier> otherTypes =
+                java.util.concurrent.ConcurrentHashMap.newKeySet();
+
         Counter(Identifier type) {
             this.type = type;
+        }
+
+        /** Le nom à afficher : le type vu, et le nombre d'autres sortes s'il y en a. */
+        String label() {
+            return otherTypes.isEmpty() ? type.toString()
+                    : type + " +" + otherTypes.size();
         }
     }
 
@@ -79,6 +103,9 @@ public final class Profiler {
             return;   // nœud synthétisé par le compilateur : rien à attribuer
         }
         Counter counter = counters.computeIfAbsent(node, k -> new Counter(type));
+        if (!counter.type.equals(type)) {
+            counter.otherTypes.add(type);
+        }
         counter.calls.incrementAndGet();
         counter.nanos.addAndGet(nanos);
         counter.fuel.addAndGet(fuel);
@@ -87,7 +114,7 @@ public final class Profiler {
     /** Les {@code n} nœuds les plus coûteux en temps, du plus cher au moins cher. */
     public List<NodeCost> top(int n) {
         List<NodeCost> all = new ArrayList<>(counters.size());
-        counters.forEach((node, counter) -> all.add(new NodeCost(node, counter.type,
+        counters.forEach((node, counter) -> all.add(new NodeCost(node, counter.type, counter.label(),
                 counter.calls.get(), counter.nanos.get(), counter.fuel.get())));
         // Départage par identifiant : deux nœuds à égalité de temps ne doivent pas
         // changer de place d'un affichage à l'autre.
@@ -137,7 +164,7 @@ public final class Profiler {
             // donc pas pareil.
             text.append(String.format(java.util.Locale.ROOT,
                     "%2d. %-8s %-34s %6d× %10s µs  %4.1f%%  fuel %d\n",
-                    rank++, cost.node().toString().substring(0, 8), cost.type(),
+                    rank++, cost.node().toString().substring(0, 8), cost.label(),
                     cost.calls(), micros(cost.nanos()),
                     total == 0 ? 0.0 : 100.0 * cost.nanos() / total, cost.fuel()));
         }
