@@ -37,6 +37,27 @@ Puis, pour voir où le temps est passé :
 Le profilage n'enregistre que ce qui tourne **après** l'avoir activé : il faut donc
 relancer `/bpc bench` entre les deux, sinon le rapport annonce zéro appel sur zéro nœud.
 
+Et pour un chiffre qui veut dire quelque chose, chauffer puis remettre à zéro :
+
+```
+/bpc bench                                  # trois fois
+/blueprint profile blueprint:bench reset
+/bpc bench                                  # le tour mesuré
+/blueprint profile blueprint:bench
+```
+
+Le profileur **cumule**, et le premier tour coûte **sept fois** plus que les suivants — le
+compilateur JVM n'a pas encore chauffé. Relevés à chaud sur un lancement : **1 034 appels
+de nœuds, 4 286 de carburant, ~350 µs**, deux mesures successives tenant dans 5 %.
+
+Ce que le rapport apprend au passage : les quatre cents additions des boucles coûtent moins
+cher qu'un **seul** `player/send_message`, qui construit et envoie un paquet réseau. Dans
+un graphe de gameplay, ce sont les effets qui coûtent, pas le calcul.
+
+Et les nœuds **abaissés** par le compilateur — les boucles — apparaissent sous une étiquette
+comme `blueprint:list/size +3` : une boucle n'existe pas à l'exécution, elle devient
+plusieurs sortes d'instructions qui gardent toutes l'identifiant du nœud posé.
+
 Pour le lire ou le modifier : `/blueprint-edit blueprint:bench`.
 
 ## Ce qu'il exerce

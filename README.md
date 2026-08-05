@@ -73,6 +73,38 @@ par des bancs commités qui échouent la construction s'ils dérivent.
 | Validation, quand le graphe quadruple | × 3,67 | **× 1,00** |
 | Disposition d'écran, quand les éléments quadruplent | × 3,67 | **× 0,44** |
 
+**Et vérifiable soi-même en trois commandes.** Le mod livre un
+[banc de performance](docs/examples/README.md) : un graphe à trois boucles imbriquées —
+deux cents tours de `for`, deux cents de `while`, un parcours de liste — qu'on peut ouvrir,
+lire et modifier dans l'éditeur.
+
+```
+/blueprint bench                            # l'installe et l'active
+/blueprint profile blueprint:bench on
+/bpc bench                                  # trois fois, pour chauffer le JIT
+/blueprint profile blueprint:bench reset    # on jette les tours d'échauffement
+/bpc bench                                  # le tour qu'on mesure
+/blueprint profile blueprint:bench
+```
+
+| Par lancement | |
+|---|---|
+| Appels de nœuds | **1 034** |
+| Carburant consommé | **4 286** sur les 10 000 d'un tick |
+| Temps dans la VM, à chaud | **~350 µs** |
+
+Les trois se reproduisent à l'identique d'un lancement à l'autre — au point que deux
+mesures chaudes successives tiennent dans 5 %.
+
+La remise à zéro n'est pas une coquetterie : le profileur **cumule**, et le tout premier
+tour coûte **sept fois** plus que les suivants. Le compilateur JVM n'a pas encore chauffé —
+cela vaut pour n'importe quel code Java et n'a rien de propre au mod, mais lire sans
+l'écarter donne un chiffre faux d'un ordre de grandeur.
+
+Le rapport montre aussi où le temps va vraiment : les quatre cents additions de la boucle
+coûtent moins cher qu'un seul `player/send_message`, qui construit et envoie un paquet
+réseau. Dans un graphe de gameplay, ce sont les **effets** qui coûtent, pas le calcul.
+
 Trois choses expliquent ces chiffres, et aucune n'est un tour de passe-passe :
 
 - **un graphe se compile**, il ne s'interprète pas nœud par nœud — le passage en IR est
