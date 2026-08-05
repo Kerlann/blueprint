@@ -8,13 +8,12 @@ lisible (**BScript**) et tout BScript se re-parse en graphe. Les autres mods dé
 leurs propres nœuds sans dépendance dure, et un mod retiré ne casse jamais un graphe
 existant : ses nœuds deviennent des **fantômes** qui reprennent vie à la réinstallation.
 
-> **État : v1.0.0 publiée.** Les neuf épics du PRD, plus trois nés de l'usage réel —
-> les **interfaces graphiques** (épic 10), le **contenu déclaré** (épic 11) et
-> **l'éditeur à l'usage** (épic 12). 86 documents de story, 85 gates QA, **1188 tests
-> headless**
-> et **20 gametests** dans un serveur réel. Reste la session de vérification visuelle,
-> listée dans [`docs/README.md`](docs/README.md) : elle ne couvre que ce qu'aucun test
-> ne peut juger — l'aspect et l'ergonomie.
+> **État : v1.0.0 publiée**, plus une passe d'optimisation depuis (épics 13 à 19). Les neuf
+> épics du PRD, plus trois nés de l'usage réel — les **interfaces graphiques** (épic 10), le
+> **contenu déclaré** (épic 11) et **l'éditeur à l'usage** (épic 12). 86 documents de story,
+> 85 gates QA, **1 214 tests headless** et **21 gametests** dans un serveur réel. Reste la
+> session de vérification visuelle, listée dans [`docs/README.md`](docs/README.md) : elle ne
+> couvre que ce qu'aucun test ne peut juger — l'aspect et l'ergonomie.
 
 ---
 
@@ -51,11 +50,49 @@ blueprint en dix minutes, raccourcis, dépannage.
 - **Débogage** : points d'arrêt, pas-à-pas et valeurs affichées dans l'éditeur ;
   profileur par nœud ; audit des nœuds `ADMIN`.
 
+## Ce que ça coûte à un serveur
+
+Un éditeur par nœuds évoque volontiers un interpréteur qui rame. Voici les mesures, prises
+par des bancs commités qui échouent la construction s'ils dérivent.
+
+**Dans un vrai serveur**, avec des graphes branchés sur `server_tick` :
+
+| Graphes actifs | Temps d'ordonnancement par tick | Part du budget de 50 ms |
+|---|---|---|
+| 50 | ~0,25 ms | **0,5 %** |
+| 200 | ~0,6 ms | **1,2 %** |
+
+*(gametest `quadruplerLesGraphesNeQuadruplePasLeCoutParGraphe`, serveur dédié réel)*
+
+**Sur les chemins isolés**, avant et après le travail d'optimisation :
+
+| | Avant | Après |
+|---|---|---|
+| Allocation par appel de nœud | 744 o | **288 o** |
+| Compilation d'un graphe dense de 1 000 nœuds | 112 ms | **~4 ms** |
+| Validation, quand le graphe quadruple | × 3,67 | **× 1,00** |
+| Disposition d'écran, quand les éléments quadruplent | × 3,67 | **× 0,44** |
+
+Trois choses expliquent ces chiffres, et aucune n'est un tour de passe-passe :
+
+- **un graphe se compile**, il ne s'interprète pas nœud par nœud — le passage en IR est
+  fait une fois et mis en cache par révision ;
+- **la boucle d'exécution n'alloue presque plus rien** : le contexte d'appel réutilise les
+  tampons de son exécution, et les types comme les pins sont résolus une fois pour toute
+  l'IR au lieu d'être recherchés à chaque nœud ;
+- **rien n'est illimité** : chaque nœud déclare son coût en carburant, un tick a un budget,
+  et un graphe qui le dépasse est coupé plutôt que de faire ramer tout le monde.
+
+La méthode de mesure est décrite dans
+[`docs/architecture/coding-standards.md`](docs/architecture/coding-standards.md) §7.1, et le
+détail de chaque optimisation — y compris ce qui a été **écarté** et pourquoi — dans
+[`docs/plan-optimisation.md`](docs/plan-optimisation.md).
+
 ## Construire et tester
 
 ```bash
-./gradlew build          # 6 modules, ~250 tests headless, couverture, docs générées
-./gradlew runGametest    # 5 tests dans un vrai serveur, sans fenêtre
+./gradlew build          # 6 modules, 1 214 tests headless, couverture, docs générées
+./gradlew runGametest    # 21 tests dans un vrai serveur, sans fenêtre
 ./gradlew runClient      # jouer
 ```
 
