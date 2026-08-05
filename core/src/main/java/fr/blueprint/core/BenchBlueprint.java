@@ -106,11 +106,23 @@ public final class BenchBlueprint {
         link(bp, lookup, iterations, "result", resetRest, "value");
         link(bp, lookup, resetSum, "exec_out", resetRest, "exec_in");
 
+        // « texte » AUSSI, et l'oubli s'est vu du premier coup en jeu : la liste sortait
+        // « alphabetagammaalphabetagamma » au deuxième lancement, puis trois fois au
+        // troisième. Une variable de portée GRAPH survit à l'exécution — c'est tout
+        // l'intérêt d'une variable, et c'est ce qui rend la remise à zéro obligatoire
+        // pour un banc. Deux des trois étaient remises à zéro ; celle-là ne l'était pas.
+        UUID resetText = setVar(bp, lookup, "resetText", "texte", -50, -120);
+        UUID emptyText = add(bp, lookup, "emptyText", node("string/concat"), -250, -220);
+        literal(bp, lookup, emptyText, "a", LiteralValue.of(PinTypes.STRING, ""));
+        literal(bp, lookup, emptyText, "b", LiteralValue.of(PinTypes.STRING, ""));
+        link(bp, lookup, emptyText, "result", resetText, "value");
+        link(bp, lookup, resetRest, "exec_out", resetText, "exec_in");
+
         // -------------------------------------------------- boucle 1 : bornes fixes
         UUID forLoop = add(bp, lookup, "for", node("flow/for"), 0, 0);
         literal(bp, lookup, forLoop, "first", LiteralValue.of(PinTypes.INT, 1));
         literal(bp, lookup, forLoop, "last", LiteralValue.of(PinTypes.INT, ITERATIONS));
-        link(bp, lookup, resetRest, "exec_out", forLoop, "exec_in");
+        link(bp, lookup, resetText, "exec_out", forLoop, "exec_in");
 
         // Corps : somme = somme + index. Deux nœuds purs et une écriture de variable,
         // ré-évalués à chaque tour — c'est le cœur de ce que la boucle coûte.

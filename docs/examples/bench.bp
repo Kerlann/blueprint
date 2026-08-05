@@ -11,6 +11,7 @@ blueprint blueprint:bench {
   on blueprint:event/command(player, name, arg) @id("c25393b6-7b5a-39b6-b235-9a637b10d9e0") @pos(-700, 0) @with(name: "bench") {
     blueprint:var/set(var: "somme", value: blueprint:math/add(a: 0.0, b: 0.0) @id("da3e8e13-ae9d-3a5d-952d-cba4eaa34cf2") @pos(-700, -200)) @id("38d4ffa9-1cc2-3d2f-b57c-83de466e9ec2") @pos(-450, -120)
     blueprint:var/set(var: "reste", value: blueprint:math/add(a: 200.0, b: 0.0) @id("44c1af8c-bd45-3b40-97c1-8d2bdd197be6") @pos(-450, -220)) @id("68cb716c-5614-3e70-8bc7-64505a5fa21b") @pos(-250, -120)
+    blueprint:var/set(var: "texte", value: blueprint:string/concat(a: "", b: "") @id("38728b76-a45e-34d1-afb9-10f8d926dfdd") @pos(-250, -220)) @id("2d42a133-cfd1-312d-8f75-6a50031c45d9") @pos(-50, -120)
     blueprint:flow/for(first: 1, last: 200) @id("252e711b-73be-3518-a872-cc4da57d3cf3") @pos(0, 0) {
       body: {
         blueprint:var/set(var: "somme", value: blueprint:math/add(a: blueprint:var/get(var: "somme") @id("df17b647-a7f7-3a9a-b016-b47d475c3886") @pos(200, 160), b: $node("252e711b-73be-3518-a872-cc4da57d3cf3").index) @id("5298d473-edee-3a64-8d23-a7d67ea98b37") @pos(400, 160)) @id("bab7e1ce-88dc-3c63-bac8-5fbf632dff7f") @pos(620, 90)

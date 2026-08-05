@@ -128,8 +128,15 @@ public final class Profiler {
         for (NodeCost cost : top(top)) {
             // Locale.ROOT : un rapport se lit et se compare, la virgule décimale du
             // français y ferait varier le texte selon la machine.
+            //
+            // Et « \n » plutôt que « %n », pour exactement la même raison : %n rend le
+            // séparateur de la PLATEFORME, donc « \r\n » sous Windows. Le retour chariot
+            // partait tel quel dans le chat du jeu, qui l'affiche — chaque ligne du
+            // rapport se terminait par un « \r » visible. La première ligne ci-dessus
+            // utilisait déjà « \n » : les deux moitiés du même rapport ne se terminaient
+            // donc pas pareil.
             text.append(String.format(java.util.Locale.ROOT,
-                    "%2d. %-8s %-34s %6d× %10s µs  %4.1f%%  fuel %d%n",
+                    "%2d. %-8s %-34s %6d× %10s µs  %4.1f%%  fuel %d\n",
                     rank++, cost.node().toString().substring(0, 8), cost.type(),
                     cost.calls(), micros(cost.nanos()),
                     total == 0 ? 0.0 : 100.0 * cost.nanos() / total, cost.fuel()));

@@ -226,7 +226,10 @@ public final class BlueprintCommand {
         // les deux dans le même rapport, c'est là qu'ils se comparent.
         var stats = fr.blueprint.core.BlueprintMod
                 .schedulerOf(ctx.getSource().getServer()).stats(id);
-        String report = String.format("%s%n%s",
+        // « \n » et non « %n » : ce texte part dans le chat du jeu, qui affiche le retour
+        // chariot que « %n » ajoute sous Windows. C'est lui qu'on voyait en fin de la
+        // première ligne du rapport.
+        String report = String.format("%s\n%s",
                 String.format("Exécutions %d, terminées %d, fautes %d, fuel %d, "
                                 + "temps total %d µs, pic %d µs",
                         stats.runs(), stats.completed(), stats.faults(), stats.fuel(),
