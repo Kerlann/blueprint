@@ -1552,15 +1552,19 @@ public final class BlueprintGameTests {
                     "mesure nulle (" + light + " / " + heavy + " ns) : les graphes n'ont pas"
                             + " tourné, ou le comptage de l'ordonnanceur est cassé"));
 
-            long lightPerTick = light / WINDOW;
-            long heavyPerTick = heavy / WINDOW;
+            // EN MICROSECONDES, converties ici et une seule fois. Le compteur est en
+            // nanosecondes ; comparer sa valeur brute à un seuil pensé en microsecondes
+            // borne mille fois trop serré — ce banc a été commité rouge pour cette raison
+            // exacte, et le message d'échec affichait « µs » devant des nanosecondes.
+            long lightPerTick = light / WINDOW / 1_000;
+            long heavyPerTick = heavy / WINDOW / 1_000;
             double ratio = ((double) heavy / HEAVY) / ((double) light / LIGHT);
 
             BlueprintMod.LOGGER.info(
                     "Charge : ordonnanceur à {} graphes → {} µs/tick, à {} graphes →"
                             + " {} µs/tick (sur {} ticks) — coût par graphe × {}"
                             + " · budget d'un tick : 50 000 µs",
-                    LIGHT, light / 1000 / WINDOW, HEAVY, heavy / 1000 / WINDOW, WINDOW,
+                    LIGHT, lightPerTick, HEAVY, heavyPerTick, WINDOW,
                     String.format(java.util.Locale.ROOT, "%.2f", ratio));
 
             // Garde-fou en temps mural, à un ordre de grandeur de la mesure (§7.1, forme 3).
