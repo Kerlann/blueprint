@@ -1,14 +1,13 @@
 name: build
 
-# Ce qui a été écrit cette nuit ne vaut que s'il tourne ailleurs que sur une machine.
+# La construction COMPLÈTE, gametests compris : elle démarre un vrai serveur Minecraft.
 #
-# Mais SEULEMENT quand on le demande : sur une étiquette de version, sur une publication,
-# ou à la main. Plus à chaque push.
+# Elle ne part que sur une étiquette de version, sur une publication, ou à la main — c'est
+# lent, et un commit ordinaire n'a pas besoin de la payer.
 #
-# Ce que cela coûte, et il faut le savoir : plus rien ne valide un commit ordinaire ni une
-# pull request. La construction locale (`./gradlew build`) redevient le seul garde-fou du
-# quotidien, et une régression peut vivre dans `main` jusqu'à la prochaine étiquette. Le
-# déclenchement manuel est là pour ça — `workflow_dispatch` sur n'importe quelle branche.
+# Le quotidien est couvert par `check.yml`, qui tourne à chaque push sur `main` et se
+# limite à ce qui est rapide. Les deux ne se marchent pas dessus : un push d'étiquette ne
+# correspond pas à `branches: [main]`.
 on:
   push:
     tags: ['v*']
