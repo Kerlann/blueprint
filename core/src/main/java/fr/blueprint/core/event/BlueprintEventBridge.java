@@ -56,6 +56,17 @@ public final class BlueprintEventBridge {
     }
 
     /** Abonne le pont à tous les événements du registre. */
+    /**
+     * Abonne le pont à <b>tous</b> les événements du registre.
+     *
+     * <p>C'est ce que l'épic 15b voulait corriger : la garde de paresse d'
+     * {@link EventDispatcher} — « pas d'abonné, pas de charge utile » — n'est donc jamais
+     * vraie en production, et toute émission entre dans {@link #launchMatching}. La
+     * tentative d'abonnement sélectif a été <b>suspendue</b> : voir §5 de
+     * {@code docs/plan-optimisation.md}, elle déplaçait la sensibilité d'un blueprint
+     * nouvellement créé au tick suivant, ce qui est un changement de sémantique et non une
+     * optimisation.
+     */
     public void wire(EventDispatcher dispatcher, java.util.Collection<EventType> events) {
         for (EventType event : events) {
             dispatcher.subscribe(event.id(), trigger -> launchMatching(event.id(), trigger));
@@ -63,27 +74,30 @@ public final class BlueprintEventBridge {
     }
 
     private void launchMatching(Identifier eventId, TriggerContext trigger) {
-        if (manager.all().isEmpty()) {
+        // UN seul appel : manager.all() enveloppe la collection dans un
+        // unmodifiableCollection à chaque invocation. En appeler deux allouait deux
+        // enveloppes par émission — et certains événements sont émis à chaque coup porté
+        // sur le serveur entier, pas une fois par tick.
+        var all = manager.all();
+        if (all.isEmpty()) {
             return;
         }
-        for (Blueprint bp : manager.all()) {
+        for (Blueprint bp : all) {
             if (!bp.enabled()) {
                 continue;
             }
-            EntryIndex index = entryCache.get(bp.id());
-            if (index == null || index.revision() != bp.revision()) {
-                index = scan(bp);
-                entryCache.put(bp.id(), index);
-            }
-            for (java.util.UUID entryNode : index.byEvent().getOrDefault(eventId, java.util.List.of())) {
+            for (java.util.UUID entryNode : indexOf(bp).byEvent()
+                    .getOrDefault(eventId, java.util.List.of())) {
                 Ir ir = compiled(bp, entryNode);
                 if (ir != null) {
                     scheduler.launch(bp.id(), ir, envFactory.create(bp, trigger));
                 }
             }
         }
-        // Purge des blueprints disparus (peu fréquent, coût borné par la taille du cache).
-        entryCache.keySet().removeIf(id -> manager.get(id).isEmpty());
+        // Purge des blueprints disparus. Le commentaire d'origine la disait « peu
+        // fréquente » : c'est faux, on est ici à CHAQUE émission de tout événement. Sans
+        // Optional, donc (15a). L'en sortir demande l'abonnement sélectif, suspendu.
+        entryCache.keySet().removeIf(id -> !manager.contains(id));
     }
 
     /**
@@ -106,12 +120,7 @@ public final class BlueprintEventBridge {
         if (!bp.enabled()) {
             return java.util.List.of();
         }
-        EntryIndex index = entryCache.get(bp.id());
-        if (index == null || index.revision() != bp.revision()) {
-            index = scan(bp);
-            entryCache.put(bp.id(), index);
-        }
-        var uuids = index.byEvent().get(eventId);
+        var uuids = indexOf(bp).byEvent().get(eventId);
         if (uuids == null || uuids.isEmpty()) {
             return java.util.List.of();
         }
@@ -180,6 +189,16 @@ public final class BlueprintEventBridge {
     public void endTick() {
         signalsThisTick = 0;
         signalBudgetWarned = false;
+    }
+
+    /** L'index des points d'entrée de ce blueprint, reconstruit si sa révision a bougé. */
+    private EntryIndex indexOf(Blueprint bp) {
+        EntryIndex index = entryCache.get(bp.id());
+        if (index == null || index.revision() != bp.revision()) {
+            index = scan(bp);
+            entryCache.put(bp.id(), index);
+        }
+        return index;
     }
 
     /**

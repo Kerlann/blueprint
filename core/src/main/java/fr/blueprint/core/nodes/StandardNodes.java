@@ -173,7 +173,13 @@ public final class StandardNodes {
                 .category(NodeCategories.STRING_EDIT).pure()
                 .in("a", PinTypes.STRING, "").in("b", PinTypes.STRING, "")
                 .out("result", PinTypes.STRING)
-                .action(ctx -> ctx.out("result", ctx.<String>in("a") + ctx.<String>in("b")))
+                // Borné comme tout le reste de la famille (TextMathNodes.MAX_LENGTH).
+                // Il ne l'était pas : ce nœud date de la story 7.2, la borne lui est
+                // postérieure, et l'oubli laissait « s = concat(s, s) » dans une boucle
+                // atteindre le gigaoctet en une trentaine de tours — soit deux pour cent
+                // du budget de fuel d'un seul tick.
+                .action(ctx -> ctx.out("result",
+                        TextMathNodes.concat(ctx.in("a"), ctx.in("b"))))
                 .build());
 
         r.register(NodeType.builder(id("string/length"))
@@ -189,14 +195,17 @@ public final class StandardNodes {
                 .action(ctx -> ctx.out("result", ctx.<String>in("value").contains(ctx.in("search"))))
                 .build());
 
+        // Dix fois l'unité au pire cas borné, cinq pour son jumeau (FuelCalibrationTest).
+        // La casse d'Unicode n'est pas une transposition caractère par caractère : elle
+        // consulte des tables et peut changer la longueur du texte.
         r.register(NodeType.builder(id("string/upper"))
-                .category(NodeCategories.STRING_EDIT).pure()
+                .category(NodeCategories.STRING_EDIT).pure().fuelCost(10)
                 .in("value", PinTypes.STRING, "").out("result", PinTypes.STRING)
                 .action(ctx -> ctx.out("result", ctx.<String>in("value").toUpperCase(java.util.Locale.ROOT)))
                 .build());
 
         r.register(NodeType.builder(id("string/lower"))
-                .category(NodeCategories.STRING_EDIT).pure()
+                .category(NodeCategories.STRING_EDIT).pure().fuelCost(5)
                 .in("value", PinTypes.STRING, "").out("result", PinTypes.STRING)
                 .action(ctx -> ctx.out("result", ctx.<String>in("value").toLowerCase(java.util.Locale.ROOT)))
                 .build());
@@ -215,7 +224,7 @@ public final class StandardNodes {
                 .build());
 
         // ------------------------------------------------- joueur (avant-goût 7.4)
-        r.register(NodeType.builder(id("player/send_message"))
+        r.register(NodeType.builder(id("player/send_message")).fuelCost(5)
                 .category(NodeCategories.PLAYER)
                 .permission(fr.blueprint.api.node.Permission.GAMEPLAY)
                 .exec()

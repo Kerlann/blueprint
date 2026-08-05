@@ -30,7 +30,71 @@ public final class BlueprintFiles {
         return (id.getNamespace() + "_" + id.getPath()).replace('/', '_') + ".bp";
     }
 
-    /** Écrit le blueprint en BScript ; retourne le chemin, ou null (journalisé). */
+    /**
+     * Écritures en attente, par blueprint — elles se chaînent au lieu de courir ensemble.
+     *
+     * <p>Deux enregistrements rapprochés du même graphe partent sinon vers le disque en
+     * parallèle, et rien ne dit lequel arrive en dernier : le fichier pourrait conserver
+     * l'avant-dernière version. Une file par identifiant suffit, et n'empêche pas deux
+     * blueprints différents de s'écrire en même temps.
+     */
+    private static final java.util.Map<Identifier, java.util.concurrent.CompletableFuture<Void>>
+            PENDING = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Le reflet sur disque, <b>sans bloquer le fil serveur</b>.
+     *
+     * <p>Le texte est produit ici, sur le fil appelant : il lit le graphe vivant, qui
+     * n'appartient qu'à ce fil-là. Seuls la création du dossier et l'écriture du fichier
+     * partent sur le pool d'entrées-sorties du jeu.
+     *
+     * <p>C'est ce que le contrat de {@code BlueprintManager.mirror} demandait déjà —
+     * « au mieux, jamais au prix de l'enregistrement ». Il était tenu pour les erreurs
+     * (un disque plein fait perdre le reflet, pas le travail) mais pas pour le temps :
+     * la latence d'écriture n'est bornée par rien, et un joueur qui enregistrait faisait
+     * hoqueter tout le monde. Sur disque mécanique, antivirus ou stockage réseau, cela
+     * se compte en dizaines de millisecondes — plusieurs ticks.
+     */
+    public static void exportAsync(Blueprint bp, Path exportsDir,
+                                   PluginLoader.LoadedRegistries registries) {
+        ScriptGenerator.Result script = ScriptGenerator.generate(bp, registries.nodes());
+        for (String issue : script.issues()) {
+            BlueprintMod.LOGGER.warn("Export de « {} » : {}", bp.id(), issue);
+        }
+        Identifier id = bp.id();
+        String text = script.text();
+        Path file = exportsDir.resolve(fileName(id));
+        PENDING.compute(id, (key, previous) -> {
+            var after = previous == null
+                    ? java.util.concurrent.CompletableFuture.<Void>completedFuture(null)
+                    // Une écriture en échec ne doit pas emporter les suivantes : le reflet
+                    // est au mieux, et un disque momentanément plein se libère.
+                    : previous.handle((ignored, error) -> null);
+            // nonCriticalIoPool et non ioPool : le reflet est explicitement « au mieux ».
+            // Le perdre ne coûte qu'un fichier réimportable, alors qu'une sauvegarde de
+            // monde qui attendrait derrière lui coûterait le travail de tout le monde.
+            //
+            // PIÈGE DE NOMMAGE : la classe est « net.minecraft.util.Util » en 1.21.11, et
+            // non « net.minecraft.Util » comme dans les versions antérieures et dans la
+            // plupart des exemples qu'on trouve.
+            return after.thenRunAsync(() -> write(file, exportsDir, text, id),
+                    net.minecraft.util.Util.nonCriticalIoPool());
+        });
+    }
+
+    private static void write(Path file, Path exportsDir, String text, Identifier id) {
+        try {
+            Files.createDirectories(exportsDir);
+            Files.writeString(file, text, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            BlueprintMod.LOGGER.error("Export de « {} » impossible", id, e);
+        }
+    }
+
+    /**
+     * La même chose, <b>synchrone</b> : la commande {@code /blueprint export} attend son
+     * chemin pour le montrer à celui qui l'a tapée, et l'a explicitement demandé.
+     */
     public static @Nullable Path export(Blueprint bp, Path exportsDir,
                                         PluginLoader.LoadedRegistries registries) {
         try {

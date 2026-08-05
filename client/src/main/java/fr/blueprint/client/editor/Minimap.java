@@ -38,6 +38,16 @@ public final class Minimap {
                              int color) {
         double dx = x2 - x1;
         double dy = y2 - y1;
+        // Segment qui tient dans un pixel : un seul point, et non la boucle complète.
+        // À l'échelle d'une vignette, un grand graphe écrase la plupart de ses liens sur
+        // moins d'un pixel — on les traçait pourtant un par un, plusieurs centaines de
+        // fois par image, pour repeindre le même point.
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+            int px = (int) Math.round(x1);
+            int py = (int) Math.round(y1);
+            g.fill(px, py, px + 1, py + 1, color);
+            return;
+        }
         int steps = (int) Math.max(1, Math.max(Math.abs(dx), Math.abs(dy)));
         for (int i = 0; i <= steps; i++) {
             int px = (int) Math.round(x1 + dx * i / steps);
@@ -86,6 +96,15 @@ public final class Minimap {
      */
     public static final int MIN_NODES = 4;
 
+    /**
+     * Table de travail du rendu, réemployée d'une image à l'autre.
+     *
+     * <p>Statique et non réentrante : la minimap se dessine sur le fil de rendu, une fois
+     * par image, et jamais depuis deux endroits à la fois.
+     */
+    private static final java.util.Map<java.util.UUID, NodeGeometry.Box> BY_ID =
+            new java.util.HashMap<>();
+
     /** La minimap a-t-elle quelque chose à montrer ? Le rendu ET le clic s'y fient. */
     public static boolean useful(List<NodeGeometry.Box> boxes) {
         return boxes.size() >= MIN_NODES;
@@ -105,13 +124,18 @@ public final class Minimap {
         Camera.Rect bounds = NodeGeometry.boundsOf(boxes);
         // Les FILS d'abord, sous les nœuds : ce sont eux qui donnent sa forme au graphe,
         // et les dessiner par-dessus les rectangles brouillerait les deux.
-        java.util.Map<java.util.UUID, NodeGeometry.Box> byId = new java.util.HashMap<>();
+        //
+        // La table est RÉEMPLOYÉE d'une image à l'autre. Elle était reconstruite à chaque
+        // passage — une entrée par nœud du graphe, soixante fois par seconde, pour une
+        // vignette de quatre-vingt-seize pixels de large qui ne change que lorsque le
+        // graphe change.
+        BY_ID.clear();
         for (NodeGeometry.Box box : boxes) {
-            byId.put(box.node().uuid(), box);
+            BY_ID.put(box.node().uuid(), box);
         }
         for (var link : links) {
-            NodeGeometry.Box from = byId.get(link.fromNode());
-            NodeGeometry.Box to = byId.get(link.toNode());
+            NodeGeometry.Box from = BY_ID.get(link.fromNode());
+            NodeGeometry.Box to = BY_ID.get(link.toNode());
             if (from == null || to == null) {
                 continue;
             }

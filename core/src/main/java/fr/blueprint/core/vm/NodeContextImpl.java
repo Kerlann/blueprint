@@ -26,7 +26,11 @@ public final class NodeContextImpl implements NodeContext {
 
     private final NodeType type;
     private final Map<String, Object> inputs;
-    private final Map<String, Object> outputs = new LinkedHashMap<>();
+    /**
+     * Table des sorties — <b>prêtée</b> par l'exécution quand la VM appelle, propre à ce
+     * contexte sinon (tests, gametests). Voir {@code ExecutionState.borrowOutputs}.
+     */
+    private final Map<String, Object> outputs;
     private final @Nullable MinecraftServer server;
     private final @Nullable ServerLevel level;
     private final BlueprintHandle blueprint;
@@ -35,6 +39,9 @@ public final class NodeContextImpl implements NodeContext {
 
     /** Valeurs réellement lues par le nœud — alimenté seulement en débogage (9.1a). */
     private final @Nullable Map<String, Object> reads;
+
+    /** Pins indexés par nom, ou {@code null} — voir le constructeur de paquet. */
+    private final ResolvedIr.@Nullable PinIndex pins;
 
     private @Nullable String chosenExec;
     private int suspendTicks = -1;
@@ -52,9 +59,31 @@ public final class NodeContextImpl implements NodeContext {
                            @Nullable MinecraftServer server, @Nullable ServerLevel level,
                            BlueprintHandle blueprint, TriggerContext trigger, Logger logger,
                            boolean recordReads) {
+        this(type, inputs, server, level, blueprint, trigger, logger, recordReads, null,
+                new LinkedHashMap<>());
+    }
+
+    /**
+     * La forme que prend la VM : avec l'index des pins déjà résolu ({@link ResolvedIr}).
+     *
+     * <p>{@code pins} nul est parfaitement valide — c'est le cas des tests et des gametests,
+     * qui construisent un contexte à la main. La recherche retombe alors sur le parcours
+     * linéaire, qui reste correct, simplement plus lent hors de la boucle chaude.
+     */
+    NodeContextImpl(NodeType type, Map<String, Object> inputs,
+                    @Nullable MinecraftServer server, @Nullable ServerLevel level,
+                    BlueprintHandle blueprint, TriggerContext trigger, Logger logger,
+                    boolean recordReads, ResolvedIr.@Nullable PinIndex pins,
+                    Map<String, Object> outputs) {
+        this.outputs = outputs;
         this.reads = recordReads ? new LinkedHashMap<>() : null;
         this.type = type;
-        this.inputs = Map.copyOf(inputs);
+        // PAS de Map.copyOf : la carte reçue est construite par l'appelant pour cet appel
+        // et n'est plus touchée ensuite. La copie défensive dupliquait donc intégralement
+        // les entrées, une fois par nœud traversé, pour se protéger d'une mutation qui
+        // n'existe pas.
+        this.inputs = inputs;
+        this.pins = pins;
         this.server = server;
         this.level = level;
         this.blueprint = blueprint;
@@ -240,8 +269,21 @@ public final class NodeContextImpl implements NodeContext {
         }
     }
 
-    private NodeType.PinSpec findPin(java.util.List<NodeType.PinSpec> pins, String name, String sideName) {
-        for (NodeType.PinSpec pin : pins) {
+    private NodeType.PinSpec findPin(java.util.List<NodeType.PinSpec> declared, String name,
+                                     String sideName) {
+        // Chemin de la VM : l'index a été construit une fois pour toute l'IR.
+        if (pins != null) {
+            Map<String, NodeType.PinSpec> index =
+                    declared == type.inputs() ? pins.inputs() : pins.outputs();
+            NodeType.PinSpec found = index.get(name);
+            if (found != null) {
+                return found;
+            }
+            throw new IllegalStateException(
+                    dev("pas de pin de " + sideName + " nommé « " + name + " »"));
+        }
+        // Chemin sans index (tests, gametests) : correct, simplement linéaire.
+        for (NodeType.PinSpec pin : declared) {
             if (pin.name().equals(name)) {
                 return pin;
             }

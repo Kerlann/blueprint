@@ -46,7 +46,20 @@ public final class RaycastNodes {
          * sorties, comme partout ailleurs — un rayon dans le vide est le cas NORMAL,
          * pas une faute, et une position nulle se propagerait en silence.
          */
-        r.register(NodeType.builder(id("world/raycast"))
+        // TARIF PAR ANALYSE, non par mesure — ce nœud demande un monde vivant et
+        // FuelCalibrationTest ne peut donc pas l'exécuter (ctx.level() est nul headless).
+        //
+        // Le travail : Level.clip parcourt les blocs par DDA de « from » à « to ». À la
+        // portée maximale (MAX_DISTANCE = 128), la diagonale traverse de l'ordre de trois
+        // cent quatre-vingts positions, chacune coûtant un getBlockState et, pour un bloc
+        // non vide, la résolution de sa VoxelShape puis une intersection. Cent unités est
+        // l'ordre de grandeur retenu ; l'incertitude est d'un facteur trois, ce qui est
+        // sans importance devant l'écart au tarif précédent, qui était de un.
+        //
+        // Le tarif couvre le PIRE cas, car « distance » est une entrée que l'auteur du
+        // graphe choisit, et le fuel d'un nœud est fixé à la compilation. À cent, un tick
+        // autorise cent rayons — largement de quoi jouer, trop peu pour épuiser un serveur.
+        r.register(NodeType.builder(id("world/raycast")).fuelCost(100)
                 .category(NodeCategories.WORLD_BLOCK).exec().permission(Permission.SAFE)
                 .in("from", PinTypes.VEC3)
                 .in("direction", PinTypes.VEC3)
@@ -79,7 +92,15 @@ public final class RaycastNodes {
 
         /* Le raccourci qui sert vraiment : ce que regarde CETTE entité. Sans lui, il
          * faudrait exposer l'angle de vue et refaire la trigonométrie à la main. */
-        r.register(NodeType.builder(id("entity/looking_at"))
+        // TARIF PAR ANALYSE : cent, comme world/raycast, et pour la même raison — c'est
+        // le même Level.clip, borné par la même MAX_DISTANCE.
+        //
+        // Sa catégorie dit « entity/read », ce qui le range parmi les lectures : à côté
+        // de entity/health et entity/name, qui coûtent deux. Il en coûte cinquante fois
+        // plus. La catégorie décrit ce que le nœud RÉPOND, pas ce qu'il DÉPENSE, et
+        // c'est précisément pourquoi le tarif se lit dans le code plutôt que déduit du
+        // rangement dans la palette.
+        r.register(NodeType.builder(id("entity/looking_at")).fuelCost(100)
                 .category(NodeCategories.ENTITY_READ).exec().permission(Permission.SAFE)
                 .in("entity", PinTypes.ENTITY)
                 .in("distance", PinTypes.DOUBLE, 6.0)
@@ -111,7 +132,14 @@ public final class RaycastNodes {
          * répondent pas ensemble, et les fondre donnerait un nœud à sept sorties dont
          * la moitié serait toujours vide.
          */
-        r.register(NodeType.builder(id("world/raycast_entity"))
+        // TARIF PAR ANALYSE (même raison : monde vivant requis).
+        //
+        // Plus cher que le rayon de blocs : la boîte englobante fait jusqu'à cent
+        // vingt-huit blocs de long, et getEntities balaie toutes les sections d'entités
+        // qu'elle recouvre — puis chaque candidat subit un box.clip. Le coût suit donc le
+        // volume balayé ET le peuplement du monde, ce dernier échappant à l'auteur du
+        // graphe. Cent cinquante unités.
+        r.register(NodeType.builder(id("world/raycast_entity")).fuelCost(150)
                 .category(NodeCategories.ENTITY_QUERY).exec().permission(Permission.SAFE)
                 .in("from", PinTypes.VEC3)
                 .in("direction", PinTypes.VEC3)

@@ -653,9 +653,14 @@ public final class ServerBlueprintNet {
         if (screen == null || !screen.hud()) {
             return false;
         }
-        SCREENS.showHud(player.getUUID(), blueprintId, screenName);
-        ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenOpen(
-                blueprintId, screenName, 0, ScreenSync.toBytes(screen)));
+        // La description ne repart que si le client ne l'a pas déjà — même écran, même
+        // version. Sans cela, un graphe qui appelle « gui/show_hud » à chaque tick
+        // réencodait et regzippait l'écran entier vingt fois par seconde et par joueur,
+        // pour renvoyer des octets identiques.
+        if (SCREENS.showHud(player.getUUID(), blueprintId, screenName, screen)) {
+            ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenOpen(
+                    blueprintId, screenName, 0, ScreenSync.toBytes(screen)));
+        }
         return true;
     }
 

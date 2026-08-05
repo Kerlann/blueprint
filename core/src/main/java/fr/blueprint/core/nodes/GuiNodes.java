@@ -221,7 +221,9 @@ public final class GuiNodes {
      * pas ne peut pas être lent.
      */
     private static void registerRefresh(NodeRegistry r) {
-        r.register(NodeType.builder(id("gui/refresh"))
+        // TARIF PAR ANALYSE : recalcule TOUTES les liaisons de l'écran — une lecture de
+        // variable et une mise en file par élément lié. Quinze unités.
+        r.register(NodeType.builder(id("gui/refresh")).fuelCost(15)
                 .category(NodeCategories.GUI_BIND).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("screen", PinTypes.STRING, "")
@@ -237,7 +239,15 @@ public final class GuiNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("gui/refresh_all"))
+        // TARIF PAR ANALYSE : le même travail RÉPÉTÉ POUR CHAQUE SPECTATEUR, blueprint et
+        // écran étant re-résolus à chaque tour (ServerBlueprintNet:552-598). Cinquante
+        // unités, pour un serveur d'une vingtaine de spectateurs.
+        //
+        // Ce tarif est le plus incertain du lot : son coût suit le nombre de joueurs
+        // connectés, que l'auteur du graphe ne choisit pas, alors qu'un fuelCost est fixé
+        // à la compilation. Le vrai remède est de hisser la résolution hors de la boucle
+        // (épic 17e) ; le tarif ne fait que rendre la dépense visible entre-temps.
+        r.register(NodeType.builder(id("gui/refresh_all")).fuelCost(50)
                 .category(NodeCategories.GUI_BIND).exec().permission(Permission.GAMEPLAY)
                 .in("screen", PinTypes.STRING, "")
                 .out("sent", PinTypes.INT)
@@ -251,7 +261,7 @@ public final class GuiNodes {
         // Un blueprint qui rouvrirait un menu plein écran en boucle sortirait le joueur
         // du jeu — d'où la permission, la cadence bornée côté serveur, et le fait
         // qu'Échap ferme toujours (AC5b).
-        r.register(NodeType.builder(id("gui/open"))
+        r.register(NodeType.builder(id("gui/open")).fuelCost(30)
                 .category(NodeCategories.GUI).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("screen", PinTypes.STRING, "")
@@ -274,7 +284,7 @@ public final class GuiNodes {
         // rien capter, et plusieurs coexistent. D'où des nœuds distincts : « ouvrir »
         // et « afficher » ne veulent pas dire la même chose, et les confondre a
         // justement produit un HUD qui figeait le joueur.
-        r.register(NodeType.builder(id("hud/show"))
+        r.register(NodeType.builder(id("hud/show")).fuelCost(30)
                 .category(NodeCategories.GUI).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("screen", PinTypes.STRING, "")
@@ -291,7 +301,7 @@ public final class GuiNodes {
                 .build());
 
         // SAFE : retirer un affichage ne prend rien au joueur.
-        r.register(NodeType.builder(id("hud/hide"))
+        r.register(NodeType.builder(id("hud/hide")).fuelCost(5)
                 .category(NodeCategories.GUI).exec().permission(Permission.SAFE)
                 .in("player", PinTypes.PLAYER)
                 .in("screen", PinTypes.STRING, "")
@@ -303,7 +313,7 @@ public final class GuiNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("hud/hide_all"))
+        r.register(NodeType.builder(id("hud/hide_all")).fuelCost(10)
                 .category(NodeCategories.GUI).exec().permission(Permission.SAFE)
                 .in("player", PinTypes.PLAYER)
                 .action(ctx -> {
@@ -314,7 +324,7 @@ public final class GuiNodes {
                 .build());
 
         // SAFE : fermer ne prend rien au joueur, et lui rend même la main.
-        r.register(NodeType.builder(id("gui/close"))
+        r.register(NodeType.builder(id("gui/close")).fuelCost(5)
                 .category(NodeCategories.GUI).exec().permission(Permission.SAFE)
                 .in("player", PinTypes.PLAYER)
                 .action(ctx -> {
@@ -345,7 +355,9 @@ public final class GuiNodes {
         // « screen » vide = l'écran modal ouvert. Depuis la 10.9, plusieurs surfaces
         // coexistent (un modal et des HUD) : une modification doit donc dire LAQUELLE
         // elle vise, sinon deux écrans portant un élément « or » se disputeraient.
-        r.register(withPin.apply(NodeType.builder(id("gui/" + name))
+        // TARIF PAR ANALYSE : une modification construite et mise en file pour UN joueur.
+        // Trois unités — l'envoi lui-même est groupé en fin de tick, pas ici.
+        r.register(withPin.apply(NodeType.builder(id("gui/" + name)).fuelCost(3)
                 .category(category).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("screen", PinTypes.STRING, "")
@@ -365,7 +377,9 @@ public final class GuiNodes {
                 })
                 .build());
 
-        r.register(withPin.apply(NodeType.builder(id("gui/" + name + "_all"))
+        // TARIF PAR ANALYSE : la même modification, mise en file une fois PAR SPECTATEUR.
+        // Dix unités. Moins cher que refresh_all, qui recalcule toutes les liaisons.
+        r.register(withPin.apply(NodeType.builder(id("gui/" + name + "_all")).fuelCost(10)
                 .category(category).exec().permission(Permission.GAMEPLAY)
                 .in("screen", PinTypes.STRING, "")
                 .in("element", PinTypes.STRING, ""))

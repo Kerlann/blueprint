@@ -46,7 +46,7 @@ public final class ClientNodes {
     }
 
     public static void register(NodeRegistry r) {
-        r.register(NodeType.builder(id("player/subtitle"))
+        r.register(NodeType.builder(id("player/subtitle")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("text", PinTypes.STRING, "")
@@ -56,7 +56,7 @@ public final class ClientNodes {
 
         /* La barre d'action : le retour le moins intrusif du jeu — il ne remplit pas
          * le chat et disparaît seul. C'est ce qu'on veut pour un compteur ou un état. */
-        r.register(NodeType.builder(id("player/action_bar"))
+        r.register(NodeType.builder(id("player/action_bar")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("text", PinTypes.STRING, "")
@@ -66,7 +66,7 @@ public final class ClientNodes {
 
         /* Sans ce nœud, un titre reste à l'écran avec les durées du DERNIER réglage —
          * y compris celles d'un autre mod ou d'une commande passée. */
-        r.register(NodeType.builder(id("player/title_times"))
+        r.register(NodeType.builder(id("player/title_times")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("fade_in", PinTypes.INT, 10)
@@ -81,7 +81,7 @@ public final class ClientNodes {
 
         /* Le son PRIVÉ. world/play_sound le joue pour tout le monde ; celui-ci ne
          * touche qu'une connexion, et se place aux oreilles du joueur par défaut. */
-        r.register(NodeType.builder(id("player/play_sound"))
+        r.register(NodeType.builder(id("player/play_sound")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("sound", PinTypes.RESOURCE_LOCATION)
@@ -108,7 +108,7 @@ public final class ClientNodes {
 
         /* Les particules privées. Le même effet visuel que world/particles, mais vu
          * du seul joueur concerné — de quoi baliser un chemin pour lui seul. */
-        r.register(NodeType.builder(id("player/particles"))
+        r.register(NodeType.builder(id("player/particles")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("particle", PinTypes.RESOURCE_LOCATION)

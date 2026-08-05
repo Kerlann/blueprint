@@ -62,7 +62,33 @@ public final class Screen {
         }
         this.elements = Collections.unmodifiableMap(byName);
         this.styles = Collections.unmodifiableMap(new LinkedHashMap<>(styles));
+
+        // Index parent → enfants, construit ICI parce que l'écran est immuable : il ne
+        // peut pas se périmer, et il est payé une fois par écran plutôt qu'une fois par
+        // question. Sans lui, childrenOf parcourait TOUS les éléments et allouait deux
+        // listes à chaque appel — et ScreenLayout en pose une par élément en descendant
+        // l'arbre, ce qui rendait la passe de disposition quadratique. Le HUD la refait à
+        // chaque image (épic 17b), le concepteur à chaque édition.
+        //
+        // Les listes se remplissent dans l'ordre de « byName », donc l'ORDRE DE DESSIN est
+        // préservé — c'est un contrat, le dernier élément est au-dessus.
+        Map<String, List<ScreenElement>> children = new LinkedHashMap<>();
+        List<ScreenElement> rootElements = new ArrayList<>();
+        for (ScreenElement element : byName.values()) {
+            if (element.parent() == null) {
+                rootElements.add(element);
+            } else {
+                children.computeIfAbsent(element.parent(), k -> new ArrayList<>()).add(element);
+            }
+        }
+        children.replaceAll((parent, list) -> List.copyOf(list));
+        this.childrenByParent = Collections.unmodifiableMap(children);
+        this.roots = List.copyOf(rootElements);
     }
+
+    /** Enfants directs par parent, et racines à part — le parent peut être nul. */
+    private final Map<String, List<ScreenElement>> childrenByParent;
+    private final List<ScreenElement> roots;
 
     /** Les styles nommés, par nom, dans l'ordre de création. */
     public Map<String, ElementStyle> styles() {
@@ -120,15 +146,16 @@ public final class Screen {
         return elements.size();
     }
 
-    /** Les enfants directs d'un conteneur, dans l'ordre de dessin. */
+    /**
+     * Les enfants directs d'un conteneur, dans l'ordre de dessin. En temps constant, et
+     * <b>sans allocation</b> — les listes sont construites une fois à la création.
+     */
     public List<ScreenElement> childrenOf(@Nullable String parent) {
-        List<ScreenElement> out = new ArrayList<>();
-        for (ScreenElement element : elements.values()) {
-            if (java.util.Objects.equals(element.parent(), parent)) {
-                out.add(element);
-            }
+        if (parent == null) {
+            return roots;
         }
-        return List.copyOf(out);
+        List<ScreenElement> found = childrenByParent.get(parent);
+        return found == null ? List.of() : found;
     }
 
     /**

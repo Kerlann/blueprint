@@ -80,8 +80,10 @@ public final class TextMathNodes {
                 })
                 .build());
 
+        // Quatre fois l'unité au pire cas borné (FuelCalibrationTest) : mille vingt-quatre
+        // morceaux assemblés jusqu'au plafond de longueur.
         r.register(NodeType.builder(id("string/join"))
-                .category(NodeCategories.STRING_EDIT).pure()
+                .category(NodeCategories.STRING_EDIT).pure().fuelCost(4)
                 .in("parts", PinTypes.listOf(PinTypes.STRING))
                 .in("separator", PinTypes.STRING, " ")
                 .out("text", PinTypes.STRING)
@@ -110,8 +112,8 @@ public final class TextMathNodes {
                     String text = str(ctx.in("text"));
                     // Remplacer le vide insérerait entre chaque caractère : sans effet
                     // utile et coûteux. On rend le texte intact.
-                    ctx.out("text", search.isEmpty() ? text
-                            : clamp(text.replace(search, str(ctx.in("replacement")))));
+                    ctx.out("text", search.isEmpty() ? clamp(text)
+                            : replaceBounded(text, search, str(ctx.in("replacement"))));
                 })
                 .build());
 
@@ -163,8 +165,10 @@ public final class TextMathNodes {
          * faute — une saisie de joueur est faillible par nature, et le graphe doit
          * pouvoir répondre poliment.
          */
+        // Quatre fois l'unité au pire cas borné (FuelCalibrationTest) : l'analyse d'un
+        // nombre parcourt toute la chaîne avant de conclure qu'elle n'en est pas un.
         r.register(NodeType.builder(id("convert/to_number"))
-                .category(NodeCategories.STRING_EDIT).pure()
+                .category(NodeCategories.STRING_EDIT).pure().fuelCost(4)
                 .in("text", PinTypes.STRING, "")
                 .out("value", PinTypes.DOUBLE)
                 .out("valid", PinTypes.BOOL)
@@ -269,7 +273,50 @@ public final class TextMathNodes {
         return value instanceof String s ? s : "";
     }
 
-    private static String clamp(String text) {
+    static String clamp(String text) {
         return text.length() <= MAX_LENGTH ? text : text.substring(0, MAX_LENGTH);
+    }
+
+    /**
+     * Concaténation bornée — visible du paquet parce que {@code string/concat} vit dans
+     * {@link StandardNodes} et doit obéir à la même règle que le reste de la famille.
+     *
+     * <p>Coupe <b>avant</b> de construire : {@code clamp(a + b)} aurait d'abord alloué la
+     * chaîne entière pour n'en garder que le début, ce qui laisse un graphe doubler sa
+     * chaîne à chaque tour de boucle jusqu'à épuiser le tas.
+     */
+    static String concat(String a, String b) {
+        if ((long) a.length() + b.length() <= MAX_LENGTH) {
+            return a + b;
+        }
+        if (a.length() >= MAX_LENGTH) {
+            return a.substring(0, MAX_LENGTH);
+        }
+        return a + b.substring(0, MAX_LENGTH - a.length());
+    }
+
+    /**
+     * Remplacement borné : la taille du résultat est <b>prévue</b> avant d'être produite.
+     *
+     * <p>{@code clamp(text.replace(...))} tronquait après coup — donc après avoir alloué le
+     * résultat entier. Avec un texte au plafond, un motif d'un caractère et un remplacement
+     * au plafond, cela demandait de l'ordre du gigaoctet pour n'en conserver que 32 Ko.
+     */
+    static String replaceBounded(String text, String search, String replacement) {
+        if (search.isEmpty()) {
+            return clamp(text);
+        }
+        StringBuilder out = new StringBuilder(Math.min(text.length(), MAX_LENGTH));
+        int from = 0;
+        while (out.length() < MAX_LENGTH) {
+            int hit = text.indexOf(search, from);
+            if (hit < 0) {
+                out.append(text, from, text.length());
+                break;
+            }
+            out.append(text, from, hit).append(replacement);
+            from = hit + search.length();
+        }
+        return clamp(out.toString());
     }
 }

@@ -26,6 +26,21 @@ import java.util.Objects;
  */
 public final class ListNodes {
 
+    /**
+     * Taille maximale d'une collection construite nœud à nœud.
+     *
+     * <p>Les collections <i>produites</i> étaient bornées — {@code MAX_RESULTS} pour les
+     * requêtes, {@code MAX_PARTS} pour les découpes, {@code MAX_LINES} pour le lore. Celles
+     * qu'on <b>construit</b> ne l'étaient pas : une liste rangée dans une variable pouvait
+     * grossir d'un tick au suivant, sans fin.
+     *
+     * <p>Mille vingt-quatre, comme {@code MAX_PARTS} : assez large pour tout usage de jeu
+     * réel, assez serré pour que la mémoire reste bornée. Au plafond, ajouter ne fait plus
+     * rien — on ramène plutôt qu'on refuse, comme {@code clampRadius} et {@code substring}
+     * ailleurs dans la bibliothèque.
+     */
+    public static final int MAX_ELEMENTS = 1_024;
+
     private ListNodes() {
     }
 
@@ -144,7 +159,14 @@ public final class ListNodes {
                 .in("value", PinTypes.generic("T"))
                 .out("result", PinTypes.listOf(PinTypes.generic("T")))
                 .action(ctx -> {
-                    List<Object> made = new ArrayList<>(listOf(ctx.in("list")));
+                    List<Object> source = listOf(ctx.in("list"));
+                    if (source.size() >= MAX_ELEMENTS) {
+                        // Au plafond : la liste ressort telle quelle. La rendre inchangée
+                        // plutôt que fauter garde jouable un graphe qui déborde par accident.
+                        ctx.out("result", List.copyOf(source));
+                        return;
+                    }
+                    List<Object> made = new ArrayList<>(source);
                     made.add(ctx.in("value"));
                     ctx.out("result", List.copyOf(made));
                 })

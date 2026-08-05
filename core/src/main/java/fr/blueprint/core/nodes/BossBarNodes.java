@@ -64,7 +64,7 @@ public final class BossBarNodes {
     }
 
     public static void register(NodeRegistry r) {
-        r.register(NodeType.builder(id("player/bossbar_show"))
+        r.register(NodeType.builder(id("player/bossbar_show")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("bar", PinTypes.STRING, "principale")
@@ -90,7 +90,7 @@ public final class BossBarNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("player/bossbar_hide"))
+        r.register(NodeType.builder(id("player/bossbar_hide")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("bar", PinTypes.STRING, "principale")
@@ -103,7 +103,7 @@ public final class BossBarNodes {
 
         /* Retirer la barre pour TOUT LE MONDE, et la libérer. Sans ce nœud, une barre
          * de mini-jeu survivrait à la fin de la partie jusqu'au prochain arrêt. */
-        r.register(NodeType.builder(id("world/bossbar_remove"))
+        r.register(NodeType.builder(id("world/bossbar_remove")).fuelCost(5)
                 .category(NodeCategories.WORLD_STATE).exec().permission(Permission.GAMEPLAY)
                 .in("bar", PinTypes.STRING, "principale")
                 .action(ctx -> remove(name(ctx.in("bar"))))

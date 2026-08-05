@@ -81,22 +81,61 @@ public final class BlueprintStorage extends SavedData {
     }
 
     private CompoundTag toTag() {
-        refreshFromLive();
+        // Qui possède quoi, à l'écriture :
+        //
+        // - « suspended » est reconstruit à chaque passage et n'appartient qu'à ce
+        //   stockage : le recopier serait du travail et un pic mémoire pour rien (19a) ;
+        // - « blueprints » vient désormais du CACHE (19c) et survit d'une sauvegarde à
+        //   l'autre : celui-là se copie, sinon le tag remis à Minecraft et celui gardé en
+        //   cache seraient le même objet ;
+        // - « corrupt » est conservé tel qu'arrivé du disque : il se copie aussi.
+        //
+        // Le compromis est franchement gagnant : on paie une copie pour économiser un
+        // ENCODAGE complet — nœuds, littéraux passés par leurs codecs, liens, variables,
+        // écrans, commentaires — et cela pour chaque graphe inchangé, toutes les cinq
+        // minutes.
+        boolean fresh = refreshFromLive();
         CompoundTag root = new CompoundTag();
-        root.put("blueprints", writeList(blueprints));
-        root.put("suspended", writeList(suspended));
-        root.put("corrupt", writeList(corrupt));
+        root.put("blueprints", writeList(blueprints, true));
+        root.put("suspended", writeList(suspended, !fresh));
+        root.put("corrupt", writeList(corrupt, true));
         return root;
     }
 
-    private void refreshFromLive() {
+    /**
+     * Un graphe déjà encodé, et l'état qui l'a produit.
+     *
+     * <p>{@code enabled} EN PLUS de la révision, et ce n'est pas une précaution :
+     * {@code setEnabled} est un état de cycle de vie serveur (MODEL-001) muté par le
+     * gestionnaire <b>sans</b> incrémenter la révision — celle-ci compte les opérations
+     * d'édition. Se fier à la révision seule ferait donc écrire l'ancien état d'activation
+     * jusqu'à la prochaine édition, et un blueprint désactivé par un administrateur
+     * ressusciterait au redémarrage.
+     */
+    private record Encoded(int revision, boolean enabled, CompoundTag tag) {
+    }
+
+    private final java.util.Map<net.minecraft.resources.Identifier, Encoded> encoded =
+            new java.util.HashMap<>();
+
+    /** Vrai si les listes vivantes ont été reconstruites — donc exclusives à ce stockage. */
+    private boolean refreshFromLive() {
         if (liveManager == null || liveScheduler == null) {
-            return;
+            return false;
         }
         blueprints.clear();
         for (Blueprint bp : liveManager.all()) {
-            blueprints.add(GraphNbt.encode(bp));
+            Encoded hit = encoded.get(bp.id());
+            if (hit == null || hit.revision() != bp.revision() || hit.enabled() != bp.enabled()) {
+                hit = new Encoded(bp.revision(), bp.enabled(), GraphNbt.encode(bp));
+                encoded.put(bp.id(), hit);
+            }
+            blueprints.add(hit.tag());
         }
+        // Un blueprint supprimé ne doit pas garder son encodage en mémoire jusqu'à
+        // l'arrêt du serveur. Le balayage est borné par le nombre de graphes et n'a lieu
+        // qu'à la sauvegarde du monde, pas dans un chemin chaud.
+        encoded.keySet().removeIf(id -> !liveManager.contains(id));
         suspended.clear();
         for (SuspendedExecution execution : liveScheduler.captureForSave()) {
             CompoundTag tag = ExecutionNbt.encode(execution);
@@ -105,6 +144,7 @@ public final class BlueprintStorage extends SavedData {
             }
         }
         // corrupt : jamais régénéré — préservé tel qu'arrivé.
+        return true;
     }
 
     private static void readList(CompoundTag root, String key, List<CompoundTag> into) {
@@ -117,10 +157,10 @@ public final class BlueprintStorage extends SavedData {
         }
     }
 
-    private static ListTag writeList(List<CompoundTag> tags) {
+    private static ListTag writeList(List<CompoundTag> tags, boolean copy) {
         ListTag list = new ListTag();
         for (CompoundTag tag : tags) {
-            list.add(tag.copy());
+            list.add(copy ? tag.copy() : tag);
         }
         return list;
     }

@@ -153,7 +153,10 @@ final class ItemNodes {
                 .build());
 
         r.register(NodeType.builder(id("text/colored"))
-                .category(NodeCategories.TEXT).pure()
+                // Vingt fois l'unité au pire cas borné (FuelCalibrationTest) : construire
+                // un Component stylé sur une chaîne au plafond est le geste le plus cher
+                // de toute la bibliothèque headless.
+                .category(NodeCategories.TEXT).pure().fuelCost(20)
                 .in("value", PinTypes.STRING, "")
                 .in("color", PinTypes.STRING, "white")
                 .out("text", PinTypes.TEXT)

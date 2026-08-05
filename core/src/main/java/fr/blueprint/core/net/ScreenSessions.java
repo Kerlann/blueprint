@@ -52,7 +52,23 @@ public final class ScreenSessions {
      * exactement comme la barre de vie et la barre d'expérience du jeu. En interdire
      * plusieurs obligerait à réunir dans un même document la mana et la quête.
      */
-    private final Map<UUID, LinkedHashMap<String, Identifier>> huds = new HashMap<>();
+    private final Map<UUID, LinkedHashMap<String, Shown>> huds = new HashMap<>();
+
+    /**
+     * Un HUD affiché : son blueprint propriétaire, et la <b>version d'écran réellement
+     * envoyée</b> au client.
+     *
+     * <p>La seconde sert à ne pas réémettre une description que le client possède déjà —
+     * {@code gui/show_hud} réencodait et regzippait l'écran entier à chaque appel, et un
+     * graphe branché sur le tick le fait vingt fois par seconde et par joueur.
+     *
+     * <p>Elle vit <b>dans la même table</b> que le reste, à dessein : les HUD sont retirés
+     * en cinq endroits (masquage, masquage total, oubli du joueur, retrait par blueprint,
+     * fermeture d'un blueprint), et une seconde table à tenir en parallèle aurait fini par
+     * diverger de celle-ci sur l'un d'eux.
+     */
+    private record Shown(Identifier blueprint, fr.blueprint.core.graph.screen.@Nullable Screen sent) {
+    }
 
     /**
      * Les lignes envoyées à chaque liste, par joueur (story 10.8).
@@ -106,13 +122,32 @@ public final class ScreenSessions {
 
     // --------------------------------------------------------------- HUD (10.9)
 
-    /** Affiche un HUD ; vrai s'il n'y était pas déjà. */
+    /** Affiche un HUD sans suivre sa version ; vrai s'il n'y était pas déjà. */
     public boolean showHud(UUID player, Identifier blueprint, String screen) {
+        return showHud(player, blueprint, screen, null);
+    }
+
+    /**
+     * Affiche un HUD ; vrai s'il faut <b>(r)envoyer sa description</b> au client.
+     *
+     * <p>Faux quand le même écran, dans la même version, y est déjà — le client possède
+     * déjà ces octets, les réencoder et les regzipper ne lui apprendrait rien.
+     *
+     * <p>La comparaison porte sur l'<b>identité</b> de l'instance {@code Screen}, et c'est
+     * ce qui rend la chose sûre : un enregistrement du blueprint produit une nouvelle
+     * instance, donc une instance inchangée signifie un écran inchangé. Se contenter de
+     * « ce HUD était-il déjà affiché ? » aurait figé le HUD à sa version d'ouverture —
+     * {@code refreshScreensOf} ne parcourt que les écrans <b>modaux</b> et n'en rafraîchit
+     * aucun.
+     */
+    public boolean showHud(UUID player, Identifier blueprint, String screen,
+                           fr.blueprint.core.graph.screen.@Nullable Screen instance) {
         // Le blueprint PROPRIÉTAIRE voyage avec : sans lui, désactiver un graphe
         // laisserait son HUD à l'écran pour toujours, sans que personne puisse le
         // retirer — un modal, lui, se ferme au moins par Échap.
-        return huds.computeIfAbsent(player, p -> new LinkedHashMap<>())
-                .put(screen, blueprint) == null;
+        Shown previous = huds.computeIfAbsent(player, p -> new LinkedHashMap<>())
+                .put(screen, new Shown(blueprint, instance));
+        return previous == null || previous.sent() != instance;
     }
 
     public boolean hideHud(UUID player, String screen) {
@@ -275,8 +310,8 @@ public final class ScreenSessions {
         Map<UUID, List<String>> affected = new LinkedHashMap<>();
         huds.forEach((player, screens) -> {
             List<String> mine = new ArrayList<>();
-            screens.forEach((screen, owner) -> {
-                if (owner.equals(blueprint)) {
+            screens.forEach((screen, shown) -> {
+                if (shown.blueprint().equals(blueprint)) {
                     mine.add(screen);
                 }
             });

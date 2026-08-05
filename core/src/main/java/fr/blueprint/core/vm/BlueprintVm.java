@@ -42,6 +42,10 @@ public final class BlueprintVm {
                 fr.blueprint.core.debug.Profiler.active()
                         ? fr.blueprint.core.debug.Profiler.of(env.blueprint().id())
                         : null;
+        // Types de nœuds et index de pins, résolus UNE fois pour toute l'exécution plutôt
+        // qu'à chaque appel (épic 16d/e). L'ancienne ligne allouait un Optional par nœud
+        // traversé et refaisait la même recherche dans la même table.
+        ResolvedIr resolved = state.resolvedFor(ir, env);
         while (true) {
             int pc = state.pc();
             if (pc < 0 || pc >= ir.instructions().size()) {
@@ -70,7 +74,7 @@ public final class BlueprintVm {
                         return new RunOutcome(new ExecResult.Suspended(1), spent);
                     }
                     spent += call.fuelCost();
-                    ExecResult interrupt = call(ir, state, env, call, pc, debug, profiler);
+                    ExecResult interrupt = call(state, env, resolved, call, pc, debug, profiler);
                     if (interrupt != null) {
                         return new RunOutcome(interrupt, spent);
                     }
@@ -135,18 +139,23 @@ public final class BlueprintVm {
     }
 
     /** Exécute un {@code Call} ; retourne un résultat d'interruption, ou null pour continuer. */
-    private static ExecResult call(Ir ir, ExecutionState state, ExecutionEnvironment env,
+    private static ExecResult call(ExecutionState state, ExecutionEnvironment env,
+                                   ResolvedIr resolved,
                                    Instruction.Call call, int pc,
                                    @org.jetbrains.annotations.Nullable
                                    fr.blueprint.core.debug.DebugSession debug,
                                    @org.jetbrains.annotations.Nullable
                                    fr.blueprint.core.debug.Profiler profiler) {
-        NodeType type = env.nodeResolver().apply(call.type());
+        // Résolu à l'entrée du run, pas ici : un type nul reste un type nul, et produit
+        // la MÊME faute nommée qu'avant. Résoudre à l'avance n'avance pas l'échec.
+        NodeType type = resolved.typeAt(pc);
         if (type == null) {
             return new ExecResult.Faulted(call.source(),
                     "type de nœud irrésoluble : " + call.type() + " (mod retiré ?)");
         }
-        Map<String, Object> inputs = new LinkedHashMap<>();
+        // Tampons prêtés par l'exécution, et non deux tables neuves par nœud traversé.
+        // Le contexte, lui, reste neuf : c'est lui qui porte la garde anti-fuite d'AC5.
+        Map<String, Object> inputs = state.borrowInputs();
         for (Instruction.PinBinding binding : call.inputs()) {
             Object value = state.slots()[binding.slot()];
             if (value != null) {
@@ -154,7 +163,8 @@ public final class BlueprintVm {
             }
         }
         NodeContextImpl ctx = new NodeContextImpl(type, inputs, env.server(), env.level(),
-                env.blueprint(), env.trigger(), env.logger(), debug != null);
+                env.blueprint(), env.trigger(), env.logger(), debug != null,
+                resolved.pinsAt(pc), state.borrowOutputs());
         // NFR15 : un nœud ADMIN est journalisé AVANT de tourner — s'il fait tomber le
         // serveur, la trace doit déjà exister. Coût hors ADMIN : une comparaison d'enum.
         if (type.permission() == fr.blueprint.api.node.Permission.ADMIN) {

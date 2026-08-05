@@ -119,7 +119,7 @@ public final class RichTextNodes {
      * gardent leur entrée chaîne — y porter un survol ne produirait rien.
      */
     private static void sinks(NodeRegistry r) {
-        r.register(NodeType.builder(id("player/send_text"))
+        r.register(NodeType.builder(id("player/send_text")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec()
                 .permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
@@ -132,7 +132,7 @@ public final class RichTextNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("player/title_text"))
+        r.register(NodeType.builder(id("player/title_text")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec()
                 .permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)

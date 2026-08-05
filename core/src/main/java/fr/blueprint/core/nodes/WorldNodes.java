@@ -29,8 +29,33 @@ import java.util.Optional;
  * Nœuds monde (story 7.3). Les LECTURES du monde sont des nœuds EXEC, jamais purs :
  * la mémoïsation des purs (contrat VM-COMP-001) exige des nœuds rejouables sans
  * dépendance au monde. Identifiant inconnu au runtime → {@code ctx.fail} traduit.
+ *
+ * <h2>Les {@code fuelCost} de ce fichier (épic 13b)</h2>
+ *
+ * <p><b>Tarifés par analyse et non par mesure</b> : ces nœuds demandent un monde vivant,
+ * {@code FuelCalibrationTest} ne peut donc pas les exécuter. Le barème appliqué, en unités
+ * de {@code math/add} :
+ *
+ * <ul>
+ *   <li><b>2</b> — lecture d'un champ déjà résolu du niveau (heure, météo, dimension) ;</li>
+ *   <li><b>5</b> — lecture demandant un chunk ou un registre, ou un paquet vers les
+ *       joueurs proches ({@code get_block}, {@code block_state}, {@code play_sound}) ;</li>
+ *   <li><b>10</b> — écriture d'état diffusée à tous les clients ({@code set_time},
+ *       {@code set_weather}) ;</li>
+ *   <li><b>20 à 30</b> — mutation du monde : {@code set_block} propage ses mises à jour de
+ *       voisinage, {@code drop_item} et {@code spawn_entity} créent une entité et
+ *       l'inscrivent dans le niveau ;</li>
+ *   <li><b>100</b> — {@code explosion} : destruction de blocs, dégâts aux entités du
+ *       rayon, calcul de propagation et paquets. Le plus cher du fichier, et de loin.</li>
+ * </ul>
  */
 final class WorldNodes {
+
+    /**
+     * Plafond de particules émises en un appel — la même valeur que « player/particles »
+     * (ClientNodes), qui la posait déjà de son côté.
+     */
+    static final int MAX_PARTICLES = 512;
 
     private WorldNodes() {
     }
@@ -40,15 +65,38 @@ final class WorldNodes {
     }
 
     static void register(NodeRegistry r) {
-        r.register(NodeType.builder(id("world/get_block"))
+        // TARIF PAR ANALYSE : résolution du chunk puis index de section. Cinq unités.
+        //
+        // Ce tarif couvre le cas du chunk CHARGÉ, et lui seul. Sur une position non
+        // chargée, getBlockState peut déclencher une génération synchrone — des dizaines
+        // de millisecondes. Aucun fuelCost ne couvre cela sans rendre le nœud inutilisable
+        // (il faudrait plusieurs milliers, soit deux appels par tick) : le remède est une
+        // garde de chargement, pas un tarif. Signalé comme tel dans le plan.
+        r.register(NodeType.builder(id("world/get_block")).fuelCost(5)
                 .category(NodeCategories.WORLD_BLOCK).exec()
                 .in("pos", PinTypes.BLOCKPOS)
                 .out("state", PinTypes.BLOCKSTATE)
-                .action(ctx -> ctx.out("state",
-                        ctx.level().getBlockState(ctx.<BlockPos>in("pos"))))
+                .out("loaded", PinTypes.BOOL)
+                .action(ctx -> {
+                    BlockPos pos = ctx.in("pos");
+                    // GARDE DE CHARGEMENT. getBlockState sur une position arbitraire
+                    // GÉNÈRE le chunk s'il manque — synchrone, sur le fil serveur, des
+                    // dizaines de millisecondes. Aucun fuelCost ne couvre cela : il
+                    // faudrait tarifer ce nœud à plusieurs milliers, soit deux appels par
+                    // tick, ce qui le rendrait inutilisable. Le remède est une garde.
+                    boolean loaded = ctx.level().isLoaded(pos);
+                    ctx.out("loaded", loaded);
+                    // « loaded » À CÔTÉ du résultat, et non un état nul : c'est la règle du
+                    // dépôt — « touché » de world/raycast, « valide » de world/block_state,
+                    // « trouvé » de query/nearest_player. Rendre de l'air sans le dire
+                    // ferait croire à un graphe qu'il a regardé, et qu'il n'y avait rien.
+                    ctx.out("state", loaded
+                            ? ctx.level().getBlockState(pos)
+                            : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                })
                 .build());
 
-        r.register(NodeType.builder(id("world/set_block"))
+        r.register(NodeType.builder(id("world/set_block")).fuelCost(20)
                 .category(NodeCategories.WORLD_BLOCK).exec().permission(Permission.WORLD)
                 .in("pos", PinTypes.BLOCKPOS)
                 .in("state", PinTypes.BLOCKSTATE)
@@ -56,11 +104,14 @@ final class WorldNodes {
                         ctx.in("pos"), ctx.<BlockState>in("state")))
                 .build());
 
-        r.register(NodeType.builder(id("world/is_block"))
+        // TARIF PAR ANALYSE : comme get_block, plus une résolution de registre. Même
+        // réserve sur le chunk non chargé.
+        r.register(NodeType.builder(id("world/is_block")).fuelCost(5)
                 .category(NodeCategories.WORLD_BLOCK).exec()
                 .in("pos", PinTypes.BLOCKPOS)
                 .in("block", PinTypes.RESOURCE_LOCATION)
                 .out("matches", PinTypes.BOOL)
+                .out("loaded", PinTypes.BOOL)
                 .action(ctx -> {
                     Identifier blockId = ctx.in("block");
                     Optional<Block> block = BuiltInRegistries.BLOCK.getOptional(blockId);
@@ -69,8 +120,12 @@ final class WorldNodes {
                                 blockId.toString()));
                         return;
                     }
-                    ctx.out("matches", ctx.level()
-                            .getBlockState(ctx.<BlockPos>in("pos")).is(block.get()));
+                    BlockPos pos = ctx.in("pos");
+                    // Même garde que get_block : sans elle, comparer un bloc à une
+                    // position lointaine générait le chunk pour répondre « non ».
+                    boolean loaded = ctx.level().isLoaded(pos);
+                    ctx.out("loaded", loaded);
+                    ctx.out("matches", loaded && ctx.level().getBlockState(pos).is(block.get()));
                 })
                 .build());
 
@@ -81,7 +136,7 @@ final class WorldNodes {
          * jamais en nommer un ; seul un littéral tapé dans l'éditeur y parvenait, et
          * un graphe ne peut pas calculer un littéral.
          */
-        r.register(NodeType.builder(id("world/block_state"))
+        r.register(NodeType.builder(id("world/block_state")).fuelCost(5)
                 .category(NodeCategories.WORLD_BLOCK).exec()
                 .in("block", PinTypes.RESOURCE_LOCATION)
                 .out("state", PinTypes.BLOCKSTATE)
@@ -99,7 +154,7 @@ final class WorldNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("world/spawn_entity"))
+        r.register(NodeType.builder(id("world/spawn_entity")).fuelCost(30)
                 .category(NodeCategories.WORLD_STATE).exec().permission(Permission.WORLD)
                 .in("type", PinTypes.RESOURCE_LOCATION)
                 .in("pos", PinTypes.VEC3)
@@ -125,7 +180,7 @@ final class WorldNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("world/play_sound"))
+        r.register(NodeType.builder(id("world/play_sound")).fuelCost(5)
                 .category(NodeCategories.WORLD_EFFECT).exec().permission(Permission.GAMEPLAY)
                 .in("sound", PinTypes.RESOURCE_LOCATION)
                 .in("pos", PinTypes.VEC3)
@@ -146,7 +201,9 @@ final class WorldNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("world/particles"))
+        // Cinq unités : un paquet diffusé à tous les joueurs du niveau, dont la charge est
+        // désormais bornée par MAX_PARTICLES (épic 13a).
+        r.register(NodeType.builder(id("world/particles")).fuelCost(5)
                 .category(NodeCategories.WORLD_EFFECT).exec().permission(Permission.GAMEPLAY)
                 .in("particle", PinTypes.RESOURCE_LOCATION)
                 .in("pos", PinTypes.VEC3)
@@ -166,12 +223,17 @@ final class WorldNodes {
                         return;
                     }
                     Vec3 pos = ctx.in("pos");
+                    // Même plafond que « player/particles » (ClientNodes), qui le posait
+                    // déjà : ces deux nœuds jumeaux ne doivent pas différer sur ce point.
+                    // Sans lui, un count démesuré part vers TOUS les joueurs du niveau,
+                    // chacun devant allouer les particules chez lui.
                     ctx.level().sendParticles(simple, pos.x, pos.y, pos.z,
-                            ctx.<Integer>in("count"), 0.2, 0.2, 0.2, 0.05);
+                            Math.clamp(ctx.<Integer>in("count"), 0, MAX_PARTICLES),
+                            0.2, 0.2, 0.2, 0.05);
                 })
                 .build());
 
-        r.register(NodeType.builder(id("world/set_weather"))
+        r.register(NodeType.builder(id("world/set_weather")).fuelCost(10)
                 .category(NodeCategories.WORLD_STATE).exec().permission(Permission.WORLD)
                 .in("rain", PinTypes.BOOL, false)
                 .in("thunder", PinTypes.BOOL, false)
@@ -188,13 +250,13 @@ final class WorldNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("world/set_time"))
+        r.register(NodeType.builder(id("world/set_time")).fuelCost(10)
                 .category(NodeCategories.WORLD_STATE).exec().permission(Permission.WORLD)
                 .in("time", PinTypes.LONG, 1000L)
                 .action(ctx -> ctx.level().setDayTime(ctx.in("time")))
                 .build());
 
-        r.register(NodeType.builder(id("world/explosion"))
+        r.register(NodeType.builder(id("world/explosion")).fuelCost(100)
                 .category(NodeCategories.WORLD_EFFECT).exec().permission(Permission.ADMIN)
                 .in("pos", PinTypes.VEC3)
                 .in("power", PinTypes.DOUBLE, 2.0)
@@ -207,7 +269,7 @@ final class WorldNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("world/drop_item"))
+        r.register(NodeType.builder(id("world/drop_item")).fuelCost(20)
                 .category(NodeCategories.WORLD_STATE).exec().permission(Permission.GAMEPLAY)
                 .in("pos", PinTypes.VEC3)
                 .in("item", PinTypes.ITEMSTACK)

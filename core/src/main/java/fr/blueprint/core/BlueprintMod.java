@@ -167,8 +167,15 @@ public class BlueprintMod implements ModInitializer {
             // détruirait la dernière copie de quelque chose que le joueur vient de retirer
             // du monde ; le laisser ne coûte qu'un fichier réimportable.
             if (config().autoExport()) {
+                // Le dossier est résolu UNE fois : BlueprintPaths.exports() crée au passage
+                // deux niveaux de répertoires, et le rappeler à chaque enregistrement les
+                // recréait pour rien, sur le fil serveur.
+                java.nio.file.Path exports = BlueprintPaths.exports();
+                // exportAsync et non export : l'écriture part sur le pool d'entrées-sorties.
+                // Le contrat « au mieux, jamais au prix de l'enregistrement » n'était tenu
+                // que pour les erreurs, pas pour le temps d'attente.
                 BlueprintManager.of(server).mirrorWith(bp ->
-                        BlueprintFiles.export(bp, BlueprintPaths.exports(), registries));
+                        BlueprintFiles.exportAsync(bp, exports, registries));
             }
             LOGGER.info("Persistance : {} blueprint(s) chargé(s), {} préservé(s) brut(s), "
                             + "{} exécution(s) reprise(s), {} annulée(s)",
@@ -504,10 +511,15 @@ public class BlueprintMod implements ModInitializer {
     private static fr.blueprint.core.event.BlueprintEventBridge.EnvFactory envFactory(
             net.minecraft.server.MinecraftServer server) {
         return (bp, trigger) -> {
+            // UNE seule résolution : varsOf traverse une WeakHashMap synchronisée, donc
+            // une prise de moniteur et une purge de références faibles. L'appeler deux
+            // fois par lancement les payait deux fois, et un graphe branché sur le tick
+            // lance vingt fois par seconde.
+            var vars = varsOf(server);
             // Les valeurs par défaut déclarées deviennent réelles ici, et nulle part
             // ailleurs : sans cette ligne, un « var double or = 20 » lu avant d'avoir
             // été écrit rendait null et faisait tomber le nœud consommateur.
-            varsOf(server).seedDefaults(bp);
+            vars.seedDefaults(bp);
             return new fr.blueprint.core.vm.ExecutionEnvironment(
                 typeId -> registries.nodes().get(typeId).orElse(null),
                 new fr.blueprint.api.node.BlueprintHandle() {
@@ -521,7 +533,7 @@ public class BlueprintMod implements ModInitializer {
                         return bp.enabled();
                     }
                 },
-                trigger, varsOf(server), server, server.overworld(), LOGGER);
+                trigger, vars, server, server.overworld(), LOGGER);
         };
     }
 

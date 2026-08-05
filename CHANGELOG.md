@@ -6,6 +6,53 @@ versionnage [SemVer](https://semver.org/lang/fr/). Les dates sont celles du dép
 L'**API d'extension** (module `api`) porte sa propre version, indépendante de celle du
 mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par un test.
 
+## [Non publié]
+
+### Modifié — comportement
+
+- **`world/get_block` et `world/is_block` ne génèrent plus de chunk.** Les deux nœuds
+  appelaient `getBlockState` sur la position reçue ; en vanilla, cela **génère le chunk**
+  s'il manque — de façon synchrone, sur le fil serveur, pour des dizaines de
+  millisecondes. Un graphe qui sondait des positions lointaines dans une boucle figeait
+  donc le serveur, et aucun coût de fuel ne pouvait l'en empêcher : il aurait fallu tarifer
+  ces nœuds à plusieurs milliers, soit deux appels par tick.
+
+  Ils testent désormais le chargement et portent une sortie **`loaded`**. Sur un chunk non
+  chargé, `state` rend de l'air et `matches` rend faux, avec `loaded` à faux pour le dire.
+
+  **Ce que cela change pour un graphe existant** : une lecture hors des chunks chargés
+  rendait auparavant l'état réel (au prix de la génération) ; elle rend maintenant de l'air.
+  Un graphe qui s'appuyait sur ce comportement doit brancher `loaded` — la sortie est
+  ajoutée, donc aucun lien existant n'est cassé et aucun graphe enregistré n'a besoin d'être
+  retouché.
+
+### Performance
+
+Épics 13 à 19 du plan `docs/plan-optimisation.md`. Les chiffres sont mesurés par des bancs
+commités, chacun vu rougir avant sa correction.
+
+- **Boucle de la VM : 744 → 288 octets alloués par appel de nœud.** Copie défensive
+  supprimée, résolution de type et index de pins calculés une fois par exécution au lieu
+  d'une fois par nœud, tables d'entrées et de sorties prêtées par l'exécution.
+- **Ordonnanceur en temps linéaire** : le parcours d'un tick était quadratique en nombre
+  d'exécutions simultanées.
+- **Liens indexés dans `Blueprint`** : la validation passait de `O(N·L + L²)` à `O(N + L)`.
+  Compilation d'un graphe dense de mille nœuds : **112 ms → 6,2 ms**. Le NFR2 était déjà
+  violé sans que le banc d'alors puisse le voir, ses nœuds n'ayant aucun pin de données.
+- **`fuelCost` enfin renseigné sur 95 nœuds.** Le mécanisme existait de bout en bout et
+  n'avait jamais servi : tous les nœuds coûtaient 1, du `math/add` au raycast de 128 blocs.
+  Un test interdit désormais le retour au défaut.
+- **Bornes manquantes** sur `string/concat`, `string/replace`, `world/particles`,
+  `list/add` et `map/put` — les quatre premières permettaient d'épuiser la mémoire du
+  serveur depuis un graphe trivial.
+- **Éditeur** : « ce pin est-il câblé ? » ne balaie plus tous les liens, la minimap ne
+  reconstruit plus sa table par image, `Screen.childrenOf` est indexé (la passe de
+  disposition était quadratique), et le HUD mémorise sa disposition.
+- **Sauvegarde** : le reflet sur disque ne bloque plus le fil serveur, et un graphe
+  inchangé n'est plus réencodé à chaque sauvegarde du monde.
+- **`gui/show_hud` est idempotent** : réafficher le même écran n'envoie plus la description
+  entière, réencodée et regzippée, à chaque appel.
+
 ## [1.0.0] — 2026-08-04
 
 Première version **publiée**. Aux neuf épics du PRD s'ajoutent trois épics nés de

@@ -28,7 +28,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:entity/add_effect` — Add effect
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -44,7 +44,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:entity/heal` — Heal
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -58,7 +58,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:entity/set_health` — Set health
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -72,7 +72,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:entity/teleport` — Teleport
 
-permission `WORLD` · fuel 1
+permission `WORLD` · fuel 20
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -89,7 +89,7 @@ permission `WORLD` · fuel 1
 
 ### `blueprint:query/entities_near` — Nearby entities
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 200
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -104,7 +104,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:query/nearest_player` — Nearest player
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -120,7 +120,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:query/players` — Online players
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -133,7 +133,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:world/raycast_entity` — Raycast entity
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 150
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -153,7 +153,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:entity/as_player` — Entity as player
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -168,7 +168,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:entity/health` — Get health
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -182,7 +182,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:entity/is_alive` — Is entity alive
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -196,7 +196,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:entity/looking_at` — Entity is looking at
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 100
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -213,7 +213,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:entity/max_health` — Max health
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -227,7 +227,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:entity/name` — Entity name
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -241,7 +241,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:entity/position` — Entity position
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -255,7 +255,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:entity/type` — Entity type
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -768,7 +768,7 @@ permission `SAFE` · fuel 1 · E
 
 ### `blueprint:gui/close` — Close screen
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -781,7 +781,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:gui/open` — Open screen
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 30
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -795,7 +795,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:hud/hide` — Hide HUD
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -809,7 +809,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:hud/hide_all` — Hide all HUDs
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -822,7 +822,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:hud/show` — Show HUD
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 30
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -839,7 +839,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/refresh` — Refresh bindings
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 15
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -854,7 +854,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/refresh_all` — Refresh bindings (everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 50
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -871,7 +871,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_scroll` — Scroll panel to
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -887,7 +887,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_scroll_all` — Scroll panel to (everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -902,7 +902,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_scroll_x` — Scroll panel sideways to
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -918,7 +918,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_scroll_x_all` — Scroll panel sideways to (everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -933,7 +933,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_style` — Set named style
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -949,7 +949,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_style_all` — Set named style (everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -964,7 +964,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_tooltip` — Set tooltip
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -980,7 +980,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_tooltip_all` — Set tooltip (everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -995,7 +995,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_tooltip_key` — Set tooltip (key)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1011,7 +1011,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_tooltip_key_all` — Set tooltip (key, everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1029,7 +1029,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_input` — Set input text
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1045,7 +1045,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_input_all` — Set input text (everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1060,7 +1060,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_item` — Set slot item
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1076,7 +1076,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_item_all` — Set slot item (everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1091,7 +1091,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_lines` — Set list lines
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1107,7 +1107,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_lines_all` — Set list lines (everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1122,7 +1122,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_value` — Set value
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1138,7 +1138,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_value_all` — Set value (everyone)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1156,7 +1156,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_enabled` — Set element enabled
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1172,7 +1172,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_enabled_all` — Set element enabled (all viewers)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1187,7 +1187,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_progress` — Set bar value
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1203,7 +1203,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_progress_all` — Set bar value (all viewers)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1218,7 +1218,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_text` — Set element text
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1234,7 +1234,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_text_all` — Set element text (all viewers)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1249,7 +1249,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_text_key` — Set element text (key)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1265,7 +1265,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_text_key_all` — Set element text key (all viewers)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1280,7 +1280,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_texture` — Set element texture
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1296,7 +1296,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_texture_all` — Set element texture (all viewers)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1311,7 +1311,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_visible` — Set element visible
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1327,7 +1327,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:gui/set_visible_all` — Set element visible (all viewers)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2358,7 +2358,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:player/send_message` — Send message
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2375,7 +2375,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/give_item` — Give item
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2389,7 +2389,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/give_xp` — Give XP
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2403,7 +2403,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/set_gamemode` — Set game mode
 
-permission `ADMIN` · fuel 1
+permission `ADMIN` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2420,7 +2420,7 @@ permission `ADMIN` · fuel 1
 
 ### `blueprint:player/action_bar` — Action bar
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2434,7 +2434,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/bossbar_hide` — Hide boss bar
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2448,7 +2448,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/bossbar_show` — Show boss bar
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2465,7 +2465,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/particles` — Particles (private)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2482,7 +2482,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/play_sound` — Play sound (private)
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2498,7 +2498,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/send_text` — Send rich text
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2512,7 +2512,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/subtitle` — Subtitle
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2526,7 +2526,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/title` — Show title
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2540,7 +2540,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/title_text` — Rich text title
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2554,7 +2554,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/title_times` — Title timings
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2573,7 +2573,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:player/count_item` — Count item
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2588,7 +2588,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:player/has_item` — Has item
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2604,7 +2604,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:player/main_hand` — Main hand item
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2618,7 +2618,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:player/off_hand` — Off hand item
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2632,7 +2632,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:player/remove_item` — Remove item
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2651,7 +2651,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:score/add` — Add to score
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2667,7 +2667,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:score/get` — Get score
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2683,7 +2683,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:score/reset` — Reset score
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2697,7 +2697,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:score/set` — Set score
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2712,7 +2712,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:team/of` — Entity team
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2727,7 +2727,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:team/same` — Same team
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 3
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2745,7 +2745,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:convert/to_number` — Text to number
 
-permission `SAFE` · fuel 1 · P
+permission `SAFE` · fuel 4 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2783,7 +2783,7 @@ permission `SAFE` · fuel 1 · P
 
 ### `blueprint:string/join` — Join
 
-permission `SAFE` · fuel 1 · P
+permission `SAFE` · fuel 4 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2796,7 +2796,7 @@ permission `SAFE` · fuel 1 · P
 
 ### `blueprint:string/lower` — Lowercase
 
-permission `SAFE` · fuel 1 · P
+permission `SAFE` · fuel 5 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2861,7 +2861,7 @@ permission `SAFE` · fuel 1 · P
 
 ### `blueprint:string/upper` — Uppercase
 
-permission `SAFE` · fuel 1 · P
+permission `SAFE` · fuel 10 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -2969,7 +2969,7 @@ permission `GAMEPLAY` · fuel 1 · P
 
 ### `blueprint:text/colored` — Colored text
 
-permission `SAFE` · fuel 1 · P
+permission `SAFE` · fuel 20 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3051,7 +3051,7 @@ permission `SAFE` · fuel 1 · P
 
 ### `blueprint:world/block_state` — Block state
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3066,7 +3066,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:world/get_block` — Get block
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3077,10 +3077,11 @@ permission `SAFE` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 | `state` | `blueprint:blockstate` | — |
+| `loaded` | `blueprint:bool` | — |
 
 ### `blueprint:world/is_block` — Is block
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3092,10 +3093,11 @@ permission `SAFE` · fuel 1
 |---|---|---|
 | `exec_out` | exec | — |
 | `matches` | `blueprint:bool` | — |
+| `loaded` | `blueprint:bool` | — |
 
 ### `blueprint:world/light` — Light level
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3109,7 +3111,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:world/raycast` — Raycast
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 100
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3129,7 +3131,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:world/set_block` — Set block
 
-permission `WORLD` · fuel 1
+permission `WORLD` · fuel 20
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3143,7 +3145,7 @@ permission `WORLD` · fuel 1
 
 ### `blueprint:world/surface` — Surface height
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3160,7 +3162,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:world/explosion` — Explosion
 
-permission `ADMIN` · fuel 1
+permission `ADMIN` · fuel 100
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3174,7 +3176,7 @@ permission `ADMIN` · fuel 1
 
 ### `blueprint:world/particles` — Particles
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3189,7 +3191,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:world/play_sound` — Play sound
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3208,7 +3210,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:world/bossbar_remove` — Remove boss bar
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 5
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3221,7 +3223,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:world/dimension` — Dimension
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3234,7 +3236,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:world/drop_item` — Drop item
 
-permission `GAMEPLAY` · fuel 1
+permission `GAMEPLAY` · fuel 20
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3248,7 +3250,7 @@ permission `GAMEPLAY` · fuel 1
 
 ### `blueprint:world/get_time` — World time
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3263,7 +3265,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:world/get_weather` — Weather
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3277,7 +3279,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:world/is_day` — Is daytime
 
-permission `SAFE` · fuel 1
+permission `SAFE` · fuel 2
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3290,7 +3292,7 @@ permission `SAFE` · fuel 1
 
 ### `blueprint:world/set_time` — Set time
 
-permission `WORLD` · fuel 1
+permission `WORLD` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3303,7 +3305,7 @@ permission `WORLD` · fuel 1
 
 ### `blueprint:world/set_weather` — Set weather
 
-permission `WORLD` · fuel 1
+permission `WORLD` · fuel 10
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -3318,7 +3320,7 @@ permission `WORLD` · fuel 1
 
 ### `blueprint:world/spawn_entity` — Spawn entity
 
-permission `WORLD` · fuel 1
+permission `WORLD` · fuel 30
 
 | Entrées | Type | Défaut |
 |---|---|---|

@@ -54,14 +54,26 @@ public final class QueryNodes {
     // ------------------------------------------------------------------- entités
 
     private static void entities(NodeRegistry r) {
-        r.register(NodeType.builder(id("query/players"))
+        r.register(NodeType.builder(id("query/players")).fuelCost(3)
                 .category(NodeCategories.ENTITY_QUERY).exec()
                 .out("players", PinTypes.listOf(PinTypes.PLAYER))
                 .action(ctx -> ctx.out("players",
                         List.copyOf(ctx.server().getPlayerList().getPlayers())))
                 .build());
 
-        r.register(NodeType.builder(id("query/entities_near"))
+        // TARIF PAR ANALYSE, non par mesure — monde vivant requis, donc hors de portée de
+        // FuelCalibrationTest.
+        //
+        // Le nœud le plus cher de la bibliothèque. Au rayon maximal (MAX_RADIUS = 128), la
+        // boîte couvre deux cent cinquante-six blocs de côté, soit près de dix-sept
+        // millions de blocs et de l'ordre du millier de sections d'entités balayées ; le
+        // prédicat de distance s'applique ensuite à chaque entité trouvée, et le résultat
+        // est recopié jusqu'à MAX_RESULTS. Deux cents unités.
+        //
+        // Le rayon était borné, ce qui limitait l'amplitude d'UN appel ; rien ne limitait
+        // leur NOMBRE. Dix mille balayages de dix-sept millions de blocs tenaient dans le
+        // budget d'un tick.
+        r.register(NodeType.builder(id("query/entities_near")).fuelCost(200)
                 .category(NodeCategories.ENTITY_QUERY).exec()
                 .in("pos", PinTypes.VEC3)
                 .in("radius", PinTypes.DOUBLE, 8.0)
@@ -76,7 +88,7 @@ public final class QueryNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("query/nearest_player"))
+        r.register(NodeType.builder(id("query/nearest_player")).fuelCost(5)
                 .category(NodeCategories.ENTITY_QUERY).exec()
                 .in("pos", PinTypes.VEC3)
                 .in("radius", PinTypes.DOUBLE, 16.0)
@@ -103,7 +115,7 @@ public final class QueryNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("entity/name"))
+        r.register(NodeType.builder(id("entity/name")).fuelCost(3)
                 .category(NodeCategories.ENTITY_READ).exec()
                 .in("entity", PinTypes.ENTITY).out("name", PinTypes.STRING)
                 .action(ctx -> {
@@ -112,7 +124,7 @@ public final class QueryNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("entity/type"))
+        r.register(NodeType.builder(id("entity/type")).fuelCost(3)
                 .category(NodeCategories.ENTITY_READ).exec()
                 .in("entity", PinTypes.ENTITY).out("type", PinTypes.RESOURCE_LOCATION)
                 .action(ctx -> {
@@ -124,7 +136,7 @@ public final class QueryNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("entity/is_alive"))
+        r.register(NodeType.builder(id("entity/is_alive")).fuelCost(2)
                 .category(NodeCategories.ENTITY_READ).exec()
                 .in("entity", PinTypes.ENTITY).out("alive", PinTypes.BOOL)
                 .action(ctx -> {
@@ -138,7 +150,7 @@ public final class QueryNodes {
          * un joueur, mais sa sortie est une entity : sans ce nœud, l'information
          * existait et restait inatteignable.
          */
-        r.register(NodeType.builder(id("entity/as_player"))
+        r.register(NodeType.builder(id("entity/as_player")).fuelCost(2)
                 .category(NodeCategories.ENTITY_READ).exec()
                 .in("entity", PinTypes.ENTITY)
                 .out("player", PinTypes.PLAYER)
@@ -162,7 +174,7 @@ public final class QueryNodes {
          * toutes les 24 000 ticks. Confondre les deux fait des scripts qui marchent
          * le premier jour et jamais après.
          */
-        r.register(NodeType.builder(id("world/get_time"))
+        r.register(NodeType.builder(id("world/get_time")).fuelCost(2)
                 .category(NodeCategories.WORLD_STATE).exec()
                 .out("day_time", PinTypes.LONG)
                 .out("game_time", PinTypes.LONG)
@@ -176,13 +188,13 @@ public final class QueryNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("world/is_day"))
+        r.register(NodeType.builder(id("world/is_day")).fuelCost(2)
                 .category(NodeCategories.WORLD_STATE).exec()
                 .out("is_day", PinTypes.BOOL)
                 .action(ctx -> ctx.out("is_day", ctx.level().isBrightOutside()))
                 .build());
 
-        r.register(NodeType.builder(id("world/get_weather"))
+        r.register(NodeType.builder(id("world/get_weather")).fuelCost(2)
                 .category(NodeCategories.WORLD_STATE).exec()
                 .out("raining", PinTypes.BOOL)
                 .out("thundering", PinTypes.BOOL)
@@ -193,13 +205,15 @@ public final class QueryNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("world/dimension"))
+        r.register(NodeType.builder(id("world/dimension")).fuelCost(2)
                 .category(NodeCategories.WORLD_STATE).exec()
                 .out("dimension", PinTypes.RESOURCE_LOCATION)
                 .action(ctx -> ctx.out("dimension", ctx.level().dimension().identifier()))
                 .build());
 
-        r.register(NodeType.builder(id("world/light"))
+        // TARIF PAR ANALYSE : deux consultations du moteur de lumière après résolution du
+        // chunk. Bon marché, mais pas gratuit comme une addition.
+        r.register(NodeType.builder(id("world/light")).fuelCost(5)
                 .category(NodeCategories.WORLD_BLOCK).exec()
                 .in("pos", PinTypes.BLOCKPOS)
                 .out("light", PinTypes.INT)
@@ -211,7 +225,7 @@ public final class QueryNodes {
          * sonder les blocs un par un dans une boucle. */
         /* Le pendant de entity/health, qui existait seul : sans le maximum, un script
          * ne peut pas dire « à moins de la moitié de sa vie ». */
-        r.register(NodeType.builder(id("entity/max_health"))
+        r.register(NodeType.builder(id("entity/max_health")).fuelCost(2)
                 .category(NodeCategories.ENTITY_READ).exec().permission(Permission.SAFE)
                 .in("entity", PinTypes.ENTITY)
                 .out("max", PinTypes.DOUBLE)
@@ -222,7 +236,9 @@ public final class QueryNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("world/surface"))
+        // TARIF PAR ANALYSE : résolution du chunk puis lecture de la carte de hauteurs —
+        // un tableau, pas un balayage. Dix unités, l'essentiel étant l'accès au chunk.
+        r.register(NodeType.builder(id("world/surface")).fuelCost(10)
                 .category(NodeCategories.WORLD_BLOCK).exec()
                 .in("pos", PinTypes.BLOCKPOS)
                 .out("pos", PinTypes.BLOCKPOS)

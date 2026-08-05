@@ -46,6 +46,15 @@ public final class BlueprintScheduler {
         final ExecutionState state;
         final ExecutionEnvironment env;
         int delayTicks;
+        /**
+         * Vivante dans la file des prêtes.
+         *
+         * <p>Remplace {@code ready.contains(e)} et {@code ready.remove(e)}, tous deux
+         * linéaires et tous deux appelés <b>dans</b> la boucle du tick — le parcours d'un
+         * tick était donc quadratique en nombre d'exécutions simultanées. Marquer ici et
+         * compacter une fois en fin de tick le ramène au linéaire.
+         */
+        boolean alive = true;
 
         Execution(Identifier blueprintId, Ir ir, ExecutionState state,
                   ExecutionEnvironment env, int delayTicks) {
@@ -63,6 +72,9 @@ public final class BlueprintScheduler {
     private final List<Execution> delayed = new ArrayList<>();
     private final Map<Identifier, Integer> overBudgetStreak = new HashMap<>();
     private final Map<Identifier, MutableStats> stats = new HashMap<>();
+    /** Tampons du tick, vidés et réemployés — ils étaient réalloués à chaque passage. */
+    private final Set<Identifier> overBudgetNow = new HashSet<>();
+    private final List<Execution> toDelay = new ArrayList<>();
 
     public BlueprintScheduler(int maxOverBudgetTicks, Listener listener) {
         this.maxOverBudgetTicks = maxOverBudgetTicks;
@@ -136,6 +148,8 @@ public final class BlueprintScheduler {
             Execution e = it.next();
             if (--e.delayTicks <= 0) {
                 it.remove();
+                // Revenue dans les prêtes : elle avait été marquée morte en y sortant.
+                e.alive = true;
                 ready.add(e);
             }
         }
@@ -146,10 +160,18 @@ public final class BlueprintScheduler {
 
         // 2. Round-robin : une tranche de budget par exécution prête (lissage AC2).
         int slice = Math.max(1, globalFuelBudget / ready.size());
-        Set<Identifier> overBudgetNow = new HashSet<>();
-        List<Execution> snapshot = new ArrayList<>(ready);
-        for (Execution e : snapshot) {
-            if (!ready.contains(e)) {
+        overBudgetNow.clear();
+        toDelay.clear();
+        // Parcours par INDEX borné à la taille du début de tick, et non sur une copie.
+        // Le but de la copie était de survivre aux mutations de « ready » pendant la
+        // boucle — et il y en a : un nœud « signal/emit » peut lancer une exécution au
+        // beau milieu du tick. Les nouvelles venues s'ajoutent à la fin, au-delà de
+        // « count » : elles ne tournent pas ce tick-ci, exactement comme avant, mais
+        // sans qu'on ait eu à allouer une liste par tick pour l'obtenir.
+        int count = ready.size();
+        for (int i = 0; i < count; i++) {
+            Execution e = ready.get(i);
+            if (!e.alive) {
                 continue;   // purgée par la faute d'une exécution sœur plus tôt dans ce tick
             }
             long begin = System.nanoTime();
@@ -157,25 +179,36 @@ public final class BlueprintScheduler {
             statsOf(e.blueprintId).record(outcome.fuelSpent(), System.nanoTime() - begin);
             switch (outcome.result()) {
                 case ExecResult.Done done -> {
-                    ready.remove(e);
+                    e.alive = false;
                     statsOf(e.blueprintId).completed++;
                 }
                 case ExecResult.Suspended suspended -> {
-                    ready.remove(e);
+                    e.alive = false;
                     e.delayTicks = suspended.ticks();
-                    delayed.add(e);
+                    toDelay.add(e);
                 }
                 case ExecResult.OutOfFuel outOfFuel -> overBudgetNow.add(e.blueprintId);
                 case ExecResult.Faulted faulted -> {
                     // Correction QA SCHED-002 : la faute désactive le blueprint (écouteur) —
                     // ses exécutions sœurs sont donc purgées aussi, prêtes ET différées.
-                    ready.removeIf(other -> other.blueprintId.equals(e.blueprintId));
+                    // Marquées ici, retirées à la compaction : une exécution sœur déjà
+                    // dépassée dans la boucle ne doit pas décaler celles qui restent.
+                    for (Execution other : ready) {
+                        if (other.blueprintId.equals(e.blueprintId)) {
+                            other.alive = false;
+                        }
+                    }
                     delayed.removeIf(other -> other.blueprintId.equals(e.blueprintId));
                     statsOf(e.blueprintId).faults++;
                     listener.faulted(e.blueprintId, faulted.node(), faulted.message());
                 }
             }
         }
+        compactReady();
+        for (Execution e : toDelay) {
+            delayed.add(e);
+        }
+        toDelay.clear();
 
         // 3. Police des streaks : N ticks d'affilée en dépassement → purge + notification.
         for (Identifier blueprintId : overBudgetNow) {
@@ -189,6 +222,23 @@ public final class BlueprintScheduler {
         }
         // Un tick sain remet le compteur à zéro.
         overBudgetStreak.keySet().removeIf(id -> !overBudgetNow.contains(id));
+    }
+
+    /**
+     * Retire d'un seul balayage les exécutions marquées mortes, en préservant l'ordre —
+     * le round-robin doit rester équitable d'un tick au suivant.
+     */
+    private void compactReady() {
+        int write = 0;
+        for (int read = 0; read < ready.size(); read++) {
+            Execution e = ready.get(read);
+            if (e.alive) {
+                ready.set(write++, e);
+            }
+        }
+        while (ready.size() > write) {
+            ready.remove(ready.size() - 1);
+        }
     }
 
     private MutableStats statsOf(Identifier blueprintId) {

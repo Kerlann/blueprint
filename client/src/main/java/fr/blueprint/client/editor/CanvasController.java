@@ -125,6 +125,32 @@ public final class CanvasController {
         return null;
     }
 
+    /**
+     * Pins d'entrée câblés, par nœud. Reconstruit à la révision, comme {@link #boxIndex}.
+     *
+     * <p>La passe de rendu pose la question pour chaque pin de chaque nœud visible, trois
+     * fois par rangée. Y répondre en parcourant tous les liens du graphe faisait, sur trente
+     * nœuds visibles et deux cent cinquante liens, de l'ordre de cent mille comparaisons par
+     * image — plus une enveloppe non modifiable allouée par appel, {@code Blueprint.links()}
+     * en construisant une à chaque fois.
+     */
+    private final Map<UUID, java.util.Set<String>> wiredPins = new HashMap<>();
+    private int wiredPinsRevision = -1;
+
+    /** Le pin d'entrée donné reçoit-il un lien ? En temps constant. */
+    public boolean isWired(UUID node, String pin) {
+        if (blueprint.revision() != wiredPinsRevision) {
+            wiredPinsRevision = blueprint.revision();
+            wiredPins.clear();
+            for (fr.blueprint.core.graph.Link link : blueprint.links()) {
+                wiredPins.computeIfAbsent(link.toNode(), k -> new java.util.HashSet<>())
+                        .add(link.toPin());
+            }
+        }
+        java.util.Set<String> pins = wiredPins.get(node);
+        return pins != null && pins.contains(pin);
+    }
+
     /** Boîte d'un nœud par identifiant (index reconstruit à la révision). */
     public @Nullable NodeGeometry.Box boxOf(UUID node) {
         List<NodeGeometry.Box> boxes = boxes();

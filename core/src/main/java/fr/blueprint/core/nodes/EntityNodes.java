@@ -70,7 +70,7 @@ final class EntityNodes {
     }
 
     static void register(NodeRegistry r) {
-        r.register(NodeType.builder(id("entity/position"))
+        r.register(NodeType.builder(id("entity/position")).fuelCost(2)
                 .category(NodeCategories.ENTITY_READ).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .out("pos", PinTypes.VEC3)
@@ -82,7 +82,7 @@ final class EntityNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("entity/teleport"))
+        r.register(NodeType.builder(id("entity/teleport")).fuelCost(20)
                 .category(NodeCategories.ENTITY_ACT).exec().permission(Permission.WORLD)
                 .in("entity", PinTypes.ENTITY)
                 .in("pos", PinTypes.VEC3)
@@ -95,7 +95,7 @@ final class EntityNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("entity/health"))
+        r.register(NodeType.builder(id("entity/health")).fuelCost(2)
                 .category(NodeCategories.ENTITY_READ).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .out("health", PinTypes.DOUBLE)
@@ -107,7 +107,7 @@ final class EntityNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("entity/set_health"))
+        r.register(NodeType.builder(id("entity/set_health")).fuelCost(5)
                 .category(NodeCategories.ENTITY_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .in("health", PinTypes.DOUBLE, 20.0)
@@ -119,7 +119,7 @@ final class EntityNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("entity/heal"))
+        r.register(NodeType.builder(id("entity/heal")).fuelCost(5)
                 .category(NodeCategories.ENTITY_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .in("amount", PinTypes.DOUBLE, 1.0)
@@ -131,7 +131,7 @@ final class EntityNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("entity/add_effect"))
+        r.register(NodeType.builder(id("entity/add_effect")).fuelCost(10)
                 .category(NodeCategories.ENTITY_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .in("effect", PinTypes.RESOURCE_LOCATION)
@@ -156,7 +156,7 @@ final class EntityNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("player/give_item"))
+        r.register(NodeType.builder(id("player/give_item")).fuelCost(10)
                 .category(NodeCategories.PLAYER_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("item", PinTypes.ITEMSTACK)
@@ -172,7 +172,7 @@ final class EntityNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("player/title"))
+        r.register(NodeType.builder(id("player/title")).fuelCost(5)
                 .category(NodeCategories.PLAYER_FEEDBACK).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("text", PinTypes.STRING, "")
@@ -185,7 +185,7 @@ final class EntityNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("player/give_xp"))
+        r.register(NodeType.builder(id("player/give_xp")).fuelCost(5)
                 .category(NodeCategories.PLAYER_ACT).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("amount", PinTypes.INT, 1)
@@ -197,7 +197,7 @@ final class EntityNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("player/set_gamemode"))
+        r.register(NodeType.builder(id("player/set_gamemode")).fuelCost(5)
                 .category(NodeCategories.PLAYER_ACT).exec().permission(Permission.ADMIN)
                 .in("player", PinTypes.PLAYER)
                 .in("mode", PinTypes.STRING, "survival")

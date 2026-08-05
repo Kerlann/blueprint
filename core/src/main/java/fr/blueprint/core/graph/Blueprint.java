@@ -26,6 +26,29 @@ public final class Blueprint {
     private int revision;
     private final Map<UUID, Node> nodes = new LinkedHashMap<>();
     private final Set<Link> links = new LinkedHashSet<>();
+    /**
+     * Index des liens par nœud <b>touché</b>, dans les deux sens (épic 14).
+     *
+     * <p>Sans lui, {@link #linksFrom}, {@link #linksInto} et {@link #linksTouching}
+     * répondaient chacune par un {@code links.stream().filter(...)} — un balayage de
+     * <b>tous</b> les liens du graphe, à chaque question. Le validateur en pose une par
+     * lien <i>et</i> une par nœud : la validation était donc en O(N·L + L²), et c'est elle
+     * que {@code Compiler.compile} appelle en entier avant d'émettre quoi que ce soit.
+     * Mesuré : un graphe de mille nœuds et quatre mille liens compilait en <b>112 ms</b>,
+     * contre un budget NFR2 de 50 ms — que le banc d'alors ne pouvait pas voir, ses nœuds
+     * n'ayant aucun pin de données.
+     *
+     * <p>Un seul index plutôt que deux (« sortants » et « entrants ») : les trois questions
+     * s'y répondent en O(degré), et surtout <b>l'ordre est exactement préservé</b>. Chaque
+     * ensemble reçoit ses liens dans l'ordre où le graphe les a reçus, donc filtrer l'index
+     * rend la même séquence que filtrer {@code links} — ce que deux index fusionnés ne
+     * garantiraient pas. L'ordre de {@link #linksTouching} décide quel diagnostic sort le
+     * premier d'une résolution de joker : ce n'est pas un détail cosmétique.
+     *
+     * <p>Un lien réflexif (même nœud des deux côtés) n'entre qu'une fois, l'ensemble
+     * s'en charge — c'est le comportement du filtre {@code ||} qu'il remplace.
+     */
+    private final Map<UUID, Set<Link>> linksByNode = new LinkedHashMap<>();
     private final Map<String, Variable> variables = new LinkedHashMap<>();
     private final Map<UUID, CommentBox> comments = new LinkedHashMap<>();
     /** Écrans du blueprint (épic 10) — même sérialisation, même révision, même verrou. */
@@ -100,21 +123,42 @@ public final class Blueprint {
 
     // --- requêtes utilisées par le validateur et les opérations ---
 
-    /** Liens sortant du pin donné. */
+    /** Liens sortant du pin donné. O(degré du nœud) grâce à {@link #linksByNode}. */
     public List<Link> linksFrom(UUID node, String pin) {
-        return links.stream().filter(l -> l.fromNode().equals(node) && l.fromPin().equals(pin)).toList();
+        return filterTouching(node, l -> l.fromNode().equals(node) && l.fromPin().equals(pin));
     }
 
-    /** Liens entrant dans le pin donné. */
+    /** Liens entrant dans le pin donné. O(degré du nœud). */
     public List<Link> linksInto(UUID node, String pin) {
-        return links.stream().filter(l -> l.toNode().equals(node) && l.toPin().equals(pin)).toList();
+        return filterTouching(node, l -> l.toNode().equals(node) && l.toPin().equals(pin));
     }
 
-    /** Tous les liens touchant un nœud, dans les deux sens. */
+    /** Tous les liens touchant un nœud, dans les deux sens, en ordre d'insertion. */
     public List<Link> linksTouching(UUID node) {
-        return links.stream()
-                .filter(l -> l.fromNode().equals(node) || l.toNode().equals(node))
-                .toList();
+        Set<Link> touching = linksByNode.get(node);
+        return touching == null || touching.isEmpty() ? List.of() : List.copyOf(touching);
+    }
+
+    /**
+     * Le filtre commun aux deux questions par pin. Rend {@link List#of()} — donc sans
+     * allocation — pour un nœud isolé, ce qui est le cas le plus fréquent lorsqu'on
+     * interroge tous les pins d'un nœud dont la plupart ne sont pas câblés.
+     */
+    private List<Link> filterTouching(UUID node, java.util.function.Predicate<Link> keep) {
+        Set<Link> touching = linksByNode.get(node);
+        if (touching == null || touching.isEmpty()) {
+            return List.of();
+        }
+        List<Link> found = null;
+        for (Link link : touching) {
+            if (keep.test(link)) {
+                if (found == null) {
+                    found = new java.util.ArrayList<>(2);
+                }
+                found.add(link);
+            }
+        }
+        return found == null ? List.of() : Collections.unmodifiableList(found);
     }
 
     // --- mutations réservées aux EditOperation (même paquet) ---
@@ -128,11 +172,37 @@ public final class Blueprint {
     }
 
     void putLink(Link link) {
-        links.add(link);
+        if (links.add(link)) {
+            index(link);
+        }
     }
 
     void dropLink(Link link) {
-        links.remove(link);
+        if (links.remove(link)) {
+            unindex(link, link.fromNode());
+            unindex(link, link.toNode());
+        }
+    }
+
+    /**
+     * Entre un lien dans {@link #linksByNode}, des deux côtés.
+     *
+     * <p>Conditionné à {@code links.add} : un lien déjà présent ne doit pas être compté
+     * deux fois, sans quoi un {@code dropLink} le laisserait dans l'index.
+     */
+    private void index(Link link) {
+        linksByNode.computeIfAbsent(link.fromNode(), k -> new LinkedHashSet<>()).add(link);
+        linksByNode.computeIfAbsent(link.toNode(), k -> new LinkedHashSet<>()).add(link);
+    }
+
+    /** Retire un lien du côté donné, et l'entrée elle-même si le nœud n'a plus de lien. */
+    private void unindex(Link link, UUID node) {
+        Set<Link> touching = linksByNode.get(node);
+        if (touching != null && touching.remove(link) && touching.isEmpty()) {
+            // Sans cela, un graphe longuement édité garderait une entrée vide par nœud
+            // ayant un jour porté un lien — et linksTouching allouerait pour rien.
+            linksByNode.remove(node);
+        }
     }
 
     void putVariable(Variable variable) {
@@ -222,7 +292,9 @@ public final class Blueprint {
         c.enabled = enabled;
         c.revision = revision;
         nodes.values().forEach(n -> c.nodes.put(n.uuid(), n.copy()));
-        c.links.addAll(links);
+        // Par putLink et non par links.addAll : la copie doit repartir avec son index,
+        // sinon elle répondrait « aucun lien » à toute question posée par pin.
+        links.forEach(c::putLink);
         c.variables.putAll(variables);
         c.comments.putAll(comments);
         // Les écrans sont immuables : les partager suffit, et les oublier ici ferait

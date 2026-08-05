@@ -36,14 +36,14 @@ public final class InventoryNodes {
     }
 
     public static void register(NodeRegistry r) {
-        r.register(NodeType.builder(id("player/main_hand"))
+        r.register(NodeType.builder(id("player/main_hand")).fuelCost(2)
                 .category(INVENTORY).exec().permission(Permission.SAFE)
                 .in("player", PinTypes.PLAYER)
                 .out("item", PinTypes.ITEMSTACK)
                 .action(ctx -> ctx.out("item", held(ctx.in("player"), true)))
                 .build());
 
-        r.register(NodeType.builder(id("player/off_hand"))
+        r.register(NodeType.builder(id("player/off_hand")).fuelCost(2)
                 .category(INVENTORY).exec().permission(Permission.SAFE)
                 .in("player", PinTypes.PLAYER)
                 .out("item", PinTypes.ITEMSTACK)
@@ -54,7 +54,10 @@ public final class InventoryNodes {
          * Compter parcourt l'inventaire PRINCIPAL — les 36 emplacements — pas
          * l'armure ni le curseur : c'est ce qu'un joueur appelle « ce que j'ai ».
          */
-        r.register(NodeType.builder(id("player/count_item"))
+        // TARIF PAR ANALYSE (un joueur vivant est requis) : une résolution de registre
+        // puis les trente-six emplacements du sac parcourus. Dix unités, pour les deux
+        // nœuds — has_item appelle exactement le même count().
+        r.register(NodeType.builder(id("player/count_item")).fuelCost(10)
                 .category(INVENTORY).exec().permission(Permission.SAFE)
                 .in("player", PinTypes.PLAYER)
                 .in("item", PinTypes.RESOURCE_LOCATION)
@@ -64,7 +67,7 @@ public final class InventoryNodes {
 
         /* Le raccourci du motif le plus courant : « s'il a la clé… ». L'écrire en
          * count + comparaison coûterait deux nœuds à chaque porte. */
-        r.register(NodeType.builder(id("player/has_item"))
+        r.register(NodeType.builder(id("player/has_item")).fuelCost(10)
                 .category(INVENTORY).exec().permission(Permission.SAFE)
                 .in("player", PinTypes.PLAYER)
                 .in("item", PinTypes.RESOURCE_LOCATION)
@@ -80,7 +83,7 @@ public final class InventoryNodes {
          * que deux ne doit ni échouer ni mentir : un péage qui croit avoir encaissé
          * cinq pièces alors qu'il en a pris deux laisse passer sans payer.
          */
-        r.register(NodeType.builder(id("player/remove_item"))
+        r.register(NodeType.builder(id("player/remove_item")).fuelCost(10)
                 .category(INVENTORY).exec().permission(Permission.GAMEPLAY)
                 .in("player", PinTypes.PLAYER)
                 .in("item", PinTypes.RESOURCE_LOCATION)

@@ -107,6 +107,18 @@ public final class BlueprintManager {
         return Optional.ofNullable(blueprints.get(id));
     }
 
+    /**
+     * Existence seule, sans {@link Optional}.
+     *
+     * <p>{@code get(id).isEmpty()} alloue une enveloppe par appel. C'est sans importance
+     * partout — sauf sur le chemin d'émission des événements, qui purge son cache d'entrées
+     * à chaque émission : certains événements partent à chaque coup porté sur le serveur,
+     * pas une fois par tick.
+     */
+    public boolean contains(Identifier id) {
+        return blueprints.containsKey(id);
+    }
+
     /** Verdict d'un enregistrement sous verrou optimiste (story 6.3). */
     public enum SaveOutcome {
         /** Instantané adopté, révision incrémentée. */

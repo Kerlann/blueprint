@@ -95,8 +95,11 @@ public final class GraphNbt {
         n.putString("type", node.typeId().toString());
         n.putDouble("x", node.position().x());
         n.putDouble("y", node.position().y());
-        if (!node.config().isEmpty()) {
-            n.put("config", node.config());
+        // UNE seule lecture : node.config() rend une copie profonde (Node.config()), et en
+        // appeler deux en construisait deux — dont une intégralement jetée par le test.
+        net.minecraft.nbt.CompoundTag config = node.config();
+        if (!config.isEmpty()) {
+            n.put("config", config);
         }
         ListTag literals = new ListTag();
         node.literals().forEach((pin, literal) -> {

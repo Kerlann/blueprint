@@ -110,6 +110,78 @@ class ScreenSessionsTest {
 
     // ------------------------------------------------------------- HUD (10.9)
 
+    // ------------------------------------ idempotence de l'affichage (épic 17b/19)
+
+    private static fr.blueprint.core.graph.screen.Screen hudScreen(String name) {
+        return new fr.blueprint.core.graph.screen.Screen(name, true, List.of(
+                fr.blueprint.core.graph.screen.ScreenElement.of(
+                        "titre", fr.blueprint.core.graph.screen.ElementKind.LABEL,
+                        0, 0, 60, 10)));
+    }
+
+    /**
+     * <b>Le test qui compte.</b> Réafficher le MÊME écran ne demande pas de le réenvoyer.
+     *
+     * <p>{@code gui/show_hud} réencodait et regzippait l'écran entier à chaque appel. Un
+     * graphe branché sur le tick le fait vingt fois par seconde et par joueur, pour
+     * produire des octets que le client possède déjà.
+     */
+    @Test
+    void reafficherLeMemeEcranNeRedemandePasDEnvoi() {
+        var screen = hudScreen("mana");
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana", screen),
+                "premier affichage : la description doit partir");
+        assertFalse(sessions.showHud(alice, BOUTIQUE, "mana", screen),
+                "même écran, même version : rien à renvoyer");
+        assertFalse(sessions.showHud(alice, BOUTIQUE, "mana", screen));
+        assertEquals(1, sessions.hudsOf(alice).size());
+    }
+
+    /**
+     * <b>Et le piège que l'idempotence naïve aurait ouvert.</b> Un enregistrement du
+     * blueprint produit une NOUVELLE instance d'écran : la description doit repartir.
+     *
+     * <p>Se contenter de « ce HUD était-il déjà affiché ? » aurait figé le HUD à sa
+     * version d'ouverture, sans aucun symptôme — {@code refreshScreensOf} ne parcourt que
+     * les écrans <b>modaux</b> et ne rafraîchit aucun HUD après un enregistrement.
+     */
+    @Test
+    void unEcranModifieRepartMemeSiLeHudEstDejaAffiche() {
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana", hudScreen("mana")));
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana", hudScreen("mana")),
+                "nouvelle instance = écran réenregistré : la description doit repartir");
+    }
+
+    /** Masquer puis réafficher renvoie : le client a jeté ce qu'il avait. */
+    @Test
+    void masquerPuisReafficherRenvoieLaDescription() {
+        var screen = hudScreen("mana");
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana", screen));
+        assertTrue(sessions.hideHud(alice, "mana"));
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana", screen),
+                "le HUD a été masqué : sa description doit repartir");
+    }
+
+    /** Un joueur oublié repart de zéro — sa reconnexion doit tout recevoir. */
+    @Test
+    void unJoueurOublieRecoitANouveau() {
+        var screen = hudScreen("mana");
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana", screen));
+        sessions.forget(alice);
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana", screen),
+                "le joueur a été oublié : sa description doit repartir");
+    }
+
+    /** Le retrait par blueprint efface aussi la version mémorisée. */
+    @Test
+    void leRetraitParBlueprintEffaceLaVersionMemorisee() {
+        var screen = hudScreen("mana");
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana", screen));
+        assertEquals(List.of("mana"), sessions.takeHudsOf(BOUTIQUE).get(alice));
+        assertTrue(sessions.showHud(alice, BOUTIQUE, "mana", screen),
+                "le HUD a été retiré avec son blueprint : sa description doit repartir");
+    }
+
     /**
      * PLUSIEURS HUD coexistent, contrairement au modal. Les interdire obligerait à
      * réunir la mana et le suivi de quête dans un même document.

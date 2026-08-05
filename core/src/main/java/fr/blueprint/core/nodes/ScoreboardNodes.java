@@ -38,7 +38,7 @@ public final class ScoreboardNodes {
     }
 
     public static void register(NodeRegistry r) {
-        r.register(NodeType.builder(id("score/get"))
+        r.register(NodeType.builder(id("score/get")).fuelCost(5)
                 .category(NodeCategories.SCOREBOARD).exec().permission(Permission.SAFE)
                 .in("entity", PinTypes.ENTITY)
                 .in("objective", PinTypes.STRING, "points")
@@ -59,7 +59,7 @@ public final class ScoreboardNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("score/set"))
+        r.register(NodeType.builder(id("score/set")).fuelCost(5)
                 .category(NodeCategories.SCOREBOARD).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .in("objective", PinTypes.STRING, "points")
@@ -71,7 +71,7 @@ public final class ScoreboardNodes {
                 }))
                 .build());
 
-        r.register(NodeType.builder(id("score/add"))
+        r.register(NodeType.builder(id("score/add")).fuelCost(5)
                 .category(NodeCategories.SCOREBOARD).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .in("objective", PinTypes.STRING, "points")
@@ -83,7 +83,7 @@ public final class ScoreboardNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("score/reset"))
+        r.register(NodeType.builder(id("score/reset")).fuelCost(5)
                 .category(NodeCategories.SCOREBOARD).exec().permission(Permission.GAMEPLAY)
                 .in("entity", PinTypes.ENTITY)
                 .in("objective", PinTypes.STRING, "points")
@@ -99,7 +99,7 @@ public final class ScoreboardNodes {
          * c'est un pouvoir d'administration, pas de script, et la commande vanilla
          * reste le bon endroit pour l'exercer.
          */
-        r.register(NodeType.builder(id("team/of"))
+        r.register(NodeType.builder(id("team/of")).fuelCost(3)
                 .category(NodeCategories.SCOREBOARD).exec().permission(Permission.SAFE)
                 .in("entity", PinTypes.ENTITY)
                 .out("team", PinTypes.STRING)
@@ -112,7 +112,7 @@ public final class ScoreboardNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("team/same"))
+        r.register(NodeType.builder(id("team/same")).fuelCost(3)
                 .category(NodeCategories.SCOREBOARD).exec().permission(Permission.SAFE)
                 .in("a", PinTypes.ENTITY)
                 .in("b", PinTypes.ENTITY)

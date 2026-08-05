@@ -56,6 +56,7 @@ Le projet utilise les mappings officiels. Les noms Yarn ne compilent pas.
 | `Component`, `MutableComponent` | `Text`, `MutableText` |
 | `ServerPlayer` | `ServerPlayerEntity` |
 | `BlockPos`, `Vec3`, `Direction` | (identiques) |
+| `net.minecraft.util.Util` (pools d'E/S) | `net.minecraft.Util` — **déplacé** en 1.21.11 ; la classe racine n'existe plus |
 | `Screen`, `AbstractWidget` | `Screen`, `ClickableWidget` |
 
 ## API Fabric utilisées

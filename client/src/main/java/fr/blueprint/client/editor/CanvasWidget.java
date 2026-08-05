@@ -518,14 +518,17 @@ public final class CanvasWidget {
         return null;
     }
 
-    /** Sans allocation (appelé dans la passe de rendu), contrairement à linksInto. */
+    /**
+     * Sans allocation ET en temps constant — appelé pour chaque pin de chaque nœud visible,
+     * trois fois par rangée, à chaque image.
+     *
+     * <p>Le commentaire d'origine promettait déjà « sans allocation ». Il avait tort :
+     * {@code blueprint().links()} construit une enveloppe non modifiable à chaque appel, et
+     * le corps balayait ensuite la totalité des liens. La promesse est maintenant tenue,
+     * par l'index que le contrôleur reconstruit à chaque révision.
+     */
     private boolean isWired(UUID node, String pin) {
-        for (Link link : controller.blueprint().links()) {
-            if (link.toNode().equals(node) && link.toPin().equals(pin)) {
-                return true;
-            }
-        }
-        return false;
+        return controller.isWired(node, pin);
     }
 
     /** Boîtes de commentaire (5.7) : sous les nœuds, translucides, titre + poignée. */

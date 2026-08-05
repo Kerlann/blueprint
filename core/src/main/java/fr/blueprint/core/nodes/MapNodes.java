@@ -48,8 +48,17 @@ public final class MapNodes {
                 .in("value", PinTypes.generic("V"))
                 .out("map", PinTypes.mapOf(PinTypes.generic("K"), PinTypes.generic("V")))
                 .action(ctx -> {
-                    Map<Object, Object> out = new LinkedHashMap<>(map(ctx.in("map")));
-                    out.put(ctx.in("key"), ctx.in("value"));
+                    Map<Object, Object> source = map(ctx.in("map"));
+                    Object key = ctx.in("key");
+                    // Au plafond, seule une clé DÉJÀ présente peut encore être écrite :
+                    // remplacer une valeur ne fait pas grossir la map. Même règle que
+                    // list/add (ListNodes.MAX_ELEMENTS), même raison.
+                    if (source.size() >= ListNodes.MAX_ELEMENTS && !source.containsKey(key)) {
+                        ctx.out("map", Map.copyOf(source));
+                        return;
+                    }
+                    Map<Object, Object> out = new LinkedHashMap<>(source);
+                    out.put(key, ctx.in("value"));
                     ctx.out("map", Map.copyOf(out));
                 })
                 .build());
