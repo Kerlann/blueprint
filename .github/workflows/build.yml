@@ -1,17 +1,28 @@
 name: build
 
 # Ce qui a été écrit cette nuit ne vaut que s'il tourne ailleurs que sur une machine.
+#
+# Mais SEULEMENT quand on le demande : sur une étiquette de version, sur une publication,
+# ou à la main. Plus à chaque push.
+#
+# Ce que cela coûte, et il faut le savoir : plus rien ne valide un commit ordinaire ni une
+# pull request. La construction locale (`./gradlew build`) redevient le seul garde-fou du
+# quotidien, et une régression peut vivre dans `main` jusqu'à la prochaine étiquette. Le
+# déclenchement manuel est là pour ça — `workflow_dispatch` sur n'importe quelle branche.
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags: ['v*']
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
-  # Un push qui en remplace un autre annule la construction précédente : inutile de
-  # faire tourner un serveur Minecraft pour un commit déjà dépassé.
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # PAS d'annulation, contrairement à avant. Tant que la construction tournait à chaque
+  # push, annuler celle d'un commit déjà dépassé était la bonne économie. Une construction
+  # d'étiquette, elle, est la seule qui existera jamais pour cette version : l'annuler
+  # laisserait une release sans preuve qu'elle compile.
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -44,6 +55,18 @@ jobs:
             */build/reports/tests/test
             */build/test-results/test
           retention-days: 7
+
+      # Le JAR est conservé : une construction déclenchée par une étiquette produit la
+      # version qu'on va distribuer, et la jeter obligerait à refaire tourner la chaîne
+      # pour récupérer ce qu'on vient de vérifier.
+      - name: Le JAR
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blueprint-jar
+          path: build/libs/blueprint-*.jar
+          retention-days: 90
+          if-no-files-found: error
 
   gametest:
     name: Tests en jeu (serveur réel)
