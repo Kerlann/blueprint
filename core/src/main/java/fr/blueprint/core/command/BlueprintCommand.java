@@ -195,6 +195,19 @@ public final class BlueprintCommand {
 
     // ------------------------------------------------------------------ profileur
 
+    /**
+     * L'« identifiant » reçu est-il en réalité une action tapée dans le mauvais ordre ?
+     *
+     * <p>L'espace de nom sert de garde : un vrai blueprint nommé {@code show} existerait
+     * sous {@code blueprint:show} ou celui d'un mod, jamais sous {@code minecraft:}, que
+     * Brigadier ajoute quand on ne met pas de préfixe.
+     */
+    private static boolean looksLikeAnAction(Identifier id) {
+        return "minecraft".equals(id.getNamespace())
+                && java.util.List.of("on", "off", "show", "reset", "export")
+                        .contains(id.getPath());
+    }
+
     private static int profile(CommandContext<CommandSourceStack> ctx, String action) {
         Identifier id = IdentifierArgument.getId(ctx, "id");
         if ("on".equals(action)) {
@@ -211,8 +224,15 @@ public final class BlueprintCommand {
         }
         var profiler = fr.blueprint.core.debug.Profiler.of(id);
         if (profiler == null) {
+            // « /blueprint profile show » se lit comme un IDENTIFIANT nommé « show », que
+            // Brigadier complète en « minecraft:show ». Répondre « le profilage n'est pas
+            // actif pour minecraft:show » est exact et parfaitement inutile : celui qui
+            // vient de taper cela cherche une syntaxe, pas un blueprint. L'ordre attendu
+            // est <id> PUIS l'action, ce qui n'est pas devinable et se tape à l'envers
+            // une fois sur deux.
             ctx.getSource().sendFailure(Component.translatable(
-                    "blueprint.cmd.profile_not_on", id.toString()));
+                    looksLikeAnAction(id) ? "blueprint.cmd.profile_wrong_order"
+                            : "blueprint.cmd.profile_not_on", id.toString()));
             return 0;
         }
         if ("reset".equals(action)) {

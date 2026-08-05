@@ -24,10 +24,18 @@ En jeu, deux commandes :
 Puis, pour voir où le temps est passé :
 
 ```
-/blueprint profile on
+/blueprint profile blueprint:bench on
 /bpc bench
-/blueprint profile show
+/blueprint profile blueprint:bench
 ```
+
+> **L'identifiant vient AVANT l'action.** `/blueprint profile show` se lit comme un
+> blueprint nommé « show » — la commande le complète en `minecraft:show` et répond qu'il
+> n'est pas profilé, ce qui est exact et sans aucun secours. Sans action, `<id>` seul
+> affiche le rapport.
+
+Le profilage n'enregistre que ce qui tourne **après** l'avoir activé : il faut donc
+relancer `/bpc bench` entre les deux, sinon le rapport annonce zéro appel sur zéro nœud.
 
 Pour le lire ou le modifier : `/blueprint-edit blueprint:bench`.
 
