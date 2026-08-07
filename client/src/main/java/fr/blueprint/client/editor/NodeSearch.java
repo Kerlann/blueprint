@@ -21,14 +21,14 @@ public final class NodeSearch {
     /**
      * Une entrée de la palette.
      *
-     * @param variable nom de la variable du blueprint, pour les entrées « Obtenir » et
-     *                 « Définir » de la catégorie Variables ; null pour un vrai nœud du
-     *                 registre. L'identifiant seul ne suffirait pas : toutes les
-     *                 lectures partagent {@code blueprint:var/get}, et c'est le nom qui
-     *                 les distingue.
+     * @param bound nom du <b>membre du blueprint</b> que cette entrée pose : une variable
+     *              pour « Obtenir »/« Définir », une fonction pour « Appeler » ; null pour
+     *              un vrai nœud du registre. L'identifiant seul ne suffirait pas : toutes
+     *              les lectures partagent {@code blueprint:var/get} et tous les appels
+     *              {@code blueprint:func/call}, et c'est le nom qui les distingue.
      */
     public record Entry(Identifier id, String title, String description, String category,
-                        @Nullable String variable) {
+                        @Nullable String bound) {
 
         public Entry(Identifier id, String title, String description, String category) {
             this(id, title, description, category, null);
@@ -38,9 +38,19 @@ public final class NodeSearch {
             return id.getNamespace();
         }
 
-        /** Vrai si l'insertion doit passer par {@code insertVariableNode}. */
+        /** Vrai si l'insertion doit poser un littéral en plus du nœud. */
+        public boolean isBound() {
+            return bound != null;
+        }
+
+        /** Vrai si l'insertion passe par {@code insertVariableNode}. */
         public boolean isVariable() {
-            return variable != null;
+            return bound != null && !fr.blueprint.core.graph.FuncNodes.isCall(id);
+        }
+
+        /** Vrai si l'insertion pose un appel déjà lié à sa fonction. */
+        public boolean isCall() {
+            return bound != null && fr.blueprint.core.graph.FuncNodes.isCall(id);
         }
     }
 

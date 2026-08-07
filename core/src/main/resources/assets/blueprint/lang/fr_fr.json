@@ -406,6 +406,7 @@
   "blueprint.category.event/world": "Monde",
   "blueprint.category.event/server": "Serveur",
   "blueprint.category.event/input": "Commandes du joueur",
+  "blueprint.editor.palette.func_call": "Appeler %s",
   "blueprint.editor.palette.var_get": "Obtenir %s",
   "blueprint.editor.palette.var_set": "Définir %s",
   "blueprint.editor.menu.duplicate": "Dupliquer",

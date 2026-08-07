@@ -307,11 +307,14 @@ class PaletteTest {
     @Test
     void lesCategoriesSontTrieesParUsagePasParAlphabet() {
         List<String> ordre = new ArrayList<>(List.of(
-                "world", "debug", "flow", PaletteState.VARIABLES, "event", "math"));
+                "world", "debug", "flow", PaletteState.VARIABLES, "event", "math",
+                PaletteState.FUNCTIONS));
         ordre.sort(PaletteState.CATEGORY_ORDER);
 
-        assertEquals(List.of("event", PaletteState.VARIABLES, "flow",
-                "debug", "math", "world"), ordre);
+        assertEquals(List.of("event", PaletteState.VARIABLES, PaletteState.FUNCTIONS, "flow",
+                "debug", "math", "world"), ordre,
+                "les membres du blueprint — variables puis fonctions — viennent juste après "
+                        + "l'événement : ce sont eux qu'on a écrits et qu'on cherche");
     }
 
     /**
@@ -338,13 +341,71 @@ class PaletteTest {
         assertTrue(p.results().contains(get));
         assertTrue(p.results().contains(set));
         assertTrue(get.isVariable(), "et l'insertion saura QUELLE variable poser");
-        assertEquals("score", get.variable());
+        assertEquals("score", get.bound());
 
         // La catégorie Variables est placée avant les catégories de nœuds.
         int variables = indexOfCategory(p, PaletteState.VARIABLES);
         int flow = indexOfCategory(p, "flow");
         assertTrue(variables >= 0 && flow >= 0);
         assertTrue(variables < flow, "Variables avant Contrôle du flux");
+    }
+
+    /**
+     * <b>Les fonctions du blueprint s'appellent depuis le menu d'ajout</b> (story 20.2,
+     * AC6).
+     *
+     * <p>Elles arrivent dans <b>leur</b> catégorie et non parmi les variables : « Appeler
+     * carre » n'est pas une variable, et les mélanger rendrait la liste illisible dès qu'un
+     * blueprint a les deux.
+     */
+    @Test
+    void lesFonctionsDuBlueprintSAppellentDepuisLeMenu() {
+        NodeSearch.Entry appel = new NodeSearch.Entry(
+                fr.blueprint.core.graph.FuncNodes.CALL, "Appeler carre", "carre(n) → r",
+                PaletteState.FUNCTIONS, "carre");
+        PaletteState p = new PaletteState(
+                new NodeSearch(List.of(
+                        new NodeSearch.Entry(EXEC_NODE.id(), "Exec node", "d", "flow"))),
+                descriptorsForTest(), () -> Permission.ADMIN, () -> List.of(appel));
+        p.open(0, 0, 0, 0, null);
+
+        assertTrue(p.results().contains(appel));
+        assertTrue(appel.isCall(), "l'insertion doit poser le littéral avec le nœud");
+        assertFalse(appel.isVariable(),
+                "un appel n'est pas une variable : le dévier vers insertVariableNode "
+                        + "poserait un var/get nommé « carre »");
+        assertEquals("carre", appel.bound());
+
+        int fonctions = indexOfCategory(p, PaletteState.FUNCTIONS);
+        assertTrue(fonctions >= 0, "les fonctions ont leur catégorie");
+        assertEquals(-1, indexOfCategory(p, PaletteState.VARIABLES),
+                "et elles ne sont pas versées dans celle des variables");
+    }
+
+    /**
+     * <b>Un membre du blueprint se cherche comme le reste</b> (AC6).
+     *
+     * <p>La recherche ne traversait que le registre : dès la première lettre tapée, les
+     * variables et les fonctions du blueprint disparaissaient de la liste. C'est pourtant le
+     * geste que fait quelqu'un qui sait exactement quoi poser.
+     */
+    @Test
+    void unMembreDuBlueprintSeChercheCommeLeReste() {
+        NodeSearch.Entry appel = new NodeSearch.Entry(
+                fr.blueprint.core.graph.FuncNodes.CALL, "Appeler carre", "carre(n) → r",
+                PaletteState.FUNCTIONS, "carre");
+        PaletteState p = new PaletteState(
+                new NodeSearch(List.of(
+                        new NodeSearch.Entry(EXEC_NODE.id(), "Exec node", "d", "flow"))),
+                descriptorsForTest(), () -> Permission.ADMIN, () -> List.of(appel));
+        p.open(0, 0, 0, 0, null);
+        p.type("carre");
+
+        assertTrue(p.results().contains(appel),
+                "une fonction introuvable dès qu'on tape son nom est une fonction "
+                        + "introuvable");
+        assertEquals(appel, p.results().get(0),
+                "et elle passe devant : c'est elle qu'on vient d'écrire");
     }
 
     /** Sans variable déclarée, aucune catégorie Variables vide ne s'affiche. */
@@ -361,7 +422,7 @@ class PaletteTest {
         PaletteState p = palette();
         p.open(0, 0, 0, 0, null);
         assertFalse(p.results().get(0).isVariable());
-        assertNull(p.results().get(0).variable());
+        assertNull(p.results().get(0).bound());
     }
 
     // ---------------------------------------------- sous-catégories (5.14, UE5)

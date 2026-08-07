@@ -318,7 +318,19 @@ public final class PaletteState {
         scroll = 0;
         List<Item> out = new ArrayList<>();
         List<NodeSearch.Entry> flat = new ArrayList<>();
+        List<NodeSearch.Entry> members = variables.get();
         if (!query.isBlank()) {
+            // Les membres du blueprint se cherchent AUSSI, et d'abord : ce sont eux qu'on
+            // vient d'écrire et qu'on cherche par leur nom. Les laisser hors de la
+            // recherche les rendait introuvables dès la première lettre tapée — le geste
+            // que fait précisément quelqu'un qui sait ce qu'il veut poser.
+            if (!members.isEmpty()) {
+                for (NodeSearch.Entry entry
+                        : new NodeSearch(members).search(query, this::compatible, SEARCH_LIMIT)) {
+                    out.add(wrap(entry));
+                    flat.add(entry);
+                }
+            }
             for (NodeSearch.Entry entry : search.search(query, this::compatible, SEARCH_LIMIT)) {
                 out.add(wrap(entry));
                 flat.add(entry);
@@ -327,13 +339,13 @@ public final class PaletteState {
             List<NodeSearch.Entry> all = search.search("", this::compatible, SEARCH_LIMIT);
             Map<String, List<NodeSearch.Entry>> byCategory = new LinkedHashMap<>();
             all.forEach(e -> byCategory.computeIfAbsent(e.category(), k -> new ArrayList<>()).add(e));
-            // Les variables du blueprint sont une catégorie à part entière : sans
-            // elles, le menu d'ajout ignorait qu'elles existaient et il fallait les
-            // faire glisser depuis le panneau — un geste que rien n'annonce.
-            List<NodeSearch.Entry> vars = variables.get();
-            if (!vars.isEmpty()) {
-                byCategory.put(VARIABLES, vars);
-            }
+            // Les variables et les fonctions du blueprint sont des catégories à part
+            // entière : sans elles, le menu d'ajout ignorait qu'elles existaient et il
+            // fallait les faire glisser depuis un panneau — un geste que rien n'annonce.
+            // Chacune apporte sa catégorie plutôt que d'être versée dans « variables » :
+            // « Appeler carre » n'est pas une variable.
+            members.forEach(e ->
+                    byCategory.computeIfAbsent(e.category(), k -> new ArrayList<>()).add(e));
             buildCategoryTree(out, flat, byCategory);
         }
         items = List.copyOf(out);
@@ -416,6 +428,9 @@ public final class PaletteState {
     /** Catégorie synthétique : elle ne vient d'aucun nœud, mais du graphe ouvert. */
     public static final String VARIABLES = "variables";
 
+    /** Idem pour les fonctions du blueprint (story 20.2, AC6). */
+    public static final String FUNCTIONS = "functions";
+
     /**
      * Ordre des catégories, à la manière d'Unreal : on commence un graphe par un
      * <b>événement</b>, on le nourrit de <b>variables</b>, le reste vient après. Le
@@ -430,8 +445,9 @@ public final class PaletteState {
         return switch (category) {
             case "event" -> 0;
             case VARIABLES -> 1;
-            case "flow" -> 2;
-            default -> 3;
+            case FUNCTIONS -> 2;
+            case "flow" -> 3;
+            default -> 4;
         };
     }
 

@@ -1842,6 +1842,12 @@ public final class CanvasWidget {
      * Construites ici parce que les libellés sont traduits — {@link PaletteState}
      * reste pure et reçoit ses chaînes toutes faites, comme pour les nœuds.
      */
+    /**
+     * Ce que le <b>blueprint</b> ajoute à la palette : ses variables et ses fonctions.
+     *
+     * <p>Relu à chaque ouverture, jamais mémorisé : la palette est construite une fois pour
+     * la session, et une fonction créée cinq minutes plus tard n'y apparaîtrait pas (AC6).
+     */
     private List<NodeSearch.Entry> variablePaletteEntries() {
         List<NodeSearch.Entry> out = new ArrayList<>();
         for (var variable : controller.blueprint().variables().values()) {
@@ -1852,6 +1858,19 @@ public final class CanvasWidget {
             out.add(new NodeSearch.Entry(fr.blueprint.core.graph.VarNodes.SET,
                     I18n.get("blueprint.editor.palette.var_set", variable.name()),
                     type, PaletteState.VARIABLES, variable.name()));
+        }
+        String ouvert = controller.view().function();
+        for (var function : controller.blueprint().functions().values()) {
+            // Une fonction ne s'appelle pas depuis son propre corps : la récursion est
+            // refusée par le validateur, et proposer l'appel mènerait à un diagnostic
+            // plutôt qu'à un nœud utilisable.
+            if (function.name().equals(ouvert)) {
+                continue;
+            }
+            out.add(new NodeSearch.Entry(fr.blueprint.core.graph.FuncNodes.CALL,
+                    I18n.get("blueprint.editor.palette.func_call", function.name()),
+                    FunctionPanelLayout.label(function), PaletteState.FUNCTIONS,
+                    function.name()));
         }
         return out;
     }
@@ -1864,7 +1883,10 @@ public final class CanvasWidget {
                 // blueprint:var/get, seul le nom distingue laquelle.
                 controller.insertVariableNode(
                         fr.blueprint.core.graph.VarNodes.SET.equals(entry.id()),
-                        entry.variable(), palette.worldX(), palette.worldY());
+                        entry.bound(), palette.worldX(), palette.worldY());
+            } else if (entry.isCall()) {
+                controller.insertCallNode(entry.bound(), palette.worldX(), palette.worldY(),
+                        connect ? palette.wireFrom() : null);
             } else {
                 controller.insertNode(entry.id(), palette.worldX(), palette.worldY(),
                         connect ? palette.wireFrom() : null);

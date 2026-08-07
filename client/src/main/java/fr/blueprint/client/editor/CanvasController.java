@@ -1114,6 +1114,50 @@ public final class CanvasController {
         return id;
     }
 
+    /**
+     * Pose un appel <b>déjà lié</b> à sa fonction (story 20.2, AC6).
+     *
+     * <p>Le littéral avant le câblage, et ce n'est pas indifférent : c'est lui qui donne sa
+     * forme au nœud. Un {@code func/call} posé nu n'a que le squelette du registre — ni
+     * paramètres ni sorties — donc aucun pin où raccrocher le fil qu'on vient de lâcher.
+     *
+     * <p>Un seul geste d'annulation pour la pose, le littéral et le câblage : découvrir
+     * qu'il faut trois {@code Ctrl+Z} pour défaire un nœud serait une surprise.
+     */
+    public @Nullable UUID insertCallNode(String function, double wx, double wy,
+                                         @Nullable PinRef from) {
+        history.beginGesture();
+        try {
+            UUID id = UUID.randomUUID();
+            if (!applyTracked(new EditOperation.AddNode(id, fr.blueprint.core.graph.FuncNodes.CALL,
+                    camera.snap(new Vec2d(wx, wy))))) {
+                return null;
+            }
+            applyTracked(new EditOperation.SetLiteral(id,
+                    fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN,
+                    fr.blueprint.api.pin.LiteralValue.of(
+                            fr.blueprint.api.pin.PinTypes.STRING, function)));
+            if (from != null) {
+                Node added = view.node(id);
+                NodeShape shape = added == null ? null : lookup.shape(blueprint, added);
+                if (shape != null) {
+                    List<NodeShape.PinDef> candidates =
+                            from.output() ? shape.inputs() : shape.outputs();
+                    for (NodeShape.PinDef def : candidates) {
+                        if (applyTracked(new EditOperation.AddLink(
+                                buildLink(from, id, def.name())))) {
+                            break;
+                        }
+                    }
+                }
+            }
+            selection.click(id, false);
+            return id;
+        } finally {
+            history.endGesture();
+        }
+    }
+
     public void setOnMutation(@Nullable Runnable onMutation) {
         this.onMutation = onMutation;
     }
