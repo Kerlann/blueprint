@@ -41,26 +41,25 @@ commande est tapée…) et s'exécute **côté serveur**.
 > **Sur un serveur**, l'édition demande la permission configurée par l'administrateur ;
 > sans elle, l'éditeur s'ouvre en **lecture seule** et vous le dit.
 
-!!! note "📷 Capture à faire — `images/navigateur.png`"
+![Le navigateur de blueprints, ouvert avec F6](images/navigateur.png)
 
-    Le navigateur ouvert avec **F6** : la liste des blueprints, un dossier, et la barre du
-    haut. Remplacez ce bloc par :
-    `![Le navigateur de blueprints](images/navigateur.png)`
+*Le navigateur : en haut ceux qui vivent dans le monde, en dessous les fichiers du dossier
+`exports/` — la flèche les distingue. `editable` en haut à droite dit qu'on a le droit
+d'écrire ; sur un serveur sans la permission, il dirait le contraire.*
 
 ---
 
 ## 3. Votre premier blueprint en cinq gestes
 
+![La palette, « join » tapé, et le nœud posé](images/palette.png)
+
+*La palette cherche dans les **noms lisibles** autant que dans les identifiants, et la
+colonne de droite dit d'où vient chaque résultat. « Player joins » vient de
+`event/player` — c'est celui-là.*
+
 1. `/blueprint create bonjour`
 2. **Espace** ouvre la palette. Tapez `join`, choisissez **`blueprint:player_join`** :
    c'est l'événement de départ.
-
-    !!! note "📷 Capture à faire — `images/palette.png`"
-
-        La palette ouverte, `join` tapé dans le champ de recherche, la liste filtrée
-        en dessous. C'est le geste que tout le monde répète : il mérite une image.
-
-
 3. **Espace** encore, tapez `message`, choisissez **« Envoyer un message »**.
 4. Tirez un fil depuis la **flèche de sortie** de l'événement vers la **flèche d'entrée**
    du message. Puis du pin `player` de l'événement vers le pin `player` du message.
@@ -69,11 +68,11 @@ commande est tapée…) et s'exécute **côté serveur**.
 Cliquez **Tester** : le blueprint est enregistré et activé. Reconnectez-vous — le message
 s'affiche.
 
-!!! note "📷 Capture à faire — `images/premier-graphe.png`"
+![Les deux nœuds, le fil d'exécution tiré](images/premier-graphe.png)
 
-    Les deux nœuds câblés, avec les deux fils bien visibles : le fil épais d'exécution et
-    le fil fin de données. C'est l'image qui explique la différence mieux qu'un
-    paragraphe.
+*Après le geste 4, à mi-chemin : le fil épais d'exécution est tiré, mais `player` ne l'est
+pas encore — d'où le **cadre rouge** autour du nœud de message. Il ne dit pas que vous avez
+mal fait, il dit que ce n'est pas fini.*
 
 Si un pin refuse de se connecter, ce n'est pas un bug : les types doivent correspondre.
 Le fil devient rouge et la barre du bas dit pourquoi.
@@ -129,11 +128,11 @@ change avec le type exprès, pour rester lisible en cas de daltonisme.*
 | Un nœud est barré / en pointillés | C'est un **fantôme** : même cause que ci-dessus. |
 | Le blueprint s'est désactivé tout seul | Il a dépassé son budget de calcul, ou un nœud a fauté. Le log serveur nomme le nœud. |
 
-!!! note "📷 Capture à faire — `images/diagnostics.png`"
+![La barre de diagnostics nommant le pin manquant](images/diagnostics.png)
 
-    Un graphe volontairement cassé — un pin obligatoire non câblé, ou deux types
-    incompatibles — avec la **barre de diagnostics** rouge en bas. Montrer le mod en train
-    de dire ce qui ne va pas vaut mieux que dix captures où tout marche.
+*La barre du bas ne dit pas « erreur » : elle nomme le pin, `player`, et compte ce qui
+reste. Cliquer la ligne amène la vue sur le nœud fautif — sur un graphe de cent nœuds,
+c'est la différence entre corriger et chercher.*
 
 Pour regarder ce qui se passe vraiment, un administrateur dispose du **débogueur** :
 
@@ -154,10 +153,12 @@ Tout graphe s'écrit en **BScript**, un texte lisible :
 
 La vue **Script** (bouton de la barre d'outils) montre le texte du graphe en direct.
 
-!!! note "📷 Capture à faire — `images/vue-script.png`"
+![La vue Script à côté du graphe qu'elle décrit](images/vue-script.png)
 
-    La vue Script à côté du graphe qu'elle décrit. C'est la garantie centrale du mod, et
-    c'est la seule qui ne se raconte pas : il faut voir les deux ensemble.
+*Le même blueprint, deux fois. Onze lignes de texte à droite, deux nœuds à gauche — et
+`Copier` / `Exporter` / `Importer` pour les faire circuler. Les `@id(...)` sont les
+identifiants des nœuds : c'est ce qui fait qu'un aller-retour rend le **même** graphe, aux
+positions près, et non un graphe équivalent.*
 
 > **Chaque `Ctrl+S` rafraîchit le fichier.** Le dossier `blueprint/exports/` est donc un
 > reflet fidèle de ce que contient votre monde, pas une photo du jour où vous avez pensé à
@@ -260,15 +261,18 @@ réseau. En contrepartie, un écran qui ne se met pas à jour est presque toujou
 boutons et `Entrée` active : un joueur qui ne vise pas bien à la souris doit pouvoir s'en
 servir.
 
+Pour voir tous les widgets d'un coup plutôt que ces deux boutons, la **vitrine** est
+livrée : `/blueprint showcase` puis `/bpc vitrine` — les douze types, tous câblés, et
+décrits dans [Les blueprints livrés](examples/README.md).
+
 !!! note "📷 Capture à faire — `images/menu-en-jeu.png`"
 
-    Le guichet **ouvert en jeu**, par-dessus le monde. Le concepteur montre ce qu'on
-    dessine ; celle-ci montre ce qu'on obtient, et c'est la deuxième moitié de la
-    promesse.
+    La **vitrine ouverte en jeu**, par-dessus le monde : `/blueprint showcase` puis
+    `/bpc vitrine`. Le concepteur montre ce qu'on dessine, celle-ci ce qu'on obtient —
+    c'est la deuxième moitié de la promesse, et c'est la seule capture qui manque.
 
-Pour voir tous les widgets d'un coup plutôt que ces deux boutons, la **vitrine** est
-livrée : `/blueprint showcase` puis `/bpc vitrine` — les douze types, tous câblés. Elle est
-décrite dans [Les blueprints livrés](examples/README.md).
+    Remplacez ce bloc par :
+    `![La vitrine, ouverte en jeu](images/menu-en-jeu.png)`
 
 ### Une page qu'on lit
 
