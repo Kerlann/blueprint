@@ -184,16 +184,21 @@ public final class RoleplayBlueprint {
         // LA ligne à retenir de tout ce fichier. Ces deux éléments ne coûtent RIEN au
         // serveur : ni variable, ni tick, ni paquet. Le client possède déjà la valeur, il
         // la peint, et elle bouge à l'image.
+        // Le maximum est une VALEUR, pas le nombre vingt. Un joueur sous effet, avec un
+        // artefact ou un attribut modifié en a vingt-quatre : sa barre serait pleine aux
+        // cinq sixièmes et ne se remplirait jamais.
         elements.add(ScreenElement.of("vie", ElementKind.PROGRESS, 0, 0, 116, 5)
                 .withParent("bandeau")
                 .resized(Extent.fill(), Extent.of(5))
-                .withBinding(ElementBinding.clientProgress(ClientValue.HEALTH, 0, 20)));
+                .withBinding(ElementBinding.clientProgress(
+                        ClientValue.HEALTH, ClientValue.MAX_HEALTH)));
 
         elements.add(ScreenElement.of("vie_texte", ElementKind.LABEL, 0, 0, 116, 10)
                 .withParent("bandeau")
                 .resized(Extent.fill(), Extent.of(10))
                 .withBinding(ElementBinding.client(ClientValue.HEALTH,
-                        ElementBinding.Target.TEXT, "%s / 20 PV")));
+                                ElementBinding.Target.TEXT, "%s / %m PV")
+                        .withMaxVariable(ClientValue.MAX_HEALTH.key())));
 
         return new Screen(FICHE, true, elements);
     }

@@ -69,7 +69,13 @@ public final class ScreenBindings {
             }
             ElementBinding binding = element.binding();
             Object value = values.apply(binding.variable());
-            ScreenUpdate update = updateOf(screen.name(), element.name(), binding, value);
+            // Le maximum se résout par le MÊME chemin que la valeur : une barre dont le
+            // maximum viendrait d'ailleurs pourrait afficher la vie d'un joueur sur le
+            // maximum d'un autre.
+            Object maximum = binding.hasDynamicMax()
+                    ? values.apply(binding.maxVariable()) : null;
+            ScreenUpdate update = updateOf(screen.name(), element.name(), binding, value,
+                    maximum);
             if (update != null) {
                 out.add(update);
             }
@@ -79,12 +85,13 @@ public final class ScreenBindings {
 
     private static @Nullable ScreenUpdate updateOf(String screen, String element,
                                                    ElementBinding binding,
-                                                   @Nullable Object value) {
+                                                   @Nullable Object value,
+                                                   @Nullable Object maximum) {
         return switch (binding.target()) {
             case TEXT -> new ScreenUpdate(screen, element, ScreenUpdate.Kind.TEXT,
-                    binding.renderText(value), false, 0);
+                    binding.renderText(value, maximum), false, 0);
             case PROGRESS -> new ScreenUpdate(screen, element, ScreenUpdate.Kind.PROGRESS,
-                    "", false, binding.renderProgress(value));
+                    "", false, binding.renderProgress(value, maximum));
             case ENABLED -> new ScreenUpdate(screen, element, ScreenUpdate.Kind.ENABLED,
                     "", binding.renderFlag(value), 0);
             case VISIBLE -> new ScreenUpdate(screen, element, ScreenUpdate.Kind.VISIBLE,

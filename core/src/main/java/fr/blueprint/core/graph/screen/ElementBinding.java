@@ -21,7 +21,8 @@ import java.util.Locale;
  * {@code gui/set_text} — c'est-à-dire par revenir au cas qu'on voulait éviter.
  */
 public record ElementBinding(String variable, Target target, String format,
-                             double min, double max, int decimals, Source source) {
+                             double min, double max, int decimals, Source source,
+                             String maxVariable) {
 
     /**
      * D'où vient la valeur — et, par conséquent, <b>qui travaille</b>.
@@ -63,10 +64,19 @@ public record ElementBinding(String variable, Target target, String format,
 
     /** Pas de liaison — la valeur par défaut, et celle de tout écran existant. */
     public static final ElementBinding NONE =
-            new ElementBinding("", Target.TEXT, "%s", 0, 1, 0, Source.VARIABLE);
+            new ElementBinding("", Target.TEXT, "%s", 0, 1, 0, Source.VARIABLE, "");
 
     /** Le marqueur remplacé par la valeur dans un format. */
     public static final String PLACEHOLDER = "%s";
+
+    /**
+     * Le marqueur remplacé par le <b>maximum</b> dans un format : {@code "%s / %m PV"}.
+     *
+     * <p>Il n'a de sens qu'avec un {@link #maxVariable} : sans lui, le maximum est un
+     * nombre écrit dans le blueprint, et l'auteur l'écrit dans son format sans rien
+     * demander à personne.
+     */
+    public static final String MAX_PLACEHOLDER = "%m";
 
     /** Nombre maximal de décimales : au-delà, on affiche du bruit de virgule flottante. */
     public static final int MAX_DECIMALS = 6;
@@ -89,18 +99,26 @@ public record ElementBinding(String variable, Target target, String format,
             max = min + 1;
         }
         source = source == null ? Source.VARIABLE : source;
+        maxVariable = maxVariable == null ? "" : maxVariable.trim();
     }
 
     /**
-     * Une liaison qui ne dit rien de sa source suit une <b>variable</b>.
+     * Une liaison qui ne dit rien de sa source suit une <b>variable</b>, et son maximum
+     * est le nombre écrit dans le blueprint.
      *
      * <p>C'est ce qu'étaient toutes celles d'avant, et c'est ce que reste un écran
-     * enregistré par une version antérieure : ajouter une source ne change le sens
-     * d'aucun fichier existant.
+     * enregistré par une version antérieure : ni la source ni le maximum dynamique ne
+     * changent le sens d'un fichier existant.
      */
     public ElementBinding(String variable, Target target, String format,
                           double min, double max, int decimals) {
-        this(variable, target, format, min, max, decimals, Source.VARIABLE);
+        this(variable, target, format, min, max, decimals, Source.VARIABLE, "");
+    }
+
+    /** La même, avec une source explicite et un maximum littéral. */
+    public ElementBinding(String variable, Target target, String format,
+                          double min, double max, int decimals, Source source) {
+        this(variable, target, format, min, max, decimals, source, "");
     }
 
     public static ElementBinding text(String variable, String format) {
@@ -128,33 +146,57 @@ public record ElementBinding(String variable, Target target, String format,
                 Source.CLIENT);
     }
 
+    /**
+     * Une barre dont le <b>maximum est lui aussi une valeur</b>.
+     *
+     * <p>Une vie bornée à vingt en dur ment dès qu'un joueur porte un effet, un artefact ou
+     * un attribut modifié : à vingt-quatre points de vie, sa barre est pleine aux cinq
+     * sixièmes et ne se remplira jamais. Le maximum se lit alors chez le client, au même
+     * endroit et pour le même prix que la valeur.
+     */
+    public static ElementBinding clientProgress(ClientValue value, ClientValue maximum) {
+        return new ElementBinding(value.key(), Target.PROGRESS, PLACEHOLDER, 0, 1, 0,
+                Source.CLIENT, maximum.key());
+    }
+
     /** Une liaison sans nom de variable n'en est pas une : c'est l'absence de liaison. */
     public boolean bound() {
         return !variable.isEmpty();
     }
 
     public ElementBinding withVariable(String newVariable) {
-        return new ElementBinding(newVariable, target, format, min, max, decimals, source);
+        return new ElementBinding(newVariable, target, format, min, max, decimals, source, maxVariable);
     }
 
     public ElementBinding withTarget(Target newTarget) {
-        return new ElementBinding(variable, newTarget, format, min, max, decimals, source);
+        return new ElementBinding(variable, newTarget, format, min, max, decimals, source, maxVariable);
     }
 
     public ElementBinding withFormat(String newFormat) {
-        return new ElementBinding(variable, target, newFormat, min, max, decimals, source);
+        return new ElementBinding(variable, target, newFormat, min, max, decimals, source, maxVariable);
     }
 
     public ElementBinding withRange(double newMin, double newMax) {
-        return new ElementBinding(variable, target, format, newMin, newMax, decimals, source);
+        return new ElementBinding(variable, target, format, newMin, newMax, decimals, source, maxVariable);
     }
 
     public ElementBinding withDecimals(int newDecimals) {
-        return new ElementBinding(variable, target, format, min, max, newDecimals, source);
+        return new ElementBinding(variable, target, format, min, max, newDecimals, source, maxVariable);
     }
 
     public ElementBinding withSource(Source newSource) {
-        return new ElementBinding(variable, target, format, min, max, decimals, newSource);
+        return new ElementBinding(variable, target, format, min, max, decimals, newSource,
+                maxVariable);
+    }
+
+    public ElementBinding withMaxVariable(String newMaxVariable) {
+        return new ElementBinding(variable, target, format, min, max, decimals, source,
+                newMaxVariable);
+    }
+
+    /** Le maximum est-il lui-même une valeur à résoudre, plutôt qu'un nombre écrit ? */
+    public boolean hasDynamicMax() {
+        return !maxVariable.isEmpty();
     }
 
     /** La valeur client visée, ou {@code null} si cette liaison suit une variable. */
@@ -170,7 +212,19 @@ public record ElementBinding(String variable, Target target, String format,
      * étaler sur le menu du joueur.
      */
     public String renderText(@Nullable Object value) {
-        return format.replace(PLACEHOLDER, plain(value));
+        return renderText(value, null);
+    }
+
+    /**
+     * Le même texte, en sachant aussi ce que vaut le maximum : {@code "%s / %m PV"}.
+     *
+     * <p>Le maximum n'est remplacé que s'il est <b>résolu</b>. Un {@code %m} laissé tel
+     * quel serait laid, mais il dit la vérité — la valeur manque — là où le remplacer par
+     * le maximum littéral afficherait « 18 / 1 » avec l'aplomb d'une information juste.
+     */
+    public String renderText(@Nullable Object value, @Nullable Object maximum) {
+        String text = format.replace(PLACEHOLDER, plain(value));
+        return maximum == null ? text : text.replace(MAX_PLACEHOLDER, plain(maximum));
     }
 
     /** La valeur brute, sans format — décimales appliquées si c'est un nombre. */
@@ -191,8 +245,24 @@ public record ElementBinding(String variable, Target target, String format,
      * plutôt que de déborder : une vie négative ne doit pas dessiner à gauche du cadre.
      */
     public double renderProgress(@Nullable Object value) {
+        return renderProgress(value, null);
+    }
+
+    /**
+     * Le même remplissage, avec un maximum résolu.
+     *
+     * <p>Un maximum absent ou égal au minimum retombe sur celui du blueprint. La garde
+     * n'est pas décorative : {@code max_health} vaut zéro le temps d'une image après un
+     * changement de dimension, et diviser par zéro donne {@code NaN}, qui dessine une
+     * barre vide — ou rien du tout, selon le pilote graphique.
+     */
+    public double renderProgress(@Nullable Object value, @Nullable Object maximum) {
         double raw = value instanceof Number number ? number.doubleValue() : 0;
-        return Math.clamp((raw - min) / (max - min), 0, 1);
+        double top = maximum instanceof Number number ? number.doubleValue() : max;
+        if (!Double.isFinite(top) || top == min) {
+            top = max;
+        }
+        return Math.clamp((raw - min) / (top - min), 0, 1);
     }
 
     /**

@@ -27,8 +27,8 @@ blueprint blueprint:rp {
     label "prenom" @in("bandeau") @at(top_left, 0, 0) @size(fill, 10) @bind("prenom", text) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     label "nom" @in("bandeau") @at(top_left, 0, 0) @size(fill, 10) @bind("nom", text) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     label "metier" @in("bandeau") @at(top_left, 0, 0) @size(fill, 10) @bind("metier", text, format: "Métier : %s") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
-    progress "vie" @in("bandeau") @at(top_left, 0, 0) @size(fill, 5) @bind("@health", progress, max: 20) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
-    label "vie_texte" @in("bandeau") @at(top_left, 0, 0) @size(fill, 10) @bind("@health", text, format: "%s / 20 PV") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    progress "vie" @in("bandeau") @at(top_left, 0, 0) @size(fill, 5) @bind("@health", progress, maxVar: "@max_health") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    label "vie_texte" @in("bandeau") @at(top_left, 0, 0) @size(fill, 10) @bind("@health", text, format: "%s / %m PV", maxVar: "@max_health") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
   }
   on blueprint:event/gui_input_changed(player, screen, element, text, submitted) @id("80678eef-ae88-3512-97b3-77cfafaa4d4b") @pos(-900, 1400) @with(element: "nom") {
     blueprint:var/set(var: "nom", value: $text) @id("31b6a9fd-3aa7-370c-8c63-d0a824dab5d9") @pos(-600, 1400)

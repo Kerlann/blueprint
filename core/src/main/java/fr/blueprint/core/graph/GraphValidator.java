@@ -209,12 +209,26 @@ public final class GraphValidator {
         return out;
     }
 
-    /** Ce que cette liaison désigne existe-t-il — variable du graphe, ou valeur client ? */
+    /**
+     * Ce que cette liaison désigne existe-t-il — variable du graphe, ou valeur client ?
+     *
+     * <p>Le <b>maximum</b> compte autant que la valeur. Un maximum qui ne résout pas
+     * retombe silencieusement sur celui du blueprint, et la barre paraît fonctionner tout
+     * en mesurant sur la mauvaise échelle : c'est exactement la panne qu'un diagnostic
+     * existe pour empêcher.
+     */
     private static boolean bindingResolves(Blueprint bp,
                                            fr.blueprint.core.graph.screen.ElementBinding b) {
+        return resolves(bp, b, b.variable())
+                && (!b.hasDynamicMax() || resolves(bp, b, b.maxVariable()));
+    }
+
+    private static boolean resolves(Blueprint bp,
+                                    fr.blueprint.core.graph.screen.ElementBinding b,
+                                    String name) {
         return b.source() == fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT
-                ? fr.blueprint.core.graph.screen.ClientValue.byKey(b.variable()) != null
-                : bp.variables().containsKey(b.variable());
+                ? fr.blueprint.core.graph.screen.ClientValue.byKey(name) != null
+                : bp.variables().containsKey(name);
     }
 
     /**

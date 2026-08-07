@@ -528,6 +528,19 @@ public final class ScriptParser {
      * {@code @bind("argent", text, format: "Or : %s", decimals: 0, min: 0, max: 100)} —
      * la variable et la cible sont obligatoires, le reste a des défauts.
      */
+    /** La valeur client que ce nom désigne, ou {@code null} si c'est une variable. */
+    private static @org.jetbrains.annotations.Nullable
+            fr.blueprint.core.graph.screen.ClientValue clientValueOf(String name) {
+        return name.startsWith(fr.blueprint.core.graph.screen.ClientValue.PREFIX)
+                ? fr.blueprint.core.graph.screen.ClientValue.byKey(name) : null;
+    }
+
+    /** Le même nom sans son préfixe, s'il en portait un que le catalogue reconnaît. */
+    private static String stripClientPrefix(String name) {
+        var value = clientValueOf(name);
+        return value == null ? name : value.key();
+    }
+
     private fr.blueprint.core.graph.screen.ElementBinding parseBinding() {
         expect("sym", "(");
         String variable = expect("string", null).text();
@@ -538,9 +551,7 @@ public final class ScriptParser {
         // inconnu reste une variable, quitte à ce que le validateur la refuse ensuite —
         // le pire serait de transformer en source client une liaison qui n'en est pas
         // une et qui cesserait alors silencieusement d'être rafraîchie.
-        var client = fr.blueprint.core.graph.screen.ClientValue.byKey(
-                variable.startsWith(fr.blueprint.core.graph.screen.ClientValue.PREFIX)
-                        ? variable : null);
+        var client = clientValueOf(variable);
         var binding = fr.blueprint.core.graph.screen.ElementBinding.NONE
                 .withVariable(client == null ? variable : client.key())
                 .withSource(client == null
@@ -556,6 +567,11 @@ public final class ScriptParser {
                 case "decimals" -> binding.withDecimals((int) number(next()));
                 case "min" -> binding.withRange(number(next()), binding.max());
                 case "max" -> binding.withRange(binding.min(), number(next()));
+                // Le préfixe « @ » se retire ici comme pour la variable principale : la
+                // source est déjà décidée par elle, et une barre dont la valeur et le
+                // maximum viendraient de deux côtés différents n'aurait aucun sens.
+                case "maxVar" -> binding.withMaxVariable(
+                        stripClientPrefix(expect("string", null).text()));
                 default -> throw new ParseError(key.line(),
                         "réglage de liaison inconnu « " + key.text() + " »");
             };

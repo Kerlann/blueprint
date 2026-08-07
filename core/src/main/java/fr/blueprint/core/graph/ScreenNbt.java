@@ -189,6 +189,9 @@ public final class ScreenNbt {
         if (b.source() != fr.blueprint.core.graph.screen.ElementBinding.Source.VARIABLE) {
             tag.putString("source", b.source().name().toLowerCase(java.util.Locale.ROOT));
         }
+        if (b.hasDynamicMax()) {
+            tag.putString("maxVar", b.maxVariable());
+        }
         return tag;
     }
 
@@ -210,7 +213,8 @@ public final class ScreenNbt {
                 tag.getIntOr("decimals", 0),
                 enumOr(fr.blueprint.core.graph.screen.ElementBinding.Source.class,
                         tag.getStringOr("source", ""),
-                        fr.blueprint.core.graph.screen.ElementBinding.Source.VARIABLE));
+                        fr.blueprint.core.graph.screen.ElementBinding.Source.VARIABLE),
+                tag.getStringOr("maxVar", ""));
     }
 
     private static CompoundTag encodeLayout(LayoutSpec layout) {

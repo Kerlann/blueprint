@@ -125,6 +125,59 @@ class ClientBindingsTest {
         assertEquals("@health", ClientValue.HEALTH.prefixed());
     }
 
+    /**
+     * <b>La barre suit un maximum qui bouge.</b>
+     *
+     * <p>Elle était bornée à vingt en dur. Un joueur sous effet, avec un artefact ou un
+     * attribut modifié en a vingt-quatre : sa barre restait pleine aux cinq sixièmes et
+     * ne se remplissait jamais, alors qu'il était en pleine santé.
+     */
+    @Test
+    void laBarreSuitUnMaximumQuiBouge() {
+        var ecran = new Screen("fiche", true, List.of(
+                ScreenElement.of("vie", ElementKind.PROGRESS, 0, 0, 120, 6)
+                        .withBinding(ElementBinding.clientProgress(
+                                ClientValue.HEALTH, ClientValue.MAX_HEALTH)),
+                ScreenElement.of("chiffres", ElementKind.LABEL, 0, 0, 120, 10)
+                        .withBinding(ElementBinding.client(ClientValue.HEALTH,
+                                        ElementBinding.Target.TEXT, "%s / %m PV")
+                                .withMaxVariable(ClientValue.MAX_HEALTH.key()))),
+                Map.of());
+
+        // Douze points de vie sur vingt-quatre : la barre est à MOITIÉ.
+        //
+        // Une valeur intermédiaire à dessein. À vingt-quatre sur vingt-quatre, un maximum
+        // figé donne aussi une barre pleine — le rapport dépasse un et se rabat sur un —
+        // et le test resterait vert sur le défaut qu'il prétend attraper. C'est exactement
+        // ce qui s'est passé à la première écriture.
+        var updates = ScreenBindings.updates(ecran,
+                name -> name.equals("max_health") ? 24.0 : 12.0,
+                ElementBinding.Source.CLIENT);
+
+        assertEquals(0.5, updates.stream()
+                        .filter(u -> u.element().equals("vie")).findFirst().orElseThrow().number(),
+                "douze sur vingt-quatre fait une demi-barre, pas une barre pleine");
+        assertEquals("12 / 24 PV", updates.stream()
+                .filter(u -> u.element().equals("chiffres")).findFirst().orElseThrow().text());
+    }
+
+    /**
+     * Un maximum absent retombe sur celui du blueprint, sans diviser par zéro.
+     *
+     * <p>{@code max_health} vaut zéro le temps d'une image après un changement de
+     * dimension. Diviser par zéro donne {@code NaN}, qui dessine une barre vide — ou rien
+     * du tout, selon le pilote graphique.
+     */
+    @Test
+    void unMaximumAbsentNeDivisePasParZero() {
+        var binding = ElementBinding.clientProgress(ClientValue.HEALTH, ClientValue.MAX_HEALTH)
+                .withRange(0, 20);
+
+        assertEquals(0.5, binding.renderProgress(10.0, null), 1e-9);
+        assertEquals(0.5, binding.renderProgress(10.0, 0.0), 1e-9);
+        assertEquals(0.5, binding.renderProgress(10.0, Double.NaN), 1e-9);
+    }
+
     /** Sans joueur, du vide — et non un zéro qui annoncerait un joueur à l'agonie. */
     @Test
     void sansJoueurLaValeurEstNulle() {

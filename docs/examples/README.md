@@ -35,9 +35,17 @@ Trois viennent du serveur, deux ne viennent de nulle part.
 Cela se lit dans le fichier texte. Une source client s'y écrit avec un `@` :
 
 ```
-progress "vie" @bind("@health", progress, max: 20)
-label "metier" @bind("metier", text, format: "Métier : %s")
+progress "vie"      @bind("@health", progress, maxVar: "@max_health")
+label "vie_texte"   @bind("@health", text, format: "%s / %m PV", maxVar: "@max_health")
+label "metier"      @bind("metier", text, format: "Métier : %s")
 ```
+
+**Le maximum est une valeur, pas le nombre vingt.** Un joueur sous effet, avec un artefact
+ou un attribut modifié en a vingt-quatre : borné à vingt en dur, il aurait vu sa barre
+pleine aux cinq sixièmes sans jamais pouvoir la remplir. `maxVar` la fait suivre, et `%m`
+écrit le maximum dans le texte. Un maximum qui ne résout pas — `max_health` vaut zéro le
+temps d'une image après un changement de dimension — retombe sur le nombre écrit dans le
+blueprint plutôt que de diviser par zéro.
 
 La version naïve de cette fiche lierait la vie à une variable. Il faudrait alors un
 `server_tick` qui parcourt les joueurs connectés vingt fois par seconde, lit la vie de

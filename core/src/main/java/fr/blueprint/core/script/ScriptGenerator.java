@@ -290,6 +290,14 @@ public final class ScriptGenerator {
         if (binding.max() != 1) {
             sb.append(", max: ").append(num(binding.max()));
         }
+        // « maxVar » plutôt que « max » : le maximum est une valeur à résoudre, pas un
+        // nombre. Les deux coexistent — celui écrit sert de repli si celui-ci ne résout
+        // pas, ce qui arrive le temps d'une image après un changement de dimension.
+        if (binding.hasDynamicMax()) {
+            sb.append(", maxVar: ").append(quote(client
+                    ? fr.blueprint.core.graph.screen.ClientValue.PREFIX + binding.maxVariable()
+                    : binding.maxVariable()));
+        }
         return sb.toString();
     }
 
