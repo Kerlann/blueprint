@@ -7,6 +7,7 @@ import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.BlueprintFunction;
 import fr.blueprint.core.graph.CommentBox;
 import fr.blueprint.core.graph.EditOperation;
+import fr.blueprint.core.graph.FuncNodes;
 import fr.blueprint.core.graph.FunctionOps;
 import fr.blueprint.core.graph.Link;
 import fr.blueprint.core.graph.NodeShape;
@@ -284,6 +285,46 @@ class GraphViewTest {
         assertFalse(controller.view().exists(UUID.randomUUID()),
                 "un identifiant inconnu n'appartient à aucun graphe — et ne doit pas se "
                         + "confondre avec « il est dans le graphe principal »");
+    }
+
+    /**
+     * <b>Les deux bords d'un corps ne se suppriment pas</b> (AC5).
+     *
+     * <p>Sans {@code func/param}, un corps n'a pas d'entrée et aucun appel ne peut
+     * l'atteindre ; sans {@code func/result}, il ne rend rien. Les effacer donnerait un
+     * corps mort et un auteur qui ne saurait pas comment les remettre — la palette ne les
+     * propose pas, parce qu'un second n'aurait aucun sens.
+     *
+     * <p>Le cas qui compte est la sélection <b>large</b> : personne ne vise un bord, on
+     * encadre tout et on appuie sur Suppr.
+     */
+    @Test
+    void lesDeuxBordsDUnCorpsNeSeSupprimentPas() {
+        assertTrue(controller.view().open("carre"));
+        UUID entree = poserBord(FuncNodes.PARAM);
+        UUID sortie = poserBord(FuncNodes.RESULT);
+        UUID ordinaire = controller.insertNode(TYPE, 0, 0, null);
+        assertNotNull(ordinaire);
+
+        controller.selection().selectAll(controller.view().nodes().keySet(), false);
+        controller.deleteSelection();
+
+        assertNotNull(controller.view().node(entree), "l'entrée du corps doit survivre");
+        assertNotNull(controller.view().node(sortie), "la sortie du corps doit survivre");
+        assertNull(controller.view().node(ordinaire),
+                "et le reste part : refuser TOUTE la suppression parce qu'elle touche un "
+                        + "bord serait un geste sans effet, plus déroutant qu'un bord qui "
+                        + "reste");
+    }
+
+    private UUID poserBord(net.minecraft.resources.Identifier typeId) {
+        UUID id = UUID.randomUUID();
+        assertTrue(controller.applyOp(new FunctionOps.AddNodeIn("carre", id, typeId,
+                new Vec2d(0, 0))));
+        assertTrue(controller.applyOp(new FunctionOps.SetLiteralIn("carre", id,
+                FuncNodes.FUNCTION_PIN,
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.STRING, "carre"))));
+        return id;
     }
 
     /** Le panneau s'arrête où il se dessine — sous lui, le clic va au canevas. */

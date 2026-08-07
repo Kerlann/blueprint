@@ -848,6 +848,9 @@ public final class CanvasController {
         history.beginGesture();
         try {
             for (UUID id : List.copyOf(selection.ids())) {
+                if (isBodyEdge(id)) {
+                    continue;
+                }
                 apply(new EditOperation.RemoveNode(id));
             }
             if (selection.isEmpty() && selectedLink != null) {
@@ -862,6 +865,27 @@ public final class CanvasController {
             history.endGesture();
         }
         selection.clear();
+    }
+
+    /**
+     * L'entrée ou la sortie d'un corps de fonction — <b>indestructibles</b> (20.2, AC5).
+     *
+     * <p>Sans {@code func/param}, un corps n'a pas d'entrée et aucun appel ne peut
+     * l'atteindre ; sans {@code func/result}, il ne rend rien. Les effacer donnerait un
+     * corps mort et un auteur qui ne saurait pas comment les remettre — la palette ne les
+     * propose pas, parce qu'un second {@code func/param} n'aurait aucun sens.
+     *
+     * <p>Le refus est <b>silencieux</b> : la touche Suppr sur une sélection large ne doit
+     * pas se transformer en avertissement à chaque fois qu'elle attrape un bord au passage.
+     * Ce que l'auteur voit, c'est que les deux bords restent — ce qui est l'information.
+     */
+    private boolean isBodyEdge(UUID id) {
+        if (!view.inBody()) {
+            return false;
+        }
+        Node node = view.node(id);
+        return node != null && (fr.blueprint.core.graph.FuncNodes.PARAM.equals(node.typeId())
+                || fr.blueprint.core.graph.FuncNodes.RESULT.equals(node.typeId()));
     }
 
     // ------------------------------------------------------- commentaires (5.7)
