@@ -143,6 +143,11 @@ public final class ScreenNbt {
         if (o.entity() != null) {
             tag.putString("entity", o.entity().toString());
         }
+        // Écrit seulement quand il est vrai : un écran d'avant pèse ce qu'il pesait, et
+        // le relire lui donne le comportement économe par défaut.
+        if (o.live()) {
+            tag.putBoolean("live", true);
+        }
         return tag;
     }
 
@@ -166,7 +171,8 @@ public final class ScreenNbt {
                 tag.getDoubleOr("max", none.max()),
                 tag.getDoubleOr("step", none.step()),
                 tag.getDoubleOr("rowHeight", none.rowHeight()),
-                entity.isEmpty() ? null : Identifier.tryParse(entity));
+                entity.isEmpty() ? null : Identifier.tryParse(entity),
+                tag.getBooleanOr("live", false));
     }
 
     private static CompoundTag encodeBinding(fr.blueprint.core.graph.screen.ElementBinding b) {

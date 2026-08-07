@@ -793,13 +793,32 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         // Le MÊME filtre que le serveur appliquera : refuser ici évite au joueur de
         // taper quelque chose qui sera silencieusement rejeté à l'envoi.
         if (element.options().accepts(next)) {
-            inputs.put(editing, next);
-            sendInput(editing, next, false);
+            typedInput(editing, next);
         }
         return true;
     }
 
+    /** Quand une frappe part vers le serveur. La règle est dans {@link InputDrafts}. */
+    private final InputDrafts drafts = new InputDrafts();
+
+    /** Une frappe : retenue, sauf champ déclaré {@code live}. */
+    private void typedInput(String element, String text) {
+        inputs.put(element, text);
+        var described = model.element(element);
+        if (drafts.typed(element, described != null && described.options().live())) {
+            sendInput(element, text, false);
+        }
+    }
+
+    /** Fait partir le brouillon d'un champ qui perd le focus, s'il y en a un. */
+    private void flushInput(@Nullable String element) {
+        if (drafts.flush(element)) {
+            sendInput(element, inputs.getOrDefault(element, ""), false);
+        }
+    }
+
     private void sendInput(String element, String text, boolean submitted) {
+        drafts.sent(element);
         if (onValue != null) {
             onValue.accept(new Interaction(element, 0, text, 0, submitted));
         }
@@ -825,9 +844,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE) {
                 String current = inputs.getOrDefault(editing, "");
                 if (!current.isEmpty()) {
-                    String next = current.substring(0, current.length() - 1);
-                    inputs.put(editing, next);
-                    sendInput(editing, next, false);
+                    typedInput(editing, current.substring(0, current.length() - 1));
                 }
                 return true;
             }
@@ -838,13 +855,18 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 return true;
             }
             // Échap RELÂCHE le champ avant de fermer l'écran : sortir du menu d'un coup
-            // ferait perdre la saisie sans que le joueur ait voulu quitter.
+            // ferait perdre la saisie sans que le joueur ait voulu quitter. Et le
+            // brouillon part : relâcher un champ, c'est en avoir fini avec lui.
             if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+                flushInput(editing);
                 editing = null;
                 return true;
             }
         }
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) {
+            // Tab quitte le champ : son brouillon part avec lui.
+            flushInput(editing);
+            editing = null;
             String reached = focus.move(model, event.hasShiftDown() ? -1 : 1);
             // Le focus peut atterrir DANS un panneau défilant, sur un élément sorti du
             // cadre : il serait alors invisible, et le joueur au clavier tabulerait à
@@ -960,7 +982,11 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 }
                 case INPUT -> {
                     // Le focus se prend au clic, comme tout champ : c'est aussi ce qui
-                    // fait qu'un seul reçoit les frappes.
+                    // fait qu'un seul reçoit les frappes. Passer d'un champ à l'autre
+                    // fait partir le brouillon du premier.
+                    if (!was.equals(editing)) {
+                        flushInput(editing);
+                    }
                     editing = was;
                     return true;
                 }
@@ -974,6 +1000,9 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 }
             }
         }
+        // Le clic sur autre chose relâche le champ, et son brouillon part AVANT le
+        // clic : c'est ce qui fait qu'un bouton « Valider » trouve la saisie en place.
+        flushInput(editing);
         editing = null;
         onClick.accept(was);
         return true;
@@ -1378,6 +1407,12 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      */
     @Override
     public void removed() {
+        // Le brouillon d'un champ part AVANT que la fermeture ne soit annoncée : le
+        // serveur refuse les modifications d'un écran qu'il croit fermé, et la saisie
+        // serait perdue sans un mot. Ce chemin couvre aussi la mort du joueur et le
+        // retour au menu — deux façons de quitter un formulaire sans le vouloir.
+        flushInput(editing);
+        editing = null;
         onClosed.run();
         super.removed();
     }

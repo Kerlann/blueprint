@@ -15,10 +15,28 @@ import org.jetbrains.annotations.Nullable;
  * champ par champ : la solution propre — une hiérarchie de sous-types — coûterait un
  * encodage polymorphe en NBT, en BScript et sur le réseau, pour des réglages qui tiennent
  * tous en un nombre ou une chaîne.
+ *
+ * <h2>{@code live} : ce qu'un champ de saisie coûte au réseau</h2>
+ *
+ * <p>Un {@code INPUT} envoyait un paquet <b>par frappe</b>, sans que rien ne permette de
+ * s'en passer. Taper « Jean-Baptiste » coûtait treize allers vers le serveur, treize
+ * exécutions du graphe et treize écritures de variable, pour un nom qui n'intéresse
+ * personne avant d'être complet. Sur un serveur peuplé où chacun remplit un formulaire à
+ * la connexion, cela se compte en milliers de paquets pour rien.
+ *
+ * <p>Par défaut, un champ rapporte donc à trois moments : {@code Entrée}, la <b>perte du
+ * focus</b> — cliquer ailleurs, {@code Tab}, {@code Échap} — et la fermeture de l'écran.
+ * C'est ce qu'un formulaire demande, et la perte du focus est ce qui le rend sûr : cliquer
+ * sur « Valider » relâche le champ, donc le texte part <b>avant</b> le clic et le graphe
+ * le trouve en place.
+ *
+ * <p>{@code live} rétablit l'ancien comportement pour le cas qui le justifie : une
+ * recherche qui filtre pendant qu'on tape. Il se déclare alors, plutôt que de se subir.
  */
 public record ElementOptions(String placeholder, int maxLength, InputFilter filter,
                              double min, double max, double step,
-                             double rowHeight, @Nullable Identifier entity) {
+                             double rowHeight, @Nullable Identifier entity,
+                             boolean live) {
 
     /** Ce qu'un champ de saisie accepte. Revérifié côté serveur, jamais cru sur parole. */
     public enum InputFilter {
@@ -34,7 +52,7 @@ public record ElementOptions(String placeholder, int maxLength, InputFilter filt
 
     /** Aucun réglage : la valeur des cinq types d'origine, et le défaut partout. */
     public static final ElementOptions NONE =
-            new ElementOptions("", 64, InputFilter.TEXT, 0, 1, 0, 12, null);
+            new ElementOptions("", 64, InputFilter.TEXT, 0, 1, 0, 12, null, false);
 
     /** Longueur de saisie maximale acceptée, quel que soit le réglage. */
     public static final int MAX_INPUT_LENGTH = 256;
@@ -65,52 +83,77 @@ public record ElementOptions(String placeholder, int maxLength, InputFilter filt
 
     private static final double NONE_ROW_HEIGHT = 12;
 
+    /**
+     * Des réglages qui ne disent rien du report ne rapportent <b>pas</b> à chaque frappe.
+     *
+     * <p>C'est le défaut économe, et c'est ce que devient un écran enregistré avant que le
+     * réglage n'existe : un champ qui coûtait un paquet par caractère n'en coûte plus
+     * qu'à la validation, sans que son auteur ait rien à faire.
+     */
+    public ElementOptions(String placeholder, int maxLength, InputFilter filter,
+                          double min, double max, double step,
+                          double rowHeight, @Nullable Identifier entity) {
+        this(placeholder, maxLength, filter, min, max, step, rowHeight, entity, false);
+    }
+
     public static ElementOptions input(String placeholder, int maxLength, InputFilter filter) {
-        return new ElementOptions(placeholder, maxLength, filter, 0, 1, 0, NONE_ROW_HEIGHT, null);
+        return new ElementOptions(placeholder, maxLength, filter, 0, 1, 0, NONE_ROW_HEIGHT, null, false);
     }
 
     public static ElementOptions slider(double min, double max, double step) {
         return new ElementOptions("", 64, InputFilter.TEXT, min, max, step,
-                NONE_ROW_HEIGHT, null);
+                NONE_ROW_HEIGHT, null, false);
     }
 
     public static ElementOptions list(double rowHeight) {
-        return new ElementOptions("", 64, InputFilter.TEXT, 0, 1, 0, rowHeight, null);
+        return new ElementOptions("", 64, InputFilter.TEXT, 0, 1, 0, rowHeight, null, false);
     }
 
     public static ElementOptions entity(@Nullable Identifier type) {
-        return new ElementOptions("", 64, InputFilter.TEXT, 0, 1, 0, NONE_ROW_HEIGHT, type);
+        return new ElementOptions("", 64, InputFilter.TEXT, 0, 1, 0, NONE_ROW_HEIGHT, type, false);
     }
 
     public ElementOptions withPlaceholder(String value) {
-        return new ElementOptions(value, maxLength, filter, min, max, step, rowHeight, entity);
+        return new ElementOptions(value, maxLength, filter, min, max, step, rowHeight, entity, live);
     }
 
     public ElementOptions withMaxLength(int value) {
-        return new ElementOptions(placeholder, value, filter, min, max, step, rowHeight, entity);
+        return new ElementOptions(placeholder, value, filter, min, max, step, rowHeight, entity, live);
     }
 
     public ElementOptions withFilter(InputFilter value) {
-        return new ElementOptions(placeholder, maxLength, value, min, max, step, rowHeight, entity);
+        return new ElementOptions(placeholder, maxLength, value, min, max, step, rowHeight, entity, live);
     }
 
     public ElementOptions withRange(double newMin, double newMax) {
         return new ElementOptions(placeholder, maxLength, filter, newMin, newMax, step,
-                rowHeight, entity);
+                rowHeight, entity, live);
     }
 
     public ElementOptions withStep(double value) {
         return new ElementOptions(placeholder, maxLength, filter, min, max, value,
-                rowHeight, entity);
+                rowHeight, entity, live);
     }
 
     public ElementOptions withRowHeight(double value) {
-        return new ElementOptions(placeholder, maxLength, filter, min, max, step, value, entity);
+        return new ElementOptions(placeholder, maxLength, filter, min, max, step, value, entity, live);
     }
 
     public ElementOptions withEntity(@Nullable Identifier value) {
         return new ElementOptions(placeholder, maxLength, filter, min, max, step,
-                rowHeight, value);
+                rowHeight, value, live);
+    }
+
+    /**
+     * Rapporter à chaque frappe — pour une recherche qui filtre, et pour elle seule.
+     *
+     * <p>Chaque caractère devient un paquet, une exécution du graphe et une écriture de
+     * variable. Sur un champ de formulaire, c'est du travail entièrement perdu : personne
+     * ne s'intéresse à « Jea » avant « Jean ».
+     */
+    public ElementOptions withLive(boolean value) {
+        return new ElementOptions(placeholder, maxLength, filter, min, max, step,
+                rowHeight, entity, value);
     }
 
     /**

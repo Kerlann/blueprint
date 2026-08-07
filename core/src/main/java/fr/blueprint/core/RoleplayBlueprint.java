@@ -304,12 +304,16 @@ public final class RoleplayBlueprint {
     }
 
     /**
-     * Un champ de saisie enregistré à <b>chaque frappe</b>.
+     * Un champ de saisie enregistré <b>quand il compte</b>.
      *
-     * <p>Sans {@code submitted} à dessein, contrairement à la vitrine : un formulaire se
-     * valide au bouton, pas à la touche Entrée de chaque champ. Écrire à chaque frappe
-     * coûte une écriture de variable — pas un paquet, il est déjà parti — et garantit
-     * qu'au moment du clic, ce que le joueur voit est ce que le serveur a.
+     * <p>Sans filtre sur {@code submitted}, contrairement à la vitrine : un formulaire se
+     * valide au bouton, pas à la touche Entrée de chaque champ. Ce graphe accepte donc les
+     * deux — la validation au clavier et le simple relâchement du champ.
+     *
+     * <p>Ce qui n'arrive plus, c'est qu'il en reçoive treize pour un prénom de treize
+     * lettres. Le client retient son brouillon et ne l'envoie qu'à la perte du focus ;
+     * cliquer sur « Créer » relâche le champ, donc le texte arrive <b>avant</b> le clic et
+     * ce nœud a écrit la variable quand le bouton se traite.
      */
     private static void saisie(Blueprint bp, NodeTypeLookup lookup, String element, double y) {
         UUID evt = add(bp, lookup, element + "-evt",

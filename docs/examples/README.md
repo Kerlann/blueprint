@@ -106,8 +106,9 @@ repeint et un écran qui se lit.
 
 Deux pièges que la vitrine désamorce au passage, tous deux vécus :
 
-- le champ de saisie émet à **chaque frappe** ; sans le branchement sur `soumis`, taper
-  « 100 » écrirait successivement 1, puis 10, puis 100 ;
+- le champ de saisie émettait à **chaque frappe** ; sans le branchement sur `soumis`, taper
+  « 100 » écrivait successivement 1, puis 10, puis 100. Il ne le fait plus par défaut — voir
+  `live` ci-dessous — mais le branchement reste la bonne habitude ;
 - sans `gui/refresh` après une écriture, l'écran se fige alors que la variable a bien
   changé — la panne la plus déroutante de tout l'épic des interfaces.
 
@@ -157,6 +158,32 @@ partout :
 
 Et deux surlignages qui manquaient : la ligne **retenue** d'une `LIST` (cliquer n'y laissait
 aucune trace) et le choix visé au clavier dans une liste dépliée.
+
+## `live` : ce qu'un champ de saisie coûte au réseau
+
+Un `INPUT` envoyait un paquet **par frappe**, sans qu'on puisse s'en passer. Taper
+« Jean-Baptiste » valait treize allers vers le serveur, treize exécutions du graphe et
+treize écritures de variable — pour un nom qui n'intéresse personne avant d'être complet.
+Sur un serveur où chacun remplit un formulaire à la connexion, cela se compte en milliers
+de paquets pour rien.
+
+Un champ rapporte maintenant à **trois moments** : `Entrée`, la perte du focus (clic
+ailleurs, `Tab`, `Échap`) et la fermeture de l'écran.
+
+C'est la perte du focus qui rend le report sûr : **cliquer sur « Valider » relâche le
+champ**, donc le texte part *avant* le clic. Les deux paquets empruntent le même canal dans
+l'ordre, et le graphe trouve la valeur en place quand il traite le bouton.
+
+Pour une recherche qui filtre pendant qu'on tape — le seul cas qui le justifie — le
+comportement d'avant se déclare :
+
+```
+input "recherche" @opts(placeholder: "Filtrer…", live: true)
+```
+
+> **Changement de comportement.** Un écran enregistré avant ce réglage devient économe sans
+> que son auteur ait rien à faire. Un graphe qui comptait sur le report à chaque frappe —
+> sans avoir déclaré `live` — verra son événement arriver plus tard, et une seule fois.
 
 ---
 

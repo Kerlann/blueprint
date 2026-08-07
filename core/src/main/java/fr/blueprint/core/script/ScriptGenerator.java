@@ -261,6 +261,9 @@ public final class ScriptGenerator {
         if (o.entity() != null) {
             parts.add("entity: " + quote(o.entity().toString()));
         }
+        if (o.live()) {
+            parts.add("live: true");
+        }
         return String.join(", ", parts);
     }
 

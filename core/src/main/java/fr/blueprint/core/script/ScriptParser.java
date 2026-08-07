@@ -588,6 +588,7 @@ public final class ScriptParser {
                 case "rowHeight" -> options.withRowHeight(number(next()));
                 case "entity" -> options.withEntity(
                         Identifier.tryParse(expect("string", null).text()));
+                case "live" -> options.withLive(expect("word", null).text().equals("true"));
                 default -> throw new ParseError(key.line(),
                         "réglage inconnu « " + key.text() + " »");
             };
