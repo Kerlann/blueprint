@@ -122,7 +122,7 @@ la case à cocher écrivent, le champ de saisie est relu à la validation.
 | `INPUT` | numérique, relu **à la validation** seulement |
 | `DROPDOWN` | replié, il se **déplie par-dessus le reste** ; ses choix sont des lignes |
 | `TOGGLE` | grise le bouton `+10` — un widget qui en pilote un autre |
-| `SLIDER` | écrit `score` au relâchement, par pas de 5, **et affiche sa valeur** |
+| `SLIDER` | `live` : écrit `score` **à chaque cran**, là où le défaut attend le relâchement |
 | `SLOT` | autant d'émeraudes que le score — posées par `gui/set_item` |
 | `IMAGE` | une texture du jeu |
 | `ENTITY_PREVIEW` | une créature qui tourne |

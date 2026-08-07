@@ -50,7 +50,8 @@ import java.util.UUID;
  *   <li><b>LIST</b> — remplie par le graphe, et qui rend l'indice cliqué ;</li>
  *   <li><b>INPUT</b> — numérique, relu à la validation ;</li>
  *   <li><b>TOGGLE</b> — active et désactive un bouton ;</li>
- *   <li><b>SLIDER</b> — écrit {@code score} en continu ;</li>
+ *   <li><b>SLIDER</b> — {@code live} : écrit {@code score} à chaque cran, là où le
+ *       défaut n'envoie qu'au relâchement ;</li>
  *   <li><b>SLOT</b> — un emplacement d'objet ;</li>
  *   <li><b>IMAGE</b> — une texture du jeu ;</li>
  *   <li><b>ENTITY_PREVIEW</b> — une créature qui tourne.</li>
@@ -158,8 +159,15 @@ public final class ShowcaseBlueprint {
                 .resized(Extent.fill(), Extent.of(12))
                 // Le placeholder d'un curseur est son UNITÉ : il n'a aucun autre sens
                 // pour ce type, et le peintre l'écrit derrière la valeur.
-                .withOptions(ElementOptions.slider(0, 100, 5).withPlaceholder(" pts"))
-                .withTooltip(ScreenText.literal("Glissez : le score suit, par pas de 5")));
+                // « live » : ce curseur rapporte à CHAQUE cran, contrairement au défaut. Une
+                // vitrine doit montrer les deux comportements, et celui-ci est le cas qui
+                // le justifie — une valeur que le graphe suit en direct. Ailleurs, un
+                // curseur muet jusqu'au relâchement épargne au serveur soixante-dix
+                // paquets par glissement.
+                .withOptions(ElementOptions.slider(0, 100, 5)
+                        .withPlaceholder(" pts").withLive(true))
+                .withTooltip(ScreenText.literal(
+                        "Glissez : le score suit en direct — c'est un curseur « live »")));
 
         // La liste déroulante : ses choix sont ses LIGNES, les mêmes qu'une liste, posées
         // par le même gui/set_lines. Son texte sert d'invite tant que rien n'est choisi.
