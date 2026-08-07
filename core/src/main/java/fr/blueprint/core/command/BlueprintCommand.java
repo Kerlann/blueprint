@@ -131,6 +131,10 @@ public final class BlueprintCommand {
                 .then(literal("bench")
                         .requires(admin)
                         .executes(BlueprintCommand::bench))
+                // La vitrine : les onze types d'éléments d'écran, tous câblés.
+                .then(literal("showcase")
+                        .requires(admin)
+                        .executes(BlueprintCommand::showcase))
                 // Le contenu déclaré (épic 11). Sans cette commande, un fichier écarté
                 // ne se saurait que dans le journal du serveur — c'est-à-dire nulle part,
                 // pour qui vient de déposer un JSON et se demande où est son item.
@@ -575,14 +579,26 @@ public final class BlueprintCommand {
         return listeners;
     }
 
+    private static int showcase(CommandContext<CommandSourceStack> ctx) {
+        return install(ctx, fr.blueprint.core.ShowcaseBlueprint.build(
+                fr.blueprint.core.BlueprintMod.registries().nodes()),
+                "blueprint.cmd.showcase_created", "blueprint.cmd.showcase_created_no_file");
+    }
+
     /**
      * Installe le banc de performance et l'ACTIVE — sans quoi {@code /bpc bench} ne
      * trouverait rien à déclencher, et l'on chercherait longtemps pourquoi.
      */
     private static int bench(CommandContext<CommandSourceStack> ctx) {
-        var registries = fr.blueprint.core.BlueprintMod.registries();
+        return install(ctx, fr.blueprint.core.BenchBlueprint.build(
+                fr.blueprint.core.BlueprintMod.registries().nodes()),
+                "blueprint.cmd.bench_created", "blueprint.cmd.bench_created_no_file");
+    }
+
+    /** Adopte un blueprint livré, l'active, et l'exporte au mieux. */
+    private static int install(CommandContext<CommandSourceStack> ctx, Blueprint bp,
+                               String okKey, String noFileKey) {
         var manager = BlueprintManager.of(ctx.getSource().getServer());
-        var bp = fr.blueprint.core.BenchBlueprint.build(registries.nodes());
         if (!manager.adopt(bp)) {
             ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.exists", bp.id().toString()));
             return 0;
@@ -594,8 +610,7 @@ public final class BlueprintCommand {
         var file = fr.blueprint.core.BlueprintFiles.export(bp, exportsDir(),
                 fr.blueprint.core.BlueprintMod.registries());
         ctx.getSource().sendSuccess(() -> Component.translatable(
-                file != null ? "blueprint.cmd.bench_created" : "blueprint.cmd.bench_created_no_file",
-                bp.id().toString()), true);
+                file != null ? okKey : noFileKey, bp.id().toString()), true);
         return 1;
     }
 

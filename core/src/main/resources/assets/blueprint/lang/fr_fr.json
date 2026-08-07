@@ -88,6 +88,8 @@
   "blueprint.cmd.content_none": "Aucun contenu déclaré — déposez un JSON dans %s/items/ ou %s/blocks/ (avec un PNG du même nom), puis redémarrez : les registres du jeu gèlent au démarrage.",
   "blueprint.cmd.bench_created": "Banc de performance %s créé, activé et exporté — lance-le avec /bpc bench, puis /blueprint profile blueprint:bench on et relance-le",
   "blueprint.cmd.bench_created_no_file": "Banc de performance %s créé et activé, mais SANS pouvoir écrire le fichier (voir le log serveur) — il fonctionne quand même en jeu",
+  "blueprint.cmd.showcase_created": "Vitrine %s créée, activée et exportée — ouvre-la avec /bpc vitrine",
+  "blueprint.cmd.showcase_created_no_file": "Vitrine %s créée et activée, mais SANS pouvoir écrire le fichier (voir le log serveur) — elle fonctionne quand même en jeu",
   "blueprint.cmd.debug_on": "Débogage de %s — points d'arrêt et valeurs enregistrés",
   "blueprint.cmd.debug_off": "Débogage de %s arrêté (une exécution en pause repart)",
   "blueprint.cmd.debug_not_open": "Le débogage n'est pas actif sur %s — /blueprint debug <id> on",

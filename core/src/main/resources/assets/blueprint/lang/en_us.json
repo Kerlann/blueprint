@@ -88,6 +88,8 @@
   "blueprint.cmd.content_none": "No declared content — drop a JSON into %s/items/ or %s/blocks/ (with a PNG of the same name), then restart: the game registries freeze at startup.",
   "blueprint.cmd.bench_created": "Performance bench %s created, enabled and exported — run it with /bpc bench, then /blueprint profile blueprint:bench on and run it again",
   "blueprint.cmd.bench_created_no_file": "Performance bench %s created and enabled, but could NOT be written to disk (see the server log) — it still works in game",
+  "blueprint.cmd.showcase_created": "Showcase %s created, enabled and exported — open it with /bpc vitrine",
+  "blueprint.cmd.showcase_created_no_file": "Showcase %s created and enabled, but could NOT be written to disk (see the server log) — it still works in game",
   "blueprint.cmd.debug_on": "Debugging %s — breakpoints and values are now recorded",
   "blueprint.cmd.debug_off": "Debugging of %s stopped (a paused run resumes)",
   "blueprint.cmd.debug_not_open": "Debugging is not on for %s — /blueprint debug <id> on",

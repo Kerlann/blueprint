@@ -27,7 +27,8 @@ Puis, en jeu :
 
 | | |
 |---|---|
-| `/blueprint bench` puis `/bpc bench` | lancer le banc de performance livré |
+| `/blueprint showcase` puis `/bpc vitrine` | voir les onze types de widgets, tous câblés |
+| `/blueprint bench` puis `/bpc bench` | lancer le banc de performance |
 | `/blueprint-edit create mon_premier` | créer le sien |
 | `F6` | rouvrir le dernier édité |
 

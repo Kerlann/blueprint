@@ -253,6 +253,7 @@ class StressBlueprintTest {
         try {
             Files.createDirectories(dir);
             write(dir.resolve("bench.bp"), BenchBlueprint.build(LOADED.nodes()));
+            write(dir.resolve("vitrine.bp"), ShowcaseBlueprint.build(LOADED.nodes()));
             write(dir.resolve("banc_ecran.bp"), screenBench());
             write(dir.resolve("banc_graphe.bp"), graphBench());
         } catch (IOException e) {

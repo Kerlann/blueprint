@@ -1,6 +1,54 @@
+# Les blueprints livrés
+
+Deux, et chacun a un travail précis.
+
+| | |
+|---|---|
+| [`vitrine.bp`](vitrine.bp) | **les onze types d'éléments d'écran, tous câblés** — `/blueprint showcase` puis `/bpc vitrine` |
+| [`bench.bp`](bench.bp) | **un banc de performance** — `/blueprint bench` puis `/bpc bench` |
+
+---
+
+# La vitrine
+
+Montrer les widgets côte à côte serait une planche d'échantillons. Ici **chacun est relié à
+de la logique** : les boutons changent une variable, la liste répond au clic, le curseur et
+la case à cocher écrivent, le champ de saisie est relu à la validation.
+
+| Type | Ce qu'il démontre |
+|---|---|
+| `PANEL` | quatre imbriqués : colonne, lignes, et un panneau qui défile |
+| `LABEL` | **lié** à la variable `score`, par un format |
+| `PROGRESS` | **liée** à la même variable, bornée de 0 à 100 |
+| `BUTTON` | trois : `+10`, `-10`, `Fermer` |
+| `LIST` | remplie par le graphe, et qui rend la ligne cliquée |
+| `INPUT` | numérique, relu **à la validation** seulement |
+| `TOGGLE` | grise le bouton `+10` — un widget qui en pilote un autre |
+| `SLIDER` | écrit `score` en continu, par pas de 5 |
+| `SLOT` | un emplacement d'objet |
+| `IMAGE` | une texture du jeu |
+| `ENTITY_PREVIEW` | une créature qui tourne |
+
+**Ce qu'il faut en retenir**, et qui est le plus difficile à voir sans exemple : le titre et
+la barre ne sont écrits par **aucun nœud**. Ils *déclarent* suivre `score`, et un seul
+`gui/refresh` les remet tous les deux d'accord. C'est la différence entre un écran qu'on
+repeint et un écran qui se lit.
+
+Deux pièges que la vitrine désamorce au passage, tous deux vécus :
+
+- le champ de saisie émet à **chaque frappe** ; sans le branchement sur `soumis`, taper
+  « 100 » écrirait successivement 1, puis 10, puis 100 ;
+- sans `gui/refresh` après une écriture, l'écran se fige alors que la variable a bien
+  changé — la panne la plus déroutante de tout l'épic des interfaces.
+
+La variable est de portée **`PLAYER`** : deux joueurs ouvrant la vitrine ont chacun leur
+score. En portée `GRAPH`, le second verrait celui du premier bouger sous ses yeux.
+
+---
+
 # Le banc de performance
 
-Un seul blueprint livré : [`bench.bp`](bench.bp), un **banc de performance jouable**.
+[`bench.bp`](bench.bp), un **banc de performance jouable**.
 
 Il ne cherche pas à enseigner. Il cherche à faire travailler la VM là où les bancs
 headless ne vont pas — dans une partie, sur un serveur, avec quelqu'un qui tape une
