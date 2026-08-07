@@ -32,7 +32,10 @@ public sealed interface EditOperation permits
         // Écrans (épic 10) : rangés dans ScreenOps, ce fichier en porte déjà dix-huit.
         ScreenOps.AddScreen, ScreenOps.RemoveScreen, ScreenOps.SetScreen,
         ScreenOps.AddElement, ScreenOps.RemoveElement, ScreenOps.SetElement,
-        ScreenOps.RenameElement, ScreenOps.ReorderElement {
+        ScreenOps.RenameElement, ScreenOps.ReorderElement,
+        // Fonctions (story 20.1) : rangées dans FunctionOps, pour la même raison.
+        FunctionOps.AddFunction, FunctionOps.RemoveFunction, FunctionOps.SetSignature,
+        FunctionOps.RenameFunction, FunctionOps.SetBody {
 
     /** Refus (le graphe n'a pas bougé) ou succès porteur de l'inverse. */
     record Result(@Nullable Diagnostic refusal, @Nullable EditOperation inverse) {
@@ -64,9 +67,11 @@ public sealed interface EditOperation permits
                 return Result.refused(Diagnostic.error(DiagnosticCode.DUPLICATE_NODE,
                         Diagnostic.node(uuid), uuid.toString()));
             }
-            if (bp.nodes().size() >= limits.maxNodes()) {
+            // Le plafond couvre le blueprint ENTIER, corps de fonctions compris (20.1) :
+            // sinon dix fonctions de mille nœuds passeraient sous un plafond de mille.
+            if (FunctionOps.totalNodes(bp) >= limits.maxNodes()) {
                 return Result.refused(Diagnostic.error(DiagnosticCode.NODE_LIMIT_EXCEEDED,
-                        Diagnostic.graph(), bp.nodes().size() + 1, limits.maxNodes()));
+                        Diagnostic.graph(), FunctionOps.totalNodes(bp) + 1, limits.maxNodes()));
             }
             bp.putNode(new Node(uuid, typeId, position));
             bp.bumpRevision();

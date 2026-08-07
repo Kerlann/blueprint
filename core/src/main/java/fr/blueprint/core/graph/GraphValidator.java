@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,9 +40,11 @@ public final class GraphValidator {
     public static ValidationResult validate(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
         List<Diagnostic> out = new ArrayList<>();
 
-        if (bp.nodes().size() > limits.maxNodes()) {
+        // Corps de fonctions COMPRIS (20.1) : c'est le blueprint entier qui est borné.
+        int totalNodes = FunctionOps.totalNodes(bp);
+        if (totalNodes > limits.maxNodes()) {
             out.add(Diagnostic.error(DiagnosticCode.NODE_LIMIT_EXCEEDED, Diagnostic.graph(),
-                    bp.nodes().size(), limits.maxNodes()));
+                    totalNodes, limits.maxNodes()));
         }
 
         // Fantômes et permissions, nœud par nœud.
@@ -49,7 +52,7 @@ public final class GraphValidator {
         Map<UUID, NodeShape> shapes = new HashMap<>();
         Set<UUID> ghosts = new HashSet<>();
         for (Node node : bp.nodes().values()) {
-            NodeShape shape = lookup.shape(node.typeId());
+            NodeShape shape = lookup.shape(bp, node);
             if (shape == null) {
                 ghosts.add(node.uuid());
                 shapes.put(node.uuid(), GhostNode.deduceShape(bp, lookup, node));
@@ -123,13 +126,130 @@ public final class GraphValidator {
         // Cycles de données (FR7) : DFS tricolore sur les liens DATA uniquement.
         out.addAll(findDataCycles(bp, shapes, ghosts));
 
+        // Appels de fonction (20.1) : le pin « function » doit être un littéral nommant
+        // une fonction existante. Même forme que le contrôle des variables ci-dessus, et
+        // pour la même raison — le compilateur résout le nom À LA COMPILATION.
+        for (Node node : bp.nodes().values()) {
+            out.addAll(checkCall(bp, node));
+        }
+
         // Écrans (épic 10) : les mêmes règles que celles appliquées à l'édition,
         // rejouées ici — un graphe reçu du réseau ou relu d'une sauvegarde n'est
         // jamais passé par les EditOperation.
         out.addAll(validateScreens(bp, limits));
 
+        // Corps de fonctions (20.1). SANS cette passe, un nœud ADMIN caché dans un corps
+        // échapperait au plafond de permission du blueprint : une fonction serait une
+        // machine à blanchir les permissions.
+        out.addAll(validateFunctions(bp, lookup));
+
         boolean executable = out.stream().noneMatch(d -> d.severity() == Diagnostic.Severity.ERROR);
         return new ValidationResult(List.copyOf(out), executable);
+    }
+
+    /** Un appel dont le nom ne désigne aucune fonction (AC6). */
+    private static List<Diagnostic> checkCall(Blueprint bp, Node node) {
+        if (!FuncNodes.isCall(node.typeId())) {
+            return List.of();
+        }
+        String name = FuncNodes.boundName(node);
+        if (!bp.linksInto(node.uuid(), FuncNodes.FUNCTION_PIN).isEmpty()
+                || name == null || !bp.functions().containsKey(name)) {
+            return List.of(Diagnostic.error(DiagnosticCode.FUNCTION_NOT_FOUND,
+                    Diagnostic.node(node.uuid()), name == null ? "?" : name));
+        }
+        return List.of();
+    }
+
+    /**
+     * Contrôle des corps de fonctions (story 20.1, AC2, AC7, AC10).
+     *
+     * <p><b>La permission d'abord.</b> Chaque nœud d'un corps est confronté au plafond du
+     * blueprint, exactement comme ceux du graphe principal. C'est la raison d'être de cette
+     * passe : sans elle, poser un nœud {@code ADMIN} dans une fonction suffirait à le faire
+     * exécuter par un graphe déclaré {@code GAMEPLAY}, et rien ne le dirait.
+     */
+    private static List<Diagnostic> validateFunctions(Blueprint bp, NodeTypeLookup lookup) {
+        List<Diagnostic> out = new ArrayList<>();
+        for (BlueprintFunction function : bp.functions().values()) {
+            for (Node node : function.nodes().values()) {
+                NodeShape shape = lookup.shape(bp, node);
+                if (shape == null) {
+                    out.add(Diagnostic.error(DiagnosticCode.UNKNOWN_NODE_TYPE,
+                            Diagnostic.node(node.uuid()), node.typeId().toString(),
+                            node.typeId().getNamespace()));
+                    continue;
+                }
+                // AC10 — la faille.
+                if (!shape.permission().allowedUnder(bp.meta().permissionCap())) {
+                    out.add(Diagnostic.error(DiagnosticCode.PERMISSION_EXCEEDED,
+                            Diagnostic.node(node.uuid()), shape.permission().name(),
+                            bp.meta().permissionCap().name()));
+                }
+                // AC2 — une fonction s'appelle, elle ne se déclenche pas. Un événement
+                // dans un corps n'est pas seulement inutile : il donnerait un point
+                // d'entrée que rien ne rattache à un appelant, et dont les slots
+                // appartiendraient à un cadre qui n'existe pas.
+                if (shape.entryPoint()) {
+                    out.add(Diagnostic.error(DiagnosticCode.EVENT_IN_FUNCTION,
+                            Diagnostic.node(node.uuid()), function.name()));
+                }
+                for (NodeShape.PinDef def : shape.inputs()) {
+                    if (def.required() && node.literal(def.name()) == null
+                            && function.linksInto(node.uuid(), def.name()).isEmpty()) {
+                        out.add(Diagnostic.error(DiagnosticCode.REQUIRED_PIN_UNLINKED,
+                                Diagnostic.node(node.uuid()), def.name()));
+                    }
+                }
+                out.addAll(checkCall(bp, node));
+            }
+        }
+        out.addAll(findCallCycles(bp));
+        return out;
+    }
+
+    /**
+     * Les cycles du graphe des appels (AC7) — récursion directe comme mutuelle.
+     *
+     * <p>Refusée, et non bornée. {@code ExecutionState#frames} n'a pas de plafond : une
+     * récursion profonde consomme de la mémoire jusqu'à ce que le budget de carburant
+     * coupe, c'est-à-dire tard, et en nommant une cause qui n'est pas la bonne.
+     *
+     * <p>Parcours tricolore, comme {@link #findDataCycles} — même problème, même forme.
+     */
+    private static List<Diagnostic> findCallCycles(Blueprint bp) {
+        List<Diagnostic> out = new ArrayList<>();
+        Set<String> done = new HashSet<>();
+        Set<String> onPath = new LinkedHashSet<>();
+        for (String name : bp.functions().keySet()) {
+            visitCalls(bp, name, done, onPath, out);
+        }
+        return out;
+    }
+
+    private static void visitCalls(Blueprint bp, String name, Set<String> done,
+                                   Set<String> onPath, List<Diagnostic> out) {
+        if (done.contains(name)) {
+            return;
+        }
+        if (!onPath.add(name)) {
+            // Le chemin courant nomme le cycle entier : « a → b → a » se lit, là où
+            // « récursion détectée » enverrait chercher laquelle.
+            out.add(Diagnostic.error(DiagnosticCode.FUNCTION_RECURSION,
+                    Diagnostic.function(name), String.join(" → ", onPath) + " → " + name));
+            return;
+        }
+        BlueprintFunction function = bp.function(name);
+        if (function != null) {
+            for (Node node : function.nodes().values()) {
+                String called = FuncNodes.boundName(node);
+                if (called != null) {
+                    visitCalls(bp, called, done, onPath, out);
+                }
+            }
+        }
+        onPath.remove(name);
+        done.add(name);
     }
 
     /**

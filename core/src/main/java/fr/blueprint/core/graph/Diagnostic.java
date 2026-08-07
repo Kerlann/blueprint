@@ -29,6 +29,9 @@ public record Diagnostic(DiagnosticCode code, Severity severity, Target target, 
         record ElementTarget(String screen, String element) implements Target {}
 
         record ScreenTarget(String screen) implements Target {}
+
+        /** Une fonction : l'éditeur y ouvrira son corps plutôt que le canevas principal. */
+        record FunctionTarget(String function) implements Target {}
     }
 
     public static Diagnostic error(DiagnosticCode code, Target target, Object... args) {
@@ -61,6 +64,10 @@ public record Diagnostic(DiagnosticCode code, Severity severity, Target target, 
 
     public static Target screen(String screen) {
         return new Target.ScreenTarget(screen);
+    }
+
+    public static Target function(String function) {
+        return new Target.FunctionTarget(function);
     }
 
     public String translationKey() {

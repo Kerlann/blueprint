@@ -47,8 +47,11 @@ public final class GraphGuard {
         if (!bp.id().equals(declared)) {
             return Verdict.no("identifiant annoncé " + declared + " ≠ " + bp.id());
         }
-        if (bp.nodes().size() > limits.maxNodes()) {
-            return Verdict.no(bp.nodes().size() + " nœuds (max " + limits.maxNodes() + ")");
+        // Corps de fonctions COMPRIS (20.1). Un client enverrait sinon dix fonctions de
+        // mille nœuds à travers une garde qui n'en compte aucun.
+        int nodes = fr.blueprint.core.graph.FunctionOps.totalNodes(bp);
+        if (nodes > limits.maxNodes()) {
+            return Verdict.no(nodes + " nœuds (max " + limits.maxNodes() + ")");
         }
         if (bp.links().size() > limits.maxLinks()) {
             return Verdict.no(bp.links().size() + " liens (max " + limits.maxLinks() + ")");

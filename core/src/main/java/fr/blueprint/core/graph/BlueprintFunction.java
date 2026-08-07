@@ -103,6 +103,36 @@ public record BlueprintFunction(String name, List<Param> inputs, List<Param> out
         return new BlueprintFunction(name, inputs, outputs, newNodes, newLinks, callShape);
     }
 
+    /**
+     * Les liens qui entrent dans un pin de ce corps.
+     *
+     * <p>Par balayage, sans l'index par nœud que porte {@link Blueprint} : un corps de
+     * fonction compte quelques dizaines de nœuds là où un graphe en compte mille, et
+     * l'index coûterait sa maintenance à chaque édition pour épargner un parcours qui
+     * n'apparaît dans aucun profil. Si un corps devient assez gros pour que ça compte,
+     * c'est l'index qu'il faudra, pas un cache.
+     */
+    public Set<Link> linksInto(UUID node, String pin) {
+        Set<Link> out = new LinkedHashSet<>();
+        for (Link link : links) {
+            if (link.toNode().equals(node) && link.toPin().equals(pin)) {
+                out.add(link);
+            }
+        }
+        return out;
+    }
+
+    /** Les liens qui touchent ce nœud, d'un côté ou de l'autre. */
+    public Set<Link> linksTouching(UUID node) {
+        Set<Link> out = new LinkedHashSet<>();
+        for (Link link : links) {
+            if (link.fromNode().equals(node) || link.toNode().equals(node)) {
+                out.add(link);
+            }
+        }
+        return out;
+    }
+
     /** Le paramètre d'entrée portant ce nom, ou {@code null}. */
     public @org.jetbrains.annotations.Nullable Param input(String pin) {
         return find(inputs, pin);

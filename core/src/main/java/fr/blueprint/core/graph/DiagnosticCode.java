@@ -58,5 +58,17 @@ public enum DiagnosticCode {
      */
     SCREEN_SCROLL_HUGS,
     // Liaisons de données (story 10.7)
-    SCREEN_BINDING_NOT_FOUND
+    SCREEN_BINDING_NOT_FOUND,
+    // Fonctions (story 20.1)
+    FUNCTION_NOT_FOUND,
+    DUPLICATE_FUNCTION,
+    /** Un événement dans un corps de fonction : elle s'appelle, elle ne se déclenche pas. */
+    EVENT_IN_FUNCTION,
+    /**
+     * Un cycle dans le graphe des appels — récursion directe ou mutuelle.
+     *
+     * <p>Refusée et non bornée : la pile de cadres n'a pas de plafond, et le budget de
+     * carburant ne couperait que tard, en nommant une cause qui n'est pas la bonne.
+     */
+    FUNCTION_RECURSION
 }
