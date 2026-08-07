@@ -31,7 +31,47 @@ public final class ModeTabs {
      * bouclent tous deux sur { values()}. C'est ce que vaut une géométrie écrite une
      * fois plutôt que deux « if » — et c'est la 10.2 qui l'a payé.
      */
-    public enum Mode { GRAPH, SCREENS, FUNCTIONS }
+    public enum Mode {
+        GRAPH, SCREENS, FUNCTIONS;
+
+        /**
+         * Cet onglet montre-t-il le <b>concepteur d'écrans</b> ? Sinon, c'est le canevas.
+         *
+         * <p>La question vit ici parce qu'elle se posait ailleurs <b>deux fois sous deux
+         * formes</b> : le rendu demandait « est-ce le graphe ? » et tout le routage des
+         * entrées demandait « est-ce les écrans ? ». Tant qu'il n'y avait que deux modes les
+         * deux formulations coïncidaient. L'arrivée d'un troisième onglet a suffi à les
+         * séparer : « Fonctions » dessinait le concepteur pendant que les clics partaient au
+         * canevas — un écran qui ne réagit pas à ce qu'il montre.
+         *
+         * <p>Un {@code switch} exhaustif : le prochain mode ne compilera pas sans qu'on ait
+         * dit sur quelle surface il vit.
+         */
+        public boolean showsDesigner() {
+            return switch (this) {
+                case SCREENS -> true;
+                case GRAPH, FUNCTIONS -> false;
+            };
+        }
+
+        /**
+         * Passer à cet onglet doit-il <b>refermer</b> le corps de fonction ouvert ?
+         *
+         * <p>L'onglet Graphe montre le graphe : y revenir en laissant un corps ouvert
+         * afficherait le corps sous la mauvaise étiquette, et le geste suivant tomberait
+         * dans un graphe que rien n'annonce.
+         *
+         * <p>{@code SCREENS} ne le referme pas : le concepteur d'écrans ne montre aucun des
+         * deux graphes, donc rien n'y ment, et revenir aux fonctions retrouve l'endroit où
+         * l'on travaillait.
+         */
+        public boolean closesFunctionBody() {
+            return switch (this) {
+                case GRAPH -> true;
+                case SCREENS, FUNCTIONS -> false;
+            };
+        }
+    }
 
 
     private static final int ACTIVE_BACKGROUND = 0xFF2B2D31;

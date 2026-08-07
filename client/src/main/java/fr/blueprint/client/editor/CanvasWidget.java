@@ -194,11 +194,7 @@ public final class CanvasWidget {
 
     public void setMode(fr.blueprint.client.editor.screen.ModeTabs.Mode mode) {
         this.mode = mode;
-        // L'onglet Graphe montre le graphe. Y revenir en laissant un corps ouvert
-        // afficherait le corps sous l'étiquette « Graphe » — et le geste suivant tomberait
-        // dans un graphe que rien n'annonce.
-        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.GRAPH
-                && controller.view().inBody()) {
+        if (mode.closesFunctionBody() && controller.view().inBody()) {
             controller.view().open(null);
             controller.selection().clear();
         }
@@ -1927,42 +1923,14 @@ public final class CanvasWidget {
     }
 
     /**
-     * « Obtenir X » et « Définir X » pour chaque variable du blueprint. Deux entrées
-     * par variable, comme dans Unreal : lire et écrire sont deux nœuds différents.
-     * Construites ici parce que les libellés sont traduits — {@link PaletteState}
-     * reste pure et reçoit ses chaînes toutes faites, comme pour les nœuds.
-     */
-    /**
-     * Ce que le <b>blueprint</b> ajoute à la palette : ses variables et ses fonctions.
-     *
-     * <p>Relu à chaque ouverture, jamais mémorisé : la palette est construite une fois pour
-     * la session, et une fonction créée cinq minutes plus tard n'y apparaîtrait pas (AC6).
+     * Ce que le blueprint ajoute à la palette — le <b>choix</b> est dans
+     * {@link BlueprintPaletteEntries} ; ici il ne reste que les traductions.
      */
     private List<NodeSearch.Entry> variablePaletteEntries() {
-        List<NodeSearch.Entry> out = new ArrayList<>();
-        for (var variable : controller.blueprint().variables().values()) {
-            String type = I18n.get(variable.type().translationKey());
-            out.add(new NodeSearch.Entry(fr.blueprint.core.graph.VarNodes.GET,
-                    I18n.get("blueprint.editor.palette.var_get", variable.name()),
-                    type, PaletteState.VARIABLES, variable.name()));
-            out.add(new NodeSearch.Entry(fr.blueprint.core.graph.VarNodes.SET,
-                    I18n.get("blueprint.editor.palette.var_set", variable.name()),
-                    type, PaletteState.VARIABLES, variable.name()));
-        }
-        String ouvert = controller.view().function();
-        for (var function : controller.blueprint().functions().values()) {
-            // Une fonction ne s'appelle pas depuis son propre corps : la récursion est
-            // refusée par le validateur, et proposer l'appel mènerait à un diagnostic
-            // plutôt qu'à un nœud utilisable.
-            if (function.name().equals(ouvert)) {
-                continue;
-            }
-            out.add(new NodeSearch.Entry(fr.blueprint.core.graph.FuncNodes.CALL,
-                    I18n.get("blueprint.editor.palette.func_call", function.name()),
-                    FunctionPanelLayout.label(function), PaletteState.FUNCTIONS,
-                    function.name()));
-        }
-        return out;
+        return BlueprintPaletteEntries.of(controller.blueprint(),
+                controller.view().function(),
+                (key, arg) -> I18n.get(key, arg),
+                type -> I18n.get(type.translationKey()));
     }
 
     private void insertFromPalette(boolean connect) {

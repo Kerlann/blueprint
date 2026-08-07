@@ -100,7 +100,13 @@ public final class BlueprintEditorScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // La barre d'outils (5.6b) porte le titre et l'indicateur ● non-enregistré.
-        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.GRAPH) {
+        //
+        // Le rendu demandait « est-ce le graphe ? » là où tout le routage des entrées
+        // demandait « est-ce les écrans ? ». Tant qu'il n'y eut que deux modes les deux
+        // formulations coïncidaient ; le troisième onglet a suffi à les séparer, et
+        // « Fonctions » dessinait le concepteur pendant que les clics partaient au canevas.
+        // La question se pose désormais en un seul endroit.
+        if (!mode.showsDesigner()) {
             // Le canevas dessine sa propre barre d'outils (il y met « Tester » selon
             // l'état de compilation) : il reçoit le mode pour y placer les onglets.
             canvas.setMode(mode);
@@ -128,7 +134,7 @@ public final class BlueprintEditorScreen extends Screen {
             mode = clicked;
             return true;
         }
-        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+        if (mode.showsDesigner()) {
             return designer.mouseClicked(event, doubled) || super.mouseClicked(event, doubled);
         }
         return canvas.mouseClicked(event, doubled) || super.mouseClicked(event, doubled);
@@ -136,7 +142,7 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
-        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+        if (mode.showsDesigner()) {
             return designer.mouseReleased(event) || super.mouseReleased(event);
         }
         return canvas.mouseReleased(event) || super.mouseReleased(event);
@@ -144,7 +150,7 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+        if (mode.showsDesigner()) {
             return designer.mouseDragged(event, dx, dy) || super.mouseDragged(event, dx, dy);
         }
         return canvas.mouseDragged(event, dx, dy) || super.mouseDragged(event, dx, dy);
@@ -154,7 +160,7 @@ public final class BlueprintEditorScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double hAmount, double vAmount) {
         // La molette n'allait qu'au canevas de nœuds : dans l'onglet Écrans elle ne
         // faisait donc rien du tout, y compris depuis que le concepteur sait zoomer.
-        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+        if (mode.showsDesigner()) {
             return designer.mouseScrolled(mouseX, mouseY, vAmount)
                     || super.mouseScrolled(mouseX, mouseY, hAmount, vAmount);
         }
@@ -168,7 +174,7 @@ public final class BlueprintEditorScreen extends Screen {
             save();
             return true;
         }
-        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+        if (mode.showsDesigner()) {
             // Ctrl+Z / Ctrl+Y restent au canevas de nœuds : il détient la pile, et le
             // concepteur y a déposé ses inverses. Les dupliquer ici donnerait deux
             // chemins d'annulation pour une seule pile.
@@ -205,7 +211,7 @@ public final class BlueprintEditorScreen extends Screen {
     public boolean keyReleased(KeyEvent event) {
         // Le concepteur en a besoin depuis qu'Espace y sert au déplacement de vue : sans
         // le relâchement, la touche resterait enfoncée pour lui à jamais.
-        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+        if (mode.showsDesigner()) {
             return designer.keyReleased(event) || super.keyReleased(event);
         }
         return canvas.keyReleased(event) || super.keyReleased(event);
@@ -213,7 +219,7 @@ public final class BlueprintEditorScreen extends Screen {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
-        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.SCREENS) {
+        if (mode.showsDesigner()) {
             return designer.charTyped(event) || super.charTyped(event);
         }
         return canvas.charTyped(event) || super.charTyped(event);

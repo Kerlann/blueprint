@@ -68,6 +68,36 @@ class FunctionPanelStateTest {
                         "un bord sans nom de fonction n'a pas de forme"));
     }
 
+    /**
+     * <b>Créer une fonction, c'est UN pas d'annulation.</b>
+     *
+     * <p>Trois opérations partent — la fonction, puis ses deux bords, chacun avec son
+     * littéral. Découvrir qu'il faut appuyer cinq fois sur {@code Ctrl+Z} pour défaire ce
+     * qu'on vient de faire en un clic serait une surprise, et laisserait entre-temps des
+     * états intermédiaires — une fonction sans ses bords — qu'aucun geste ne sait produire.
+     */
+    @Test
+    void creerUneFonctionEstUnSeulPasDAnnulation() {
+        var history = new fr.blueprint.client.editor.history.UndoStack();
+        var avecPile = new FunctionPanelState(bp, op -> {
+            var result = op.apply(bp, LOADED.nodes());
+            if (result.applied() && result.inverse() != null) {
+                history.record(result.inverse());
+            }
+            return result.applied();
+        }, history::beginGesture, history::endGesture, () -> null);
+
+        String name = avecPile.create();
+        assertNotNull(name);
+        assertEquals(2, bp.function(name).nodes().size());
+
+        assertTrue(history.undo(bp, LOADED.nodes()));
+
+        assertNull(bp.function(name), "un seul Ctrl+Z doit tout défaire");
+        assertFalse(history.canUndo(),
+                "et il ne doit rien rester en attente : les bords partent AVEC la fonction");
+    }
+
     /** Les noms ne se marchent pas dessus, et le panneau les rend triés. */
     @Test
     void lesNomsSEnchainentEtSeTrient() {

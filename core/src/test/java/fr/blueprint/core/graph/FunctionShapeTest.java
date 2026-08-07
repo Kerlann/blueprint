@@ -97,6 +97,34 @@ class FunctionShapeTest {
     }
 
     /**
+     * <b>Les deux bords du corps suivent la signature, en miroir de l'appel</b> (20.2, AC4).
+     *
+     * <p>Ajouter un paramètre doit faire apparaître un pin sur {@code func/param} — c'est
+     * par là que la valeur entre dans le corps. Le sens est <b>inversé</b> par rapport à
+     * l'appel : ce que l'appelant fournit en entrée, le corps le lit en sortie. Les deux
+     * formes prises pour identiques donneraient un corps où les paramètres sont des entrées
+     * qu'on ne peut pas câbler.
+     */
+    @Test
+    void lesDeuxBordsDuCorpsSuiventLaSignature() {
+        Blueprint bp = withFunction("f", BlueprintFunction.of("compter",
+                List.of(new BlueprintFunction.Param("jusqua", PinTypes.INT)),
+                List.of(new BlueprintFunction.Param("total", PinTypes.INT))));
+        BlueprintFunction compter = bp.function("compter");
+
+        NodeShape entree = compter.paramShape();
+        assertNotNull(entree.output("jusqua"),
+                "le paramètre doit SORTIR du nœud d'entrée : c'est par là qu'il entre "
+                        + "dans le corps");
+        assertNull(entree.input("jusqua"));
+
+        NodeShape sortie = compter.resultShape();
+        assertNotNull(sortie.input("total"),
+                "le résultat doit ENTRER dans le nœud de sortie : c'est là qu'on le pose");
+        assertNull(sortie.output("total"));
+    }
+
+    /**
      * <b>Une fonction supprimée ne rend plus de forme.</b>
      *
      * <p>Le même signal qu'un type inconnu, parce que c'est ce qu'attendent les vingt-cinq
