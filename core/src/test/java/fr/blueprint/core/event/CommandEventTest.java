@@ -97,6 +97,12 @@ class CommandEventTest {
         return bp;
     }
 
+    /** Le propriétaire des variables du blueprint déclaré : GRAPH est clé par graphe. */
+    private static fr.blueprint.core.vm.VarOwner ownerOf(String path) {
+        return new fr.blueprint.core.vm.VarOwner(
+                net.minecraft.resources.Identifier.fromNamespaceAndPath("test", path), null);
+    }
+
     private TriggerContextImpl trigger(String name, String arg) {
         return new TriggerContextImpl(StandardEvents.COMMAND, Map.of("name", name, "arg", arg));
     }
@@ -110,7 +116,7 @@ class CommandEventTest {
         // Seul le blueprint « hello » se lance — pas « autre ».
         assertEquals(1, bridge.launchCommand("hello", trigger("hello", "salut toi")));
         scheduler.tick(1_000);
-        assertEquals("salut toi", vars.get(VarScope.GRAPH, "dernier"));
+        assertEquals("salut toi", vars.get(VarScope.GRAPH, ownerOf("hello_bp"), "dernier"));
 
         assertEquals(0, bridge.launchCommand("inconnue", trigger("inconnue", "")));
     }

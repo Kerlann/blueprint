@@ -40,6 +40,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class CompilerVarNodesTest {
 
+    /**
+     * Le propriétaire des variables de ce test.
+     *
+     * <p>Depuis que la portée PLAYER est réellement clé par joueur, un accès sans
+     * propriétaire faute. Ces tests n’exercent qu’un blueprint et aucun joueur : leur
+     * propriétaire nomme donc le graphe et laisse le joueur nul, ce qui est exactement
+     * ce qu’est une exécution déclenchée par le tick serveur.
+     */
+    private static final fr.blueprint.core.vm.VarOwner OWNER =
+            new fr.blueprint.core.vm.VarOwner(net.minecraft.resources.Identifier.fromNamespaceAndPath("test", "vars"), null);
+
     private static final PluginLoader.LoadedRegistries LOADED =
             PluginLoader.load(List.of(), true);
 
@@ -117,8 +128,8 @@ class CompilerVarNodesTest {
         var environment = env();
         assertInstanceOf(ExecResult.Done.class, BlueprintVm.run(
                 result.ir(), ExecutionState.fresh(result.ir()), environment, 1_000));
-        assertEquals(2.5, environment.vars().get(VarScope.GRAPH, "score"));
-        assertEquals(2.5, environment.vars().get(VarScope.WORLD, "copie"));
+        assertEquals(2.5, environment.vars().get(VarScope.GRAPH, OWNER, "score"));
+        assertEquals(2.5, environment.vars().get(VarScope.WORLD, OWNER, "copie"));
     }
 
     @Test

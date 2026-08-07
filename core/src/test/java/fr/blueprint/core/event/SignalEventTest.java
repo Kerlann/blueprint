@@ -33,6 +33,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SignalEventTest {
 
+    /** GRAPH est clé par graphe : le propriétaire nomme le blueprint écouteur. */
+    private static fr.blueprint.core.vm.VarOwner ownerOf(String path) {
+        return new fr.blueprint.core.vm.VarOwner(
+                net.minecraft.resources.Identifier.fromNamespaceAndPath("test", path), null);
+    }
+
     private static final PluginLoader.LoadedRegistries LOADED =
             PluginLoader.load(List.of(), true);
 
@@ -106,7 +112,7 @@ class SignalEventTest {
 
         assertEquals(1, bridge.launchSignal("ouvrir_porte", trigger("nord")));
         scheduler.tick(1000);
-        assertEquals("nord", vars.get(VarScope.GRAPH, "recu"));
+        assertEquals("nord", vars.get(VarScope.GRAPH, ownerOf("recepteur"), "recu"));
     }
 
     /**

@@ -479,7 +479,8 @@ public final class BlueprintGameTests {
                     Component.literal("la boucle ne s'est jamais terminée : « completed » "
                             + "n'a pas été atteint"));
             Object tours = BlueprintMod.varsOf(server)
-                    .get(fr.blueprint.core.graph.VarScope.GRAPH, "tours");
+                    .get(fr.blueprint.core.graph.VarScope.GRAPH,
+                            new fr.blueprint.core.vm.VarOwner(blueprintId, null), "tours");
             helper.assertTrue(tours instanceof Number number && number.intValue() == 3,
                     Component.literal("trois entrées attendaient trois tours, obtenu " + tours));
             helper.assertTrue(manager.get(blueprintId).map(Blueprint::enabled).orElse(false),
@@ -682,7 +683,8 @@ public final class BlueprintGameTests {
 
         // La variable bouge : une seule modification, et la bonne.
         fr.blueprint.core.BlueprintMod.varsOf(server)
-                .set(fr.blueprint.core.graph.VarScope.GRAPH, "argent", 51);
+                .set(fr.blueprint.core.graph.VarScope.GRAPH,
+                        new fr.blueprint.core.vm.VarOwner(blueprintId, null), "argent", 51);
         int third = fr.blueprint.core.net.ServerBlueprintNet.refreshBindings(
                 player, blueprintId, "bourse");
         helper.assertTrue(third == 1,

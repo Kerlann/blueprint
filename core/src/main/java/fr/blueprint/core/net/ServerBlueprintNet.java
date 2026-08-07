@@ -564,7 +564,11 @@ public final class ServerBlueprintNet {
         }
         var vars = fr.blueprint.core.BlueprintMod.varsOf(server);
         int sent = 0;
-        for (var update : ScreenBindings.updates(screen, name -> readVariable(bp, vars, name))) {
+        // Le propriétaire porte le joueur DESTINATAIRE : un rafraîchissement part vers un
+        // joueur précis, et c'est son identité qu'il doit voir, pas celle de qui a
+        // déclenché le graphe.
+        var owner = new fr.blueprint.core.vm.VarOwner(blueprintId, player.getUUID());
+        for (var update : ScreenBindings.updates(screen, name -> readVariable(bp, vars, owner, name))) {
             if (SCREENS.queue(player.getUUID(), update)) {
                 sent++;
             }
@@ -604,15 +608,21 @@ public final class ServerBlueprintNet {
      * La valeur d'une variable liée. Le <b>scope</b> vient de la déclaration du
      * blueprint, jamais de la liaison : l'auteur écrit un nom, et déplacer une variable
      * de {@code GRAPH} à {@code PLAYER} ne doit pas l'obliger à revenir sur ses écrans.
+     *
+     * <p>Le <b>propriétaire</b> porte le joueur destinataire du rafraîchissement, pas
+     * celui qui a déclenché le graphe : c'est son identité à lui que son écran doit
+     * montrer. Sans cette distinction, un graphe qui rafraîchit tout le monde enverrait
+     * à chacun les valeurs du dernier joueur traité.
      */
     private static @org.jetbrains.annotations.Nullable Object readVariable(
             fr.blueprint.core.graph.Blueprint bp,
-            fr.blueprint.core.vm.VarStore vars, String name) {
+            fr.blueprint.core.vm.VarStore vars,
+            fr.blueprint.core.vm.VarOwner owner, String name) {
         var variable = bp.variables().get(name);
         if (variable == null) {
             return null;
         }
-        Object stored = vars.get(variable.scope(), variable.name());
+        Object stored = vars.get(variable.scope(), owner, variable.name());
         if (stored != null) {
             return stored;
         }

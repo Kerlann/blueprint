@@ -35,6 +35,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class KeyPressEventTest {
 
+    /** GRAPH est clé par graphe : le propriétaire nomme le blueprint écouteur. */
+    private static fr.blueprint.core.vm.VarOwner ownerOf(String path) {
+        return new fr.blueprint.core.vm.VarOwner(
+                net.minecraft.resources.Identifier.fromNamespaceAndPath("test", path), null);
+    }
+
     private static final PluginLoader.LoadedRegistries LOADED =
             PluginLoader.load(List.of(), true);
 
@@ -109,7 +115,7 @@ class KeyPressEventTest {
 
         assertEquals(1, bridge.launchKeyPress(3, trigger(3)));
         scheduler.tick(1000);
-        assertEquals(3, vars.get(VarScope.GRAPH, "recu"));
+        assertEquals(3, vars.get(VarScope.GRAPH, ownerOf("raccourci"), "recu"));
     }
 
     /**

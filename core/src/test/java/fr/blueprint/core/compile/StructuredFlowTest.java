@@ -37,6 +37,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class StructuredFlowTest {
 
+    /**
+     * Le propriétaire des variables de ce test.
+     *
+     * <p>Depuis que la portée PLAYER est réellement clé par joueur, un accès sans
+     * propriétaire faute. Ces tests n’exercent qu’un blueprint et aucun joueur : leur
+     * propriétaire nomme donc le graphe et laisse le joueur nul, ce qui est exactement
+     * ce qu’est une exécution déclenchée par le tick serveur.
+     */
+    private static final fr.blueprint.core.vm.VarOwner OWNER =
+            new fr.blueprint.core.vm.VarOwner(net.minecraft.resources.Identifier.fromNamespaceAndPath("test", "flow"), null);
+
     private static final PluginLoader.LoadedRegistries LOADED =
             PluginLoader.load(List.of(), true);
 
@@ -123,8 +134,8 @@ class StructuredFlowTest {
 
         VarStore vars = VarStore.inMemory();
         assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
-        assertEquals(1.0, vars.get(VarScope.GRAPH, "a"));
-        assertEquals(2.0, vars.get(VarScope.GRAPH, "b"));
+        assertEquals(1.0, vars.get(VarScope.GRAPH, OWNER, "a"));
+        assertEquals(2.0, vars.get(VarScope.GRAPH, OWNER, "b"));
     }
 
     @Test
@@ -151,8 +162,8 @@ class StructuredFlowTest {
 
         VarStore vars = VarStore.inMemory();
         assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
-        assertEquals(6.0, vars.get(VarScope.GRAPH, "somme")); // 1+2+3
-        assertEquals(1.0, vars.get(VarScope.GRAPH, "fin"));   // completed après la boucle
+        assertEquals(6.0, vars.get(VarScope.GRAPH, OWNER, "somme")); // 1+2+3
+        assertEquals(1.0, vars.get(VarScope.GRAPH, OWNER, "fin"));   // completed après la boucle
     }
 
     @Test
@@ -179,7 +190,7 @@ class StructuredFlowTest {
 
         VarStore vars = VarStore.inMemory();
         assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
-        assertEquals(3.0, vars.get(VarScope.GRAPH, "c"));
+        assertEquals(3.0, vars.get(VarScope.GRAPH, OWNER, "c"));
     }
 
     @Test
@@ -204,7 +215,7 @@ class StructuredFlowTest {
         // Deux exécutions, MÊME VarStore : la seconde ne doit rien faire.
         BlueprintVm.run(result.ir(), ExecutionState.fresh(result.ir()), env(vars), 10_000);
         BlueprintVm.run(result.ir(), ExecutionState.fresh(result.ir()), env(vars), 10_000);
-        assertEquals(1.0, vars.get(VarScope.GRAPH, "n"));
+        assertEquals(1.0, vars.get(VarScope.GRAPH, OWNER, "n"));
     }
 
     @Test
@@ -230,12 +241,12 @@ class StructuredFlowTest {
         var env = env(vars);
         assertInstanceOf(ExecResult.Suspended.class,
                 BlueprintVm.run(result.ir(), state, env, 10_000));
-        assertNull(vars.get(VarScope.GRAPH, "fait"));
+        assertNull(vars.get(VarScope.GRAPH, OWNER, "fait"));
 
-        vars.set(VarScope.GRAPH, "pret", 1.0);
+        vars.set(VarScope.GRAPH, OWNER, "pret", 1.0);
         assertInstanceOf(ExecResult.Done.class,
                 BlueprintVm.run(result.ir(), state, env, 10_000));
-        assertEquals(1.0, vars.get(VarScope.GRAPH, "fait"));
+        assertEquals(1.0, vars.get(VarScope.GRAPH, OWNER, "fait"));
     }
 
     @Test
@@ -274,7 +285,7 @@ class StructuredFlowTest {
 
         VarStore vars = VarStore.inMemory();
         assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
-        assertEquals(3.0, vars.get(VarScope.GRAPH, "c"));
+        assertEquals(3.0, vars.get(VarScope.GRAPH, OWNER, "c"));
     }
 
     // ------------------------------------------------ for_each et gate (story 7.8)
@@ -310,8 +321,8 @@ class StructuredFlowTest {
 
         VarStore vars = VarStore.inMemory();
         assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
-        assertEquals(60.0, vars.get(VarScope.GRAPH, "somme"), "10 + 20 + 30");
-        assertEquals(1.0, vars.get(VarScope.GRAPH, "fin"), "« completed » après la boucle");
+        assertEquals(60.0, vars.get(VarScope.GRAPH, OWNER, "somme"), "10 + 20 + 30");
+        assertEquals(1.0, vars.get(VarScope.GRAPH, OWNER, "fin"), "« completed » après la boucle");
     }
 
     @Test
@@ -330,8 +341,8 @@ class StructuredFlowTest {
 
         VarStore vars = VarStore.inMemory();
         assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
-        assertNull(vars.get(VarScope.GRAPH, "jamais"), "le corps n'a pas tourné");
-        assertEquals(1.0, vars.get(VarScope.GRAPH, "fin"));
+        assertNull(vars.get(VarScope.GRAPH, OWNER, "jamais"), "le corps n'a pas tourné");
+        assertEquals(1.0, vars.get(VarScope.GRAPH, OWNER, "fin"));
     }
 
     /** Un portail neuf est FERMÉ : rien ne passe tant qu'on ne l'a pas ouvert. */
@@ -346,7 +357,7 @@ class StructuredFlowTest {
 
         VarStore vars = VarStore.inMemory();
         assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
-        assertNull(vars.get(VarScope.GRAPH, "passe"));
+        assertNull(vars.get(VarScope.GRAPH, OWNER, "passe"));
     }
 
     /**
@@ -371,12 +382,12 @@ class StructuredFlowTest {
         VarStore vars = VarStore.inMemory();
         // Avant ouverture : rien ne passe.
         assertInstanceOf(ExecResult.Done.class, compileAndRun(entre, vars));
-        assertNull(vars.get(VarScope.GRAPH, "passe"));
+        assertNull(vars.get(VarScope.GRAPH, OWNER, "passe"));
 
         // On ouvre, puis on retraverse.
         assertInstanceOf(ExecResult.Done.class, compileAndRun(ouvre, vars));
         assertInstanceOf(ExecResult.Done.class, compileAndRun(entre, vars));
-        assertEquals(1.0, vars.get(VarScope.GRAPH, "passe"));
+        assertEquals(1.0, vars.get(VarScope.GRAPH, OWNER, "passe"));
     }
 
     @Test
@@ -395,12 +406,12 @@ class StructuredFlowTest {
         VarStore vars = VarStore.inMemory();
         compileAndRun(ouvre, vars);
         compileAndRun(entre, vars);
-        assertEquals(1.0, vars.get(VarScope.GRAPH, "passe"));
+        assertEquals(1.0, vars.get(VarScope.GRAPH, OWNER, "passe"));
 
-        vars.set(VarScope.GRAPH, "passe", null);
+        vars.set(VarScope.GRAPH, OWNER, "passe", null);
         compileAndRun(ferme, vars);
         compileAndRun(entre, vars);
-        assertNull(vars.get(VarScope.GRAPH, "passe"), "refermé : plus rien ne passe");
+        assertNull(vars.get(VarScope.GRAPH, OWNER, "passe"), "refermé : plus rien ne passe");
     }
 
     @Test
@@ -417,6 +428,6 @@ class StructuredFlowTest {
 
         VarStore vars = VarStore.inMemory();
         assertInstanceOf(ExecResult.Done.class, compileAndRun(tick, vars));
-        assertEquals(2.0, vars.get(VarScope.GRAPH, "chemin"));
+        assertEquals(2.0, vars.get(VarScope.GRAPH, OWNER, "chemin"));
     }
 }

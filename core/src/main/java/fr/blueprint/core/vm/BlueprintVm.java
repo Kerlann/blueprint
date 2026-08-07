@@ -89,9 +89,15 @@ public final class BlueprintVm {
                     spent++;
                 }
                 case Instruction.LoadVar l -> {
-                    state.slots()[l.slot()] = l.scope() == VarScope.LOCAL
-                            ? state.locals().get(l.name())
-                            : env.vars().get(l.scope(), l.name());
+                    if (l.scope() == VarScope.LOCAL) {
+                        state.slots()[l.slot()] = state.locals().get(l.name());
+                    } else if (!VarStore.owns(l.scope(), env.owner())) {
+                        return new RunOutcome(ownerless(l.scope(), l.name(), l.source()),
+                                spent + 1);
+                    } else {
+                        state.slots()[l.slot()] = env.vars().get(l.scope(), env.owner(),
+                                l.name());
+                    }
                     state.setPc(pc + 1);
                     spent++;
                 }
@@ -99,8 +105,11 @@ public final class BlueprintVm {
                     Object value = state.slots()[s.slot()];
                     if (s.scope() == VarScope.LOCAL) {
                         state.locals().put(s.name(), value);
+                    } else if (!VarStore.owns(s.scope(), env.owner())) {
+                        return new RunOutcome(ownerless(s.scope(), s.name(), s.source()),
+                                spent + 1);
                     } else {
-                        env.vars().set(s.scope(), s.name(), value);
+                        env.vars().set(s.scope(), env.owner(), s.name(), value);
                     }
                     state.setPc(pc + 1);
                     spent++;
@@ -119,6 +128,29 @@ public final class BlueprintVm {
                 }
             }
         }
+    }
+
+    /**
+     * La faute d'une variable dont le propriétaire manque.
+     *
+     * <p>Le cas courant : un graphe branché sur {@code server_tick} lit une variable de
+     * portée joueur. Aucun joueur n'a déclenché ce tick, donc la question « la valeur de
+     * qui ? » n'a pas de réponse. Rendre celle d'un joueur au hasard — ce que faisait le
+     * panier commun d'avant — donnait un écran qui affiche l'identité de quelqu'un
+     * d'autre, panne bien plus coûteuse à diagnostiquer qu'un refus nommé.
+     *
+     * <p>La sortie de secours est {@code var/get_for} / {@code var/set_for}, qui prennent
+     * le joueur en entrée ; le message la nomme, parce qu'une faute qui ne dit pas quoi
+     * faire ne vaut guère mieux qu'un silence.
+     */
+    private static ExecResult ownerless(VarScope scope, String name,
+                                        @org.jetbrains.annotations.Nullable
+                                        java.util.UUID source) {
+        return new ExecResult.Faulted(source, scope == VarScope.PLAYER
+                ? "la variable « " + name + " » est de portée joueur, et cet événement n'a "
+                        + "pas de joueur — utilisez var/get_for ou var/set_for"
+                : "la variable « " + name + " » est de portée " + scope
+                        + ", et cette exécution n'a pas de propriétaire");
     }
 
     /**

@@ -516,10 +516,15 @@ public class BlueprintMod implements ModInitializer {
             // fois par lancement les payait deux fois, et un graphe branché sur le tick
             // lance vingt fois par seconde.
             var vars = varsOf(server);
+            // Le propriétaire des variables, résolu UNE fois par lancement : le blueprint
+            // pour la portée GRAPH, le joueur de l'événement pour la portée PLAYER. Le
+            // construire ici et non dans la boucle de la VM tient la règle « aucune
+            // allocation dans step ».
+            var owner = new fr.blueprint.core.vm.VarOwner(bp.id(), triggeringPlayer(trigger));
             // Les valeurs par défaut déclarées deviennent réelles ici, et nulle part
             // ailleurs : sans cette ligne, un « var double or = 20 » lu avant d'avoir
             // été écrit rendait null et faisait tomber le nœud consommateur.
-            vars.seedDefaults(bp);
+            vars.seedDefaults(bp, owner);
             return new fr.blueprint.core.vm.ExecutionEnvironment(
                 typeId -> registries.nodes().get(typeId).orElse(null),
                 new fr.blueprint.api.node.BlueprintHandle() {
@@ -533,8 +538,28 @@ public class BlueprintMod implements ModInitializer {
                         return bp.enabled();
                     }
                 },
-                trigger, vars, server, server.overworld(), LOGGER);
+                trigger, vars, owner, server, server.overworld(), LOGGER);
         };
+    }
+
+    /**
+     * Le joueur de l'événement déclencheur, ou nul.
+     *
+     * <p>Par la charge utile plutôt que par le type d'événement : {@code Dispatch} dit à
+     * qui l'événement est distribué, pas quelle valeur il porte, et les événements
+     * d'interface ({@code gui_clicked}…) sont {@code GLOBAL} tout en nommant leur joueur.
+     * Se fier au mode de distribution aurait privé de propriétaire exactement les
+     * événements dont un menu a besoin.
+     */
+    private static @org.jetbrains.annotations.Nullable java.util.UUID triggeringPlayer(
+            fr.blueprint.api.event.TriggerContext trigger) {
+        try {
+            return trigger.output("player") instanceof net.minecraft.world.entity.Entity e
+                    ? e.getUUID() : null;
+        } catch (RuntimeException e) {
+            // L'événement ne déclare pas de « player » : ce n'est pas une anomalie.
+            return null;
+        }
     }
 
     /** Pont événements par serveur — consulté par /bpc (7.7). */
@@ -696,7 +721,11 @@ public class BlueprintMod implements ModInitializer {
 
     /** Variables non locales du serveur — en mémoire pour l'instant (persistance : 6.x). */
     public static fr.blueprint.core.vm.VarStore varsOf(net.minecraft.server.MinecraftServer server) {
-        return VARS.computeIfAbsent(server, s -> fr.blueprint.core.vm.VarStore.inMemory());
+        // Depuis la sauvegarde du monde, plus en mémoire volatile : une identité de jeu de
+        // rôle choisie une fois doit survivre au redémarrage du serveur, ce que la portée
+        // PLAYER promet depuis toujours et ne tenait pas.
+        return VARS.computeIfAbsent(server, s -> s.overworld().getDataStorage()
+                .computeIfAbsent(fr.blueprint.core.storage.VarStorage.TYPE));
     }
 
     private static final java.util.Map<net.minecraft.server.MinecraftServer,

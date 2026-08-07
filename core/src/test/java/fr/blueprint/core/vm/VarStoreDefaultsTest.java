@@ -23,6 +23,18 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 class VarStoreDefaultsTest {
 
+    /**
+     * Le propriétaire des variables de ce test — un blueprint <b>et</b> un joueur.
+     *
+     * <p>Les deux sont nécessaires : ces tests amorcent les défauts des trois portées non
+     * locales, et une valeur de portée joueur n'a nulle part où aller tant qu'on ne sait
+     * pas chez qui. L'UUID est fixe pour que l'échec, s'il arrive, soit reproductible.
+     */
+    private static final fr.blueprint.core.vm.VarOwner OWNER =
+            new fr.blueprint.core.vm.VarOwner(
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath("test", "vars"),
+                    java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"));
+
     private Blueprint bp;
     private VarStore store;
 
@@ -40,28 +52,28 @@ class VarStoreDefaultsTest {
     @Test
     void unDefautDeclareEstLuAuPremierAcces() {
         declare("or", VarScope.PLAYER, 20.0);
-        assertNull(store.get(VarScope.PLAYER, "or"), "rien avant l'amorçage");
+        assertNull(store.get(VarScope.PLAYER, OWNER, "or"), "rien avant l'amorçage");
 
-        store.seedDefaults(bp);
-        assertEquals(20.0, store.get(VarScope.PLAYER, "or"));
+        store.seedDefaults(bp, OWNER);
+        assertEquals(20.0, store.get(VarScope.PLAYER, OWNER, "or"));
     }
 
     /** <b>Le test qui compte.</b> Relancer le graphe ne remet pas le compteur à zéro. */
     @Test
     void unDefautNEcrasePasCeQuiExiste() {
         declare("or", VarScope.PLAYER, 20.0);
-        store.seedDefaults(bp);
-        store.set(VarScope.PLAYER, "or", 5.0);
+        store.seedDefaults(bp, OWNER);
+        store.set(VarScope.PLAYER, OWNER, "or", 5.0);
 
-        store.seedDefaults(bp);
-        assertEquals(5.0, store.get(VarScope.PLAYER, "or"), "la valeur en cours survit");
+        store.seedDefaults(bp, OWNER);
+        assertEquals(5.0, store.get(VarScope.PLAYER, OWNER, "or"), "la valeur en cours survit");
     }
 
     @Test
     void unDefautAbsentNAmorceRien() {
         declare("sans", VarScope.GRAPH, null);
-        store.seedDefaults(bp);
-        assertNull(store.get(VarScope.GRAPH, "sans"));
+        store.seedDefaults(bp, OWNER);
+        assertNull(store.get(VarScope.GRAPH, OWNER, "sans"));
     }
 
     /**
@@ -71,8 +83,8 @@ class VarStoreDefaultsTest {
     @Test
     void unePortEeLocaleNEstPasAmorcee() {
         declare("temp", VarScope.LOCAL, 3.0);
-        store.seedDefaults(bp);
-        assertNull(store.get(VarScope.LOCAL, "temp"));
+        store.seedDefaults(bp, OWNER);
+        assertNull(store.get(VarScope.LOCAL, OWNER, "temp"));
     }
 
     @Test
@@ -81,15 +93,15 @@ class VarStoreDefaultsTest {
         declare("w", VarScope.WORLD, 2.0);
         declare("p", VarScope.PLAYER, 3.0);
 
-        store.seedDefaults(bp);
-        assertEquals(1.0, store.get(VarScope.GRAPH, "g"));
-        assertEquals(2.0, store.get(VarScope.WORLD, "w"));
-        assertEquals(3.0, store.get(VarScope.PLAYER, "p"));
+        store.seedDefaults(bp, OWNER);
+        assertEquals(1.0, store.get(VarScope.GRAPH, OWNER, "g"));
+        assertEquals(2.0, store.get(VarScope.WORLD, OWNER, "w"));
+        assertEquals(3.0, store.get(VarScope.PLAYER, OWNER, "p"));
     }
 
     @Test
     void unBlueprintSansVariableNeFaitRien() {
-        store.seedDefaults(bp);
-        assertNull(store.get(VarScope.GRAPH, "quoi"));
+        store.seedDefaults(bp, OWNER);
+        assertNull(store.get(VarScope.GRAPH, OWNER, "quoi"));
     }
 }

@@ -26,6 +26,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** VM sur IR manuelle (story 3.3) : bornes, statuts, fautes — sans compilateur. */
 class VmInstructionTest {
 
+    /**
+     * Le propriétaire des variables de ce test.
+     *
+     * <p>Depuis que la portée PLAYER est réellement clé par joueur, un accès sans
+     * propriétaire faute. Ces tests n’exercent qu’un blueprint et aucun joueur : leur
+     * propriétaire nomme donc le graphe et laisse le joueur nul, ce qui est exactement
+     * ce qu’est une exécution déclenchée par le tick serveur.
+     */
+    private static final fr.blueprint.core.vm.VarOwner OWNER =
+            new fr.blueprint.core.vm.VarOwner(net.minecraft.resources.Identifier.fromNamespaceAndPath("test", "vm"), null);
+
     private static final BlueprintHandle HANDLE = new BlueprintHandle() {
         @Override
         public Identifier id() {
@@ -69,7 +80,7 @@ class VmInstructionTest {
                 new Instruction.Return(null));
         var state = ExecutionState.fresh(ir);
         assertInstanceOf(ExecResult.Done.class, BlueprintVm.run(ir, state, env, 100));
-        assertEquals(42, env.vars().get(VarScope.WORLD, "x"));
+        assertEquals(42, env.vars().get(VarScope.WORLD, OWNER, "x"));
     }
 
     @Test
@@ -80,7 +91,7 @@ class VmInstructionTest {
                 new Instruction.StoreVar(VarScope.LOCAL, "tmp", 0, null),
                 new Instruction.Return(null));
         BlueprintVm.run(ir, ExecutionState.fresh(ir), env, 100);
-        assertNull(env.vars().get(VarScope.LOCAL, "tmp"), "LOCAL ne touche jamais le VarStore");
+        assertNull(env.vars().get(VarScope.LOCAL, OWNER, "tmp"), "LOCAL ne touche jamais le VarStore");
     }
 
     @Test
@@ -97,7 +108,7 @@ class VmInstructionTest {
                     new Instruction.StoreVar(VarScope.WORLD, "chemin", 1, null),
                     new Instruction.Return(null));
             BlueprintVm.run(ir, ExecutionState.fresh(ir), env, 100);
-            return env.vars().get(VarScope.WORLD, "chemin");
+            return env.vars().get(VarScope.WORLD, OWNER, "chemin");
         };
         assertEquals("then", run.apply(true));
         assertEquals("else", run.apply(false));
@@ -124,9 +135,9 @@ class VmInstructionTest {
         var state = ExecutionState.fresh(ir);
         ExecResult first = BlueprintVm.run(ir, state, env, 100);
         assertEquals(new ExecResult.Suspended(40), first);
-        assertNull(env.vars().get(VarScope.WORLD, "après"), "rien après le yield au premier run");
+        assertNull(env.vars().get(VarScope.WORLD, OWNER, "après"), "rien après le yield au premier run");
         assertInstanceOf(ExecResult.Done.class, BlueprintVm.run(ir, state, env, 100));
-        assertEquals(7, env.vars().get(VarScope.WORLD, "après"));
+        assertEquals(7, env.vars().get(VarScope.WORLD, OWNER, "après"));
     }
 
     @Test

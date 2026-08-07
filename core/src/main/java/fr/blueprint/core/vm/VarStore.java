@@ -1,23 +1,49 @@
 package fr.blueprint.core.vm;
 
 import fr.blueprint.core.graph.VarScope;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Stockage des variables non locales ({@code GRAPH}, {@code WORLD}, {@code PLAYER}).
  * La portée {@code LOCAL} vit dans l'{@link ExecutionState}, jamais ici.
- * La persistance ({@code SavedData}, quota joueur) arrive avec les stories 6.x —
- * l'implémentation mémoire sert la VM et les tests.
+ *
+ * <p><b>Chaque valeur a un propriétaire</b>, donné par {@link VarOwner}. Ce n'était pas
+ * le cas : le rangement se faisait par {@code (portée, nom)} seul, si bien que
+ * {@code VarScope.PLAYER} — documenté « persistante par joueur » — mettait tous les
+ * joueurs dans le même panier. Le deuxième à écrire son prénom effaçait celui du premier,
+ * et l'écran de chacun montrait l'identité du dernier arrivé. {@code GRAPH} avait le même
+ * trou entre deux blueprints portant chacun une variable {@code score}.
+ *
+ * <p>Un accès {@code PLAYER} sans joueur ne retombe <b>pas</b> sur un panier commun : il
+ * faute, et la faute nomme la variable. Un graphe branché sur {@code server_tick} n'a
+ * aucun joueur ; lui laisser lire « la » valeur aurait rendu celle d'un joueur au hasard,
+ * ce qui est plus difficile à diagnostiquer qu'un refus. Pour viser un joueur depuis un
+ * tel graphe, il y a {@code var/get_for} et {@code var/set_for}.
  */
 public interface VarStore {
 
-    @Nullable Object get(VarScope scope, String name);
+    @Nullable Object get(VarScope scope, VarOwner owner, String name);
 
-    void set(VarScope scope, String name, @Nullable Object value);
+    void set(VarScope scope, VarOwner owner, String name, @Nullable Object value);
+
+    /**
+     * Le propriétaire porte-t-il ce qu'il faut pour cette portée ?
+     *
+     * <p>Posé <b>avant</b> l'accès plutôt que dedans : la VM veut fauter en nommant le
+     * nœud, ce qu'un magasin qui ne connaît que la portée et le nom ne peut pas faire.
+     */
+    static boolean owns(VarScope scope, VarOwner owner) {
+        return switch (scope) {
+            case PLAYER -> owner.player() != null;
+            case GRAPH -> owner.blueprint() != null;
+            case WORLD, LOCAL -> true;
+        };
+    }
 
     /**
      * Applique les valeurs par défaut déclarées par un blueprint, <b>sans jamais
@@ -31,31 +57,66 @@ public interface VarStore {
      * <p>Appelé au lancement de chaque exécution : c'est le seul moment où l'on
      * connaît à la fois les déclarations et le magasin. Le coût est un parcours des
      * variables du graphe, borné à 256 par les plafonds réseau.
+     *
+     * <p>Les variables dont le propriétaire manque sont <b>sautées</b>, pas fautées : un
+     * graphe de tick qui déclare une variable joueur est parfaitement légitime tant qu'il
+     * ne la lit qu'à travers {@code var/get_for}. Semer sa valeur par défaut n'aurait de
+     * toute façon eu aucun sens sans savoir chez qui.
      */
-    default void seedDefaults(fr.blueprint.core.graph.Blueprint blueprint) {
+    default void seedDefaults(fr.blueprint.core.graph.Blueprint blueprint, VarOwner owner) {
         for (var variable : blueprint.variables().values()) {
-            if (variable.defaultValue() == null || variable.scope() == VarScope.LOCAL) {
+            if (variable.defaultValue() == null || variable.scope() == VarScope.LOCAL
+                    || !owns(variable.scope(), owner)) {
                 continue;
             }
-            if (get(variable.scope(), variable.name()) == null) {
-                set(variable.scope(), variable.name(), variable.defaultValue().value());
+            if (get(variable.scope(), owner, variable.name()) == null) {
+                set(variable.scope(), owner, variable.name(), variable.defaultValue().value());
             }
         }
     }
 
     static VarStore inMemory() {
         return new VarStore() {
-            private final Map<VarScope, Map<String, Object>> store = new EnumMap<>(VarScope.class);
+            // Trois tables plutôt qu'une clé composée en chaîne : une concaténation par
+            // accès aurait alloué dans le chemin le plus chaud de la VM, et le nom d'une
+            // variable est libre — « a:b » aurait pu se confondre avec un préfixe.
+            private final Map<String, Object> world = new HashMap<>();
+            private final Map<Identifier, Map<String, Object>> graph = new HashMap<>();
+            private final Map<UUID, Map<String, Object>> player = new HashMap<>();
 
-            @Override
-            public @Nullable Object get(VarScope scope, String name) {
-                Map<String, Object> vars = store.get(scope);
-                return vars == null ? null : vars.get(name);
+            private @Nullable Map<String, Object> bucket(VarScope scope, VarOwner owner,
+                                                         boolean create) {
+                return switch (scope) {
+                    case WORLD -> world;
+                    case GRAPH -> create
+                            ? graph.computeIfAbsent(owner.blueprint(), k -> new HashMap<>())
+                            : graph.get(owner.blueprint());
+                    case PLAYER -> create
+                            ? player.computeIfAbsent(owner.player(), k -> new HashMap<>())
+                            : player.get(owner.player());
+                    case LOCAL -> null;
+                };
             }
 
             @Override
-            public void set(VarScope scope, String name, @Nullable Object value) {
-                store.computeIfAbsent(scope, s -> new HashMap<>()).put(name, value);
+            public @Nullable Object get(VarScope scope, VarOwner owner, String name) {
+                if (!owns(scope, owner)) {
+                    return null;
+                }
+                Map<String, Object> bucket = bucket(scope, owner, false);
+                return bucket == null ? null : bucket.get(name);
+            }
+
+            @Override
+            public void set(VarScope scope, VarOwner owner, String name,
+                            @Nullable Object value) {
+                if (!owns(scope, owner)) {
+                    return;
+                }
+                Map<String, Object> bucket = bucket(scope, owner, true);
+                if (bucket != null) {
+                    bucket.put(name, value);
+                }
             }
         };
     }
