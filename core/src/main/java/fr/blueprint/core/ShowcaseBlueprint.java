@@ -158,6 +158,14 @@ public final class ShowcaseBlueprint {
                 .withOptions(ElementOptions.slider(0, 100, 5))
                 .withTooltip(ScreenText.literal("Glissez : le score suit, par pas de 5")));
 
+        // La liste déroulante : ses choix sont ses LIGNES, les mêmes qu'une liste, posées
+        // par le même gui/set_lines. Son texte sert d'invite tant que rien n'est choisi.
+        elements.add(ScreenElement.of("choix", ElementKind.DROPDOWN, 0, 0, 170, 12)
+                .withParent("reglages")
+                .resized(Extent.fill(), Extent.of(12))
+                .withText(ScreenText.literal("Choisir un palier…"))
+                .withTooltip(ScreenText.literal("Se déplie par-dessus le reste ; Échap referme")));
+
         elements.add(ScreenElement.of("bascule", ElementKind.TOGGLE, 0, 0, 170, 12)
                 .withParent("reglages")
                 .resized(Extent.fill(), Extent.of(12))
@@ -207,6 +215,7 @@ public final class ShowcaseBlueprint {
         button(bp, lookup, "moins", -10.0, 500);
         closeButton(bp, lookup);
         listClick(bp, lookup);
+        dropdownPick(bp, lookup);
         inputSubmit(bp, lookup);
         sliderMove(bp, lookup);
         toggleFlip(bp, lookup);
@@ -237,7 +246,16 @@ public final class ShowcaseBlueprint {
         link(bp, lookup, command, "player", fill, "player");
         link(bp, lookup, open, "exec_out", fill, "exec_in");
 
-        refreshAfter(bp, lookup, "cmd", fill, command, 240, -400);
+        // Le dropdown reçoit ses choix par le MÊME nœud que la liste, et depuis la même
+        // découpe : deux widgets, une source, un seul endroit à changer.
+        UUID choices = add(bp, lookup, "choices", node("gui/set_lines"), 240, -400);
+        literal(bp, lookup, choices, "screen", LiteralValue.of(PinTypes.STRING, SCREEN));
+        literal(bp, lookup, choices, "element", LiteralValue.of(PinTypes.STRING, "choix"));
+        link(bp, lookup, lines, "parts", choices, "lines");
+        link(bp, lookup, command, "player", choices, "player");
+        link(bp, lookup, fill, "exec_out", choices, "exec_in");
+
+        refreshAfter(bp, lookup, "cmd", choices, command, 480, -400);
     }
 
     /** Un bouton qui ajoute {@code delta} au score, puis rafraîchit les liaisons. */
@@ -287,6 +305,27 @@ public final class ShowcaseBlueprint {
         UUID write = setScore(bp, lookup, "liste", number, -300, 1300);
         link(bp, lookup, event, "exec_out", write, "exec_in");
         refreshAfter(bp, lookup, "liste", write, event, 0, 1300);
+    }
+
+    /**
+     * Choisir dans la liste déroulante : le palier retenu devient le score.
+     *
+     * <p>Le même événement que la liste, {@code gui_list_clicked}, et la même validation
+     * côté serveur — un dropdown ne pose pas une autre question qu'une liste, il la pose
+     * replié. C'est aussi ce qui fait qu'un client modifié annonçant le choix numéro neuf
+     * d'une liste qui en compte trois est écarté par le chemin déjà éprouvé.
+     */
+    private static void dropdownPick(Blueprint bp, NodeTypeLookup lookup) {
+        UUID event = add(bp, lookup, "choix-evt",
+                StandardEvents.GUI_LIST_CLICKED.id(), -600, 2500);
+        literal(bp, lookup, event, "element", LiteralValue.of(PinTypes.STRING, "choix"));
+
+        UUID number = add(bp, lookup, "choix-num", node("convert/to_number"), -600, 2620);
+        link(bp, lookup, event, "line", number, "text");
+
+        UUID write = setScore(bp, lookup, "choix", number, -300, 2500);
+        link(bp, lookup, event, "exec_out", write, "exec_in");
+        refreshAfter(bp, lookup, "choix", write, event, 0, 2500);
     }
 
     /** Valider le champ de saisie : son contenu devient le score. */

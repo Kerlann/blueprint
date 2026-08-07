@@ -392,7 +392,10 @@ public final class ServerBlueprintNet {
         net.minecraft.server.MinecraftServer server = player.level().getServer();
 
         return switch (element.kind()) {
-            case LIST -> {
+            // Le DROPDOWN emprunte EXACTEMENT le chemin de la liste : ses choix sont des
+            // lignes, la validation est la même, et l'événement rendu au graphe aussi. Ce
+            // qui les distingue est le dessin, pas la question posée.
+            case LIST, DROPDOWN -> {
                 // L'indice doit exister DANS ce que le serveur a envoyé. Le client peut
                 // annoncer la ligne 900 d'une liste qui en compte trois.
                 var lines = SCREENS.linesOf(player.getUUID(), value.screen(), value.element());

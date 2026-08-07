@@ -194,6 +194,13 @@ public final class StressBlueprints {
                 .withOptions(new ElementOptions("", 0, ElementOptions.InputFilter.TEXT,
                         0, 100, 5, 0, null))
                 .withTooltip(ScreenText.literal("De 0 à 100, par pas de 5")));
+        // La liste déroulante compte comme les autres dans ce banc : elle occupe une case
+        // repliée, et son panneau déplié — qui vit côté client — n'entre pas dans la passe
+        // de disposition. C'est justement ce qu'il faut vérifier ici.
+        elements.add(ScreenElement.of("deroulante", ElementKind.DROPDOWN, 0, 0, 180, 12)
+                .withParent("reglages").resized(Extent.fill(), Extent.of(12))
+                .withText(ScreenText.literal("Choisir une option…"))
+                .withTooltip(ScreenText.literal("Se déplie par-dessus le reste")));
         elements.add(ScreenElement.of("liste", ElementKind.LIST, 0, 0, 180, 30)
                 .withParent("reglages").resized(Extent.fill(), Extent.of(30))
                 .withOptions(new ElementOptions("", 0, ElementOptions.InputFilter.TEXT,

@@ -599,6 +599,7 @@
   "blueprint.designer.kind.toggle": "Checkbox",
   "blueprint.designer.kind.slider": "Slider",
   "blueprint.designer.kind.entity_preview": "Entity",
+  "blueprint.designer.kind.dropdown": "Dropdown",
   "blueprint.designer.field.placeholder": "Hint",
   "blueprint.designer.field.max_length": "Max length",
   "blueprint.designer.field.step": "Step",

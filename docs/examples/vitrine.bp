@@ -19,11 +19,16 @@ blueprint blueprint:vitrine {
     list "liste" @in("reglages") @at(top_left, 0, 0) @size(fill, 40) @tip("Cliquez une ligne : elle devient le score") @opts(rowHeight: 10) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     input "saisie" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @tip("Validez : le score prend cette valeur") @opts(placeholder: "Un nombre, puis Entrée", maxLength: 4, filter: integer) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     slider "curseur" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @tip("Glissez : le score suit, par pas de 5") @opts(max: 100, step: 5) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    dropdown "choix" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @text("Choisir un palier…") @tip("Se déplie par-dessus le reste ; Échap referme") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     toggle "bascule" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @text("Autoriser « +10 »") @tip("Décochez : le bouton « +10 » se grise") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     panel "actions" @in("racine") @at(top_left, 0, 0) @size(fill, 16) @layout(row, gap: 4, cross: stretch) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     button "plus" @in("actions") @at(top_left, 0, 0) @size(fill, fill) @text("+10") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     button "moins" @in("actions") @at(top_left, 0, 0) @size(fill, fill) @text("-10") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     button "fermer" @in("actions") @at(top_left, 0, 0) @size(fill, fill) @text("Fermer") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+  }
+  on blueprint:event/gui_list_clicked(player, screen, element, index, line) @id("84a85b20-d8c5-32eb-b0c7-3e845701bd76") @pos(-600, 2500) @with(element: "choix") {
+    blueprint:var/set(var: "score", value: blueprint:convert/to_number(text: $line) @id("df9c1dd9-4be0-3271-8600-dc0e33013c92") @pos(-600, 2620)) @id("25fb0dfe-ff9e-301a-bbd1-55d497d7b9a8") @pos(-300, 2500)
+    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("1304ae4f-617d-3192-bd95-196593344eee") @pos(240, 2500)
   }
   on blueprint:event/gui_list_clicked(player, screen, element, index, line) @id("a503659b-e98e-37c7-9ba8-e6a67fb27f05") @pos(-600, 1300) @with(element: "liste") {
     blueprint:var/set(var: "score", value: blueprint:convert/to_number(text: $line) @id("10894da9-02fd-3ab5-9437-73055b7850f0") @pos(-600, 1420)) @id("db61dda0-6ba9-3271-9714-f20d6101289c") @pos(-300, 1300)
@@ -35,7 +40,8 @@ blueprint blueprint:vitrine {
   on blueprint:event/command(player, name, arg) @id("e7e5536f-b994-30d0-b163-86c314137167") @pos(-600, -400) @with(name: "vitrine") {
     blueprint:gui/open(player: $player, screen: "vitrine") @id("02f707f8-7883-389c-8587-f410e0772524") @pos(-300, -400)
     blueprint:gui/set_lines(player: $player, screen: "vitrine", element: "liste", lines: blueprint:string/split(text: "0,25,50,75,100", separator: ",") @id("508d3ce4-bedf-3dbc-ac44-0d17b39663a4") @pos(-600, -250)) @id("d5ac2a2d-ad1f-3374-8154-d27f9408b6c2") @pos(-40, -400)
-    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("3c32a2bb-1481-3645-849b-a639054c239d") @pos(480, -400)
+    blueprint:gui/set_lines(player: $player, screen: "vitrine", element: "choix", lines: blueprint:string/split(text: "0,25,50,75,100", separator: ",") @id("508d3ce4-bedf-3dbc-ac44-0d17b39663a4") @pos(-600, -250)) @id("125d45da-6b22-3a05-a99e-70f8c759153f") @pos(240, -400)
+    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("3c32a2bb-1481-3645-849b-a639054c239d") @pos(720, -400)
   }
   on blueprint:event/gui_clicked(player, screen, element) @id("e8156921-9b13-3c62-bd10-a10b1a2374bc") @pos(-600, 0) @with(element: "plus") {
     blueprint:var/set(var: "score", value: blueprint:math/clamp(value: blueprint:math/add(a: blueprint:var/get(var: "score") @id("e03d05f8-87ea-3edb-9c9c-0e6c3a609298") @pos(-600, 120), b: 10.0) @id("50f467ba-2d6b-3b77-972d-01708ca1ff38") @pos(-380, 120), min: 0.0, max: 100.0) @id("1cefe7e5-16a8-3816-a6c4-188b7d44957e") @pos(-160, 120)) @id("b7abef14-14a4-34f0-92c4-2868e005b69f") @pos(-300, 0)

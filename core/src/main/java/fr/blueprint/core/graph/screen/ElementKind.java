@@ -53,7 +53,24 @@ public enum ElementKind {
      * déclencherait des événements, compterait dans les quotas du monde, et resterait là
      * si l'écran se fermait mal.
      */
-    ENTITY_PREVIEW(false, false);
+    ENTITY_PREVIEW(false, false),
+
+    /**
+     * Liste déroulante : un choix parmi plusieurs, replié tant qu'on n'y touche pas.
+     *
+     * <p><b>Ses choix sont ses lignes</b> — les mêmes que celles d'une {@link #LIST}, posées
+     * par {@code gui/set_lines}, validées côté serveur par le même chemin, et rendues au
+     * graphe par le même événement {@code gui_list_clicked}. Inventer un second mécanisme
+     * de choix aurait doublé la surface à valider pour rien : « quel élément de cette
+     * liste » est la même question, qu'elle soit posée dépliée ou repliée.
+     *
+     * <p>Ce qui le distingue vraiment d'une liste n'est pas le modèle mais le
+     * <b>dessin</b> : déplié, il se peint <i>par-dessus</i> le reste de l'écran. C'est le
+     * seul élément qui sorte de sa case, et cette couche flottante vit dans l'écran
+     * client — là où vit déjà l'état d'interaction — plutôt que dans le peintre, qui reste
+     * une fonction pure du modèle.
+     */
+    DROPDOWN(false, true);
 
     private final boolean container;
     private final boolean interactive;

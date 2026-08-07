@@ -599,6 +599,7 @@
   "blueprint.designer.kind.toggle": "Case à cocher",
   "blueprint.designer.kind.slider": "Curseur",
   "blueprint.designer.kind.entity_preview": "Entité",
+  "blueprint.designer.kind.dropdown": "Liste déroulante",
   "blueprint.designer.field.placeholder": "Indication",
   "blueprint.designer.field.max_length": "Longueur max",
   "blueprint.designer.field.step": "Pas",

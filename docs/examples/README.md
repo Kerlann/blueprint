@@ -23,6 +23,7 @@ la case à cocher écrivent, le champ de saisie est relu à la validation.
 | `BUTTON` | trois : `+10`, `-10`, `Fermer` |
 | `LIST` | remplie par le graphe, et qui rend la ligne cliquée |
 | `INPUT` | numérique, relu **à la validation** seulement |
+| `DROPDOWN` | replié, il se **déplie par-dessus le reste** ; ses choix sont des lignes |
 | `TOGGLE` | grise le bouton `+10` — un widget qui en pilote un autre |
 | `SLIDER` | écrit `score` en continu, par pas de 5 |
 | `SLOT` | un emplacement d'objet |
@@ -43,6 +44,29 @@ Deux pièges que la vitrine désamorce au passage, tous deux vécus :
 
 La variable est de portée **`PLAYER`** : deux joueurs ouvrant la vitrine ont chacun leur
 score. En portée `GRAPH`, le second verrait celui du premier bouger sous ses yeux.
+
+## La liste déroulante
+
+Elle mérite un mot, parce qu'elle est le seul élément qui **sorte de sa case**.
+
+Ses choix sont ses **lignes** — les mêmes qu'une `LIST`, posées par le même
+`gui/set_lines`, validées par le même chemin serveur, et rendues au graphe par le même
+événement `gui_list_clicked`. « Quel élément de cette liste » est la même question, qu'elle
+soit posée dépliée ou repliée : inventer un second mécanisme aurait doublé la surface à
+valider pour rien.
+
+Ce qui la distingue est le **dessin**. Le panneau déplié se peint par-dessus tout le reste,
+et ce calque vit dans l'écran client plutôt que dans le peintre — celui-ci parcourt les
+éléments dans l'ordre de la table de disposition et n'a pas de notion de couche. Lui en
+donner une pour un seul type aurait compliqué le dessin de tous les autres.
+
+Trois comportements que l'usage réclame, et qui sont dans le code :
+
+- le panneau tombe **sous** l'élément, sauf s'il n'y a plus la place en bas — auquel cas il
+  remonte au-dessus, sans quoi une liste en bas de fenêtre se déplierait hors de l'écran ;
+- **Échap referme la liste avant l'écran**, comme il relâche un champ de saisie ;
+- un clic à côté referme aussi — une liste qui resterait ouverte donnerait un menu dont on
+  ne sait plus sortir.
 
 ---
 

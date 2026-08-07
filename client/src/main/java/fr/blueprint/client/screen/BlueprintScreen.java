@@ -153,6 +153,22 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
     /** Le champ de saisie actif : une seule frappe à la fois, comme partout. */
     private @Nullable String editing;
 
+    /**
+     * La liste déroulante ouverte, ou {@code null}.
+     *
+     * <p>Une seule à la fois, et c'est le comportement de toutes celles qu'on connaît :
+     * ouvrir la deuxième referme la première. Cet état vit ici plutôt que dans le modèle
+     * parce qu'il est <b>propre à ce client</b> — deux joueurs devant le même écran
+     * n'ouvrent pas la même liste, et le serveur n'a rien à en savoir tant que rien n'est
+     * choisi.
+     */
+    private @Nullable String openDropdown;
+
+    /** Hauteur d'une ligne dépliée, en unités d'interface. */
+    private static final int DROPDOWN_ROW = 11;
+    /** Au-delà, le panneau déplié se limite et défile à la molette. */
+    private static final int DROPDOWN_MAX_ROWS = 8;
+
     private static net.minecraft.world.item.ItemStack itemOf(
             fr.blueprint.core.graph.screen.ScreenUpdate update) {
         var id = fr.blueprint.core.graph.screen.PackRef.texture(update.text());
@@ -712,6 +728,13 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         int key = event.key();
+        // Échap REFERME la liste dépliée avant l'écran, exactement comme il relâche un
+        // champ de saisie : quitter le menu d'un coup parce qu'on voulait juste renoncer
+        // à un choix serait une surprise désagréable, et c'est le geste réflexe.
+        if (openDropdown != null && key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            openDropdown = null;
+            return true;
+        }
         if (editing != null) {
             if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE) {
                 String current = inputs.getOrDefault(editing, "");
@@ -764,6 +787,12 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event,
                                 boolean doubled) {
+        // La liste dépliée EN PREMIER, avant même les barres de défilement : c'est elle
+        // qui est dessinée par-dessus tout, donc c'est elle qui doit recevoir le clic en
+        // premier. L'ordre des tests ici suit exactement l'ordre du dessin, à l'envers.
+        if (clickOpenDropdown(event.x(), event.y())) {
+            return true;
+        }
         // Le curseur de défilement AVANT tout le reste : il est dessiné par-dessus le
         // panneau, donc il doit aussi recevoir le clic par-dessus ce qu'il recouvre.
         if (grabScrollBar(event.x(), event.y())) {
@@ -834,6 +863,12 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                     editing = was;
                     return true;
                 }
+                case DROPDOWN -> {
+                    // Bascule : recliquer sur une liste ouverte la referme, ce que fait
+                    // toute liste déroulante et ce qu'un joueur essaie en premier.
+                    openDropdown = was.equals(openDropdown) ? null : was;
+                    return true;
+                }
                 default -> {
                 }
             }
@@ -868,7 +903,108 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         // c'est contre elle que se résolvent les pourcentages et les ancres.
         ScreenPainter.paint(graphics, font, model, layout(), 0, 0, 1,
                 visuals(mouseX, mouseY));
+        // APRÈS le peintre, donc par-dessus tout : c'est la seule chose de cet écran qui
+        // sorte de sa case. La faire dessiner par ScreenPainter aurait demandé d'y
+        // introduire une notion de calque pour un unique type d'élément.
+        renderOpenDropdown(graphics, mouseX, mouseY);
         renderTooltip(graphics, mouseX, mouseY);
+    }
+
+    /** La zone occupée par le panneau déplié, ou {@code null} si rien n'est ouvert. */
+    private fr.blueprint.core.graph.screen.ScreenLayout.@Nullable Rect dropdownPanel() {
+        if (openDropdown == null) {
+            return null;
+        }
+        var element = model.element(openDropdown);
+        var rect = layout().get(openDropdown);
+        if (element == null || rect == null || !element.visible() || !element.enabled()) {
+            return null;
+        }
+        int rows = Math.min(DROPDOWN_MAX_ROWS, lines.getOrDefault(openDropdown,
+                java.util.List.of()).size());
+        if (rows <= 0) {
+            return null;   // une liste sans choix n'ouvre rien plutôt qu'un cadre vide
+        }
+        double height = rows * DROPDOWN_ROW;
+        // Le panneau tombe SOUS l'élément, sauf s'il n'y a plus la place en bas — auquel
+        // cas il remonte au-dessus. Sans cela, une liste placée en bas de fenêtre déplie
+        // hors de l'écran et paraît ne rien faire.
+        double below = rect.y() + rect.height();
+        double top = below + height <= this.height ? below : rect.y() - height;
+        return new fr.blueprint.core.graph.screen.ScreenLayout.Rect(
+                rect.x(), Math.max(0, top), rect.width(), height);
+    }
+
+    private void renderOpenDropdown(GuiGraphics graphics, int mouseX, int mouseY) {
+        var panel = dropdownPanel();
+        if (panel == null || openDropdown == null) {
+            return;
+        }
+        var element = model.element(openDropdown);
+        var style = model.styleOf(element);
+        java.util.List<String> choices = lines.getOrDefault(openDropdown, java.util.List.of());
+
+        int left = (int) panel.x();
+        int top = (int) panel.y();
+        int right = (int) (panel.x() + panel.width());
+        int bottom = (int) (panel.y() + panel.height());
+
+        // Un fond OPAQUE : le panneau recouvre ce qui est dessous, et un fond translucide
+        // laisserait lire deux textes superposés.
+        graphics.fill(left - 1, top - 1, right + 1, bottom + 1, style.border());
+        graphics.fill(left, top, right, bottom, 0xFF101318);
+
+        int hovered = choiceAt(mouseX, mouseY);
+        for (int i = 0; i < Math.min(DROPDOWN_MAX_ROWS, choices.size()); i++) {
+            int rowTop = top + i * DROPDOWN_ROW;
+            if (i == hovered) {
+                graphics.fill(left, rowTop, right, rowTop + DROPDOWN_ROW, style.hoverBackground());
+            }
+            graphics.drawString(font,
+                    font.plainSubstrByWidth(choices.get(i), right - left - 4),
+                    left + 2, rowTop + 2, style.textColor(), false);
+        }
+    }
+
+    /** L'indice du choix sous le curseur dans le panneau déplié, ou −1. */
+    private int choiceAt(double mouseX, double mouseY) {
+        var panel = dropdownPanel();
+        if (panel == null || mouseX < panel.x() || mouseX > panel.x() + panel.width()
+                || mouseY < panel.y() || mouseY > panel.y() + panel.height()) {
+            return -1;
+        }
+        int index = (int) ((mouseY - panel.y()) / DROPDOWN_ROW);
+        int available = lines.getOrDefault(openDropdown, java.util.List.of()).size();
+        return index >= 0 && index < Math.min(DROPDOWN_MAX_ROWS, available) ? index : -1;
+    }
+
+    /**
+     * Le clic quand une liste est dépliée. Il est traité <b>avant</b> tout le reste : le
+     * panneau recouvre l'écran, il doit donc aussi recouvrir les clics.
+     *
+     * @return vrai si le panneau a consommé le clic.
+     */
+    private boolean clickOpenDropdown(double mouseX, double mouseY) {
+        if (openDropdown == null) {
+            return false;
+        }
+        String element = openDropdown;
+        int choice = choiceAt(mouseX, mouseY);
+        // Refermé dans TOUS les cas : choisir referme, cliquer à côté referme aussi.
+        // Une liste qui resterait ouverte après un clic dans le vide donnerait un menu
+        // dont on ne sait plus comment sortir.
+        openDropdown = null;
+        if (choice < 0) {
+            return true;
+        }
+        values.put(element, (double) choice);
+        if (onValue != null) {
+            var choices = lines.getOrDefault(element, java.util.List.of());
+            onValue.accept(new Interaction(element, choice,
+                    choice < choices.size() ? choices.get(choice) : "", choice, true));
+        }
+        playClick();
+        return true;
     }
 
     /**

@@ -357,6 +357,10 @@ public final class ScreenPainter {
                 fillBox(g, left, top, right, bottom, background, style, scale);
                 paintEntity(g, element, left, top, right, bottom);
             }
+            case DROPDOWN -> {
+                fillBox(g, left, top, right, bottom, background, style, scale);
+                paintDropdown(g, font, element, style, left, top, right, bottom, scale, visuals);
+            }
             default -> fillBox(g, left, top, right, bottom, background, style, scale);
         }
 
@@ -409,6 +413,51 @@ public final class ScreenPainter {
      * dessinerait les cent, par-dessus tout le reste de l'écran — le panneau qui la
      * contient, les boutons voisins, et jusqu'aux bords de la fenêtre.
      */
+    /**
+     * La liste déroulante <b>repliée</b> : le choix courant, et la flèche qui dit qu'il y
+     * en a d'autres.
+     *
+     * <p>Le panneau déplié n'est pas dessiné ici, et c'est délibéré : il sort de la case
+     * de l'élément et doit se peindre par-dessus tout le reste. Ce peintre parcourt les
+     * éléments dans l'ordre de la table de disposition — il n'a pas de notion de calque,
+     * et lui en donner une pour un seul type d'élément aurait compliqué le dessin de tous
+     * les autres. Le déplié vit donc dans {@code BlueprintScreen}, qui sait déjà quel
+     * élément est ouvert puisque c'est lui qui reçoit les clics.
+     *
+     * <p>Rendu identique dans le concepteur, où rien n'est jamais ouvert : l'auteur voit
+     * la case telle qu'elle occupera la place, ce qui est ce qu'il compose.
+     */
+    static void paintDropdown(GuiGraphics g, Font font, ScreenElement element,
+                              ElementStyle style, int left, int top, int right, int bottom,
+                              int scale, Visuals visuals) {
+        int inset = Math.max(1, style.padding() * scale);
+        int arrow = 3 * scale;
+
+        java.util.List<String> lines = visuals.lines(element.name());
+        int selected = (int) Math.round(visuals.value(element.name()));
+        // Hors bornes = rien de choisi : on montre le texte de l'élément, qui sert
+        // d'invite (« Choisir une couleur… »). Un index périmé après un set_lines plus
+        // court ne doit pas afficher une ligne d'une autre liste.
+        String label = selected >= 0 && selected < lines.size()
+                ? lines.get(selected)
+                : (element.text().translate()
+                        ? Component.translatable(element.text().value()).getString()
+                        : element.text().value());
+
+        String shown = font.plainSubstrByWidth(label,
+                Math.max(0, right - left - 2 * inset - arrow - 2));
+        g.drawString(font, shown, left + inset + 1,
+                (top + bottom) / 2 - font.lineHeight / 2, style.textColor(), false);
+
+        // Le chevron : trois traits qui rétrécissent, dessinés à la main faute de pouvoir
+        // tracer un triangle — la même contrainte que les fils du canevas.
+        int cx = right - inset - arrow;
+        int cy = (top + bottom) / 2 - scale;
+        for (int i = 0; i < arrow; i++) {
+            g.fill(cx + i, cy + i, cx + 2 * arrow - i, cy + i + 1, style.textColor());
+        }
+    }
+
     private static void paintList(GuiGraphics g, Font font, ScreenElement element,
                                   ElementStyle style, int left, int top, int right, int bottom,
                                   int scale, Visuals visuals) {
