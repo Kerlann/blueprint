@@ -1,12 +1,61 @@
 # Les blueprints livrés
 
-Trois, et chacun a un travail précis.
+Quatre, et chacun a un travail précis.
 
 | | |
 |---|---|
+| [`fonctions.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/fonctions.bp) | **définir une fois, appeler partout** — `/blueprint fonctions` puis `/bpc fonctions` |
 | [`rp.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/rp.bp) | **un serveur de jeu de rôle** — `/blueprint rp`, puis reconnecte-toi |
 | [`vitrine.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/vitrine.bp) | **les douze types d'éléments d'écran, tous câblés** — `/blueprint showcase` puis `/bpc vitrine` |
 | [`bench.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/bench.bp) | **un banc de performance** — `/blueprint bench` puis `/bpc bench` |
+
+---
+
+# Les fonctions
+
+Une suite de nœuds définie **une fois** et appelée depuis plusieurs endroits.
+
+```
+/blueprint fonctions      # l'installe et l'active
+/bpc fonctions            # il répond « 3x3 + 4x4 = 25 »
+```
+
+Deux fonctions, dont l'une appelle l'autre :
+
+```
+func "carre"(n: double) returns (r: double) { … }
+func "hypotenuse_carree"(a: double, b: double) returns (d: double) {
+    blueprint:func/call(function: "carre", n: …)
+    blueprint:func/call(function: "carre", n: …)
+    …
+}
+```
+
+## Pourquoi deux appels et pas deux multiplications
+
+Parce qu'un seul appel ne prouverait rien. `carre(3)` et `carre(4)` vivent dans la **même
+exécution**, et leurs résultats sont additionnés **après** que les deux ont tourné.
+
+- Un corps partagé entre les deux sites rendrait **32** (2 × 16) ;
+- une mémoïsation qui ne les distingue pas rendrait **18** (2 × 9).
+
+Le blueprint range son résultat dans une variable en plus de l'annoncer au joueur, ce qui
+le rend **vérifiable sans partie** : un test le compile, l'exécute et lit 25. Il est donc sa
+propre preuve, et pas seulement une illustration.
+
+## Ce qu'il faut savoir avant d'en écrire
+
+- **Un corps est déplié à chaque appel**, pas sauté. Le carburant est donc exactement celui
+  du code exécuté, et deux appels ne partagent rien — mais l'IR grossit du corps à chaque
+  site.
+- **La récursion est refusée**, directe comme mutuelle. Le message nomme le cycle : `a → b →
+  a` se lit, là où « récursion détectée » enverrait chercher laquelle.
+- **Une fonction ne blanchit pas les permissions.** Un nœud `ADMIN` posé dans un corps est
+  confronté au plafond du blueprint exactement comme les autres.
+- **Un événement dans un corps est refusé** : une fonction s'appelle, elle ne se déclenche
+  pas.
+- **Il n'y a pas encore d'interface** pour en créer. Elles s'écrivent en BScript, puis
+  `/blueprint import`. Le panneau et l'onglet de corps sont la story 20.2.
 
 ---
 

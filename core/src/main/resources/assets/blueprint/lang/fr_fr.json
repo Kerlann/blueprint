@@ -92,6 +92,8 @@
   "blueprint.cmd.showcase_created_no_file": "Vitrine %s créée et activée, mais SANS pouvoir écrire le fichier (voir le log serveur) — elle fonctionne quand même en jeu",
   "blueprint.cmd.rp_created": "Serveur RP %s créé, activé et exporté — reconnecte-toi pour créer ton personnage",
   "blueprint.cmd.rp_created_no_file": "Serveur RP %s créé et activé, mais SANS pouvoir écrire le fichier (voir le log serveur) — il fonctionne quand même en jeu",
+  "blueprint.cmd.functions_created": "Exemple des fonctions %s créé, activé et exporté — lance-le avec /bpc fonctions",
+  "blueprint.cmd.functions_created_no_file": "Exemple des fonctions %s créé et activé, mais SANS pouvoir écrire le fichier (voir le log serveur) — il fonctionne quand même en jeu",
   "blueprint.cmd.debug_on": "Débogage de %s — points d'arrêt et valeurs enregistrés",
   "blueprint.cmd.debug_off": "Débogage de %s arrêté (une exécution en pause repart)",
   "blueprint.cmd.debug_not_open": "Le débogage n'est pas actif sur %s — /blueprint debug <id> on",

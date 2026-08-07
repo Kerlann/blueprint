@@ -92,6 +92,8 @@
   "blueprint.cmd.showcase_created_no_file": "Showcase %s created and enabled, but could NOT be written to disk (see the server log) — it still works in game",
   "blueprint.cmd.rp_created": "Roleplay server %s created, enabled and exported — reconnect to create your character",
   "blueprint.cmd.rp_created_no_file": "Roleplay server %s created and enabled, but could NOT be written to disk (see the server log) — it still works in game",
+  "blueprint.cmd.functions_created": "Functions example %s created, enabled and exported — run it with /bpc fonctions",
+  "blueprint.cmd.functions_created_no_file": "Functions example %s created and enabled, but could NOT be written to disk (see the server log) — it still works in game",
   "blueprint.cmd.debug_on": "Debugging %s — breakpoints and values are now recorded",
   "blueprint.cmd.debug_off": "Debugging of %s stopped (a paused run resumes)",
   "blueprint.cmd.debug_not_open": "Debugging is not on for %s — /blueprint debug <id> on",

@@ -139,6 +139,10 @@ public final class BlueprintCommand {
                 .then(literal("rp")
                         .requires(admin)
                         .executes(BlueprintCommand::roleplay))
+                // Les fonctions : définir une fois, appeler partout.
+                .then(literal("fonctions")
+                        .requires(admin)
+                        .executes(BlueprintCommand::functions))
                 // Le contenu déclaré (épic 11). Sans cette commande, un fichier écarté
                 // ne se saurait que dans le journal du serveur — c'est-à-dire nulle part,
                 // pour qui vient de déposer un JSON et se demande où est son item.
@@ -587,6 +591,13 @@ public final class BlueprintCommand {
         return install(ctx, fr.blueprint.core.ShowcaseBlueprint.build(
                 fr.blueprint.core.BlueprintMod.registries().nodes()),
                 "blueprint.cmd.showcase_created", "blueprint.cmd.showcase_created_no_file");
+    }
+
+    /** Installe l'exemple des fonctions et l'ACTIVE. */
+    private static int functions(CommandContext<CommandSourceStack> ctx) {
+        return install(ctx, fr.blueprint.core.FunctionBlueprint.build(
+                fr.blueprint.core.BlueprintMod.registries().nodes()),
+                "blueprint.cmd.functions_created", "blueprint.cmd.functions_created_no_file");
     }
 
     /**

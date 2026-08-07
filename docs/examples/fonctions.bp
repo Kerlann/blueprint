@@ -1,0 +1,22 @@
+blueprint blueprint:fonctions {
+  meta {
+    author "Blueprint"
+    description "Les fonctions : definir une fois, appeler partout"
+    version "1.0.0"
+    permission GAMEPLAY
+  }
+  var double resultat = 0.0 @graph
+  func "carre"(n: double) returns (r: double) @id("b4832e16-53c0-3566-8f8d-71d094e90869") @pos(-300, 0) {
+    blueprint:func/result(function: "carre", r: blueprint:math/mul(a: $node("b4832e16-53c0-3566-8f8d-71d094e90869").n, b: $node("b4832e16-53c0-3566-8f8d-71d094e90869").n) @id("826d0c6d-0b8b-3db2-b4d6-3fd0f02bcacf") @pos(-60, 120)) @id("d4cef5c3-9c26-3771-aa50-919b6e59ee33") @pos(180, 0)
+  }
+  func "hypotenuse_carree"(a: double, b: double) returns (d: double) @id("e1d7a5fe-4eb5-3b65-9ea8-5d24aa6db06f") @pos(-600, 0) {
+    blueprint:func/call(function: "carre", n: $node("e1d7a5fe-4eb5-3b65-9ea8-5d24aa6db06f").a) @id("bb66dc5f-74ac-3830-92e2-b8d4c91d036a") @pos(-340, 0)
+    blueprint:func/call(function: "carre", n: $node("e1d7a5fe-4eb5-3b65-9ea8-5d24aa6db06f").b) @id("6b4b733d-6059-34a5-96a4-01fae48a1aba") @pos(-80, 0)
+    blueprint:func/result(function: "hypotenuse_carree", d: blueprint:math/add(a: $node("bb66dc5f-74ac-3830-92e2-b8d4c91d036a").r, b: $node("6b4b733d-6059-34a5-96a4-01fae48a1aba").r) @id("98d2fba9-6f10-3442-aa91-8a1d64cd0dbe") @pos(180, 140)) @id("2abb325e-c150-3222-847b-7c782ba047da") @pos(180, 0)
+  }
+  on blueprint:event/command(player, name, arg) @id("521bfbea-b4bf-3d61-b6e5-d0c69a653d71") @pos(-600, 0) @with(name: "fonctions") {
+    blueprint:func/call(function: "hypotenuse_carree", a: 3.0, b: 4.0) @id("ad69728c-b4d0-355e-8e88-54e8253acb1d") @pos(-300, 0)
+    blueprint:var/set(var: "resultat", value: $node("ad69728c-b4d0-355e-8e88-54e8253acb1d").d) @id("9e103caa-4691-30f9-92aa-1ca8612d639c") @pos(-60, 0)
+    blueprint:player/send_message(player: $player, text: blueprint:string/concat(a: "3x3 + 4x4 = ", b: blueprint:convert/to_string(value: $node("ad69728c-b4d0-355e-8e88-54e8253acb1d").d) @id("2fbd0b25-ab10-368f-aebe-4d605ad99851") @pos(-300, 200)) @id("1627c7c2-798c-30df-8f00-3295e06c94d3") @pos(-60, 200)) @id("614281af-4e7c-3c20-81c1-009ecb599bb3") @pos(240, 0)
+  }
+}
