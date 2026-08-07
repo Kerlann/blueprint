@@ -1,6 +1,7 @@
 package fr.blueprint.core.graph;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Les opérations d'édition sur les fonctions (story 20.1), rangées à part sur le modèle de
@@ -119,6 +120,193 @@ public final class FunctionOps {
             bp.putFunction(before.withName(to));
             bp.bumpRevision();
             return Result.ok(new RenameFunction(to, from));
+        }
+    }
+
+    // ---------------------------------- éditer DANS un corps, geste par geste (20.2)
+    //
+    // SetBody remplace un corps en bloc : c'est ce qu'il faut pour un collage, et c'est
+    // désastreux pour un déplacement de nœud, qui produirait un pas d'annulation par
+    // pixel — et dont l'inverse porterait tout le corps.
+    //
+    // Ces opérations visent donc un nœud DANS une fonction nommée. Elles restent des
+    // EditOperation appliquées à la session : l'annuler/rétablir, la sauvegarde et la
+    // synchronisation réseau ne changent pas de nature, et un geste fait dans un corps
+    // s'annule dans le même ordre qu'un geste fait dans le graphe.
+
+    /** La fonction visée, ou un refus prêt à rendre. */
+    private static @org.jetbrains.annotations.Nullable BlueprintFunction target(
+            Blueprint bp, String function) {
+        return bp.function(function);
+    }
+
+    private static EditOperation.Result noFunction(String name) {
+        return EditOperation.Result.refused(Diagnostic.error(DiagnosticCode.FUNCTION_NOT_FOUND,
+                Diagnostic.function(name), name));
+    }
+
+    private static EditOperation.Result noNode(java.util.UUID uuid) {
+        return EditOperation.Result.refused(Diagnostic.error(DiagnosticCode.NODE_NOT_FOUND,
+                Diagnostic.node(uuid), uuid.toString()));
+    }
+
+    public record AddNodeIn(String function, java.util.UUID uuid,
+                            net.minecraft.resources.Identifier typeId,
+                            Vec2d position) implements EditOperation {
+        @Override
+        public Result apply(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
+            BlueprintFunction f = target(bp, function);
+            if (f == null) {
+                return noFunction(function);
+            }
+            if (f.nodes().containsKey(uuid) || bp.node(uuid) != null) {
+                return Result.refused(Diagnostic.error(DiagnosticCode.DUPLICATE_NODE,
+                        Diagnostic.node(uuid), uuid.toString()));
+            }
+            if (totalNodes(bp) >= limits.maxNodes()) {
+                return Result.refused(Diagnostic.error(DiagnosticCode.NODE_LIMIT_EXCEEDED,
+                        Diagnostic.graph(), totalNodes(bp) + 1, limits.maxNodes()));
+            }
+            bp.putFunction(f.withNode(new Node(uuid, typeId, position)));
+            bp.bumpRevision();
+            return Result.ok(new RemoveNodeIn(function, uuid));
+        }
+    }
+
+    public record RemoveNodeIn(String function, java.util.UUID uuid) implements EditOperation {
+        @Override
+        public Result apply(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
+            BlueprintFunction f = target(bp, function);
+            if (f == null) {
+                return noFunction(function);
+            }
+            Node node = f.nodes().get(uuid);
+            if (node == null) {
+                return noNode(uuid);
+            }
+            // Les liens coupés voyagent avec l'inverse : les recalculer au moment de
+            // l'annulation regarderait un corps qui a pu changer entre-temps.
+            Set<Link> severed = f.linksTouching(uuid);
+            bp.putFunction(f.withoutNode(uuid));
+            bp.bumpRevision();
+            return Result.ok(new RestoreNodeIn(function, node, Set.copyOf(severed)));
+        }
+    }
+
+    /** Inverse de {@link RemoveNodeIn} : repose le nœud et ses liens tels quels. */
+    public record RestoreNodeIn(String function, Node snapshot,
+                                Set<Link> links) implements EditOperation {
+        @Override
+        public Result apply(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
+            BlueprintFunction f = target(bp, function);
+            if (f == null) {
+                return noFunction(function);
+            }
+            BlueprintFunction restored = f.withNode(snapshot.copy());
+            for (Link link : links) {
+                restored = restored.withLink(link);
+            }
+            bp.putFunction(restored);
+            bp.bumpRevision();
+            return Result.ok(new RemoveNodeIn(function, snapshot.uuid()));
+        }
+    }
+
+    /**
+     * Déplace un nœud d'un corps.
+     *
+     * <p>Le {@link Node} est muté <b>en place</b>, comme le fait {@code MoveNode} sur le
+     * graphe principal : recopier les deux tables du corps pour changer deux nombres
+     * coûterait à chaque image d'un glissement.
+     */
+    public record MoveNodeIn(String function, java.util.UUID uuid,
+                             Vec2d to) implements EditOperation {
+        @Override
+        public Result apply(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
+            BlueprintFunction f = target(bp, function);
+            Node node = f == null ? null : f.nodes().get(uuid);
+            if (f == null) {
+                return noFunction(function);
+            }
+            if (node == null) {
+                return noNode(uuid);
+            }
+            Vec2d before = node.position();
+            node.moveTo(to);
+            bp.bumpRevision();
+            return Result.ok(new MoveNodeIn(function, uuid, before));
+        }
+    }
+
+    /** Pose un littéral sur un nœud d'un corps. Muté en place, pour la même raison. */
+    public record SetLiteralIn(String function, java.util.UUID uuid, String pin,
+                               @org.jetbrains.annotations.Nullable
+                               fr.blueprint.api.pin.LiteralValue value) implements EditOperation {
+        @Override
+        public Result apply(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
+            BlueprintFunction f = target(bp, function);
+            Node node = f == null ? null : f.nodes().get(uuid);
+            if (f == null) {
+                return noFunction(function);
+            }
+            if (node == null) {
+                return noNode(uuid);
+            }
+            NodeShape shape = lookup.shape(bp, node);
+            if (shape != null && value != null) {
+                NodeShape.PinDef def = shape.input(pin);
+                if (def == null) {
+                    return Result.refused(Diagnostic.error(DiagnosticCode.PIN_NOT_FOUND,
+                            Diagnostic.node(uuid), pin));
+                }
+                if (!def.type().isAssignableFrom(value.type()) || !Literals.matches(value)) {
+                    return Result.refused(Diagnostic.error(DiagnosticCode.TYPE_MISMATCH,
+                            Diagnostic.node(uuid), pin, def.type().toString(),
+                            value.type().toString()));
+                }
+            }
+            fr.blueprint.api.pin.LiteralValue before = node.literal(pin);
+            node.setLiteral(pin, value);
+            bp.bumpRevision();
+            return Result.ok(new SetLiteralIn(function, uuid, pin, before));
+        }
+    }
+
+    public record AddLinkIn(String function, Link link) implements EditOperation {
+        @Override
+        public Result apply(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
+            BlueprintFunction f = target(bp, function);
+            if (f == null) {
+                return noFunction(function);
+            }
+            if (f.links().contains(link)) {
+                return Result.refused(Diagnostic.error(DiagnosticCode.DUPLICATE_LINK,
+                        Diagnostic.link(link)));
+            }
+            Diagnostic refusal = GraphValidator.canLinkIn(bp, f, lookup, link);
+            if (refusal != null) {
+                return Result.refused(refusal);
+            }
+            bp.putFunction(f.withLink(link));
+            bp.bumpRevision();
+            return Result.ok(new RemoveLinkIn(function, link));
+        }
+    }
+
+    public record RemoveLinkIn(String function, Link link) implements EditOperation {
+        @Override
+        public Result apply(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
+            BlueprintFunction f = target(bp, function);
+            if (f == null) {
+                return noFunction(function);
+            }
+            if (!f.links().contains(link)) {
+                return Result.refused(Diagnostic.error(DiagnosticCode.LINK_NOT_FOUND,
+                        Diagnostic.link(link)));
+            }
+            bp.putFunction(f.withoutLink(link));
+            bp.bumpRevision();
+            return Result.ok(new AddLinkIn(function, link));
         }
     }
 

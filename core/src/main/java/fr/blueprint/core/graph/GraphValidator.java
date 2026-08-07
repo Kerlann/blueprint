@@ -358,6 +358,32 @@ public final class GraphValidator {
     }
 
     /**
+     * La même règle de câblage, <b>dans un corps de fonction</b> (story 20.2).
+     *
+     * <p>Par une vue jetable et non par une seconde implémentation : « ce lien est-il
+     * acceptable » est une question dont il ne doit exister qu'une réponse. Deux copies
+     * finiraient par diverger, et l'auteur découvrirait qu'un câblage refusé dans le
+     * graphe passe dans une fonction — ou l'inverse.
+     *
+     * <p>La story 20.2 écarte le blueprint jetable pour <b>éditer</b> un corps, parce que
+     * l'annuler/rétablir et la sauvegarde travaillent sur la session. Ici rien n'est muté :
+     * on pose une question et on lit la réponse. Le coût est un objet par lien tiré, ce
+     * qu'un geste de souris peut largement payer.
+     *
+     * <p>Les fonctions du blueprint sont recopiées dans la vue : sans elles, un
+     * {@code func/call} dans le corps n'aurait pas de forme, et le lien serait refusé pour
+     * une raison qui n'a rien à voir avec lui.
+     */
+    public static @Nullable Diagnostic canLinkIn(Blueprint bp, BlueprintFunction function,
+                                                 NodeTypeLookup lookup, Link link) {
+        Blueprint view = new Blueprint(bp.id(), bp.meta());
+        function.nodes().values().forEach(view::putNode);
+        function.links().forEach(view::putLink);
+        bp.functions().values().forEach(view::putFunction);
+        return canLink(view, lookup, link);
+    }
+
+    /**
      * La règle de câblage unique (AC2, FR3, FR4). Retourne le diagnostic de refus,
      * ou null si le lien est acceptable. Utilisée par {@code EditOperation.AddLink}
      * et par {@link #validate}.

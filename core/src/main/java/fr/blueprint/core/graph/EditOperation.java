@@ -35,7 +35,11 @@ public sealed interface EditOperation permits
         ScreenOps.RenameElement, ScreenOps.ReorderElement,
         // Fonctions (story 20.1) : rangées dans FunctionOps, pour la même raison.
         FunctionOps.AddFunction, FunctionOps.RemoveFunction, FunctionOps.SetSignature,
-        FunctionOps.RenameFunction, FunctionOps.SetBody {
+        FunctionOps.RenameFunction, FunctionOps.SetBody,
+        // Éditer DANS un corps (story 20.2) : les mêmes gestes que sur le graphe.
+        FunctionOps.AddNodeIn, FunctionOps.RemoveNodeIn, FunctionOps.RestoreNodeIn,
+        FunctionOps.MoveNodeIn, FunctionOps.SetLiteralIn,
+        FunctionOps.AddLinkIn, FunctionOps.RemoveLinkIn {
 
     /** Refus (le graphe n'a pas bougé) ou succès porteur de l'inverse. */
     record Result(@Nullable Diagnostic refusal, @Nullable EditOperation inverse) {

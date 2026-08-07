@@ -145,6 +145,44 @@ public record BlueprintFunction(String name, List<Param> inputs, List<Param> out
         return new BlueprintFunction(name, inputs, outputs, newNodes, newLinks, callShape);
     }
 
+    // ------------------------------------------- transformations d'un corps (20.2)
+    //
+    // Immuables et fines : l'éditeur pose un nœud, tire un fil, en retire un. Un corps
+    // compte quelques dizaines de nœuds, donc recopier ses tables coûte moins que de le
+    // rendre mutable — ce qui obligerait à décider qui a le droit d'y toucher, alors que
+    // la réponse « les EditOperation, et elles seules » est déjà celle du reste du modèle.
+    //
+    // Déplacer un nœud ou poser un littéral n'est PAS ici : ces gestes mutent le Node
+    // lui-même, qui est partagé par référence. Leur donner une transformation de corps
+    // recopierait deux tables pour ne rien changer.
+
+    public BlueprintFunction withNode(Node node) {
+        Map<UUID, Node> next = new LinkedHashMap<>(nodes);
+        next.put(node.uuid(), node);
+        return withBody(next, links);
+    }
+
+    /** Retire un nœud <b>et les liens qui le touchent</b> : un fil pendant n'existe pas. */
+    public BlueprintFunction withoutNode(UUID node) {
+        Map<UUID, Node> next = new LinkedHashMap<>(nodes);
+        next.remove(node);
+        Set<Link> remaining = new LinkedHashSet<>(links);
+        remaining.removeIf(l -> l.fromNode().equals(node) || l.toNode().equals(node));
+        return withBody(next, remaining);
+    }
+
+    public BlueprintFunction withLink(Link link) {
+        Set<Link> next = new LinkedHashSet<>(links);
+        next.add(link);
+        return withBody(nodes, next);
+    }
+
+    public BlueprintFunction withoutLink(Link link) {
+        Set<Link> next = new LinkedHashSet<>(links);
+        next.remove(link);
+        return withBody(nodes, next);
+    }
+
     /**
      * Les liens qui entrent dans un pin de ce corps.
      *
