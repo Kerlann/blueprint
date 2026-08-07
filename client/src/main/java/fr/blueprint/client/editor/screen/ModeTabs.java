@@ -24,7 +24,14 @@ import org.jetbrains.annotations.Nullable;
 public final class ModeTabs {
 
     /** Le mode d'édition courant de l'éditeur. */
-    public enum Mode { GRAPH, SCREENS }
+    /**
+     * Le mode d'édition courant.
+     *
+     * <p>{@code FUNCTIONS} s'ajoute sans rien changer d'autre : le rendu et le hit-test
+     * bouclent tous deux sur { values()}. C'est ce que vaut une géométrie écrite une
+     * fois plutôt que deux « if » — et c'est la 10.2 qui l'a payé.
+     */
+    public enum Mode { GRAPH, SCREENS, FUNCTIONS }
 
 
     private static final int ACTIVE_BACKGROUND = 0xFF2B2D31;
@@ -36,8 +43,11 @@ public final class ModeTabs {
     }
 
     private static String label(Mode mode) {
-        return I18n.get(mode == Mode.GRAPH
-                ? "blueprint.editor.tab.graph" : "blueprint.editor.tab.screens");
+        return I18n.get(switch (mode) {
+            case GRAPH -> "blueprint.editor.tab.graph";
+            case SCREENS -> "blueprint.editor.tab.screens";
+            case FUNCTIONS -> "blueprint.editor.tab.functions";
+        });
     }
 
     /** Largeur d'un onglet — la même formule au rendu et au clic. */

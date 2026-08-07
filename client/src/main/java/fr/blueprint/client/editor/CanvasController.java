@@ -267,7 +267,10 @@ public final class CanvasController {
         if (b == null) {
             return null;
         }
-        NodeShape shape = lookup.shape(b.node().typeId());
+        // Par le blueprint, pas par le registre : un `func/call` tient ses pins de la
+        // signature de sa fonction, et le squelette du registre n'en montrerait aucun —
+        // ses littéraux seraient donc invisibles au clic.
+        NodeShape shape = lookup.shape(blueprint, b.node());
         if (shape == null) {
             return null;
         }
@@ -540,7 +543,11 @@ public final class CanvasController {
                 return null;
             }
             if (from != null) {
-                NodeShape shape = lookup.shape(typeId);
+                // Le nœud vient d'être posé : on le relit pour que sa forme soit celle
+                // qu'il aura vraiment. Un `func/call` posé nu n'a pas encore de fonction,
+                // donc pas de forme — et l'on ne câble rien plutôt que de câbler au hasard.
+                Node added = blueprint.nodes().get(id);
+                NodeShape shape = added == null ? null : lookup.shape(blueprint, added);
                 if (shape != null) {
                     List<NodeShape.PinDef> candidates = from.output() ? shape.inputs() : shape.outputs();
                     for (int i = 0; i < candidates.size(); i++) {
