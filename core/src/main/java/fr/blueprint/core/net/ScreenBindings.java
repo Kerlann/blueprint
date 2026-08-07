@@ -42,9 +42,29 @@ public final class ScreenBindings {
      *               pas ou n'a jamais été écrite
      */
     public static List<ScreenUpdate> updates(Screen screen, Function<String, Object> values) {
+        return updates(screen, values, ElementBinding.Source.VARIABLE);
+    }
+
+    /**
+     * Les modifications d'une seule <b>source</b>.
+     *
+     * <p>C'est la ligne de partage entre le serveur et le client. Le serveur n'appelle
+     * jamais cette méthode avec {@code CLIENT} : une liaison de source client se calcule
+     * là où la valeur se trouve déjà, et l'envoyer serait payer un paquet pour dire au
+     * joueur ce qu'il sait mieux que nous. Le client, symétriquement, ne calcule jamais
+     * les liaisons de variables : il ne connaît pas les variables, et ne doit pas.
+     *
+     * <p>Le <b>même</b> code des deux côtés, à dessein : le format, les décimales et les
+     * bornes d'une barre doivent donner le même pixel selon qu'ils sont calculés ici ou
+     * là. Deux implémentations auraient divergé sur la première valeur limite.
+     *
+     * @param values ce que vaut un nom pour cette source ; {@code null} si inconnu
+     */
+    public static List<ScreenUpdate> updates(Screen screen, Function<String, Object> values,
+                                             ElementBinding.Source source) {
         List<ScreenUpdate> out = new ArrayList<>();
         for (ScreenElement element : screen.elements().values()) {
-            if (!element.isBound()) {
+            if (!element.isBound() || element.binding().source() != source) {
                 continue;
             }
             ElementBinding binding = element.binding();

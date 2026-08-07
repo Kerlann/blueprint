@@ -28,6 +28,9 @@ public final class HudView {
     private final Map<String, Screen> shown = new LinkedHashMap<>();
     /** Le remplissage des barres, par écran puis par élément (valeur d'exécution). */
     private final Map<String, Map<String, Double>> progress = new LinkedHashMap<>();
+    /** Ce que les liaisons client ont produit la dernière fois — pour ne pas le refaire. */
+    private final Map<String, ScreenUpdate> lastClient = new LinkedHashMap<>();
+    private static final String SEP = " ";
     private boolean hidden;
 
     /** Affiche un HUD, ou remplace sa description si elle a changé. */
@@ -38,11 +41,13 @@ public final class HudView {
     public void hide(String screen) {
         shown.remove(screen);
         progress.remove(screen);
+        lastClient.keySet().removeIf(k -> k.startsWith(screen + SEP));
     }
 
     public void hideAll() {
         shown.clear();
         progress.clear();
+        lastClient.clear();
     }
 
     /**
@@ -72,6 +77,47 @@ public final class HudView {
 
     public int size() {
         return shown.size();
+    }
+
+    /**
+     * Recalcule les liaisons de <b>source client</b>, sans réseau ni serveur.
+     *
+     * <p>Appelée au tick client, pas à l'image : vingt fois par seconde suffit largement
+     * pour une barre de vie, et soixante allouerait trois fois plus de listes pour un
+     * résultat que l'œil ne distingue pas.
+     *
+     * <p>Les modifications identiques à celles du tour précédent sont <b>écartées</b>. Le
+     * chemin d'application recrée un {@code Screen} à chaque texte changé ; l'appeler pour
+     * une valeur qui n'a pas bougé allouerait un écran complet par tick et par HUD, pour
+     * repeindre exactement les mêmes pixels. C'est la même discipline que
+     * {@code ScreenSessions#queue} côté serveur, appliquée au seul endroit où le serveur
+     * n'est plus là pour la tenir.
+     *
+     * @param values ce que vaut une valeur client, par son nom
+     * @return le nombre de modifications réellement appliquées
+     */
+    /** La clé d'une modification : écran, élément, nature. Le séparateur est explicite. */
+    private static String key(ScreenUpdate update) {
+        return update.screen() + SEP + update.element() + SEP + update.kind();
+    }
+
+    public int refreshClientBindings(java.util.function.Function<String, Object> values) {
+        if (shown.isEmpty()) {
+            return 0;
+        }
+        java.util.List<ScreenUpdate> fresh = new java.util.ArrayList<>();
+        for (Screen screen : shown.values()) {
+            for (ScreenUpdate update : fr.blueprint.core.net.ScreenBindings.updates(
+                    screen, values,
+                    fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT)) {
+                String key = key(update);
+                if (!update.equals(lastClient.get(key))) {
+                    lastClient.put(key, update);
+                    fresh.add(update);
+                }
+            }
+        }
+        return fresh.isEmpty() ? 0 : apply(fresh);
     }
 
     /**

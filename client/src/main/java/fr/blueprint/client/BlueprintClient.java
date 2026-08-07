@@ -62,6 +62,17 @@ public class BlueprintClient implements ClientModInitializer {
                 }
             }
             fr.blueprint.client.content.BlueprintKeys.tick();
+            // Les liaisons de source CLIENT, recalculées ici et nulle part ailleurs.
+            // C'est le partage du travail : le serveur pousse ce que lui seul sait — un
+            // prénom, un métier, un solde — et le client peint ce qu'il a déjà. Une barre
+            // de vie tenue par le serveur lui coûterait, à cinquante joueurs, mille
+            // lectures et jusqu'à mille paquets par seconde pour une valeur affichée
+            // depuis toujours dans les cœurs du joueur.
+            fr.blueprint.client.screen.BlueprintHud.view().refreshClientBindings(
+                    name -> fr.blueprint.client.screen.ClientValues.of(mc.player, name));
+            if (mc.screen instanceof fr.blueprint.client.screen.BlueprintScreen bp) {
+                bp.refreshClientBindings(mc.player);
+            }
             while (toggleHud.consumeClick()) {
                 var view = fr.blueprint.client.screen.BlueprintHud.view();
                 view.toggleHidden();

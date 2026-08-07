@@ -533,8 +533,19 @@ public final class ScriptParser {
         String variable = expect("string", null).text();
         expect("sym", ",");
         Token targetToken = expect("word", null);
+        // « @vie » désigne une valeur que le client possède déjà, jamais une variable.
+        // La reconnaissance passe par le CATALOGUE et non par le seul préfixe : un nom
+        // inconnu reste une variable, quitte à ce que le validateur la refuse ensuite —
+        // le pire serait de transformer en source client une liaison qui n'en est pas
+        // une et qui cesserait alors silencieusement d'être rafraîchie.
+        var client = fr.blueprint.core.graph.screen.ClientValue.byKey(
+                variable.startsWith(fr.blueprint.core.graph.screen.ClientValue.PREFIX)
+                        ? variable : null);
         var binding = fr.blueprint.core.graph.screen.ElementBinding.NONE
-                .withVariable(variable)
+                .withVariable(client == null ? variable : client.key())
+                .withSource(client == null
+                        ? fr.blueprint.core.graph.screen.ElementBinding.Source.VARIABLE
+                        : fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT)
                 .withTarget(enumOf(fr.blueprint.core.graph.screen.ElementBinding.Target.class,
                         targetToken, "cible de liaison"));
         while (eat("sym", ",")) {

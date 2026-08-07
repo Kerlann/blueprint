@@ -177,6 +177,12 @@ public final class ScreenNbt {
         tag.putDouble("min", b.min());
         tag.putDouble("max", b.max());
         tag.putInt("decimals", b.decimals());
+        // Écrite seulement quand elle s'écarte du défaut, comme les options : un écran
+        // d'avant les sources client pèse exactement ce qu'il pesait, et le relire ne
+        // change pas son sens.
+        if (b.source() != fr.blueprint.core.graph.screen.ElementBinding.Source.VARIABLE) {
+            tag.putString("source", b.source().name().toLowerCase(java.util.Locale.ROOT));
+        }
         return tag;
     }
 
@@ -195,7 +201,10 @@ public final class ScreenNbt {
                         fr.blueprint.core.graph.screen.ElementBinding.Target.TEXT),
                 tag.getStringOr("format", fr.blueprint.core.graph.screen.ElementBinding.PLACEHOLDER),
                 tag.getDoubleOr("min", 0), tag.getDoubleOr("max", 1),
-                tag.getIntOr("decimals", 0));
+                tag.getIntOr("decimals", 0),
+                enumOr(fr.blueprint.core.graph.screen.ElementBinding.Source.class,
+                        tag.getStringOr("source", ""),
+                        fr.blueprint.core.graph.screen.ElementBinding.Source.VARIABLE));
     }
 
     private static CompoundTag encodeLayout(LayoutSpec layout) {

@@ -266,7 +266,14 @@ public final class ScriptGenerator {
 
     /** {@code "argent", text, format: "Or : %s"} — seuls les écarts au défaut sont écrits. */
     private String renderBinding(fr.blueprint.core.graph.screen.ElementBinding binding) {
-        StringBuilder sb = new StringBuilder(quote(binding.variable()));
+        // Une source client s'écrit « @vie » plutôt que « vie ». Le préfixe suffit à la
+        // distinguer d'une variable, donc la grammaire ne bouge pas — et l'auteur qui
+        // relit son script voit d'un coup d'œil ce qui voyage sur le réseau.
+        boolean client = binding.source()
+                == fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT;
+        StringBuilder sb = new StringBuilder(quote(client
+                ? fr.blueprint.core.graph.screen.ClientValue.PREFIX + binding.variable()
+                : binding.variable()));
         sb.append(", ").append(lower(binding.target().name()));
         if (!binding.format().equals(fr.blueprint.core.graph.screen.ElementBinding.PLACEHOLDER)) {
             sb.append(", format: ").append(quote(binding.format()));

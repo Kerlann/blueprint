@@ -21,7 +21,31 @@ import java.util.Locale;
  * {@code gui/set_text} — c'est-à-dire par revenir au cas qu'on voulait éviter.
  */
 public record ElementBinding(String variable, Target target, String format,
-                             double min, double max, int decimals) {
+                             double min, double max, int decimals, Source source) {
+
+    /**
+     * D'où vient la valeur — et, par conséquent, <b>qui travaille</b>.
+     *
+     * <p>C'est la distinction que le mod n'avait pas, et son absence coûtait cher. Une
+     * barre de vie liée à une variable oblige le serveur à lire la vie de chaque joueur à
+     * chaque tick, à l'écrire dans une variable, puis à envoyer un paquet — vingt fois par
+     * seconde, pour une valeur que le client affiche déjà dans ses propres cœurs.
+     */
+    public enum Source {
+        /**
+         * Une variable du blueprint. Le serveur la lit et la pousse : c'est lui qui sait,
+         * et c'est le cas de tout ce qu'un graphe calcule — un prénom, un métier, un solde.
+         */
+        VARIABLE,
+        /**
+         * Une valeur que le client a <b>déjà</b>, nommée par {@link ClientValue}.
+         *
+         * <p>Rien ne transite : ni variable côté serveur, ni paquet, ni tick. L'écran se
+         * peint avec ce que le joueur a sous la main, et une vie qui bouge se voit à
+         * l'image suivante plutôt qu'au prochain rafraîchissement.
+         */
+        CLIENT
+    }
 
     /** Ce que la valeur pilote sur l'élément. */
     public enum Target {
@@ -38,7 +62,8 @@ public record ElementBinding(String variable, Target target, String format,
     }
 
     /** Pas de liaison — la valeur par défaut, et celle de tout écran existant. */
-    public static final ElementBinding NONE = new ElementBinding("", Target.TEXT, "%s", 0, 1, 0);
+    public static final ElementBinding NONE =
+            new ElementBinding("", Target.TEXT, "%s", 0, 1, 0, Source.VARIABLE);
 
     /** Le marqueur remplacé par la valeur dans un format. */
     public static final String PLACEHOLDER = "%s";
@@ -63,6 +88,19 @@ public record ElementBinding(String variable, Target target, String format,
         if (max == min) {
             max = min + 1;
         }
+        source = source == null ? Source.VARIABLE : source;
+    }
+
+    /**
+     * Une liaison qui ne dit rien de sa source suit une <b>variable</b>.
+     *
+     * <p>C'est ce qu'étaient toutes celles d'avant, et c'est ce que reste un écran
+     * enregistré par une version antérieure : ajouter une source ne change le sens
+     * d'aucun fichier existant.
+     */
+    public ElementBinding(String variable, Target target, String format,
+                          double min, double max, int decimals) {
+        this(variable, target, format, min, max, decimals, Source.VARIABLE);
     }
 
     public static ElementBinding text(String variable, String format) {
@@ -73,29 +111,55 @@ public record ElementBinding(String variable, Target target, String format,
         return new ElementBinding(variable, Target.PROGRESS, PLACEHOLDER, min, max, 0);
     }
 
+    /**
+     * Une liaison sur une valeur que le <b>client</b> possède déjà.
+     *
+     * <p>Le nom est celui d'une {@link ClientValue}. Rien n'est calculé côté serveur,
+     * rien n'est envoyé : c'est la différence entre un HUD qui coûte un paquet par tick
+     * et par joueur, et un HUD qui ne coûte rien du tout.
+     */
+    public static ElementBinding client(ClientValue value, Target target, String format) {
+        return new ElementBinding(value.key(), target, format, 0, 1, 0, Source.CLIENT);
+    }
+
+    /** La même, en barre : les bornes viennent de l'appelant, comme pour une variable. */
+    public static ElementBinding clientProgress(ClientValue value, double min, double max) {
+        return new ElementBinding(value.key(), Target.PROGRESS, PLACEHOLDER, min, max, 0,
+                Source.CLIENT);
+    }
+
     /** Une liaison sans nom de variable n'en est pas une : c'est l'absence de liaison. */
     public boolean bound() {
         return !variable.isEmpty();
     }
 
     public ElementBinding withVariable(String newVariable) {
-        return new ElementBinding(newVariable, target, format, min, max, decimals);
+        return new ElementBinding(newVariable, target, format, min, max, decimals, source);
     }
 
     public ElementBinding withTarget(Target newTarget) {
-        return new ElementBinding(variable, newTarget, format, min, max, decimals);
+        return new ElementBinding(variable, newTarget, format, min, max, decimals, source);
     }
 
     public ElementBinding withFormat(String newFormat) {
-        return new ElementBinding(variable, target, newFormat, min, max, decimals);
+        return new ElementBinding(variable, target, newFormat, min, max, decimals, source);
     }
 
     public ElementBinding withRange(double newMin, double newMax) {
-        return new ElementBinding(variable, target, format, newMin, newMax, decimals);
+        return new ElementBinding(variable, target, format, newMin, newMax, decimals, source);
     }
 
     public ElementBinding withDecimals(int newDecimals) {
-        return new ElementBinding(variable, target, format, min, max, newDecimals);
+        return new ElementBinding(variable, target, format, min, max, newDecimals, source);
+    }
+
+    public ElementBinding withSource(Source newSource) {
+        return new ElementBinding(variable, target, format, min, max, decimals, newSource);
+    }
+
+    /** La valeur client visée, ou {@code null} si cette liaison suit une variable. */
+    public @Nullable ClientValue clientValue() {
+        return source == Source.CLIENT ? ClientValue.byKey(variable) : null;
     }
 
     /**

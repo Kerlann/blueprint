@@ -61,6 +61,37 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         return instance;
     }
 
+    /** Ce que les liaisons client ont produit la dernière fois — pour ne pas le refaire. */
+    private final java.util.Map<String, fr.blueprint.core.graph.screen.ScreenUpdate>
+            lastClient = new java.util.HashMap<>();
+
+    /**
+     * Recalcule les liaisons de <b>source client</b> de cet écran.
+     *
+     * <p>Un menu modal en profite autant qu'un HUD : une fiche de personnage qui montre la
+     * vie n'a aucune raison de la faire venir du serveur. Appelée au tick client, et les
+     * modifications inchangées sont écartées — {@link #apply} recrée un écran à chaque
+     * texte, ce qui allouerait vingt fois par seconde pour repeindre les mêmes pixels.
+     */
+    public void refreshClientBindings(@Nullable net.minecraft.client.player.LocalPlayer player) {
+        java.util.List<fr.blueprint.core.graph.screen.ScreenUpdate> fresh = null;
+        for (var update : fr.blueprint.core.net.ScreenBindings.updates(model,
+                name -> ClientValues.of(player, name),
+                fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT)) {
+            String key = update.element() + ' ' + update.kind();
+            if (!update.equals(lastClient.get(key))) {
+                lastClient.put(key, update);
+                if (fresh == null) {
+                    fresh = new java.util.ArrayList<>();
+                }
+                fresh.add(update);
+            }
+        }
+        if (fresh != null) {
+            apply(instance, fresh);
+        }
+    }
+
     /**
      * Applique les modifications reçues du serveur.
      *
