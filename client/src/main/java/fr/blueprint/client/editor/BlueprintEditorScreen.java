@@ -52,6 +52,10 @@ public final class BlueprintEditorScreen extends Screen {
         // dernier geste, qu'il ait eu lieu dans les nœuds ou dans un écran.
         this.designer = new fr.blueprint.client.editor.screen.ScreenDesignerWidget(
                 session, lookup, canvas.controller().history());
+        // Le canevas ne décide pas du mode, mais il peut le demander : un clic sur un
+        // diagnostic qui vise un corps de fonction ouvre le corps ET l'onglet, sinon la
+        // barre annoncerait « Graphe » au-dessus d'un corps.
+        this.canvas.setModeRequest(wanted -> this.mode = wanted);
     }
 
 

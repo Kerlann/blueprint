@@ -184,6 +184,35 @@ public final class GraphView {
                 : fr.blueprint.core.graph.GraphValidator.canLinkIn(bp, f, lookup, link);
     }
 
+    /**
+     * Où vit ce nœud : le nom du corps qui le contient, ou {@code null} pour le graphe
+     * principal — et {@code null} aussi s'il n'existe nulle part.
+     *
+     * <p>Un diagnostic ne nomme que le nœud fautif, jamais le graphe où il se trouve. C'est
+     * ce qui permet à un clic sur une erreur d'ouvrir le corps concerné (AC9) sans que le
+     * validateur ait à enrichir chaque diagnostic — et un diagnostic qu'on ne peut pas
+     * atteindre vaut à peine mieux qu'un silence.
+     *
+     * <p>La réponse est non ambiguë : un identifiant refusé s'il existe déjà ailleurs, à la
+     * pose comme dans un corps, ne peut pas vivre dans deux graphes.
+     */
+    public @Nullable String owner(UUID node) {
+        if (bp.node(node) != null) {
+            return null;
+        }
+        for (BlueprintFunction f : bp.functions().values()) {
+            if (f.nodes().containsKey(node)) {
+                return f.name();
+            }
+        }
+        return null;
+    }
+
+    /** Vrai si ce nœud existe quelque part — graphe principal ou corps. */
+    public boolean exists(UUID node) {
+        return bp.node(node) != null || owner(node) != null;
+    }
+
     // ------------------------------------------------------------------- redirection
 
     /**

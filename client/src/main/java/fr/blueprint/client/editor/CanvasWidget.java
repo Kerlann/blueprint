@@ -167,6 +167,26 @@ public final class CanvasWidget {
     private fr.blueprint.client.editor.screen.ModeTabs.Mode mode =
             fr.blueprint.client.editor.screen.ModeTabs.Mode.GRAPH;
 
+    /**
+     * De quoi <b>demander</b> un changement d'onglet à l'écran parent.
+     *
+     * <p>Le canevas ne décide pas du mode — mais un clic sur un diagnostic qui vise un corps
+     * de fonction doit pouvoir amener l'onglet avec lui. Sans ce chemin, le canevas
+     * montrerait un corps pendant que la barre annonce « Graphe ».
+     */
+    private java.util.function.Consumer<fr.blueprint.client.editor.screen.ModeTabs.Mode>
+            modeRequest = m -> { };
+
+    public void setModeRequest(
+            java.util.function.Consumer<fr.blueprint.client.editor.screen.ModeTabs.Mode> r) {
+        this.modeRequest = r;
+    }
+
+    private void requestMode(fr.blueprint.client.editor.screen.ModeTabs.Mode wanted) {
+        this.mode = wanted;
+        modeRequest.accept(wanted);
+    }
+
     public void setMode(fr.blueprint.client.editor.screen.ModeTabs.Mode mode) {
         this.mode = mode;
         // L'onglet Graphe montre le graphe. Y revenir en laissant un corps ouvert
@@ -777,8 +797,7 @@ public final class CanvasWidget {
             if (row >= 0) {
                 var node = DiagnosticsState.nodeOf(diagnostics.report().get(row));
                 if (node != null) {
-                    // Recentrer dans la zone canevas réelle (vue script comprise, QA 5.6b).
-                    controller.focusNode(node, canvasWidth(), height);
+                    focusAnywhere(node);
                 }
                 return true;
             }
@@ -1268,8 +1287,10 @@ public final class CanvasWidget {
         int line = ScriptView.lineAt(scriptView, e.y(), height);
         UUID node = line < 0 ? null : scriptView.nodeAtLine(line);
         if (node != null) {
-            // Recentrer dans la MOITIÉ canevas, pas l'écran entier.
-            controller.focusNode(node, width / 2.0, height);
+            // La vue script montre le blueprint ENTIER, fonctions comprises : une ligne
+            // d'un corps doit mener au corps, pas nulle part. Recentrer dans la MOITIÉ
+            // canevas, pas l'écran entier.
+            focusAnywhere(node, width / 2.0);
         }
     }
 
@@ -1305,6 +1326,35 @@ public final class CanvasWidget {
             default -> {
             }
         }
+    }
+
+    /**
+     * Recentre sur ce nœud <b>où qu'il soit</b> — quitte à ouvrir le corps qui le contient
+     * (story 20.2, AC9).
+     *
+     * <p>Un diagnostic qui vise un nœud de fonction ne menait nulle part : le canevas
+     * cherchait la boîte dans le graphe principal, ne la trouvait pas, et le clic ne faisait
+     * rien. Une erreur qu'on ne peut pas atteindre vaut à peine mieux qu'un silence.
+     */
+    private void focusAnywhere(UUID node) {
+        focusAnywhere(node, canvasWidth());
+    }
+
+    private void focusAnywhere(UUID node, double viewportWidth) {
+        String owner = controller.view().owner(node);
+        if (!java.util.Objects.equals(owner, controller.view().function())) {
+            // L'onglet suit le graphe. Ouvrir un corps en laissant « Graphe » affiché
+            // montrerait le corps sous la mauvaise étiquette, et le premier changement
+            // d'onglet le refermerait sans prévenir.
+            if (owner != null) {
+                requestMode(fr.blueprint.client.editor.screen.ModeTabs.Mode.FUNCTIONS);
+            }
+            if (controller.view().open(owner)) {
+                controller.selection().clear();
+            }
+        }
+        // Recentrer dans la zone canevas réelle (vue script comprise, QA 5.6b).
+        controller.focusNode(node, viewportWidth, height);
     }
 
     private void openBody(String name) {

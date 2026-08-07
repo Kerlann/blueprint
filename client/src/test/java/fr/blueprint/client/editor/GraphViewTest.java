@@ -261,6 +261,31 @@ class GraphViewTest {
         assertTrue(bp.variables().containsKey("v"));
     }
 
+    /**
+     * <b>On sait retrouver le graphe d'un nœud à partir du seul identifiant</b> (AC9).
+     *
+     * <p>Un diagnostic ne nomme que le nœud fautif, jamais le corps où il vit. Sans cette
+     * question, un clic sur une erreur d'un corps cherchait la boîte dans le graphe
+     * principal, ne la trouvait pas, et ne faisait rien — une erreur qu'on ne peut pas
+     * atteindre vaut à peine mieux qu'un silence.
+     */
+    @Test
+    void onRetrouveLeGrapheDUnNoeudParSonIdentifiant() {
+        assertTrue(controller.view().open("carre"));
+        UUID dansLeCorps = controller.insertNode(TYPE, 0, 0, null);
+        assertNotNull(dansLeCorps);
+        controller.view().open(null);
+
+        assertEquals("carre", controller.view().owner(dansLeCorps),
+                "le nœud vit dans le corps, et on doit pouvoir le dire depuis le graphe");
+        assertNull(controller.view().owner(dansLeGraphe),
+                "un nœud du graphe principal n'a pas de corps propriétaire");
+        assertTrue(controller.view().exists(dansLeCorps));
+        assertFalse(controller.view().exists(UUID.randomUUID()),
+                "un identifiant inconnu n'appartient à aucun graphe — et ne doit pas se "
+                        + "confondre avec « il est dans le graphe principal »");
+    }
+
     /** Le panneau s'arrête où il se dessine — sous lui, le clic va au canevas. */
     @Test
     void souscLePanneauLeClicVaAuCanevas() {

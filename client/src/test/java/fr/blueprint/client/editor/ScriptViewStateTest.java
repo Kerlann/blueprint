@@ -106,6 +106,60 @@ class ScriptViewStateTest {
         assertEquals(ScriptViewState.LineKind.PLAIN, ScriptViewState.kindOf("  log(...)"));
     }
 
+    /**
+     * <b>La vue script montre les fonctions, et leurs nœuds se retrouvent</b> (story 20.2,
+     * AC10).
+     *
+     * <p>La 20.1 a fait écrire les fonctions par le générateur ; rien ne l'avait encore
+     * exercé <b>depuis la vue script</b>. Le point qui pouvait manquer n'est pas le texte
+     * mais la correspondance ligne ↔ nœud : elle est bâtie sur les annotations {@code @id},
+     * et un corps dont les nœuds n'en portent pas donnerait un texte qu'on peut lire et
+     * dans lequel on ne peut pas naviguer.
+     */
+    @Test
+    void laVueScriptMontreLesFonctionsEtLeursNoeudsSeRetrouvent() {
+        Graph g = graph();
+        assertTrue(new fr.blueprint.core.graph.FunctionOps.AddFunction(
+                fr.blueprint.core.graph.BlueprintFunction.of("carre",
+                        List.of(new fr.blueprint.core.graph.BlueprintFunction.Param(
+                                "n", PinTypes.DOUBLE)),
+                        List.of(new fr.blueprint.core.graph.BlueprintFunction.Param(
+                                "r", PinTypes.DOUBLE))))
+                .apply(g.bp(), LOADED.nodes()).applied());
+        // Le corps est câblé pour de bon : le générateur suit le flux d'exécution depuis
+        // l'entrée de la fonction, et un nœud posé à côté du fil n'apparaîtrait pas plus
+        // qu'un nœud orphelin du graphe principal.
+        UUID entree = UUID.randomUUID();
+        assertTrue(new fr.blueprint.core.graph.FunctionOps.AddNodeIn("carre", entree,
+                fr.blueprint.core.graph.FuncNodes.PARAM, new Vec2d(-160, 0))
+                .apply(g.bp(), LOADED.nodes()).applied());
+        assertTrue(new fr.blueprint.core.graph.FunctionOps.SetLiteralIn("carre", entree,
+                fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN,
+                LiteralValue.of(PinTypes.STRING, "carre")).apply(g.bp(), LOADED.nodes()).applied());
+        UUID dansLeCorps = UUID.randomUUID();
+        assertTrue(new fr.blueprint.core.graph.FunctionOps.AddNodeIn("carre", dansLeCorps,
+                Identifier.fromNamespaceAndPath("blueprint", "debug/log"), new Vec2d(0, 0))
+                .apply(g.bp(), LOADED.nodes()).applied());
+        assertTrue(new fr.blueprint.core.graph.FunctionOps.SetLiteralIn("carre", dansLeCorps,
+                "value", LiteralValue.of(PinTypes.STRING, "dans le corps"))
+                .apply(g.bp(), LOADED.nodes()).applied());
+        assertTrue(new fr.blueprint.core.graph.FunctionOps.AddLinkIn("carre",
+                new Link(entree, fr.blueprint.core.graph.BlueprintFunction.EXEC_OUT,
+                        dansLeCorps, "exec_in")).apply(g.bp(), LOADED.nodes()).applied());
+
+        state.toggle();
+        state.regenerate(g.bp(), LOADED.nodes());
+
+        assertTrue(state.lines().stream().anyMatch(l -> l.contains("carre")),
+                "le texte doit contenir la fonction");
+        state.syncSelection(dansLeCorps, 40);
+        int ligne = state.highlightedLine();
+        assertTrue(ligne >= 0,
+                "un nœud de corps sans ligne rendrait la vue script illisible pour tout ce "
+                        + "qui vit dans une fonction");
+        assertEquals(dansLeCorps, state.nodeAtLine(ligne));
+    }
+
     @Test
     void importArmePuisConfirme() {
         assertFalse(state.armImport());
