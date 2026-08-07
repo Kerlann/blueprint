@@ -25,8 +25,8 @@ la case à cocher écrivent, le champ de saisie est relu à la validation.
 | `INPUT` | numérique, relu **à la validation** seulement |
 | `DROPDOWN` | replié, il se **déplie par-dessus le reste** ; ses choix sont des lignes |
 | `TOGGLE` | grise le bouton `+10` — un widget qui en pilote un autre |
-| `SLIDER` | écrit `score` en continu, par pas de 5 |
-| `SLOT` | un emplacement d'objet |
+| `SLIDER` | écrit `score` en continu, par pas de 5, **et affiche sa valeur** |
+| `SLOT` | autant d'émeraudes que le score — posées par `gui/set_item` |
 | `IMAGE` | une texture du jeu |
 | `ENTITY_PREVIEW` | une créature qui tourne |
 
@@ -60,13 +60,34 @@ et ce calque vit dans l'écran client plutôt que dans le peintre — celui-ci p
 éléments dans l'ordre de la table de disposition et n'a pas de notion de couche. Lui en
 donner une pour un seul type aurait compliqué le dessin de tous les autres.
 
-Trois comportements que l'usage réclame, et qui sont dans le code :
+Les comportements que l'usage réclame, et qui sont dans le code :
 
 - le panneau tombe **sous** l'élément, sauf s'il n'y a plus la place en bas — auquel cas il
   remonte au-dessus, sans quoi une liste en bas de fenêtre se déplierait hors de l'écran ;
 - **Échap referme la liste avant l'écran**, comme il relâche un champ de saisie ;
 - un clic à côté referme aussi — une liste qui resterait ouverte donnerait un menu dont on
-  ne sait plus sortir.
+  ne sait plus sortir ;
+- au-delà de huit choix elle **défile** — molette, ou flèches, ou `Page haut` / `Page bas`,
+  avec un curseur de défilement pour dire qu'il en reste ;
+- **Entrée sur une liste repliée l'ouvre**. Elle envoyait un clic, c'est-à-dire un choix
+  que personne n'avait fait ;
+- **taper une lettre saute** au premier choix qui commence par elle, et la retaper passe au
+  suivant. Sur trente paliers, y aller à la flèche demande trente pressions ;
+- elle rouvre sur le **choix courant**, pas sur le début.
+
+## Ce que les options règlent
+
+Trois réglages existants prennent un sens de plus, plutôt qu'un champ neuf à encoder
+partout :
+
+| Réglage | Sur | Ce qu'il fait |
+|---|---|---|
+| `rowHeight` | `DROPDOWN` | la hauteur des rangées dépliées — le **même** réglage qu'une `LIST`, puisque les choix sont des lignes |
+| `placeholder` | `SLIDER` | l'**unité** écrite derrière la valeur (`« 45 pts »`) ; il n'avait aucun autre sens pour ce type |
+| `step` | `SLIDER` | il décidait déjà de l'alignement ; il décide maintenant du **nombre de décimales** affichées — un curseur qui avance de 5 en 5 n'écrit pas « 45,000 » |
+
+Et deux surlignages qui manquaient : la ligne **retenue** d'une `LIST` (cliquer n'y laissait
+aucune trace) et le choix visé au clavier dans une liste dépliée.
 
 ---
 

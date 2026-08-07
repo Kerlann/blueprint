@@ -342,7 +342,7 @@ public final class ScreenPainter {
             }
             case SLIDER -> {
                 fillBox(g, left, top, right, bottom, background, style, scale);
-                paintSlider(g, element, style, left, top, right, bottom, scale, visuals);
+                paintSlider(g, font, element, style, left, top, right, bottom, scale, visuals);
             }
             case SLOT -> {
                 fillBox(g, left, top, right, bottom, background, style, scale);
@@ -480,9 +480,17 @@ public final class ScreenPainter {
                         (double) (bottom - top - 2 * inset) / scale, element.options().rowHeight()),
                 visuals.scroll(element.name()));
 
+        // La ligne retenue, surlignée. Sans cela, cliquer dans une liste ne laisse aucune
+        // trace : le joueur ne sait plus ce qu'il a choisi dès qu'il regarde ailleurs, et
+        // rien ne distingue une liste où l'on choisit d'une liste que l'on lit.
+        int selected = (int) Math.round(visuals.value(element.name()));
+
         g.enableScissor(left + inset, top + inset, right - inset, bottom - inset);
         int y = top + inset;
         for (int index : view.visibleIndices()) {
+            if (index == selected) {
+                g.fill(left + inset, y, right - inset, y + rowHeight, style.hoverBackground());
+            }
             String line = font.plainSubstrByWidth(lines.get(index),
                     right - left - 2 * inset - (view.scrollable() ? 4 : 0));
             g.drawString(font, line, left + inset + 1, y + 1, style.textColor(), false);
@@ -573,15 +581,30 @@ public final class ScreenPainter {
     }
 
     /** Un curseur : la piste, la portion parcourue, et la poignée. */
-    private static void paintSlider(GuiGraphics g, ScreenElement element, ElementStyle style,
+    private static void paintSlider(GuiGraphics g, Font font, ScreenElement element,
+                                    ElementStyle style,
                                     int left, int top, int right, int bottom,
                                     int scale, Visuals visuals) {
         var options = element.options();
-        double fraction = options.fractionOf(visuals.value(element.name()));
+        double value = visuals.value(element.name());
+        double fraction = options.fractionOf(value);
         int inset = Math.max(2, style.padding() * scale);
         int trackTop = (top + bottom) / 2 - scale;
         int trackLeft = left + inset;
         int trackRight = right - inset;
+
+        // La valeur en clair, à droite de la piste. Sans elle, un curseur ne dit rien de
+        // ce qu'il vaut : le joueur glisse et devine. La piste lui cède la place plutôt
+        // que de passer dessous, parce qu'un chiffre à moitié recouvert est pire que pas
+        // de chiffre.
+        String readout = readout(options, value);
+        int reserved = sliderReadoutWidth(font, element, value,
+                (double) (right - left) / scale) * scale;
+        if (reserved > 0) {
+            trackRight -= reserved;
+            g.drawString(font, readout, trackRight + 2 * scale,
+                    (top + bottom) / 2 - font.lineHeight / 2, style.textColor(), false);
+        }
 
         g.fill(trackLeft, trackTop, trackRight, trackTop + 2 * scale, style.border());
         int filled = trackLeft + (int) ((trackRight - trackLeft) * fraction);
@@ -590,6 +613,46 @@ public final class ScreenPainter {
         int handle = Math.clamp(filled, trackLeft + 2 * scale, trackRight - 2 * scale);
         g.fill(handle - 2 * scale, top + inset, handle + 2 * scale, bottom - inset,
                 style.textColor());
+    }
+
+    /**
+     * La largeur que la lecture de valeur retire à la piste, <b>en unités de mise en
+     * page</b> — donc avant l'échelle.
+     *
+     * <p>Publique et partagée avec l'écran, à dessein : le glissement calcule sa fraction
+     * sur la même piste que le dessin. Deux calculs séparés donneraient une poignée qui
+     * ne suit pas la souris, et c'est exactement le genre de décalage qu'on ne remarque
+     * qu'aux extrémités — là où il est le plus gênant.
+     *
+     * @return 0 si l'élément est trop étroit pour porter la valeur : elle disparaît alors
+     *         plutôt que de manger toute la piste.
+     */
+    static int sliderReadoutWidth(Font font, ScreenElement element, double value,
+                                  double laidOutWidth) {
+        String readout = readout(element.options(), value);
+        if (readout.isEmpty()) {
+            return 0;
+        }
+        int width = font.width(readout) + 2;
+        double usable = laidOutWidth - 2 * Math.max(2, element.style().padding());
+        return usable > width + 8 ? width : 0;
+    }
+
+    /**
+     * La valeur d'un curseur telle qu'on l'écrit à côté de lui.
+     *
+     * <p>Le nombre de décimales suit le <b>pas</b> : un curseur qui avance de 5 en 5 et
+     * qui afficherait « 45,000 » ferait croire à une précision qu'il n'a pas. Et
+     * {@code placeholder} sert d'<b>unité</b> — il n'a aucun autre sens pour un curseur,
+     * et lui donner celui-là évite un champ de plus à encoder partout.
+     */
+    private static String readout(fr.blueprint.core.graph.screen.ElementOptions options,
+                                  double value) {
+        double step = options.step();
+        int decimals = step >= 1 || step == 0 ? 0 : step >= 0.1 ? 1 : 2;
+        String number = String.format(java.util.Locale.ROOT, "%." + decimals + "f", value);
+        String unit = options.placeholder();
+        return unit.isEmpty() ? number : number + unit;
     }
 
     private static void fillBox(GuiGraphics g, int left, int top, int right, int bottom,

@@ -129,7 +129,8 @@ public final class ShowcaseBlueprint {
         elements.add(ScreenElement.of("objet", ElementKind.SLOT, 0, 0, 80, 20)
                 .withParent("visuel")
                 .resized(Extent.fill(), Extent.of(20))
-                .withTooltip(ScreenText.literal("Un emplacement d'objet, rempli par le graphe")));
+                .withTooltip(ScreenText.literal(
+                        "Autant d'émeraudes que le score — posées par gui/set_item")));
 
         // --- colonne de droite : ce qui se manipule, dans un panneau défilant ---
         elements.add(ScreenElement.of("reglages", ElementKind.PANEL, 0, 0, 180, 110)
@@ -155,7 +156,9 @@ public final class ShowcaseBlueprint {
         elements.add(ScreenElement.of("curseur", ElementKind.SLIDER, 0, 0, 170, 12)
                 .withParent("reglages")
                 .resized(Extent.fill(), Extent.of(12))
-                .withOptions(ElementOptions.slider(0, 100, 5))
+                // Le placeholder d'un curseur est son UNITÉ : il n'a aucun autre sens
+                // pour ce type, et le peintre l'écrit derrière la valeur.
+                .withOptions(ElementOptions.slider(0, 100, 5).withPlaceholder(" pts"))
                 .withTooltip(ScreenText.literal("Glissez : le score suit, par pas de 5")));
 
         // La liste déroulante : ses choix sont ses LIGNES, les mêmes qu'une liste, posées
@@ -164,7 +167,11 @@ public final class ShowcaseBlueprint {
                 .withParent("reglages")
                 .resized(Extent.fill(), Extent.of(12))
                 .withText(ScreenText.literal("Choisir un palier…"))
-                .withTooltip(ScreenText.literal("Se déplie par-dessus le reste ; Échap referme")));
+                // rowHeight : le MÊME réglage que pour une liste, puisque les choix sont
+                // des lignes. Ici plus aérées que la valeur par défaut.
+                .withOptions(ElementOptions.list(14))
+                .withTooltip(ScreenText.literal(
+                        "Se déplie par-dessus ; flèches, lettre pour chercher, Échap referme")));
 
         elements.add(ScreenElement.of("bascule", ElementKind.TOGGLE, 0, 0, 170, 12)
                 .withParent("reglages")
@@ -399,10 +406,49 @@ public final class ShowcaseBlueprint {
      */
     private static void refreshAfter(Blueprint bp, NodeTypeLookup lookup, String seed,
                                      UUID after, UUID playerSource, double x, double y) {
-        UUID refresh = add(bp, lookup, seed + "-refresh", node("gui/refresh"), x + 240, y);
+        UUID put = fillSlot(bp, lookup, seed, after, playerSource, x, y);
+        UUID refresh = add(bp, lookup, seed + "-refresh", node("gui/refresh"), x + 520, y);
         literal(bp, lookup, refresh, "screen", LiteralValue.of(PinTypes.STRING, SCREEN));
         link(bp, lookup, playerSource, "player", refresh, "player");
-        link(bp, lookup, after, "exec_out", refresh, "exec_in");
+        link(bp, lookup, put, "exec_out", refresh, "exec_in");
+    }
+
+    /**
+     * Remplir l'emplacement d'objet — le seul élément que rien n'écrivait.
+     *
+     * <p>Le nombre d'émeraudes suit {@code score}. Le poser <b>ici</b>, sur le chemin que
+     * toutes les manipulations empruntent déjà, plutôt qu'à chaque site d'écriture :
+     * câblé à un seul endroit, le SLOT ne bougerait qu'avec un bouton sur deux, ce qui
+     * est pire pour un exemple qu'un emplacement franchement décoratif.
+     *
+     * <p>Un SLOT ne se lie pas comme le titre ou la barre : une liaison suit une valeur,
+     * et un objet n'en est pas une. Il faut un nœud, et c'est justement ce que cet
+     * exemple doit montrer — {@code gui/set_item} est le seul chemin.
+     *
+     * @return le {@code gui/set_item}, à qui enchaîner la suite.
+     */
+    private static UUID fillSlot(Blueprint bp, NodeTypeLookup lookup, String seed,
+                                 UUID after, UUID playerSource, double x, double y) {
+        UUID read = add(bp, lookup, seed + "-slot-read", node("var/get"), x + 240, y + 140);
+        literal(bp, lookup, read, "var", LiteralValue.of(PinTypes.STRING, "score"));
+        // Le compte est un ENTIER : item/create refuse un nombre à virgule, et le score
+        // en est un dès que le curseur y passe.
+        UUID count = add(bp, lookup, seed + "-slot-count", node("convert/to_int"),
+                x + 380, y + 140);
+        link(bp, lookup, read, "value", count, "value");
+
+        UUID stack = add(bp, lookup, seed + "-slot-item", node("item/create"), x + 520, y + 140);
+        literal(bp, lookup, stack, "item", LiteralValue.of(PinTypes.RESOURCE_LOCATION,
+                Identifier.withDefaultNamespace("emerald")));
+        link(bp, lookup, count, "result", stack, "count");
+
+        UUID put = add(bp, lookup, seed + "-slot-set", node("gui/set_item"), x + 240, y);
+        literal(bp, lookup, put, "screen", LiteralValue.of(PinTypes.STRING, SCREEN));
+        literal(bp, lookup, put, "element", LiteralValue.of(PinTypes.STRING, "objet"));
+        link(bp, lookup, stack, "stack", put, "item");
+        link(bp, lookup, playerSource, "player", put, "player");
+        link(bp, lookup, after, "exec_out", put, "exec_in");
+        return put;
     }
 
     private static Identifier node(String path) {

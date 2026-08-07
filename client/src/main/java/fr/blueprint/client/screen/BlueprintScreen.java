@@ -165,9 +165,22 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
     private @Nullable String openDropdown;
 
     /** Hauteur d'une ligne dépliée, en unités d'interface. */
+    /** Hauteur de rangée par défaut du panneau déplié, quand l'auteur n'en donne pas. */
     private static final int DROPDOWN_ROW = 11;
-    /** Au-delà, le panneau déplié se limite et défile à la molette. */
+    /** Au-delà, le panneau déplié se limite en hauteur et défile à la molette. */
     private static final int DROPDOWN_MAX_ROWS = 8;
+
+    /**
+     * De combien de choix le panneau déplié est descendu.
+     *
+     * <p>Sans lui, les choix au-delà du huitième étaient <b>inatteignables</b> : le panneau
+     * se limitait bien en hauteur, mais rien ne permettait d'aller voir plus bas. Le
+     * commentaire de {@link #DROPDOWN_MAX_ROWS} promettait pourtant la molette — une
+     * promesse écrite avant le code qui devait la tenir, et jamais tenue.
+     */
+    private int dropdownScroll;
+    /** Le choix visé au clavier dans le panneau déplié, ou −1 si la souris seule mène. */
+    private int dropdownCursor = -1;
 
     private static net.minecraft.world.item.ItemStack itemOf(
             fr.blueprint.core.graph.screen.ScreenUpdate update) {
@@ -245,7 +258,18 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
 
             @Override
             public double value(String element) {
-                return values.getOrDefault(element, 0.0);
+                Double stored = values.get(element);
+                if (stored != null) {
+                    return stored;
+                }
+                // Une LISTE dont personne n'a rien choisi vaut −1, pas 0 : à 0 elle
+                // surlignerait sa première ligne dès l'ouverture et annoncerait une
+                // sélection que le joueur n'a pas faite. Les autres types partent de 0,
+                // qui est pour eux une vraie valeur.
+                var kind = model.element(element);
+                return kind != null
+                        && kind.kind() == fr.blueprint.core.graph.screen.ElementKind.LIST
+                        ? -1 : 0.0;
             }
 
             @Override
@@ -345,13 +369,30 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             return element.options().min();
         }
         int inset = Math.max(2, element.style().padding());
-        double fraction = (mouseX - rect.x() - inset) / Math.max(1, rect.width() - 2 * inset);
+        // La piste s'arrête avant la lecture de valeur : la même soustraction que le
+        // peintre, par le même calcul. Glisser sur toute la largeur alors que la piste
+        // est plus courte empêcherait d'atteindre le maximum autrement qu'en passant la
+        // souris SOUS le chiffre.
+        double reserved = ScreenPainter.sliderReadoutWidth(font, element,
+                values.getOrDefault(element.name(), element.options().min()), rect.width());
+        double track = Math.max(1, rect.width() - 2 * inset - reserved);
+        double fraction = (mouseX - rect.x() - inset) / track;
         return element.options().valueAt(fraction);
     }
 
     /** La molette fait défiler la liste sous le curseur, puis le panneau qui la contient. */
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double hAmount, double vAmount) {
+        // Le panneau déplié EN PREMIER, comme pour le clic : il recouvre l'écran, il doit
+        // donc aussi recouvrir la molette. Sans cela, tourner la molette au-dessus d'une
+        // liste dépliée ferait défiler le panneau qui est DESSOUS.
+        var panel = dropdownPanel();
+        if (panel != null && mouseX >= panel.x() && mouseX <= panel.x() + panel.width()
+                && mouseY >= panel.y() && mouseY <= panel.y() + panel.height()) {
+            dropdownScroll = (int) Math.clamp(dropdownScroll - Math.signum(vAmount),
+                    0, dropdownMaxScroll());
+            return true;
+        }
         String name = elementAt(mouseX, mouseY);
         var element = name == null ? null : model.element(name);
         if (element != null
@@ -705,6 +746,14 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
 
     @Override
     public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
+        // Taper une lettre dans une liste dépliée saute au premier choix qui commence par
+        // elle. Sur trente paliers, atteindre « Vétéran » à la flèche demande vingt
+        // pressions ; c'est le geste que tout menu déroulant accepte, et son absence se
+        // remarque bien plus que sa présence.
+        if (openDropdown != null) {
+            jumpToChoice(event.codepointAsString());
+            return true;
+        }
         var element = editing == null ? null : model.element(editing);
         if (element == null) {
             return super.charTyped(event);
@@ -732,7 +781,13 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         // champ de saisie : quitter le menu d'un coup parce qu'on voulait juste renoncer
         // à un choix serait une surprise désagréable, et c'est le geste réflexe.
         if (openDropdown != null && key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
-            openDropdown = null;
+            setOpenDropdown(null);
+            return true;
+        }
+        // Le panneau déplié capte le clavier tant qu'il est ouvert, comme il capte le
+        // clic et la molette : il recouvre l'écran, il doit le recouvrir entièrement.
+        // Laisser Tab passer dessous déplacerait un focus qu'on ne voit plus.
+        if (openDropdown != null && keyInOpenDropdown(key)) {
             return true;
         }
         if (editing != null) {
@@ -777,6 +832,16 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 || key == org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE) {
             String element = focus.activate(model);
             if (element != null) {
+                var target = model.element(element);
+                // Entrée sur une liste repliée l'OUVRE. Envoyer un clic à la place, comme
+                // pour un bouton, ferait remonter au graphe un choix que personne n'a
+                // fait — et le clavier n'aurait jamais aucun moyen d'en désigner un.
+                if (target != null
+                        && target.kind() == fr.blueprint.core.graph.screen.ElementKind.DROPDOWN) {
+                    setOpenDropdown(element);
+                    playClick();
+                    return true;
+                }
                 onClick.accept(element);
                 return true;
             }
@@ -838,6 +903,11 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 case LIST -> {
                     int index = listIndexAt(element, rect, event.y());
                     if (index >= 0) {
+                        // La ligne cliquée devient la ligne SURLIGNÉE, tout de suite.
+                        // Attendre que le graphe la renvoie ferait clignoter la sélection
+                        // au rythme du réseau — et ne montrerait rien du tout si le
+                        // graphe se contente de lire l'événement.
+                        values.put(was, (double) index);
                         onValue.accept(new Interaction(was, index, "", 0, false));
                     }
                     return true;
@@ -866,7 +936,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 case DROPDOWN -> {
                     // Bascule : recliquer sur une liste ouverte la referme, ce que fait
                     // toute liste déroulante et ce qu'un joueur essaie en premier.
-                    openDropdown = was.equals(openDropdown) ? null : was;
+                    setOpenDropdown(was.equals(openDropdown) ? null : was);
                     return true;
                 }
                 default -> {
@@ -925,7 +995,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         if (rows <= 0) {
             return null;   // une liste sans choix n'ouvre rien plutôt qu'un cadre vide
         }
-        double height = rows * DROPDOWN_ROW;
+        double height = rows * dropdownRow();
         // Le panneau tombe SOUS l'élément, sauf s'il n'y a plus la place en bas — auquel
         // cas il remonte au-dessus. Sans cela, une liste placée en bas de fenêtre déplie
         // hors de l'écran et paraît ne rien faire.
@@ -954,16 +1024,153 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         graphics.fill(left - 1, top - 1, right + 1, bottom + 1, style.border());
         graphics.fill(left, top, right, bottom, 0xFF101318);
 
+        // La souris l'emporte quand elle est sur le panneau, le curseur clavier sinon :
+        // deux rangées surlignées à la fois ne diraient pas laquelle Entrée validerait.
         int hovered = choiceAt(mouseX, mouseY);
-        for (int i = 0; i < Math.min(DROPDOWN_MAX_ROWS, choices.size()); i++) {
-            int rowTop = top + i * DROPDOWN_ROW;
-            if (i == hovered) {
-                graphics.fill(left, rowTop, right, rowTop + DROPDOWN_ROW, style.hoverBackground());
+        if (hovered < 0) {
+            hovered = dropdownCursor;
+        }
+        int shown = Math.min(DROPDOWN_MAX_ROWS, choices.size());
+        for (int row = 0; row < shown; row++) {
+            int choice = row + dropdownScroll;
+            int rowTop = top + row * dropdownRow();
+            if (choice == hovered) {
+                graphics.fill(left, rowTop, right, rowTop + dropdownRow(),
+                        style.hoverBackground());
             }
             graphics.drawString(font,
-                    font.plainSubstrByWidth(choices.get(i), right - left - 4),
+                    font.plainSubstrByWidth(choices.get(choice), right - left - 6),
                     left + 2, rowTop + 2, style.textColor(), false);
         }
+        // Le repère de défilement : sans lui, rien ne dit qu'il reste des choix en
+        // dessous, et personne ne pense à tourner la molette dans une liste qui a l'air
+        // complète.
+        if (choices.size() > DROPDOWN_MAX_ROWS) {
+            int track = bottom - top;
+            int thumb = Math.max(4, track * shown / choices.size());
+            int thumbTop = top + (track - thumb) * dropdownScroll / dropdownMaxScroll();
+            graphics.fill(right - 2, top, right, bottom, style.border());
+            graphics.fill(right - 2, thumbTop, right, thumbTop + thumb, style.textColor());
+        }
+    }
+
+    /**
+     * Ouvre, referme ou change le panneau déplié.
+     *
+     * <p>À l'ouverture il retombe sur le <b>choix courant</b> plutôt que sur le début :
+     * dans une liste de trente paliers, le palier actif est la seule position d'où l'on
+     * ait envie de repartir. Rouvrir au cran laissé par la fois d'avant montrerait des
+     * choix sans rapport avec ce qu'on vient de cliquer.
+     */
+    private void setOpenDropdown(@Nullable String name) {
+        openDropdown = name;
+        dropdownCursor = -1;
+        dropdownScroll = 0;
+        if (name == null) {
+            return;
+        }
+        int current = (int) Math.round(values.getOrDefault(name, 0.0));
+        if (current >= 0 && current < lines.getOrDefault(name, java.util.List.of()).size()) {
+            dropdownCursor = current;
+            revealChoice(current);
+        }
+    }
+
+    /**
+     * Parcourir et valider le panneau déplié sans la souris.
+     *
+     * @return vrai si la touche a été consommée par le panneau.
+     */
+    private boolean keyInOpenDropdown(int key) {
+        String element = openDropdown;
+        if (element == null) {
+            return false;
+        }
+        int available = lines.getOrDefault(element, java.util.List.of()).size();
+        if (available == 0) {
+            return false;
+        }
+        int target = switch (key) {
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> Math.min(available - 1, dropdownCursor + 1);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> Math.max(0, dropdownCursor - 1);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> 0;
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> available - 1;
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN ->
+                    Math.min(available - 1, dropdownCursor + DROPDOWN_MAX_ROWS);
+            case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP ->
+                    Math.max(0, dropdownCursor - DROPDOWN_MAX_ROWS);
+            default -> -1;
+        };
+        if (target >= 0) {
+            dropdownCursor = target;
+            revealChoice(target);
+            return true;
+        }
+        boolean confirm = key == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER
+                || key == org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
+        if (confirm && dropdownCursor >= 0 && dropdownCursor < available) {
+            int chosen = dropdownCursor;
+            setOpenDropdown(null);
+            commitChoice(element, chosen);
+            return true;
+        }
+        // Tout le reste est avalé : une frappe qui traverserait le panneau agirait sur un
+        // écran que le joueur ne voit plus.
+        return true;
+    }
+
+    /**
+     * Amène le curseur sur le premier choix commençant par {@code typed}.
+     *
+     * <p>La recherche <b>repart après le curseur</b> et boucle : taper deux fois la même
+     * lettre passe au suivant qui la porte. Repartir du début à chaque frappe aurait
+     * bloqué sur le premier « Bronze » d'une liste qui en compte trois.
+     */
+    private void jumpToChoice(String typed) {
+        var choices = lines.getOrDefault(openDropdown, java.util.List.of());
+        if (typed.isBlank() || choices.isEmpty()) {
+            return;
+        }
+        String prefix = typed.toLowerCase(java.util.Locale.ROOT);
+        for (int offset = 1; offset <= choices.size(); offset++) {
+            int candidate = Math.floorMod(dropdownCursor + offset, choices.size());
+            if (choices.get(candidate).toLowerCase(java.util.Locale.ROOT).startsWith(prefix)) {
+                dropdownCursor = candidate;
+                revealChoice(candidate);
+                return;
+            }
+        }
+    }
+
+    /** Fait entrer un choix dans la fenêtre visible, par le plus court chemin. */
+    private void revealChoice(int choice) {
+        if (choice < dropdownScroll) {
+            dropdownScroll = choice;
+        } else if (choice >= dropdownScroll + DROPDOWN_MAX_ROWS) {
+            dropdownScroll = choice - DROPDOWN_MAX_ROWS + 1;
+        }
+        dropdownScroll = Math.clamp(dropdownScroll, 0, dropdownMaxScroll());
+    }
+
+    /**
+     * La hauteur d'une rangée du panneau déplié.
+     *
+     * <p>Elle vient de {@code rowHeight} — le <b>même</b> réglage qu'une liste. Les choix
+     * d'une liste déroulante sont ses lignes, il aurait été étrange qu'elles s'espacent
+     * autrement ; et l'auteur qui veut des rangées lisibles n'a pas un second réglage à
+     * découvrir.
+     */
+    private int dropdownRow() {
+        var element = openDropdown == null ? null : model.element(openDropdown);
+        return element == null ? DROPDOWN_ROW
+                : Math.max(DROPDOWN_ROW, (int) Math.round(element.options().rowHeight()));
+    }
+
+    /** De combien de crans le panneau déplié peut encore descendre. */
+    private int dropdownMaxScroll() {
+        int available = lines.getOrDefault(openDropdown, java.util.List.of()).size();
+        return Math.max(0, available - DROPDOWN_MAX_ROWS);
     }
 
     /** L'indice du choix sous le curseur dans le panneau déplié, ou −1. */
@@ -973,9 +1180,16 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 || mouseY < panel.y() || mouseY > panel.y() + panel.height()) {
             return -1;
         }
-        int index = (int) ((mouseY - panel.y()) / DROPDOWN_ROW);
+        int row = (int) ((mouseY - panel.y()) / dropdownRow());
         int available = lines.getOrDefault(openDropdown, java.util.List.of()).size();
-        return index >= 0 && index < Math.min(DROPDOWN_MAX_ROWS, available) ? index : -1;
+        if (row < 0 || row >= Math.min(DROPDOWN_MAX_ROWS, available)) {
+            return -1;
+        }
+        // La RANGÉE sous la souris n'est pas le CHOIX : le panneau peut être descendu.
+        // Rendre l'indice de rangée ferait choisir le mauvais élément dès qu'on a fait
+        // défiler, et la valeur serait fausse sans que rien ne le signale.
+        int choice = row + dropdownScroll;
+        return choice < available ? choice : -1;
     }
 
     /**
@@ -993,10 +1207,22 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         // Refermé dans TOUS les cas : choisir referme, cliquer à côté referme aussi.
         // Une liste qui resterait ouverte après un clic dans le vide donnerait un menu
         // dont on ne sait plus comment sortir.
-        openDropdown = null;
+        setOpenDropdown(null);
         if (choice < 0) {
             return true;
         }
+        commitChoice(element, choice);
+        return true;
+    }
+
+    /**
+     * Retient un choix et le remonte au graphe.
+     *
+     * <p>Partagé par le clic et par la touche Entrée, à dessein : deux chemins qui
+     * construiraient chacun leur {@link Interaction} finiraient par diverger, et le
+     * clavier enverrait au serveur autre chose que la souris.
+     */
+    private void commitChoice(String element, int choice) {
         values.put(element, (double) choice);
         if (onValue != null) {
             var choices = lines.getOrDefault(element, java.util.List.of());
@@ -1004,7 +1230,6 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                     choice < choices.size() ? choices.get(choice) : "", choice, true));
         }
         playClick();
-        return true;
     }
 
     /**

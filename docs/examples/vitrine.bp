@@ -14,12 +14,12 @@ blueprint blueprint:vitrine {
     panel "visuel" @in("corps") @at(top_left, 0, 0) @size(90, fill) @layout(column, gap: 4, cross: stretch) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     image "image" @in("visuel") @at(top_left, 0, 0) @size(fill, 30) @tip("Une texture du jeu") @texture("minecraft:textures/block/oak_planks.png") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     entity_preview "creature" @in("visuel") @at(top_left, 0, 0) @size(fill, 45) @tip("Un aperçu d'entité") @opts(entity: "minecraft:cow") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
-    slot "objet" @in("visuel") @at(top_left, 0, 0) @size(fill, 20) @tip("Un emplacement d'objet, rempli par le graphe") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    slot "objet" @in("visuel") @at(top_left, 0, 0) @size(fill, 20) @tip("Autant d'émeraudes que le score — posées par gui/set_item") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     panel "reglages" @in("corps") @at(top_left, 0, 0) @size(fill, fill) @tip("Défile à la molette") @layout(column, gap: 4, cross: stretch, scroll: vertical) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     list "liste" @in("reglages") @at(top_left, 0, 0) @size(fill, 40) @tip("Cliquez une ligne : elle devient le score") @opts(rowHeight: 10) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     input "saisie" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @tip("Validez : le score prend cette valeur") @opts(placeholder: "Un nombre, puis Entrée", maxLength: 4, filter: integer) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
-    slider "curseur" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @tip("Glissez : le score suit, par pas de 5") @opts(max: 100, step: 5) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
-    dropdown "choix" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @text("Choisir un palier…") @tip("Se déplie par-dessus le reste ; Échap referme") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    slider "curseur" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @tip("Glissez : le score suit, par pas de 5") @opts(placeholder: " pts", max: 100, step: 5) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    dropdown "choix" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @text("Choisir un palier…") @tip("Se déplie par-dessus ; flèches, lettre pour chercher, Échap referme") @opts(rowHeight: 14) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     toggle "bascule" @in("reglages") @at(top_left, 0, 0) @size(fill, 12) @text("Autoriser « +10 »") @tip("Décochez : le bouton « +10 » se grise") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     panel "actions" @in("racine") @at(top_left, 0, 0) @size(fill, 16) @layout(row, gap: 4, cross: stretch) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     button "plus" @in("actions") @at(top_left, 0, 0) @size(fill, fill) @text("+10") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
@@ -28,11 +28,13 @@ blueprint blueprint:vitrine {
   }
   on blueprint:event/gui_list_clicked(player, screen, element, index, line) @id("84a85b20-d8c5-32eb-b0c7-3e845701bd76") @pos(-600, 2500) @with(element: "choix") {
     blueprint:var/set(var: "score", value: blueprint:convert/to_number(text: $line) @id("df9c1dd9-4be0-3271-8600-dc0e33013c92") @pos(-600, 2620)) @id("25fb0dfe-ff9e-301a-bbd1-55d497d7b9a8") @pos(-300, 2500)
-    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("1304ae4f-617d-3192-bd95-196593344eee") @pos(240, 2500)
+    blueprint:gui/set_item(player: $player, screen: "vitrine", element: "objet", item: blueprint:item/create(item: "minecraft:emerald", count: blueprint:convert/to_int(value: blueprint:var/get(var: "score") @id("d0688edd-06cb-3efa-afd2-a841d28056ed") @pos(240, 2640)) @id("6039906f-0c1c-3c73-87ba-49209a449c70") @pos(380, 2640)) @id("b5bc090e-dead-3b22-9eab-1d228689b91d") @pos(520, 2640)) @id("9367818c-14b0-30b5-9b12-4933708ff258") @pos(240, 2500)
+    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("1304ae4f-617d-3192-bd95-196593344eee") @pos(520, 2500)
   }
   on blueprint:event/gui_list_clicked(player, screen, element, index, line) @id("a503659b-e98e-37c7-9ba8-e6a67fb27f05") @pos(-600, 1300) @with(element: "liste") {
     blueprint:var/set(var: "score", value: blueprint:convert/to_number(text: $line) @id("10894da9-02fd-3ab5-9437-73055b7850f0") @pos(-600, 1420)) @id("db61dda0-6ba9-3271-9714-f20d6101289c") @pos(-300, 1300)
-    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("f6f2aa5b-0996-3985-87df-7a86eef244c2") @pos(240, 1300)
+    blueprint:gui/set_item(player: $player, screen: "vitrine", element: "objet", item: blueprint:item/create(item: "minecraft:emerald", count: blueprint:convert/to_int(value: blueprint:var/get(var: "score") @id("596e1abc-17fe-3b86-a33a-8115192274d7") @pos(240, 1440)) @id("6181bda9-a7d9-3697-b262-b535ca9b5870") @pos(380, 1440)) @id("a39b7b8a-25b6-33b4-9f6d-b3dca16d7ca6") @pos(520, 1440)) @id("f5d73d07-5c6a-32ec-a8e2-7bf8443b2d75") @pos(240, 1300)
+    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("f6f2aa5b-0996-3985-87df-7a86eef244c2") @pos(520, 1300)
   }
   on blueprint:event/gui_clicked(player, screen, element) @id("ca61303e-1f2e-3c5a-8b81-93fe7ae408fd") @pos(-600, 1000) @with(element: "fermer") {
     blueprint:gui/close(player: $player) @id("d2f42ce6-fd67-30bd-8852-21e377d66b75") @pos(-300, 1000)
@@ -41,29 +43,34 @@ blueprint blueprint:vitrine {
     blueprint:gui/open(player: $player, screen: "vitrine") @id("02f707f8-7883-389c-8587-f410e0772524") @pos(-300, -400)
     blueprint:gui/set_lines(player: $player, screen: "vitrine", element: "liste", lines: blueprint:string/split(text: "0,25,50,75,100", separator: ",") @id("508d3ce4-bedf-3dbc-ac44-0d17b39663a4") @pos(-600, -250)) @id("d5ac2a2d-ad1f-3374-8154-d27f9408b6c2") @pos(-40, -400)
     blueprint:gui/set_lines(player: $player, screen: "vitrine", element: "choix", lines: blueprint:string/split(text: "0,25,50,75,100", separator: ",") @id("508d3ce4-bedf-3dbc-ac44-0d17b39663a4") @pos(-600, -250)) @id("125d45da-6b22-3a05-a99e-70f8c759153f") @pos(240, -400)
-    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("3c32a2bb-1481-3645-849b-a639054c239d") @pos(720, -400)
+    blueprint:gui/set_item(player: $player, screen: "vitrine", element: "objet", item: blueprint:item/create(item: "minecraft:emerald", count: blueprint:convert/to_int(value: blueprint:var/get(var: "score") @id("ae9526cd-793c-3103-a962-da9f60a727bc") @pos(720, -260)) @id("67bb388a-9f4f-3a6d-9ca3-cd1ffa9958de") @pos(860, -260)) @id("a0659e36-da9f-3adb-a0b4-f899b98c787c") @pos(1000, -260)) @id("e5380599-4091-372e-a1a6-06793aaacd20") @pos(720, -400)
+    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("3c32a2bb-1481-3645-849b-a639054c239d") @pos(1000, -400)
   }
   on blueprint:event/gui_clicked(player, screen, element) @id("e8156921-9b13-3c62-bd10-a10b1a2374bc") @pos(-600, 0) @with(element: "plus") {
     blueprint:var/set(var: "score", value: blueprint:math/clamp(value: blueprint:math/add(a: blueprint:var/get(var: "score") @id("e03d05f8-87ea-3edb-9c9c-0e6c3a609298") @pos(-600, 120), b: 10.0) @id("50f467ba-2d6b-3b77-972d-01708ca1ff38") @pos(-380, 120), min: 0.0, max: 100.0) @id("1cefe7e5-16a8-3816-a6c4-188b7d44957e") @pos(-160, 120)) @id("b7abef14-14a4-34f0-92c4-2868e005b69f") @pos(-300, 0)
-    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("4e0583e8-2551-308d-82ea-6c2e513fd807") @pos(240, 0)
+    blueprint:gui/set_item(player: $player, screen: "vitrine", element: "objet", item: blueprint:item/create(item: "minecraft:emerald", count: blueprint:convert/to_int(value: blueprint:var/get(var: "score") @id("f95d179d-902e-31bb-983b-21caafd359df") @pos(240, 140)) @id("a55cb506-3576-30b1-b0ed-a1604a3a6a28") @pos(380, 140)) @id("c1dfc4fa-d2bc-3cc6-8a2e-5330955e2586") @pos(520, 140)) @id("f4dcfe48-49e1-3aab-81bd-79817aae6ca4") @pos(240, 0)
+    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("4e0583e8-2551-308d-82ea-6c2e513fd807") @pos(520, 0)
   }
   on blueprint:event/gui_input_changed(player, screen, element, text, submitted) @id("2723b949-9f42-3cb2-82cc-7350d5425ba1") @pos(-600, 1600) @with(element: "saisie") {
     blueprint:flow/branch(condition: $submitted) @id("3f19d2d2-639e-3a7a-abce-a06405a370ff") @pos(-380, 1600) {
       true: {
         blueprint:var/set(var: "score", value: blueprint:convert/to_number(text: $text) @id("081d9715-ee69-343d-bff5-7421e3d63b3b") @pos(-600, 1720)) @id("3cb76915-22ec-3e7c-bfd2-d494ae2a896b") @pos(-160, 1600)
-        blueprint:gui/refresh(player: $player, screen: "vitrine") @id("55722550-27c6-3716-9df1-b1238c389096") @pos(360, 1600)
+        blueprint:gui/set_item(player: $player, screen: "vitrine", element: "objet", item: blueprint:item/create(item: "minecraft:emerald", count: blueprint:convert/to_int(value: blueprint:var/get(var: "score") @id("becc0f43-6869-397c-9359-8e093df2a5ef") @pos(360, 1740)) @id("3c18d0e3-10d0-3e5b-a337-9212b60ae0ec") @pos(500, 1740)) @id("570de451-f6f6-3f1b-8eee-b5e2191deca8") @pos(640, 1740)) @id("850579ec-66e7-3a80-9328-e1163d3e60a1") @pos(360, 1600)
+        blueprint:gui/refresh(player: $player, screen: "vitrine") @id("55722550-27c6-3716-9df1-b1238c389096") @pos(640, 1600)
       }
     }
   }
   on blueprint:event/gui_clicked(player, screen, element) @id("36d2f9e6-b429-35db-bdf7-88c09bf6b56a") @pos(-600, 500) @with(element: "moins") {
     blueprint:var/set(var: "score", value: blueprint:math/clamp(value: blueprint:math/add(a: blueprint:var/get(var: "score") @id("c8253290-64be-3fad-98cc-2f840b758568") @pos(-600, 620), b: -10.0) @id("b646b2f9-c3b4-3e61-9c39-a2ab81826a25") @pos(-380, 620), min: 0.0, max: 100.0) @id("bb83bebd-d0e1-3830-b182-52ce87ebe508") @pos(-160, 620)) @id("b43ad78a-7fcd-3d06-8d15-1edbe6bd9c14") @pos(-300, 500)
-    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("42a4e80f-295d-360e-8c77-da33338b330a") @pos(240, 500)
+    blueprint:gui/set_item(player: $player, screen: "vitrine", element: "objet", item: blueprint:item/create(item: "minecraft:emerald", count: blueprint:convert/to_int(value: blueprint:var/get(var: "score") @id("8f98667b-4506-37a4-a060-057ad6d65727") @pos(240, 640)) @id("d190611e-7e44-35f8-946f-4673fccbeb58") @pos(380, 640)) @id("fb81b6db-fa1f-3558-a611-8c080b77fa56") @pos(520, 640)) @id("4b53366c-37df-31bc-a319-46adb66b1b2c") @pos(240, 500)
+    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("42a4e80f-295d-360e-8c77-da33338b330a") @pos(520, 500)
   }
   on blueprint:event/gui_value_changed(player, screen, element, value, checked) @id("4d9b1d40-b7f2-349b-8f30-900e97fb1430") @pos(-600, 2200) @with(element: "bascule") {
     blueprint:gui/set_enabled(player: $player, screen: "vitrine", element: "plus", enabled: $checked) @id("02ec443d-0007-34df-8ebe-1027d8951a08") @pos(-300, 2200)
   }
   on blueprint:event/gui_value_changed(player, screen, element, value, checked) @id("6acd799b-5ca9-3b47-81b2-8949fd748e18") @pos(-600, 1900) @with(element: "curseur") {
     blueprint:var/set(var: "score", value: $value) @id("320e1685-ba4b-3994-8b95-76428f8efa24") @pos(-300, 1900)
-    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("5f79bda4-c45c-37be-b755-8da01c5f0815") @pos(240, 1900)
+    blueprint:gui/set_item(player: $player, screen: "vitrine", element: "objet", item: blueprint:item/create(item: "minecraft:emerald", count: blueprint:convert/to_int(value: blueprint:var/get(var: "score") @id("5eeddcd3-aa5a-35ed-aede-cd6d98d62f1e") @pos(240, 2040)) @id("1cf3fdfa-41ef-33c8-b49d-d64019ba2601") @pos(380, 2040)) @id("073a0cb8-5f3b-3341-9762-36122e75df21") @pos(520, 2040)) @id("a2df9372-0924-37d4-b473-ae059022fb63") @pos(240, 1900)
+    blueprint:gui/refresh(player: $player, screen: "vitrine") @id("5f79bda4-c45c-37be-b755-8da01c5f0815") @pos(520, 1900)
   }
 }

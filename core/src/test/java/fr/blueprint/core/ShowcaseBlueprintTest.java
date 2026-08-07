@@ -25,6 +25,14 @@ class ShowcaseBlueprintTest {
 
     private static final PluginLoader.LoadedRegistries LOADED = PluginLoader.load(List.of(), true);
 
+    static {
+        // La vitrine pose un objet dans son SLOT, donc elle touche ITEMSTACK — dont le
+        // défaut est ItemStack.EMPTY, et dont la classe ne se charge pas sans registres.
+        // Résoudre les défauts de pins fait partie de la validation d'un lien : sans cet
+        // amorçage, la vitrine ne se CONSTRUIT même pas.
+        MinecraftBootstrap.ensure();
+    }
+
     private static Blueprint built() {
         return ShowcaseBlueprint.build(LOADED.nodes());
     }
@@ -69,6 +77,44 @@ class ShowcaseBlueprintTest {
                 + parsed.error());
         assertEquals(text, ScriptGenerator.generate(parsed.blueprint(), LOADED.nodes()).text(),
                 "aller-retour non identique — quelque chose se perd à l'écriture ou à la lecture");
+    }
+
+    /**
+     * <b>Aucun élément n'est décoratif.</b>
+     *
+     * <p>Le titre du fichier promet des widgets « tous câblés ». Le test précédent ne
+     * vérifie que leur <i>présence</i> : le SLOT a passé une livraison entière posé sur
+     * l'écran sans qu'un seul nœud ne le touche, et rien ne l'a dit. Un élément est câblé
+     * s'il suit une variable, s'il est désigné par un nœud, ou s'il en est un qui n'a
+     * rien à recevoir — un panneau, une image, un aperçu portent leur contenu eux-mêmes.
+     */
+    @Test
+    void chaqueElementEstReellementCable() {
+        Blueprint bp = built();
+        var screen = bp.screen(ShowcaseBlueprint.SCREEN);
+
+        var designated = new java.util.HashSet<String>();
+        bp.nodes().values().forEach(node -> {
+            var literal = node.literals().get("element");
+            if (literal != null) {
+                designated.add(String.valueOf(literal.value()));
+            }
+        });
+
+        var inert = screen.elements().values().stream()
+                // « pas de liaison » se lit sur la VARIABLE : binding() n'est jamais nul,
+                // il vaut ElementBinding.NONE. Tester la nullité laissait ce test passer
+                // sur n'importe quoi — vérifié en le voyant vert avec le SLOT débranché.
+                .filter(element -> element.binding().variable().isEmpty()
+                        && !designated.contains(element.name())
+                        && element.kind() != ElementKind.PANEL
+                        && element.kind() != ElementKind.IMAGE
+                        && element.kind() != ElementKind.ENTITY_PREVIEW)
+                .map(fr.blueprint.core.graph.screen.ScreenElement::name)
+                .toList();
+
+        assertTrue(inert.isEmpty(),
+                "ces éléments sont posés sur l'écran sans que rien ne les pilote : " + inert);
     }
 
     /** Les liaisons sont bien là : sans elles, le titre et la barre resteraient morts. */
