@@ -256,7 +256,8 @@ public final class NodeWidget {
         int badge = permissionBadge(desc.permission());
         categoryGlyph(g, desc.category(), GLYPH_X, header / 2, fade(category, 0xFF));
         // Le titre laisse la place au pictogramme ET au badge, sinon il passe dessous.
-        String title = font.plainSubstrByWidth(I18n.get(desc.titleKey()),
+        String title = font.plainSubstrByWidth(
+                NodeTitle.of(box.node(), desc, I18n::get),
                 w - 12 - TITLE_INDENT - (badge == 0 ? 0 : 10));
         // Centré dans l'en-tête plutôt que posé à cinq pixels du haut : la valeur en dur
         // convenait à un bandeau de 18, elle laissait le titre collé au bord dès qu'il a
@@ -566,6 +567,11 @@ public final class NodeWidget {
                 g.fill(cx - 3, cy + 1, cx, cy + 2, color);
                 g.fill(cx - 2, cy + 2, cx + 1, cy + 4, color);
             }
+            case "function" -> { // ƒ — la barre montante, sa boucle et sa traverse
+                g.fill(cx, cy - 3, cx + 2, cy + 4, color);
+                g.fill(cx + 1, cy - 4, cx + 3, cy - 2, color);
+                g.fill(cx - 2, cy - 1, cx + 3, cy, color);
+            }
             default -> g.fill(cx - 2, cy - 2, cx + 3, cy + 3, color);
         }
     }
@@ -650,6 +656,9 @@ public final class NodeWidget {
             case "item" -> 0xFFD19A66;
             case "debug" -> 0xFFF7768E;
             case "event" -> 0xFFE06C75;
+            // Le violet des fonctions, comme Unreal : c'est la convention que tout auteur
+            // venant du Blueprint d'Unreal reconnaîtra sans qu'on la lui explique.
+            case "function" -> 0xFF9D7CD8;
             default -> 0xFF8A8F98;
         };
     }

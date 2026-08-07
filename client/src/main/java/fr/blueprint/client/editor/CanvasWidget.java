@@ -404,7 +404,7 @@ public final class CanvasWidget {
             lines.add(I18n.get("blueprint.editor.tip.ghost", box.node().typeId().getNamespace()));
             return lines;
         }
-        lines.add(I18n.get(desc.titleKey()));
+        lines.add(nodeTitle(box.node(), desc));
         String description = I18n.get(desc.descKey());
         if (!description.equals(desc.descKey()) && !description.isBlank()) {
             lines.add(description);
@@ -465,8 +465,9 @@ public final class CanvasWidget {
         List<GotoState.Target> targets = new ArrayList<>();
         for (NodeGeometry.Box b : controller.boxes()) {
             NodeDescriptor desc = descriptorOf(b.node());
-            targets.add(new GotoState.Target(b.node().uuid(),
-                    desc != null ? I18n.get(desc.titleKey()) : b.node().typeId().toString()));
+            // Le MÊME titre que celui dessiné : chercher « carre » doit trouver les nœuds
+            // sur lesquels on lit « Appeler carre », pas seulement ceux du registre.
+            targets.add(new GotoState.Target(b.node().uuid(), nodeTitle(b.node(), desc)));
         }
         gotoState.open(targets);
     }
@@ -537,6 +538,11 @@ public final class CanvasWidget {
      * appels de {@code CanvasController}, et les descripteurs sont un second chemin, qui ne
      * passe pas par {@code NodeShape}.
      */
+    /** Le titre affiché d'un nœud — le nom de sa fonction s'il en porte un. */
+    private static String nodeTitle(Node node, @Nullable NodeDescriptor desc) {
+        return NodeTitle.of(node, desc, I18n::get);
+    }
+
     private @Nullable NodeDescriptor descriptorOf(Node node) {
         NodeDescriptor base = descriptors.descriptor(node.typeId());
         if (base == null || !fr.blueprint.core.graph.FuncNodes.isFunctionNode(node.typeId())) {

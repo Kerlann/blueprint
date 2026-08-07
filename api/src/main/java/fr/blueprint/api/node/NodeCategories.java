@@ -16,6 +16,15 @@ public final class NodeCategories {
     public static final NodeCategory TEXT = new NodeCategory("text");
     public static final NodeCategory DEBUG = new NodeCategory("debug");
     public static final NodeCategory EVENT = new NodeCategory("event");
+    /**
+     * Les trois nœuds de fonction : l'appel, et les deux bords d'un corps (story 20.2).
+     *
+     * <p>Une catégorie à eux plutôt que « divers » : ils portent alors leur couleur et leur
+     * pictogramme, comme Unreal le fait de ses nœuds de fonction. Rangés dans « divers » ils
+     * empruntaient le gris du défaut, celui-là même que porte un nœud dont on n'a rien su
+     * dire — trois nœuds qu'on ne repérait pas dans un graphe qui en compte cinquante.
+     */
+    public static final NodeCategory FUNCTION = new NodeCategory("function");
     /** Catégorie par défaut d'un builder qui n'en précise pas. */
     public static final NodeCategory MISC = new NodeCategory("misc");
 

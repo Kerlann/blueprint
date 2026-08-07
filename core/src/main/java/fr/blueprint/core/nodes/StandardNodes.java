@@ -277,7 +277,7 @@ public final class StandardNodes {
         // NodeTypeLookup#shape(Blueprint, Node). Ce type est le repli quand le nom ne
         // résout pas.
         r.register(NodeType.builder(fr.blueprint.core.graph.FuncNodes.CALL)
-                .category(NodeCategories.MISC)
+                .category(NodeCategories.FUNCTION)
                 .exec()
                 .in(fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN, PinTypes.STRING, "")
                 .action(ctx -> {
@@ -290,7 +290,7 @@ public final class StandardNodes {
         // résoudre leur forme demanderait de chercher quelle fonction les contient — un
         // balayage de tous les corps, à chaque image de l'éditeur.
         r.register(NodeType.builder(fr.blueprint.core.graph.FuncNodes.PARAM)
-                .category(NodeCategories.MISC)
+                .category(NodeCategories.FUNCTION)
                 .execOut("exec_out")
                 .in(fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN, PinTypes.STRING, "")
                 .action(ctx -> {
@@ -300,7 +300,7 @@ public final class StandardNodes {
                 .build());
 
         r.register(NodeType.builder(fr.blueprint.core.graph.FuncNodes.RESULT)
-                .category(NodeCategories.MISC)
+                .category(NodeCategories.FUNCTION)
                 .execIn("exec_in")
                 .in(fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN, PinTypes.STRING, "")
                 .action(ctx -> {
