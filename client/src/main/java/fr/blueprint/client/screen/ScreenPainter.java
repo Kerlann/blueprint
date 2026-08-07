@@ -364,6 +364,17 @@ public final class ScreenPainter {
             default -> fillBox(g, left, top, right, bottom, background, style, scale);
         }
 
+        // La liste déroulante est le seul type qui dessine son propre libellé, parce que
+        // celui-ci n'est pas toujours son texte : c'est le choix courant s'il y en a un,
+        // et « text() » ne sert alors que d'INVITE. Le laisser passer ici superposait les
+        // deux — l'invite par-dessus le chiffre choisi, illisibles tous les deux.
+        //
+        // Les autres peintres spécialisés (case à cocher, curseur, emplacement) ne
+        // dessinent que leur décoration et comptent sur cette passe pour leur étiquette :
+        // la convention tient toujours, avec une exception nommée plutôt que subie.
+        if (element.kind() == fr.blueprint.core.graph.screen.ElementKind.DROPDOWN) {
+            return;
+        }
         var preview = visuals.preview(element);
         if (preview != null && !preview.isEmpty()) {
             paintText(g, font, element.withText(preview), left, top, right, bottom, scale);
