@@ -296,6 +296,27 @@ public final class Blueprint {
         this.preservedScreens = preserved;
     }
 
+    /**
+     * Fonctions au type de paramètre irrésoluble (mod retiré) : NBT brut, ré-émis tel quel.
+     *
+     * <p>Même promesse que les écrans, et l'enjeu est plus grand : une fonction porte un
+     * corps entier. La jeter parce qu'un de ses paramètres cite un type disparu effacerait
+     * des dizaines de nœuds pour un mod qu'on réinstallera peut-être demain.
+     */
+    private net.minecraft.nbt.ListTag preservedFunctions = new net.minecraft.nbt.ListTag();
+
+    net.minecraft.nbt.ListTag preservedFunctions() {
+        return preservedFunctions;
+    }
+
+    public boolean hasPreservedFunctions() {
+        return !preservedFunctions.isEmpty();
+    }
+
+    void setPreservedFunctions(net.minecraft.nbt.ListTag preserved) {
+        this.preservedFunctions = preserved;
+    }
+
     // Variables au type irrésoluble (mod retiré) : NBT brut, ré-émis tel quel (P4).
     private net.minecraft.nbt.ListTag preservedVariables = new net.minecraft.nbt.ListTag();
 
@@ -329,6 +350,7 @@ public final class Blueprint {
         c.functions.putAll(functions);
         c.preservedVariables = preservedVariables.copy();
         c.preservedScreens = preservedScreens.copy();
+        c.preservedFunctions = preservedFunctions.copy();
         return c;
     }
 
@@ -340,11 +362,28 @@ public final class Blueprint {
                 || !screens.equals(other.screens)
                 || !preservedVariables.equals(other.preservedVariables)
                 || !preservedScreens.equals(other.preservedScreens)
+                || !preservedFunctions.equals(other.preservedFunctions)
+                // Par contentEquals et non par equals : un Node n'a pas d'égalité de
+                // contenu générée, donc comparer deux corps par leurs tables comparerait
+                // des IDENTITÉS — toujours faux après un aller-retour NBT.
+                || !functionsContentEqual(other)
                 || !nodes.keySet().equals(other.nodes.keySet())) {
             return false;
         }
         for (Node n : nodes.values()) {
             if (!n.contentEquals(other.nodes.get(n.uuid()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean functionsContentEqual(Blueprint other) {
+        if (!functions.keySet().equals(other.functions.keySet())) {
+            return false;
+        }
+        for (BlueprintFunction f : functions.values()) {
+            if (!f.contentEquals(other.functions.get(f.name()))) {
                 return false;
             }
         }

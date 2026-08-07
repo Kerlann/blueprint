@@ -99,8 +99,8 @@ public final class Node {
         return n;
     }
 
-    boolean contentEquals(Node other) {
-        return uuid.equals(other.uuid) && typeId.equals(other.typeId)
+    boolean contentEquals(@Nullable Node other) {
+        return other != null && uuid.equals(other.uuid) && typeId.equals(other.typeId)
                 && position.equals(other.position) && literals.equals(other.literals)
                 && config.equals(other.config)
                 && preservedLiterals.equals(other.preservedLiterals);

@@ -85,11 +85,18 @@ public final class GraphNbt {
             comments.add(c);
         }
         root.put("screens", ScreenNbt.encode(bp));
+        // Les fonctions préservées repartent telles qu'elles sont arrivées, comme les
+        // variables et les écrans : un mod retiré ne doit pas effacer un corps entier.
+        ListTag functions = FunctionNbt.encode(bp);
+        for (Tag preserved : bp.preservedFunctions()) {
+            functions.add(preserved.copy());
+        }
+        root.put("functions", functions);
         root.put("comments", comments);
         return root;
     }
 
-    private static CompoundTag encodeNode(Node node) {
+    static CompoundTag encodeNode(Node node) {
         CompoundTag n = new CompoundTag();
         n.putString("uuid", node.uuid().toString());
         n.putString("type", node.typeId().toString());
@@ -182,6 +189,10 @@ public final class GraphNbt {
         ScreenNbt.decode(bp, list(root, "screens"), preservedScreens);
         bp.setPreservedScreens(preservedScreens);
 
+        ListTag preservedFunctions = new ListTag();
+        FunctionNbt.decode(bp, list(root, "functions"), preservedFunctions, types);
+        bp.setPreservedFunctions(preservedFunctions);
+
         for (Tag tag : list(root, "comments")) {
             if (tag instanceof CompoundTag c) {
                 UUID commentId = uuid(c.getStringOr("uuid", ""));
@@ -197,7 +208,7 @@ public final class GraphNbt {
         return bp;
     }
 
-    private static void decodeNode(Blueprint bp, CompoundTag n, Function<Identifier, PinType> types) {
+    static void decodeNode(Blueprint bp, CompoundTag n, Function<Identifier, PinType> types) {
         UUID nodeId = uuid(n.getStringOr("uuid", ""));
         Identifier typeId = Identifier.tryParse(n.getStringOr("type", ""));
         if (nodeId == null || typeId == null) {
@@ -249,7 +260,7 @@ public final class GraphNbt {
 
     // ------------------------------------------------------------------ util
 
-    private static ListTag list(CompoundTag tag, String key) {
+    static ListTag list(CompoundTag tag, String key) {
         return tag.get(key) instanceof ListTag l ? l : new ListTag();
     }
 
@@ -257,7 +268,7 @@ public final class GraphNbt {
         return tag.get(key) instanceof CompoundTag c ? c : new CompoundTag();
     }
 
-    private static UUID uuid(String value) {
+    static UUID uuid(String value) {
         try {
             return UUID.fromString(value);
         } catch (IllegalArgumentException e) {

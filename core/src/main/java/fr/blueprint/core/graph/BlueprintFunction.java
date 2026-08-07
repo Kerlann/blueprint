@@ -175,6 +175,29 @@ public record BlueprintFunction(String name, List<Param> inputs, List<Param> out
         return out;
     }
 
+    /**
+     * Égalité de <b>contenu</b>, corps compris.
+     *
+     * <p>L'{@code equals} généré du record ne suffit pas : un {@link Node} n'a pas
+     * d'égalité de contenu, donc comparer deux corps par leurs tables comparerait des
+     * identités — toujours faux après un aller-retour NBT, et donc une garantie de
+     * préservation qui ne garantirait rien.
+     */
+    public boolean contentEquals(@org.jetbrains.annotations.Nullable BlueprintFunction other) {
+        if (other == null || !name.equals(other.name)
+                || !inputs.equals(other.inputs) || !outputs.equals(other.outputs)
+                || !links.equals(other.links)
+                || !nodes.keySet().equals(other.nodes.keySet())) {
+            return false;
+        }
+        for (Node node : nodes.values()) {
+            if (!node.contentEquals(other.nodes.get(node.uuid()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Le paramètre d'entrée portant ce nom, ou {@code null}. */
     public @org.jetbrains.annotations.Nullable Param input(String pin) {
         return find(inputs, pin);
