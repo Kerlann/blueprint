@@ -1,0 +1,57 @@
+# Publication du site de documentation.
+#
+# Séparé de build.yml à dessein : la doc se publie à chaque push sur main, alors que le jar
+# ne se construit que sur un tag. Corriger une faute de frappe ne doit pas demander une
+# release, et publier une release ne doit pas attendre une construction Gradle.
+name: docs
+
+on:
+  push:
+    branches: [main]
+    # Rien d'autre ne peut changer le site : inutile de payer une construction pour un
+    # changement de code qui n'y apparaît pas.
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une seule publication à la fois, et la dernière gagne : deux corrections coup sur coup
+# ne doivent pas se doubler et remettre l'avant-dernière en ligne.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: pip
+
+      - run: pip install mkdocs-material
+
+      - run: mkdocs build --site-dir _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

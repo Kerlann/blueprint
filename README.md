@@ -11,7 +11,7 @@ existant : ses nœuds deviennent des **fantômes** qui reprennent vie à la réi
 > **État : v1.0.0 publiée**, plus une passe d'optimisation depuis (épics 13 à 19). Les neuf
 > épics du PRD, plus trois nés de l'usage réel — les **interfaces graphiques** (épic 10), le
 > **contenu déclaré** (épic 11) et **l'éditeur à l'usage** (épic 12). 86 documents de story,
-> 85 gates QA, **1 214 tests headless** et **21 gametests** dans un serveur réel. Reste la
+> 85 gates QA, **1 209 tests headless** et **20 gametests** dans un serveur réel. Reste la
 > session de vérification visuelle, listée dans [`docs/README.md`](docs/README.md) : elle ne
 > couvre que ce qu'aucun test ne peut juger — l'aspect et l'ergonomie.
 
@@ -27,7 +27,7 @@ Puis, en jeu :
 
 | | |
 |---|---|
-| `/blueprint showcase` puis `/bpc vitrine` | voir les onze types de widgets, tous câblés |
+| `/blueprint showcase` puis `/bpc vitrine` | voir les douze types de widgets, tous câblés |
 | `/blueprint bench` puis `/bpc bench` | lancer le banc de performance |
 | `/blueprint-edit create mon_premier` | créer le sien |
 | `F6` | rouvrir le dernier édité |
@@ -42,8 +42,10 @@ blueprint en dix minutes, raccourcis, dépannage.
   commentaires, minimap, thème JSON rechargeable, navigation au clavier.
 - **Exécution sûre** : compilation en IR, VM bornée par un budget de fuel, suspension qui
   survit à un redémarrage, blueprint glouton ou en faute désactivé automatiquement.
-- **~80 nœuds** livrés (flux, maths, logique, chaînes, monde, entité, joueur, item, texte)
-  et 10 événements du monde, plus `/bpc <nom>` pour déclencher un graphe à la commande.
+- **236 types de nœuds** livrés — interfaces (34), événements (26), monde (20), maths (20),
+  joueur (19), chaînes (12), entité (12), flux (12), vecteurs (11), logique (10), listes,
+  tables, texte, items, positions, scores — plus `/bpc <nom>` pour déclencher un graphe à
+  la commande.
 - **Multijoueur** : synchronisation du registre au login, ouverture et enregistrement par
   paquets avec verrou optimiste, garde de graphe et quotas côté serveur.
 - **Extensible** de trois façons : builder Java, annotation `@BlueprintNode`, ou simple
@@ -124,8 +126,8 @@ détail de chaque optimisation — y compris ce qui a été **écarté** et pour
 ## Construire et tester
 
 ```bash
-./gradlew build          # 6 modules, 1 214 tests headless, couverture, docs générées
-./gradlew runGametest    # 21 tests dans un vrai serveur, sans fenêtre
+./gradlew build          # 6 modules, 1 209 tests headless, couverture, docs générées
+./gradlew runGametest    # 20 tests dans un vrai serveur, sans fenêtre
 ./gradlew runClient      # jouer
 ```
 

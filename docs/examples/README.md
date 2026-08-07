@@ -4,8 +4,8 @@ Deux, et chacun a un travail précis.
 
 | | |
 |---|---|
-| [`vitrine.bp`](vitrine.bp) | **les onze types d'éléments d'écran, tous câblés** — `/blueprint showcase` puis `/bpc vitrine` |
-| [`bench.bp`](bench.bp) | **un banc de performance** — `/blueprint bench` puis `/bpc bench` |
+| [`vitrine.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/vitrine.bp) | **les douze types d'éléments d'écran, tous câblés** — `/blueprint showcase` puis `/bpc vitrine` |
+| [`bench.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/bench.bp) | **un banc de performance** — `/blueprint bench` puis `/bpc bench` |
 
 ---
 
@@ -93,7 +93,7 @@ aucune trace) et le choix visé au clavier dans une liste dépliée.
 
 # Le banc de performance
 
-[`bench.bp`](bench.bp), un **banc de performance jouable**.
+[`bench.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/bench.bp), un **banc de performance jouable**.
 
 Il ne cherche pas à enseigner. Il cherche à faire travailler la VM là où les bancs
 headless ne vont pas — dans une partie, sur un serveur, avec quelqu'un qui tape une
@@ -196,5 +196,5 @@ et l'infobulle d'un pin donne son type.
 
 | | |
 |---|---|
-| [`content/`](content/) | contenu déclaré — blocs et items en JSON, à copier dans `blueprint/content/`, puis `/blueprint content` |
-| [`packs/`](packs/) | pack d'images d'exemple, à copier dans `blueprint/scripts/`, puis `/blueprint-packs reload` |
+| [`content/`](https://github.com/Kerlann/blueprint/tree/main/docs/examples/content) | contenu déclaré — blocs et items en JSON, à copier dans `blueprint/content/`, puis `/blueprint content` |
+| [`packs/`](https://github.com/Kerlann/blueprint/tree/main/docs/examples/packs) | pack d'images d'exemple, à copier dans `blueprint/scripts/`, puis `/blueprint-packs reload` |

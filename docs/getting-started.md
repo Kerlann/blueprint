@@ -3,6 +3,11 @@
 Ce guide s'adresse au **joueur**. Il ne demande pas de savoir programmer, et pas une
 ligne de Java. Comptez dix minutes pour votre premier blueprint qui fait quelque chose.
 
+![L'éditeur ouvert sur un graphe de huit nœuds](images/editeur-graphe.png)
+
+*Ce que vous aurez sous les yeux : les nœuds au centre, les variables à gauche, les
+informations du blueprint à droite, et la barre de diagnostics tout en bas.*
+
 ---
 
 ## 1. Qu'est-ce qu'un blueprint ?
@@ -36,6 +41,12 @@ commande est tapée…) et s'exécute **côté serveur**.
 > **Sur un serveur**, l'édition demande la permission configurée par l'administrateur ;
 > sans elle, l'éditeur s'ouvre en **lecture seule** et vous le dit.
 
+!!! note "📷 Capture à faire — `images/navigateur.png`"
+
+    Le navigateur ouvert avec **F6** : la liste des blueprints, un dossier, et la barre du
+    haut. Remplacez ce bloc par :
+    `![Le navigateur de blueprints](images/navigateur.png)`
+
 ---
 
 ## 3. Votre premier blueprint en cinq gestes
@@ -43,6 +54,13 @@ commande est tapée…) et s'exécute **côté serveur**.
 1. `/blueprint create bonjour`
 2. **Espace** ouvre la palette. Tapez `join`, choisissez **`blueprint:player_join`** :
    c'est l'événement de départ.
+
+    !!! note "📷 Capture à faire — `images/palette.png`"
+
+        La palette ouverte, `join` tapé dans le champ de recherche, la liste filtrée
+        en dessous. C'est le geste que tout le monde répète : il mérite une image.
+
+
 3. **Espace** encore, tapez `message`, choisissez **« Envoyer un message »**.
 4. Tirez un fil depuis la **flèche de sortie** de l'événement vers la **flèche d'entrée**
    du message. Puis du pin `player` de l'événement vers le pin `player` du message.
@@ -50,6 +68,12 @@ commande est tapée…) et s'exécute **côté serveur**.
 
 Cliquez **Tester** : le blueprint est enregistré et activé. Reconnectez-vous — le message
 s'affiche.
+
+!!! note "📷 Capture à faire — `images/premier-graphe.png`"
+
+    Les deux nœuds câblés, avec les deux fils bien visibles : le fil épais d'exécution et
+    le fil fin de données. C'est l'image qui explique la différence mieux qu'un
+    paragraphe.
 
 Si un pin refuse de se connecter, ce n'est pas un bug : les types doivent correspondre.
 Le fil devient rouge et la barre du bas dit pourquoi.
@@ -87,6 +111,11 @@ exécutions : un compteur, un état, un nom. Chaque variable a une **portée** :
 
 Glissez une variable sur le canevas pour obtenir un nœud **lire** ou **écrire**.
 
+![Un nœud de lecture de la variable « compte »](images/noeud-variable.png)
+
+*Un nœud **lire** : la couleur et la forme du pin disent le type — ici un nombre. La forme
+change avec le type exprès, pour rester lisible en cas de daltonisme.*
+
 ---
 
 ## 6. Quand ça ne marche pas
@@ -99,6 +128,12 @@ Glissez une variable sur le canevas pour obtenir un nœud **lire** ou **écrire*
 | « mod(s) absent(s) » dans `/blueprint info` | Un mod qui fournissait des nœuds a disparu. Vos graphes sont **intacts** : réinstallez-le et tout repart. |
 | Un nœud est barré / en pointillés | C'est un **fantôme** : même cause que ci-dessus. |
 | Le blueprint s'est désactivé tout seul | Il a dépassé son budget de calcul, ou un nœud a fauté. Le log serveur nomme le nœud. |
+
+!!! note "📷 Capture à faire — `images/diagnostics.png`"
+
+    Un graphe volontairement cassé — un pin obligatoire non câblé, ou deux types
+    incompatibles — avec la **barre de diagnostics** rouge en bas. Montrer le mod en train
+    de dire ce qui ne va pas vaut mieux que dix captures où tout marche.
 
 Pour regarder ce qui se passe vraiment, un administrateur dispose du **débogueur** :
 
@@ -119,6 +154,11 @@ Tout graphe s'écrit en **BScript**, un texte lisible :
 
 La vue **Script** (bouton de la barre d'outils) montre le texte du graphe en direct.
 
+!!! note "📷 Capture à faire — `images/vue-script.png`"
+
+    La vue Script à côté du graphe qu'elle décrit. C'est la garantie centrale du mod, et
+    c'est la seule qui ne se raconte pas : il faut voir les deux ensemble.
+
 > **Chaque `Ctrl+S` rafraîchit le fichier.** Le dossier `blueprint/exports/` est donc un
 > reflet fidèle de ce que contient votre monde, pas une photo du jour où vous avez pensé à
 > exporter — vous pouvez le suivre dans git, l'ouvrir dans un éditeur de texte, en envoyer
@@ -138,6 +178,11 @@ La vue **Script** (bouton de la barre d'outils) montre le texte du graphe en dir
 
 Un blueprint peut ouvrir un **écran** chez un joueur : une boutique, un distributeur, un
 tableau de scores. En dix minutes, de zéro à un guichet qui compte des jetons.
+
+![Le concepteur d'écrans](images/concepteur-ecran.png)
+
+*Le concepteur : la palette d'éléments et les calques à gauche, l'aperçu au centre, les
+réglages de l'élément sélectionné à droite, et les résolutions à tester en bas.*
 
 ### Se déplacer dans le concepteur
 
@@ -215,9 +260,15 @@ réseau. En contrepartie, un écran qui ne se met pas à jour est presque toujou
 boutons et `Entrée` active : un joueur qui ne vise pas bien à la souris doit pouvoir s'en
 servir.
 
-Il n'y a plus d'exemple livré pour ce cas : le dossier `examples/` ne contient désormais
-que le [banc de performance](examples/README.md). Ce guide se suit donc les mains dans le
-cambouis, ce qui est de toute façon la meilleure façon d'apprendre l'éditeur.
+!!! note "📷 Capture à faire — `images/menu-en-jeu.png`"
+
+    Le guichet **ouvert en jeu**, par-dessus le monde. Le concepteur montre ce qu'on
+    dessine ; celle-ci montre ce qu'on obtient, et c'est la deuxième moitié de la
+    promesse.
+
+Pour voir tous les widgets d'un coup plutôt que ces deux boutons, la **vitrine** est
+livrée : `/blueprint showcase` puis `/bpc vitrine` — les douze types, tous câblés. Elle est
+décrite dans [Les blueprints livrés](examples/README.md).
 
 ### Une page qu'on lit
 
@@ -289,7 +340,7 @@ Dans l'écran, une image se désigne par `<pack>/<fichier>` — `ma_boutique/fon
   — sans quitter la partie.
 - `/blueprint-packs` liste ce qui est installé, et **ce qui a été écarté avec la raison**.
 
-Un exemple complet, prêt à copier : [`examples/packs/ma_boutique/`](examples/packs/ma_boutique/).
+Un exemple complet, prêt à copier : [`examples/packs/ma_boutique/`](https://github.com/Kerlann/blueprint/tree/main/docs/examples/packs/ma_boutique).
 
 ### La contrepartie, à savoir avant de partager
 
@@ -323,7 +374,7 @@ renommés — de vrais items et de vrais blocs, que `/give` connaît et qu'on po
 
 ### En deux minutes
 
-Copiez [`examples/content/`](examples/content/) dans `blueprint/content/`, puis
+Copiez [`examples/content/`](https://github.com/Kerlann/blueprint/tree/main/docs/examples/content) dans `blueprint/content/`, puis
 **redémarrez le jeu**. Ensuite :
 
 ```
@@ -397,4 +448,5 @@ Un item déclaré ne *fait* rien par lui-même. C'est le graphe qui lui donne un
 - [`node-reference.md`](node-reference.md) — tous les nœuds livrés, leurs pins et leur coût.
 - [`bscript-spec.md`](bscript-spec.md) — la grammaire du texte généré.
 - [`extension-api.md`](extension-api.md) — ajouter vos propres nœuds (mod ou datapack).
-- [`ux-ui-spec.md`](ux-ui-spec.md) — la logique d'ensemble de l'éditeur.
+- [`ux-ui-spec.md`](https://github.com/Kerlann/blueprint/blob/main/docs/ux-ui-spec.md) —
+  la logique d'ensemble de l'éditeur. *(Document de conception, hors du site.)*

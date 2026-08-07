@@ -70,8 +70,11 @@ Un mod unique qui fournit :
 - Modèle de graphe + validation + persistance (NBT gzip, sauvegarde du monde).
 - Compilateur + VM avec budget de fuel et nœud `wait`.
 - ~80 nœuds standard (flux, maths, logique, chaînes, monde, entité, item, joueur, texte).
+  *(Cible du MVP. La v1.0 en a livré **236**, dont 34 pour les interfaces graphiques et 26
+  événements — deux domaines nés après ce brief. Le chiffre ci-dessus est conservé tel
+  quel : c'est ce qui était visé, et le réécrire ferait mentir la trace.)*
 - Variables 4 scopes : `local`, `graph`, `world`, `player`.
-- 10 événements déclencheurs de base.
+- 10 événements déclencheurs de base. *(Livré : 26.)*
 - Éditeur client complet (pan/zoom, palette contextuelle, liens, panneau variables, erreurs).
 - Génération BScript + import BScript.
 - API d'extension : builder + annotation + JSON datapack, avec synchro du registre au login.

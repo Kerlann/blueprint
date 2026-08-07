@@ -1,0 +1,107 @@
+site_name: Blueprint
+site_description: Un éditeur de logique par nœuds, en jeu, pour Minecraft 1.21.11 (Fabric)
+site_author: Kerlann
+site_url: https://kerlann.github.io/blueprint/
+
+repo_url: https://github.com/Kerlann/blueprint
+repo_name: Kerlann/blueprint
+edit_uri: edit/main/docs/
+
+copyright: MIT — Kerlann
+
+theme:
+  name: material
+  language: fr
+  icon:
+    logo: material/graph-outline
+    repo: fontawesome/brands/github
+  palette:
+    # Le thème suit celui du système, avec une bascule manuelle. Un site de doc lu la nuit
+    # dans un fond blanc est une raison de le fermer.
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Suivre le système
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Passer en sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Passer en clair
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+
+plugins:
+  - search:
+      lang: fr
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+# Le dossier docs/ sert DEUX publics : le joueur et le projet. Le site ne montre que le
+# premier. Sans cette liste, les 86 documents de story, les gates QA et le PRD seraient
+# publiés au même rang que le guide de prise en main — et personne ne saurait par où
+# commencer.
+#
+# Les motifs sont ANCRÉS par la barre de tête. Sans elle, « README.md » exclurait aussi
+# examples/README.md — qui est une page du site — et la page disparaîtrait en silence,
+# avec juste une ligne d'information dans un journal de construction que personne ne lit.
+exclude_docs: |
+  /README.md
+  /brief.md
+  /prd.md
+  /ux-ui-spec.md
+  /plan-optimisation.md
+  /rapport-de-fin.md
+  /session-de-verification.md
+  /modrinth.md
+  /api-surface.txt
+  /stories/
+  /qa/
+  /architecture/
+  /examples/*.bp
+  /examples/content/
+  /examples/packs/
+
+nav:
+  - Accueil: index.md
+  - Prise en main: getting-started.md
+  - Les blueprints livrés: examples/README.md
+  - Référence:
+      - Les nœuds: node-reference.md
+      - Le langage BScript: bscript-spec.md
+  - Pour les moddeurs:
+      - Ajouter ses propres nœuds: extension-api.md
+      - Architecture: architecture.md
