@@ -266,6 +266,9 @@ public final class ScriptParser {
                 case "graph" -> scope = VarScope.GRAPH;
                 case "world" -> scope = VarScope.WORLD;
                 case "player" -> scope = VarScope.PLAYER;
+                // Le partage entre blueprints se DÉCLARE. Il se subissait : deux graphes
+                // portant chacun un « prenom » écrivaient au même endroit.
+                case "player_shared" -> scope = VarScope.PLAYER_SHARED;
                 case "replicated" -> replicated = true;
                 default -> throw new ParseError(ann.line(), "annotation de variable inconnue @" + ann.text());
             }

@@ -71,7 +71,7 @@ MetaEntry   ::= Ident (String | Number | Ident)
 
 Decl        ::= VarDecl | FuncDecl | EventDecl | CommentDecl
 VarDecl     ::= "var" Type Ident ("=" Expr)? ScopeAnn? Annotation*
-ScopeAnn    ::= "@local" | "@graph" | "@world" | "@player"
+ScopeAnn    ::= "@local" | "@graph" | "@world" | "@player" | "@player_shared"
 FuncDecl    ::= "func" Ident "(" ParamList? ")" ("->" Type)? Annotation* Block
 EventDecl   ::= "on" EventRef "(" ParamList? ")" Annotation* Block
 EventRef    ::= Ident | "signal" "(" String ")"
@@ -187,7 +187,7 @@ implicite : le typage est résolu à la compilation, pas à l'exécution.
 | `@color("#RRGGBB")` | Note, boîte | Couleur |
 | `@id("uuid")` | Nœud | UUID stable, pour que les diffs Git restent minimaux |
 | `@collapsed` | Nœud | Nœud replié dans l'éditeur |
-| `@local` `@graph` `@world` `@player` | Variable | Portée |
+| `@local` `@graph` `@world` `@player` `@player_shared` | Variable | Portée — `@player` est isolée par blueprint, `@player_shared` est commune aux blueprints du serveur |
 | `@replicated` | Variable | Synchronisée vers les clients (lecture seule) |
 | `@disabled` | Événement | Point d'entrée désactivé |
 

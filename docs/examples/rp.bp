@@ -5,12 +5,12 @@ blueprint blueprint:rp {
     version "1.0.0"
     permission GAMEPLAY
   }
-  var double age = 25.0 @player @replicated
+  var double age = 25.0 @player_shared @replicated
   var bool cree = false @player @replicated
-  var string metier = "Sans-emploi" @player @replicated
-  var string nom = "" @player @replicated
-  var string prenom = "" @player @replicated
-  var string sexe = "" @player @replicated
+  var string metier = "Sans-emploi" @player_shared @replicated
+  var string nom = "" @player_shared @replicated
+  var string prenom = "" @player_shared @replicated
+  var string sexe = "" @player_shared @replicated
   screen "creation" {
     panel "cadre" @at(center, 0, 0) @size(220, 160) @layout(column, gap: 5, cross: stretch) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
     label "titre" @in("cadre") @at(top_left, 0, 0) @size(fill, 12) @text("Qui êtes-vous ?") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)

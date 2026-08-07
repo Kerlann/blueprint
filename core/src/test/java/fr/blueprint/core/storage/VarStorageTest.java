@@ -67,19 +67,48 @@ class VarStorageTest {
                 "le tour ne doit pas mélanger les joueurs");
     }
 
-    /** Les trois portées se rangent séparément, et se relisent séparément. */
+    /** Les quatre portées se rangent séparément, et se relisent séparément. */
     @Test
-    void lesTroisPorteesSeRelisentChacuneChezSoi() {
+    void lesQuatrePorteesSeRelisentChacuneChezSoi() {
         VarStorage before = new VarStorage();
         before.set(VarScope.WORLD, new VarOwner(RP, ALICE), "saison", "hiver");
         before.set(VarScope.GRAPH, new VarOwner(RP, ALICE), "compteur", 3);
         before.set(VarScope.PLAYER, new VarOwner(RP, ALICE), "metier", "Forgeron");
+        before.set(VarScope.PLAYER_SHARED, new VarOwner(RP, ALICE), "prenom", "Alice");
 
         VarStorage after = roundTrip(before);
 
         assertEquals("hiver", after.get(VarScope.WORLD, VarOwner.NONE, "saison"));
         assertEquals(3, after.get(VarScope.GRAPH, new VarOwner(RP, null), "compteur"));
         assertEquals("Forgeron", after.get(VarScope.PLAYER, new VarOwner(RP, ALICE), "metier"));
+        assertEquals("Alice",
+                after.get(VarScope.PLAYER_SHARED, new VarOwner(RP, ALICE), "prenom"));
+    }
+
+    /**
+     * <b>L'isolation par blueprint traverse la sauvegarde.</b>
+     *
+     * <p>Elle pourrait tenir en jeu et se perdre à l'écriture : le NBT était plat par
+     * joueur, et deux blueprints s'y seraient retrouvés fondus au redémarrage — un défaut
+     * qui ne se voit qu'après un arrêt du serveur, donc le plus tard possible.
+     */
+    @Test
+    void deuxBlueprintsRestentSeparesApresLeTour() {
+        Identifier autre = Identifier.fromNamespaceAndPath("test", "metiers");
+        VarStorage before = new VarStorage();
+        before.set(VarScope.PLAYER, new VarOwner(RP, ALICE), "prenom", "Alice");
+        before.set(VarScope.PLAYER, new VarOwner(autre, ALICE), "prenom", 42);
+        before.set(VarScope.PLAYER_SHARED, new VarOwner(RP, ALICE), "titre", "Baron");
+
+        VarStorage after = roundTrip(before);
+
+        assertEquals("Alice", after.get(VarScope.PLAYER, new VarOwner(RP, ALICE), "prenom"));
+        assertEquals(42, after.get(VarScope.PLAYER, new VarOwner(autre, ALICE), "prenom"));
+        assertEquals("Baron",
+                after.get(VarScope.PLAYER_SHARED, new VarOwner(autre, ALICE), "titre"),
+                "ce qui est déclaré partagé le reste après un redémarrage");
+        assertNull(after.get(VarScope.PLAYER, new VarOwner(RP, BOB), "prenom"),
+                "et les joueurs restent séparés, comme avant");
     }
 
     /**

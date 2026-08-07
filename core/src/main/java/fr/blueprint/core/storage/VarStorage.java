@@ -53,32 +53,18 @@ public final class VarStorage extends SavedData implements VarStore {
     private static final org.slf4j.Logger LOGGER =
             org.slf4j.LoggerFactory.getLogger("blueprint-vars");
 
-    private final Map<String, Object> world = new HashMap<>();
-    private final Map<Identifier, Map<String, Object>> graph = new HashMap<>();
-    private final Map<UUID, Map<String, Object>> player = new HashMap<>();
+    /** Le MÊME rangement que le magasin mémoire : une seule règle de possession. */
+    private final fr.blueprint.core.vm.VarBuckets buckets =
+            new fr.blueprint.core.vm.VarBuckets();
 
     // ------------------------------------------------------------------ le magasin
-
-    private @Nullable Map<String, Object> bucket(VarScope scope, VarOwner owner,
-                                                 boolean create) {
-        return switch (scope) {
-            case WORLD -> world;
-            case GRAPH -> create
-                    ? graph.computeIfAbsent(owner.blueprint(), k -> new HashMap<>())
-                    : graph.get(owner.blueprint());
-            case PLAYER -> create
-                    ? player.computeIfAbsent(owner.player(), k -> new HashMap<>())
-                    : player.get(owner.player());
-            case LOCAL -> null;
-        };
-    }
 
     @Override
     public @Nullable Object get(VarScope scope, VarOwner owner, String name) {
         if (!VarStore.owns(scope, owner)) {
             return null;
         }
-        Map<String, Object> bucket = bucket(scope, owner, false);
+        Map<String, Object> bucket = buckets.of(scope, owner, false);
         return bucket == null ? null : bucket.get(name);
     }
 
@@ -87,7 +73,7 @@ public final class VarStorage extends SavedData implements VarStore {
         if (!VarStore.owns(scope, owner)) {
             return;
         }
-        Map<String, Object> bucket = bucket(scope, owner, true);
+        Map<String, Object> bucket = buckets.of(scope, owner, true);
         if (bucket != null) {
             bucket.put(name, value);
         }
@@ -110,7 +96,7 @@ public final class VarStorage extends SavedData implements VarStore {
 
     private static VarStorage fromTag(CompoundTag root) {
         VarStorage storage = new VarStorage();
-        readBucket(root.getCompoundOrEmpty("world"), storage.world);
+        readBucket(root.getCompoundOrEmpty("world"), storage.buckets.world());
 
         CompoundTag graphs = root.getCompoundOrEmpty("graph");
         for (String key : graphs.keySet()) {
@@ -120,34 +106,73 @@ public final class VarStorage extends SavedData implements VarStore {
             }
             Map<String, Object> bucket = new HashMap<>();
             readBucket(graphs.getCompoundOrEmpty(key), bucket);
-            storage.graph.put(id, bucket);
+            storage.buckets.graph().put(id, bucket);
         }
 
-        CompoundTag players = root.getCompoundOrEmpty("player");
-        for (String key : players.keySet()) {
-            UUID uuid;
-            try {
-                uuid = UUID.fromString(key);
-            } catch (IllegalArgumentException e) {
+        CompoundTag shared = root.getCompoundOrEmpty("playerShared");
+        for (String key : shared.keySet()) {
+            UUID uuid = uuidOrNull(key);
+            if (uuid == null) {
                 continue;
             }
             Map<String, Object> bucket = new HashMap<>();
-            readBucket(players.getCompoundOrEmpty(key), bucket);
-            storage.player.put(uuid, bucket);
+            readBucket(shared.getCompoundOrEmpty(key), bucket);
+            storage.buckets.sharedPlayer().put(uuid, bucket);
+        }
+
+        // Par joueur, PUIS par blueprint. Un monde écrit avant cette imbrication a des
+        // valeurs à plat sous « player » : elles ne se relisent pas, et les défauts
+        // déclarés reprennent la main au premier lancement. C'est assumé — le format
+        // datait du jour même, aucun serveur n'a pu s'en servir.
+        CompoundTag players = root.getCompoundOrEmpty("player");
+        for (String key : players.keySet()) {
+            UUID uuid = uuidOrNull(key);
+            if (uuid == null) {
+                continue;
+            }
+            CompoundTag byBlueprint = players.getCompoundOrEmpty(key);
+            for (String owner : byBlueprint.keySet()) {
+                Identifier id = Identifier.tryParse(owner);
+                if (id == null) {
+                    continue;
+                }
+                Map<String, Object> bucket = new HashMap<>();
+                readBucket(byBlueprint.getCompoundOrEmpty(owner), bucket);
+                storage.buckets.player()
+                        .computeIfAbsent(uuid, k -> new java.util.LinkedHashMap<>())
+                        .put(id, bucket);
+            }
         }
         return storage;
     }
 
+    private static @Nullable UUID uuidOrNull(String key) {
+        try {
+            return UUID.fromString(key);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     private CompoundTag toTag() {
         CompoundTag root = new CompoundTag();
-        root.put("world", writeBucket(world));
+        root.put("world", writeBucket(buckets.world()));
 
         CompoundTag graphs = new CompoundTag();
-        graph.forEach((id, bucket) -> graphs.put(id.toString(), writeBucket(bucket)));
+        buckets.graph().forEach((id, bucket) -> graphs.put(id.toString(), writeBucket(bucket)));
         root.put("graph", graphs);
 
+        CompoundTag shared = new CompoundTag();
+        buckets.sharedPlayer().forEach((uuid, bucket) ->
+                shared.put(uuid.toString(), writeBucket(bucket)));
+        root.put("playerShared", shared);
+
         CompoundTag players = new CompoundTag();
-        player.forEach((uuid, bucket) -> players.put(uuid.toString(), writeBucket(bucket)));
+        buckets.player().forEach((uuid, byBlueprint) -> {
+            CompoundTag owners = new CompoundTag();
+            byBlueprint.forEach((id, bucket) -> owners.put(id.toString(), writeBucket(bucket)));
+            players.put(uuid.toString(), owners);
+        });
         root.put("player", players);
         return root;
     }

@@ -59,6 +59,46 @@ class VarOwnershipTest {
         assertEquals(2.0, store.get(VarScope.GRAPH, new VarOwner(AUTRE, null), "score"));
     }
 
+    /**
+     * <b>Le défaut signalé.</b> Deux blueprints, un même nom de variable joueur, aucun
+     * mélange.
+     *
+     * <p>Le rangement se faisait par joueur seul : un script de création et un script de
+     * métiers déclarant chacun un {@code prenom} écrivaient au même endroit, avec deux
+     * types possiblement différents et rien pour le signaler.
+     */
+    @Test
+    void deuxBlueprintsNePartagentPasUneVariableDeJoueur() {
+        VarStore store = VarStore.inMemory();
+        store.set(VarScope.PLAYER, new VarOwner(RP, ALICE), "prenom", "Alice");
+        store.set(VarScope.PLAYER, new VarOwner(AUTRE, ALICE), "prenom", 42);
+
+        assertEquals("Alice", store.get(VarScope.PLAYER, new VarOwner(RP, ALICE), "prenom"),
+                "le second blueprint a écrasé la variable du premier, et avec un autre type");
+        assertEquals(42, store.get(VarScope.PLAYER, new VarOwner(AUTRE, ALICE), "prenom"));
+    }
+
+    /**
+     * <b>Mais le partage reste possible — déclaré.</b>
+     *
+     * <p>Une identité de jeu de rôle écrite par le script de création et lue par celui des
+     * métiers est un besoin réel. Il se déclare des deux côtés : deux graphes qui se
+     * rencontrent l'ont tous les deux voulu.
+     */
+    @Test
+    void lePartageEntreBlueprintsSeDeclare() {
+        VarStore store = VarStore.inMemory();
+        store.set(VarScope.PLAYER_SHARED, new VarOwner(RP, ALICE), "prenom", "Alice");
+
+        assertEquals("Alice",
+                store.get(VarScope.PLAYER_SHARED, new VarOwner(AUTRE, ALICE), "prenom"),
+                "un autre blueprint doit lire ce qui se déclare partagé");
+        assertNull(store.get(VarScope.PLAYER_SHARED, new VarOwner(RP, BOB), "prenom"),
+                "partagé entre GRAPHES, jamais entre joueurs");
+        assertNull(store.get(VarScope.PLAYER, new VarOwner(RP, ALICE), "prenom"),
+                "les deux portées sont deux casiers : partager n'est pas fuir");
+    }
+
     /** {@code WORLD} n'appartient à personne, et c'est bien le but. */
     @Test
     void lePorteeMondeResteCommuneAuxDeuxGraphes() {

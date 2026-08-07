@@ -162,9 +162,18 @@ class VariablePanelStateTest {
         assertEquals(0, state.pendingBreaks());
     }
 
+    /**
+     * Le cycle va du plus étroit au plus large : graphe → joueur → joueur partagé →
+     * monde. Cliquer élargit, ce qui est le sens dans lequel on hésite.
+     */
     @Test
     void cycleDePortee() {
         state.create();
+        assertTrue(state.cycleScope("var1"));
+        assertEquals(VarScope.PLAYER, bp.variables().get("var1").scope(),
+                "un graphe qui s'ouvre s'ouvre d'abord au joueur, pas au monde entier");
+        assertTrue(state.cycleScope("var1"));
+        assertEquals(VarScope.PLAYER_SHARED, bp.variables().get("var1").scope());
         assertTrue(state.cycleScope("var1"));
         assertEquals(VarScope.WORLD, bp.variables().get("var1").scope());
     }

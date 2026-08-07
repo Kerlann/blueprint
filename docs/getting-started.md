@@ -104,9 +104,16 @@ Le panneau **Variables** (à gauche) crée des valeurs qui survivent entre deux
 exécutions : un compteur, un état, un nom. Chaque variable a une **portée** :
 
 - `graph` — propre au blueprint ;
-- `player` — une valeur **par joueur** ;
+- `player` — une valeur **par joueur**, et propre au blueprint ;
+- `player_shared` — une par joueur, **lisible par vos autres blueprints** ;
 - `world` — une pour le monde entier ;
 - `local` — le temps d'une exécution seulement.
+
+> Les deux portées joueur répondent à des questions différentes. `player` garde la valeur
+> chez vous : un autre blueprint qui nommerait sa variable pareil ne peut pas la toucher.
+> `player_shared` est le canal entre vos scripts — le prénom d'un personnage, écrit par
+> celui qui le crée et lu par tous les autres. Dans le doute, `player` : on ouvre quand on
+> en a besoin, on ne referme jamais sans casser quelque chose.
 
 Glissez une variable sur le canevas pour obtenir un nœud **lire** ou **écrire**.
 

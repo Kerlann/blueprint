@@ -210,15 +210,22 @@ public final class RoleplayBlueprint {
                 "Blueprint", "Serveur RP : création de personnage et fiche permanente",
                 "1.0.0", Permission.GAMEPLAY));
 
-        // Toutes en PLAYER : c'est une identité, elle appartient à quelqu'un. En GRAPH,
-        // le deuxième joueur à se créer effacerait le premier.
-        variable(bp, "prenom", PinTypes.STRING, LiteralValue.of(PinTypes.STRING, ""));
-        variable(bp, "nom", PinTypes.STRING, LiteralValue.of(PinTypes.STRING, ""));
-        variable(bp, "age", PinTypes.DOUBLE, LiteralValue.of(PinTypes.DOUBLE, 25.0));
-        variable(bp, "sexe", PinTypes.STRING, LiteralValue.of(PinTypes.STRING, ""));
-        variable(bp, "metier", PinTypes.STRING,
+        // L'IDENTITÉ est partagée entre blueprints, et le reste ne l'est pas. C'est la
+        // distinction que ce blueprint est là pour montrer.
+        //
+        // Un serveur de jeu de rôle finit toujours par avoir plusieurs scripts : la
+        // création, les métiers, la banque, la police. Tous ont besoin du prénom, aucun
+        // n'a besoin de savoir si le formulaire a été rempli. PLAYER_SHARED déclare le
+        // premier cas ; PLAYER garde le second chez soi, où un autre graphe portant par
+        // hasard un « cree » ne peut pas venir le contredire.
+        identite(bp, "prenom", PinTypes.STRING, LiteralValue.of(PinTypes.STRING, ""));
+        identite(bp, "nom", PinTypes.STRING, LiteralValue.of(PinTypes.STRING, ""));
+        identite(bp, "age", PinTypes.DOUBLE, LiteralValue.of(PinTypes.DOUBLE, 25.0));
+        identite(bp, "sexe", PinTypes.STRING, LiteralValue.of(PinTypes.STRING, ""));
+        identite(bp, "metier", PinTypes.STRING,
                 LiteralValue.of(PinTypes.STRING, "Sans-emploi"));
-        // Le drapeau qui décide de tout : formulaire ou fiche, à la connexion.
+        // Le drapeau qui décide de tout : formulaire ou fiche, à la connexion. Interne à
+        // ce script, donc isolé.
         variable(bp, "cree", PinTypes.BOOL, LiteralValue.of(PinTypes.BOOL, false));
 
         GraphLoader.addScreen(bp, creation());
@@ -455,6 +462,14 @@ public final class RoleplayBlueprint {
         link(bp, lookup, after, "exec_out", refresh, "exec_in");
     }
 
+    /** Un champ du personnage : par joueur, et lisible par les autres scripts du serveur. */
+    private static void identite(Blueprint bp, String name, fr.blueprint.api.pin.PinType type,
+                                 LiteralValue defaut) {
+        GraphLoader.addVariable(bp,
+                new Variable(name, type, defaut, VarScope.PLAYER_SHARED, true));
+    }
+
+    /** Un état interne à ce script : par joueur, et invisible aux autres blueprints. */
     private static void variable(Blueprint bp, String name, fr.blueprint.api.pin.PinType type,
                                  LiteralValue defaut) {
         GraphLoader.addVariable(bp, new Variable(name, type, defaut, VarScope.PLAYER, true));

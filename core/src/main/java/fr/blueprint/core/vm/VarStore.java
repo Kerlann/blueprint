@@ -1,12 +1,9 @@
 package fr.blueprint.core.vm;
 
 import fr.blueprint.core.graph.VarScope;
-import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Stockage des variables non locales ({@code GRAPH}, {@code WORLD}, {@code PLAYER}).
@@ -19,11 +16,15 @@ import java.util.UUID;
  * et l'écran de chacun montrait l'identité du dernier arrivé. {@code GRAPH} avait le même
  * trou entre deux blueprints portant chacun une variable {@code score}.
  *
+ * <p>{@code PLAYER} est isolé <b>par blueprint autant que par joueur</b>. Il ne l'était
+ * pas : deux graphes déclarant chacun un {@code prenom} écrivaient au même endroit, avec
+ * deux types possiblement différents et rien pour le signaler. Le partage entre graphes
+ * existe toujours, mais il se déclare — {@code PLAYER_SHARED}.
+ *
  * <p>Un accès {@code PLAYER} sans joueur ne retombe <b>pas</b> sur un panier commun : il
  * faute, et la faute nomme la variable. Un graphe branché sur {@code server_tick} n'a
  * aucun joueur ; lui laisser lire « la » valeur aurait rendu celle d'un joueur au hasard,
- * ce qui est plus difficile à diagnostiquer qu'un refus. Pour viser un joueur depuis un
- * tel graphe, il y a {@code var/get_for} et {@code var/set_for}.
+ * ce qui est plus difficile à diagnostiquer qu'un refus.
  */
 public interface VarStore {
 
@@ -39,7 +40,9 @@ public interface VarStore {
      */
     static boolean owns(VarScope scope, VarOwner owner) {
         return switch (scope) {
-            case PLAYER -> owner.player() != null;
+            // PLAYER veut les DEUX : le joueur, et le blueprint qui l'isole des autres.
+            case PLAYER -> owner.player() != null && owner.blueprint() != null;
+            case PLAYER_SHARED -> owner.player() != null;
             case GRAPH -> owner.blueprint() != null;
             case WORLD, LOCAL -> true;
         };
@@ -77,33 +80,14 @@ public interface VarStore {
 
     static VarStore inMemory() {
         return new VarStore() {
-            // Trois tables plutôt qu'une clé composée en chaîne : une concaténation par
-            // accès aurait alloué dans le chemin le plus chaud de la VM, et le nom d'une
-            // variable est libre — « a:b » aurait pu se confondre avec un préfixe.
-            private final Map<String, Object> world = new HashMap<>();
-            private final Map<Identifier, Map<String, Object>> graph = new HashMap<>();
-            private final Map<UUID, Map<String, Object>> player = new HashMap<>();
-
-            private @Nullable Map<String, Object> bucket(VarScope scope, VarOwner owner,
-                                                         boolean create) {
-                return switch (scope) {
-                    case WORLD -> world;
-                    case GRAPH -> create
-                            ? graph.computeIfAbsent(owner.blueprint(), k -> new HashMap<>())
-                            : graph.get(owner.blueprint());
-                    case PLAYER -> create
-                            ? player.computeIfAbsent(owner.player(), k -> new HashMap<>())
-                            : player.get(owner.player());
-                    case LOCAL -> null;
-                };
-            }
+            private final VarBuckets buckets = new VarBuckets();
 
             @Override
             public @Nullable Object get(VarScope scope, VarOwner owner, String name) {
                 if (!owns(scope, owner)) {
                     return null;
                 }
-                Map<String, Object> bucket = bucket(scope, owner, false);
+                Map<String, Object> bucket = buckets.of(scope, owner, false);
                 return bucket == null ? null : bucket.get(name);
             }
 
@@ -113,7 +97,7 @@ public interface VarStore {
                 if (!owns(scope, owner)) {
                     return;
                 }
-                Map<String, Object> bucket = bucket(scope, owner, true);
+                Map<String, Object> bucket = buckets.of(scope, owner, true);
                 if (bucket != null) {
                     bucket.put(name, value);
                 }

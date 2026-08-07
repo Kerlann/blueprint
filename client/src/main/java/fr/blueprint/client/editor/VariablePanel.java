@@ -103,8 +103,23 @@ public final class VariablePanel {
         }
     }
 
+    /**
+     * La pastille de portée, <b>nommée cas par cas</b>.
+     *
+     * <p>Elle prenait la première lettre du nom de la portée. C'était juste tant qu'elles
+     * commençaient toutes par une lettre différente — {@code PLAYER_SHARED} donnait « P »
+     * comme {@code PLAYER}, et deux portées qui n'ont rien à voir portaient le même
+     * signe dans un panneau de trois pixels de large. Un {@code switch} exhaustif : la
+     * prochaine portée ne compilera pas sans qu'on ait choisi son signe.
+     */
     private static String scopeTag(Variable v) {
-        return v.scope().name().substring(0, 1).toUpperCase(Locale.ROOT);
+        return switch (v.scope()) {
+            case LOCAL -> "L";
+            case GRAPH -> "G";
+            case PLAYER -> "P";
+            case PLAYER_SHARED -> "P+";
+            case WORLD -> "W";
+        };
     }
 
     /**

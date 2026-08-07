@@ -31,8 +31,14 @@ public final class VariablePanelState {
     public static final List<PinType> TYPE_CYCLE = List.of(PinTypes.DOUBLE, PinTypes.INT,
             PinTypes.LONG, PinTypes.BOOL, PinTypes.STRING);
 
-    public static final List<VarScope> SCOPE_CYCLE = List.of(VarScope.GRAPH, VarScope.WORLD,
-            VarScope.PLAYER, VarScope.LOCAL);
+    /**
+     * L'ordre du cycle va du <b>plus étroit au plus large</b> : graphe, joueur, joueur
+     * partagé, monde, puis local à part. Cliquer plusieurs fois élargit la portée, ce qui
+     * est le sens dans lequel on hésite — on commence chez soi et on ouvre si besoin,
+     * jamais l'inverse.
+     */
+    public static final List<VarScope> SCOPE_CYCLE = List.of(VarScope.GRAPH, VarScope.PLAYER,
+            VarScope.PLAYER_SHARED, VarScope.WORLD, VarScope.LOCAL);
 
     private final Blueprint bp;
     private final NodeTypeLookup lookup;

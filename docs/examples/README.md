@@ -55,13 +55,33 @@ propres cœurs. Un test échoue si quelqu'un refait ce chemin.
 
 ## La portée des variables
 
-Toutes en **`PLAYER`**, et ce n'est pas un détail. En `GRAPH`, le deuxième joueur à créer
-son personnage effacerait le prénom du premier, et chacun verrait dans sa fiche l'identité
-du dernier arrivé.
+Toutes appartiennent à un **joueur**, et ce n'est pas un détail. En `GRAPH` ou en `WORLD`,
+le deuxième joueur à créer son personnage effacerait le prénom du premier, et chacun
+verrait dans sa fiche l'identité du dernier arrivé.
 
-C'est ce que la portée joueur promettait — « persistante par joueur » — sans le tenir : le
-magasin rangeait par `(portée, nom)` seul, sans clé de joueur et sans écriture sur disque.
-Les deux sont réparés, et ce blueprint est ce qui l'a fait apparaître.
+Mais deux portées, pas une, et c'est la deuxième leçon de cet exemple :
+
+```
+var string prenom = ""    @player_shared    # le personnage : les autres scripts le lisent
+var bool   cree   = false @player           # la mécanique de CE script, et de lui seul
+```
+
+Un serveur de jeu de rôle finit toujours par avoir plusieurs blueprints : la création, les
+métiers, la banque, la police. Tous ont besoin du prénom ; aucun n'a besoin de savoir si le
+formulaire a été rempli — et laisser `cree` ouvert exposerait ce script à un autre graphe
+portant par hasard le même nom.
+
+| Portée | par joueur | partagée entre blueprints |
+|---|---|---|
+| `graph` | non | non |
+| `player` | **oui** | non |
+| `player_shared` | **oui** | **oui** |
+| `world` | non | **oui** |
+
+C'est ce que la portée joueur promettait — « persistante par joueur » — sans le tenir. Le
+magasin rangeait par `(portée, nom)` seul : ni clé de joueur, ni clé de blueprint, ni
+écriture sur disque. Les trois sont réparés, et ce blueprint est ce qui les a fait
+apparaître.
 
 ## Trois décisions qu'on peut copier
 

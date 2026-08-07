@@ -50,21 +50,44 @@ class RoleplayBlueprintTest {
     }
 
     /**
-     * <b>Toute l'identité est de portée joueur.</b>
+     * <b>Tout appartient à un joueur, et rien n'appartient au monde.</b>
      *
      * <p>C'est la propriété qui décide si ce blueprint est utilisable sur un serveur. En
-     * portée {@code GRAPH}, le deuxième joueur à créer son personnage effacerait le prénom
-     * du premier, et chacun verrait dans sa fiche l'identité du dernier arrivé.
+     * portée {@code GRAPH} ou {@code WORLD}, le deuxième joueur à créer son personnage
+     * effacerait le prénom du premier, et chacun verrait dans sa fiche l'identité du
+     * dernier arrivé.
      */
     @Test
-    void toutesLesVariablesSontDePorteeJoueur() {
-        var partagees = built().variables().values().stream()
-                .filter(v -> v.scope() != VarScope.PLAYER)
+    void toutesLesVariablesAppartiennentAUnJoueur() {
+        var communes = built().variables().values().stream()
+                .filter(v -> v.scope() != VarScope.PLAYER
+                        && v.scope() != VarScope.PLAYER_SHARED)
                 .map(v -> v.name() + " (" + v.scope() + ')')
                 .toList();
 
-        assertTrue(partagees.isEmpty(),
-                "une identité de personnage appartient à un joueur : " + partagees);
+        assertTrue(communes.isEmpty(),
+                "une identité de personnage appartient à un joueur : " + communes);
+    }
+
+    /**
+     * <b>L'identité se partage entre scripts, le reste non.</b>
+     *
+     * <p>Un serveur de jeu de rôle finit toujours par avoir plusieurs blueprints : la
+     * création, les métiers, la banque. Tous ont besoin du prénom, aucun n'a besoin de
+     * savoir si le formulaire a été rempli — et laisser {@code cree} partagé exposerait ce
+     * script à un autre graphe portant par hasard le même nom.
+     */
+    @Test
+    void lIdentiteSePartageMaisPasLaMecanique() {
+        var bp = built();
+
+        for (String champ : List.of("prenom", "nom", "age", "sexe", "metier")) {
+            assertEquals(VarScope.PLAYER_SHARED, bp.variables().get(champ).scope(),
+                    "« " + champ + " » fait partie du personnage : les autres scripts du "
+                            + "serveur doivent pouvoir le lire");
+        }
+        assertEquals(VarScope.PLAYER, bp.variables().get("cree").scope(),
+                "« cree » est la mécanique de CE script, et n'a rien à faire dehors");
     }
 
     /**
