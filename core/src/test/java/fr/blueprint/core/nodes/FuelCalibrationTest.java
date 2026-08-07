@@ -208,7 +208,7 @@ class FuelCalibrationTest {
 
         NodeType unit = LOADED.nodes()
                 .get(Identifier.fromNamespaceAndPath("blueprint", UNIT)).orElseThrow();
-        double unitNanos = nanosPerCall(unit, inputsFor(unit), clock);
+        Map<String, Object> unitInputs = inputsFor(unit);
 
         List<Measured> measured = new ArrayList<>();
         for (NodeType type : LOADED.nodes().all()) {
@@ -221,6 +221,12 @@ class FuelCalibrationTest {
             if (inputs == null) {
                 continue;
             }
+            // L'unité est remesurée JUSTE AVANT chaque nœud : les deux mesures
+            // partagent alors le même instant de machine, et leur rapport n'en dépend
+            // plus. La mesurer une fois au départ laissait quarante secondes de dérive
+            // s'installer entre elle et les derniers nœuds — ce banc a rougi deux fois
+            // sur quatre constructions pour cette seule raison.
+            double unitNanos = nanosPerCall(unit, unitInputs, clock);
             measured.add(new Measured(type, nanosPerCall(type, inputs, clock) / unitNanos));
         }
         measured.sort((a, b) -> Double.compare(b.ratio(), a.ratio()));
@@ -319,7 +325,7 @@ class FuelCalibrationTest {
 
         NodeType unit = LOADED.nodes()
                 .get(Identifier.fromNamespaceAndPath("blueprint", UNIT)).orElseThrow();
-        double unitNanos = nanosPerCall(unit, inputsFor(unit), clock);
+        Map<String, Object> unitInputs = inputsFor(unit);
 
         List<Measured> measured = new ArrayList<>();
         for (NodeType type : LOADED.nodes().all()) {
@@ -332,6 +338,7 @@ class FuelCalibrationTest {
             if (heavy == null) {
                 continue;
             }
+            double unitNanos = nanosPerCall(unit, unitInputs, clock);
             measured.add(new Measured(type, nanosPerCall(type, heavy, clock) / unitNanos));
         }
         measured.sort((a, b) -> Double.compare(b.ratio(), a.ratio()));
