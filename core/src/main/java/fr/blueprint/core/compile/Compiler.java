@@ -61,6 +61,20 @@ public final class Compiler {
     private final Map<String, List<Link>> linksIntoPin = new HashMap<>();
     private int nextSlot;
 
+    /**
+     * Le graphe qu'on est en train d'émettre : le principal, ou un corps de fonction
+     * déplié (story 20.1).
+     *
+     * <p>{@code prefix} distingue <b>deux dépliages du même corps</b>. Sans lui, la
+     * mémoïsation par UUID ferait sauter le second appel au code du premier — c'est-à-dire
+     * un {@code CallSub} sans retour — et les deux dépliages partageraient leurs slots.
+     */
+    private record Scope(Map<UUID, Node> nodes, Map<String, List<Link>> from,
+                         Map<String, List<Link>> into, String prefix) {
+    }
+
+    private final java.util.ArrayDeque<Scope> scopes = new java.util.ArrayDeque<>();
+
     private Compiler(Blueprint bp, NodeRegistryImpl registry) {
         this.bp = bp;
         this.registry = registry;
@@ -69,14 +83,24 @@ public final class Compiler {
             linksFromPin.computeIfAbsent(link.fromNode() + "/" + link.fromPin(), k -> new ArrayList<>()).add(link);
             linksIntoPin.computeIfAbsent(link.toNode() + "/" + link.toPin(), k -> new ArrayList<>()).add(link);
         }
+        scopes.push(new Scope(bp.nodes(), linksFromPin, linksIntoPin, ""));
+    }
+
+    private Node node(UUID id) {
+        return scopes.peek().nodes().get(id);
+    }
+
+    /** La clé de mémoïsation et de slot d'un nœud, propre au dépliage en cours. */
+    private String key(UUID node) {
+        return scopes.peek().prefix() + node;
     }
 
     private List<Link> from(UUID node, String pin) {
-        return linksFromPin.getOrDefault(node + "/" + pin, List.of());
+        return scopes.peek().from().getOrDefault(node + "/" + pin, List.of());
     }
 
     private List<Link> into(UUID node, String pin) {
-        return linksIntoPin.getOrDefault(node + "/" + pin, List.of());
+        return scopes.peek().into().getOrDefault(node + "/" + pin, List.of());
     }
 
     public static CompileResult compile(Blueprint bp, NodeRegistryImpl registry, UUID startNode) {
@@ -112,7 +136,7 @@ public final class Compiler {
      * pas partager le même code émis (d'où la clé de mémoïsation composite).
      */
     private int emitNode(UUID id, @Nullable String entryPin) {
-        String key = id + "#" + (entryPin == null ? "" : entryPin);
+        String key = key(id) + "#" + (entryPin == null ? "" : entryPin);
         Integer existing = emittedAt.get(key);
         if (existing != null) {
             return existing;
@@ -122,7 +146,7 @@ public final class Compiler {
         int startIndex = out.size();
         emittedAt.put(key, startIndex);
 
-        Node node = bp.node(id);
+        Node node = node(id);
         NodeType type = registry.get(node.typeId()).orElseThrow();   // garanti par la validation
 
         // var/set s'abaisse en StoreVar (story 5.5) — pas de Call, pas d'action.
@@ -134,6 +158,15 @@ public final class Compiler {
         String path = node.typeId().getNamespace().equals("blueprint")
                 ? node.typeId().getPath() : "";
         switch (path) {
+            case "func/call" -> {
+                emitCall(node);
+                return startIndex;
+            }
+            case "func/param", "func/result" -> {
+                // Atteints hors d'un dépliage : la validation l'interdit, mais un corps
+                // orphelin ne doit pas faire tomber le compilateur.
+                return startIndex;
+            }
             case "flow/return" -> {
                 // Terminal pour TOUTE l'exécution (les frames ne le rattrapent pas).
                 out.add(new Instruction.Return(id));
@@ -233,7 +266,7 @@ public final class Compiler {
         List<Link> incoming = into(node.uuid(), spec.name());
         if (!incoming.isEmpty()) {
             Link link = incoming.get(0);
-            Node producer = bp.node(link.fromNode());
+            Node producer = node(link.fromNode());
             NodeType producerType = registry.get(producer.typeId()).orElseThrow();
             if (producerType.pure() && !pureScopes.element().contains(producer.uuid())) {
                 emitPure(producer, producerType);
@@ -300,7 +333,155 @@ public final class Compiler {
     }
 
     private int slotFor(UUID node, String pin) {
-        return slotOf.computeIfAbsent(node + "/" + pin, k -> nextSlot++);
+        return slotOf.computeIfAbsent(key(node) + "/" + pin, k -> nextSlot++);
+    }
+
+    // -------------------------------------------------------------- fonctions (20.1)
+
+    /**
+     * Un appel de fonction : le corps est <b>déplié sur place</b>.
+     *
+     * <h2>Pourquoi déplier plutôt qu'appeler</h2>
+     *
+     * <p>La story prévoyait un {@code CallSub} avec une fenêtre de slots par appel. La
+     * lecture du compilateur a montré qu'un dépliage coûte moins et rapporte plus :
+     *
+     * <ul>
+     *   <li><b>Aucun changement du format d'exécution suspendue.</b> {@code ExecutionNbt}
+     *       sérialise les cadres en {@code int[]} — des adresses de retour. Une fenêtre de
+     *       slots aurait changé ce format, donc obligé à abandonner les exécutions
+     *       suspendues écrites par la version d'avant. Ici, un {@code wait} dans un corps
+     *       est un {@code wait} comme un autre.</li>
+     *   <li><b>La mémoïsation des purs redevient juste.</b> Elle est faite par position ;
+     *       deux dépliages sont deux positions, donc deux calculs. Avec un appel partagé,
+     *       le second aurait relu le résultat du premier.</li>
+     *   <li><b>{@code do_once} compte par site d'appel</b>, et non une fois pour le graphe :
+     *       son drapeau est nommé d'après le nœud, et le préfixe de dépliage entre dans ce
+     *       nom. C'est plus proche de ce qu'un auteur attend.</li>
+     *   <li><b>Le carburant est exact sans rien ajouter</b> : le corps déplié coûte ce
+     *       qu'il exécute, comme s'il était posé en ligne — ce qu'il est.</li>
+     * </ul>
+     *
+     * <p>Ce que ça coûte, et qu'il faut savoir : l'IR grossit du corps à <b>chaque</b>
+     * appel. Le plafond de nœuds borne l'ensemble, et la récursion est refusée — sans quoi
+     * le dépliage ne terminerait pas. Et le profileur voit les nœuds d'un corps une fois
+     * par UUID, tous sites confondus : c'est la situation des boucles abaissées, déjà
+     * documentée.
+     */
+    private void emitCall(Node call) {
+        var function = fr.blueprint.core.graph.FuncNodes.boundFunction(bp, call);
+        var entry = function == null ? null
+                : bodyNode(function, fr.blueprint.core.graph.FuncNodes.PARAM);
+        if (function == null || entry == null) {
+            // La validation a déjà parlé, ou le corps est vide : on ne tombe pas ici, et
+            // l'exécution enchaîne comme si l'appel n'avait rien fait.
+            emitSuccessors(call);
+            return;
+        }
+        // Les ARGUMENTS d'abord, dans la portée de l'APPELANT : ce sont ses valeurs.
+        Map<String, Integer> arguments = new LinkedHashMap<>();
+        for (var param : function.inputs()) {
+            Integer slot = inputSlot(call, param.name());
+            if (slot != null) {
+                arguments.put(param.name(), slot);
+            }
+        }
+
+        // Le préfixe rend ce dépliage unique. Sans lui, un second appel du même corps
+        // sauterait au code du premier — un CallSub sans retour — et les deux
+        // partageraient leurs slots.
+        String prefix = key(call.uuid()) + "|";
+        Scope body = new Scope(function.nodes(), indexOf(function, true),
+                indexOf(function, false), prefix);
+        scopes.push(body);
+        pureScopes.push(new HashSet<>());
+
+        // Les paramètres du corps LISENT les slots de l'appelant. Aucune copie, donc
+        // aucune instruction : c'est tout l'intérêt d'un dépliage.
+        arguments.forEach((pin, slot) -> slotOf.put(prefix + entry.uuid() + "/" + pin, slot));
+        for (Link link : from(entry.uuid(), fr.blueprint.core.graph.BlueprintFunction.EXEC_OUT)) {
+            emitNode(link.toNode(), link.toPin());
+        }
+
+        // Les résultats, résolus dans la portée du corps.
+        Map<String, Integer> results = new LinkedHashMap<>();
+        var exit = bodyNode(function, fr.blueprint.core.graph.FuncNodes.RESULT);
+        if (exit != null) {
+            for (var param : function.outputs()) {
+                Integer slot = inputSlot(exit, param.name());
+                if (slot != null) {
+                    results.put(param.name(), slot);
+                }
+            }
+        }
+        pureScopes.pop();
+        scopes.pop();
+
+        // Et l'appelant lit CES slots-là. Un alias, pas une copie : ajouter un Move aurait
+        // coûté une instruction par sortie et par appel pour recopier une valeur qui ne
+        // bouge plus.
+        results.forEach((pin, slot) -> slotOf.put(key(call.uuid()) + "/" + pin, slot));
+        emitSuccessors(call);
+    }
+
+    private void emitSuccessors(Node call) {
+        for (Link link : from(call.uuid(), fr.blueprint.core.graph.BlueprintFunction.EXEC_OUT)) {
+            emitNode(link.toNode(), link.toPin());
+        }
+    }
+
+    /**
+     * Le slot qui alimente un pin de données, sans passer par un {@code PinSpec}.
+     *
+     * <p>Les bords d'une fonction n'ont pas de type enregistré qui décrive leurs pins :
+     * leur forme vient de la signature. C'est la seule différence avec
+     * {@link #prepareInput(Node, NodeType.PinSpec)}, dont la logique est reprise à
+     * l'identique — lien d'abord, littéral ensuite.
+     */
+    private @Nullable Integer inputSlot(Node node, String pin) {
+        List<Link> incoming = into(node.uuid(), pin);
+        if (!incoming.isEmpty()) {
+            Link link = incoming.get(0);
+            Node producer = node(link.fromNode());
+            NodeType producerType = registry.get(producer.typeId()).orElse(null);
+            if (producerType != null && producerType.pure()
+                    && !pureScopes.element().contains(producer.uuid())) {
+                emitPure(producer, producerType);
+            }
+            return slotFor(link.fromNode(), link.fromPin());
+        }
+        LiteralValue literal = node.literal(pin);
+        if (literal == null) {
+            return null;
+        }
+        String constKey = key(node.uuid()) + "/" + pin;
+        int slot = slotFor(node.uuid(), "literal:" + pin);
+        if (constEmitted.add(constKey)) {
+            out.add(new Instruction.Const(slot, literal, node.uuid()));
+        }
+        return slot;
+    }
+
+    private @Nullable Node bodyNode(fr.blueprint.core.graph.BlueprintFunction function,
+                                    Identifier typeId) {
+        for (Node node : function.nodes().values()) {
+            if (node.typeId().equals(typeId)) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    /** L'index des liens d'un corps, construit à la demande — un corps est petit. */
+    private Map<String, List<Link>> indexOf(fr.blueprint.core.graph.BlueprintFunction function,
+                                            boolean outgoing) {
+        Map<String, List<Link>> index = new HashMap<>();
+        for (Link link : function.links()) {
+            String key = outgoing ? link.fromNode() + "/" + link.fromPin()
+                    : link.toNode() + "/" + link.toPin();
+            index.computeIfAbsent(key, k -> new ArrayList<>()).add(link);
+        }
+        return index;
     }
 
     // ------------------------------------------------------ flux structuré (7.1b)

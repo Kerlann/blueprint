@@ -77,7 +77,7 @@ public final class GraphGuard {
 
         int ghosts = 0;
         for (Node node : bp.nodes().values()) {
-            if (lookup.shape(node.typeId()) == null) {
+            if (lookup.shape(bp, node) == null) {
                 ghosts++;
             }
         }
@@ -96,7 +96,7 @@ public final class GraphGuard {
             }
             // Câblage : la MÊME règle que l'éditeur. Les liens touchant un fantôme
             // échappent au contrôle (aucune forme de référence) et restent tolérés.
-            if (lookup.shape(from.typeId()) == null || lookup.shape(to.typeId()) == null) {
+            if (lookup.shape(bp, from) == null || lookup.shape(bp, to) == null) {
                 continue;
             }
             var refusal = GraphValidator.checkExistingLink(bp, lookup, link);

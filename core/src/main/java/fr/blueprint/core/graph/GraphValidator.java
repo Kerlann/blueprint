@@ -242,6 +242,12 @@ public final class GraphValidator {
         BlueprintFunction function = bp.function(name);
         if (function != null) {
             for (Node node : function.nodes().values()) {
+                // Les APPELS seulement. Les deux bords d'un corps portent eux aussi le nom
+                // de leur fonction — les suivre ferait passer chaque fonction pour
+                // récursive, et refuserait toutes celles qui existent.
+                if (!FuncNodes.isCall(node.typeId())) {
+                    continue;
+                }
                 String called = FuncNodes.boundName(node);
                 if (called != null) {
                     visitCalls(bp, called, done, onPath, out);
@@ -423,7 +429,7 @@ public final class GraphValidator {
     }
 
     private static NodeShape shapeOrGhost(Blueprint bp, NodeTypeLookup lookup, Node node) {
-        NodeShape shape = lookup.shape(node.typeId());
+        NodeShape shape = lookup.shape(bp, node);
         return shape != null ? shape : GhostNode.deduceShape(bp, lookup, node);
     }
 

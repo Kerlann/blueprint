@@ -35,7 +35,26 @@ public final class FuncNodes {
     public static final Identifier CALL =
             Identifier.fromNamespaceAndPath("blueprint", "func/call");
 
-    /** Le pin littéral qui nomme la fonction appelée. */
+    /**
+     * L'entrée d'un corps : elle <b>rend</b> les paramètres.
+     *
+     * <p>Ce n'est pas un point d'entrée au sens des événements — rien ne la déclenche. Le
+     * compilateur la trouve par son type quand il déplie un appel.
+     */
+    public static final Identifier PARAM =
+            Identifier.fromNamespaceAndPath("blueprint", "func/param");
+
+    /** La sortie d'un corps : elle <b>prend</b> les résultats et rend la main à l'appelant. */
+    public static final Identifier RESULT =
+            Identifier.fromNamespaceAndPath("blueprint", "func/result");
+
+    /**
+     * Le pin littéral qui nomme la fonction — sur l'appel comme sur les deux bords.
+     *
+     * <p>Les bords le portent aussi, et ce n'est pas une redondance : sans lui, résoudre
+     * la forme d'un {@code func/param} demanderait de chercher quelle fonction contient ce
+     * nœud, c'est-à-dire un balayage de tous les corps à chaque image de l'éditeur.
+     */
     public static final String FUNCTION_PIN = "function";
 
     private FuncNodes() {
@@ -45,9 +64,14 @@ public final class FuncNodes {
         return CALL.equals(typeId);
     }
 
+    /** Un des trois nœuds qui désignent une fonction par son littéral. */
+    public static boolean isFunctionNode(Identifier typeId) {
+        return CALL.equals(typeId) || PARAM.equals(typeId) || RESULT.equals(typeId);
+    }
+
     /** Le nom de fonction lié à ce nœud, ou null (littéral absent, vide, ou pas une chaîne). */
     public static @Nullable String boundName(Node node) {
-        if (!isCall(node.typeId())) {
+        if (!isFunctionNode(node.typeId())) {
             return null;
         }
         var literal = node.literal(FUNCTION_PIN);

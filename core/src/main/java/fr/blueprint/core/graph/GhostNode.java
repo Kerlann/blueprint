@@ -28,7 +28,7 @@ public final class GhostNode {
                                                                   NodeTypeLookup lookup) {
         java.util.Map<String, Integer> byMod = new java.util.TreeMap<>();
         for (Node node : blueprint.nodes().values()) {
-            if (lookup.shape(node.typeId()) == null) {
+            if (lookup.shape(blueprint, node) == null) {
                 byMod.merge(node.typeId().getNamespace(), 1, Integer::sum);
             }
         }
@@ -78,7 +78,7 @@ public final class GhostNode {
         if (counterpart == null) {
             return PinKind.DATA;
         }
-        NodeShape shape = lookup.shape(counterpart.typeId());
+        NodeShape shape = lookup.shape(bp, counterpart);
         if (shape == null) {
             return PinKind.DATA;
         }

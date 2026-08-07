@@ -282,7 +282,30 @@ public final class StandardNodes {
                 .in(fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN, PinTypes.STRING, "")
                 .action(ctx -> {
                     throw new IllegalStateException(
-                            "func/call est abaissé en CallSub par le compilateur");
+                            "func/call est déplié par le compilateur");
+                })
+                .build());
+
+        // Les deux bords d'un corps. Le littéral « function » y est aussi : sans lui,
+        // résoudre leur forme demanderait de chercher quelle fonction les contient — un
+        // balayage de tous les corps, à chaque image de l'éditeur.
+        r.register(NodeType.builder(fr.blueprint.core.graph.FuncNodes.PARAM)
+                .category(NodeCategories.MISC)
+                .execOut("exec_out")
+                .in(fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN, PinTypes.STRING, "")
+                .action(ctx -> {
+                    throw new IllegalStateException(
+                            "func/param est déplié par le compilateur");
+                })
+                .build());
+
+        r.register(NodeType.builder(fr.blueprint.core.graph.FuncNodes.RESULT)
+                .category(NodeCategories.MISC)
+                .execIn("exec_in")
+                .in(fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN, PinTypes.STRING, "")
+                .action(ctx -> {
+                    throw new IllegalStateException(
+                            "func/result est déplié par le compilateur");
                 })
                 .build());
 

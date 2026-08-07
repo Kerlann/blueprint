@@ -271,6 +271,8 @@
   "blueprint.node.blueprint.convert/to_int.name": "To integer",
   "blueprint.node.blueprint.debug/log.name": "Log",
   "blueprint.node.blueprint.func/call.name": "Call function",
+  "blueprint.node.blueprint.func/param.name": "Function parameters",
+  "blueprint.node.blueprint.func/result.name": "Function result",
   "blueprint.node.blueprint.var/get.name": "Get variable",
   "blueprint.node.blueprint.var/set.name": "Set variable",
   "blueprint.node.blueprint.world/get_block.name": "Get block",

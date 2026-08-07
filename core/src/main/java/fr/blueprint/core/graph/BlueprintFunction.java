@@ -71,8 +71,21 @@ public record BlueprintFunction(String name, List<Param> inputs, List<Param> out
      * corps, en nommant un nœud que l'auteur n'a pas écrit. Le diagnostic doit tomber sur
      * l'appel.
      */
+    /**
+     * Le pin littéral qui nomme la fonction, présent sur les <b>trois</b> nœuds.
+     *
+     * <p>Il fait partie de la forme et pas seulement du type enregistré : le validateur
+     * confronte chaque littéral d'un nœud à sa forme, et une forme dérivée qui l'oublierait
+     * refuserait le littéral qui la désigne — un nœud qui se rendrait lui-même invalide.
+     */
+    private static NodeShape.PinDef namePin() {
+        return new NodeShape.PinDef(FuncNodes.FUNCTION_PIN, PinKind.DATA,
+                fr.blueprint.api.pin.PinTypes.STRING, false);
+    }
+
     private static NodeShape shapeOf(List<Param> inputs, List<Param> outputs) {
-        List<NodeShape.PinDef> in = new ArrayList<>(inputs.size() + 1);
+        List<NodeShape.PinDef> in = new ArrayList<>(inputs.size() + 2);
+        in.add(namePin());
         in.add(new NodeShape.PinDef(EXEC_IN, PinKind.EXEC, fr.blueprint.api.pin.PinTypes.EXEC,
                 false));
         for (Param p : inputs) {
@@ -88,6 +101,35 @@ public record BlueprintFunction(String name, List<Param> inputs, List<Param> out
         // La permission d'un APPEL est neutre — c'est le corps qui porte la sienne, et
         // c'est lui que le validateur confronte au plafond du blueprint.
         return new NodeShape(in, out, false, Permission.SAFE);
+    }
+
+    /**
+     * La forme du nœud d'<b>entrée</b> du corps : il rend les paramètres.
+     *
+     * <p>Miroir de {@link #callShape()} — ce que l'appel prend en entrée, l'entrée du corps
+     * le rend en sortie. Calculée à la demande et non gardée : un corps n'a qu'un
+     * {@code func/param}, là où un graphe peut porter vingt appels.
+     */
+    public NodeShape paramShape() {
+        List<NodeShape.PinDef> out = new ArrayList<>(inputs.size() + 1);
+        out.add(new NodeShape.PinDef(EXEC_OUT, PinKind.EXEC, fr.blueprint.api.pin.PinTypes.EXEC,
+                false));
+        for (Param p : inputs) {
+            out.add(new NodeShape.PinDef(p.name(), PinKind.DATA, p.type(), false));
+        }
+        return new NodeShape(List.of(namePin()), out, false, Permission.SAFE);
+    }
+
+    /** La forme du nœud de <b>sortie</b> : il prend les résultats et rend la main. */
+    public NodeShape resultShape() {
+        List<NodeShape.PinDef> in = new ArrayList<>(outputs.size() + 2);
+        in.add(namePin());
+        in.add(new NodeShape.PinDef(EXEC_IN, PinKind.EXEC, fr.blueprint.api.pin.PinTypes.EXEC,
+                false));
+        for (Param p : outputs) {
+            in.add(new NodeShape.PinDef(p.name(), PinKind.DATA, p.type(), true));
+        }
+        return new NodeShape(in, List.of(), false, Permission.SAFE);
     }
 
     public BlueprintFunction withName(String newName) {

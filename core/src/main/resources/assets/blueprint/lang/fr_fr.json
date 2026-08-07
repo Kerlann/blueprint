@@ -271,6 +271,8 @@
   "blueprint.node.blueprint.convert/to_int.name": "En entier",
   "blueprint.node.blueprint.debug/log.name": "Journal",
   "blueprint.node.blueprint.func/call.name": "Appeler une fonction",
+  "blueprint.node.blueprint.func/param.name": "Paramètres de la fonction",
+  "blueprint.node.blueprint.func/result.name": "Résultat de la fonction",
   "blueprint.node.blueprint.var/get.name": "Lire une variable",
   "blueprint.node.blueprint.var/set.name": "Écrire une variable",
   "blueprint.node.blueprint.world/get_block.name": "Lire un bloc",

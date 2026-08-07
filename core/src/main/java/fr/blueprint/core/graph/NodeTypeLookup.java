@@ -31,11 +31,18 @@ public interface NodeTypeLookup {
      * est le travail du validateur, qui distingue les deux et le dit.
      */
     default @Nullable NodeShape shape(Blueprint bp, Node node) {
-        if (FuncNodes.isCall(node.typeId())) {
-            BlueprintFunction function = FuncNodes.boundFunction(bp, node);
-            return function == null ? null : function.callShape();
+        if (!FuncNodes.isFunctionNode(node.typeId())) {
+            return shape(node.typeId());
         }
-        return shape(node.typeId());
+        BlueprintFunction function = FuncNodes.boundFunction(bp, node);
+        if (function == null) {
+            return null;
+        }
+        if (FuncNodes.CALL.equals(node.typeId())) {
+            return function.callShape();
+        }
+        return FuncNodes.PARAM.equals(node.typeId())
+                ? function.paramShape() : function.resultShape();
     }
 
     /** Aucun type connu : tous les nœuds sont fantômes. */

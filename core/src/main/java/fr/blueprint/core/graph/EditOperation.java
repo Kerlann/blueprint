@@ -133,7 +133,7 @@ public sealed interface EditOperation permits
                 return Result.refused(Diagnostic.error(DiagnosticCode.NODE_NOT_FOUND,
                         Diagnostic.node(uuid), uuid.toString()));
             }
-            NodeShape shape = lookup.shape(node.typeId());
+            NodeShape shape = lookup.shape(bp, node);
             if (shape != null && value != null) {
                 NodeShape.PinDef def = shape.input(pin);
                 if (def == null) {
