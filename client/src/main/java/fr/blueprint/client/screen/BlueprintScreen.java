@@ -558,9 +558,46 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         }
     }
 
+    /**
+     * Le curseur suit la souris tant qu'on le tient (story 10.8, corrigé).
+     *
+     * <p>Il ne le faisait pas : la valeur n'était calculée qu'au <b>relâchement</b>, si
+     * bien qu'un curseur se pointait mais ne se glissait pas. C'est le seul widget dont
+     * le geste naturel est de traîner, et le seul qui l'ignorait.
+     *
+     * <p>La valeur ne repart au serveur que lorsqu'elle <b>change</b>. Le pas du curseur
+     * la quantifie — vingt et une valeurs pour un 0..100 par pas de 5 — donc traverser
+     * toute la barre coûte vingt messages, et non un par pixel parcouru. Sans cette
+     * garde, un glissement lent inonderait le serveur d'un événement par image.
+     *
+     * @return vrai si le curseur a consommé le glissement.
+     */
+    private boolean dragSlider(double mouseX) {
+        if (pressed == null || onValue == null) {
+            return false;
+        }
+        var element = model.element(pressed);
+        if (element == null
+                || element.kind() != fr.blueprint.core.graph.screen.ElementKind.SLIDER
+                || !element.enabled()) {
+            return false;
+        }
+        double picked = sliderValueAt(element, layout().get(pressed), mouseX);
+        Double last = values.get(pressed);
+        if (last != null && last == picked) {
+            return true;   // même cran : rien de neuf à dire au serveur
+        }
+        values.put(pressed, picked);
+        onValue.accept(new Interaction(pressed, 0, "", picked, picked != 0));
+        return true;
+    }
+
     @Override
     public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event,
                                 double dragX, double dragY) {
+        if (dragSlider(event.x())) {
+            return true;
+        }
         if (dragging == null) {
             return super.mouseDragged(event, dragX, dragY);
         }
@@ -740,6 +777,9 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
             return super.mouseClicked(event, doubled);
         }
         pressed = element;
+        // Un curseur se positionne DÈS le clic, avant même qu'on ait glissé : cliquer au
+        // milieu de la barre doit y amener la poignée, pas attendre le relâchement.
+        dragSlider(event.x());
         return true;
     }
 
@@ -780,9 +820,12 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                     return true;
                 }
                 case SLIDER -> {
-                    double picked = sliderValueAt(element, rect, event.x());
-                    values.put(was, picked);
-                    onValue.accept(new Interaction(was, 0, "", picked, picked != 0));
+                    // Le clic et le glissement ont déjà positionné le curseur ; ce
+                    // relâchement ne rattrape que le dernier cran, et la garde de
+                    // dragSlider empêche de renvoyer une valeur inchangée.
+                    pressed = was;
+                    dragSlider(event.x());
+                    pressed = null;
                     return true;
                 }
                 case INPUT -> {
