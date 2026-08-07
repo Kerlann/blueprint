@@ -265,7 +265,7 @@ public final class VariablePanelState {
 
     private NodeShape.@Nullable PinDef pinDef(java.util.UUID node, String pin, boolean output) {
         Node n = bp.node(node);
-        NodeShape shape = n == null ? null : lookup.shape(n.typeId());
+        NodeShape shape = n == null ? null : lookup.shape(bp, n);
         if (shape == null) {
             return null;
         }

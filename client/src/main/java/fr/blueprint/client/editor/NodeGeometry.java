@@ -58,7 +58,7 @@ public final class NodeGeometry {
             revision = bp.revision();
             boxes.clear();
             for (Node node : bp.nodes().values()) {
-                boxes.add(boxOf(node, lookup.shape(node.typeId())));
+                boxes.add(boxOf(node, lookup.shape(bp, node)));
             }
         }
         return boxes;

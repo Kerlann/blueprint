@@ -172,7 +172,7 @@ public final class CanvasController {
         double r2 = PIN_HIT_RADIUS * PIN_HIT_RADIUS;
         for (int i = boxes.size() - 1; i >= 0; i--) {
             NodeGeometry.Box b = boxes.get(i);
-            NodeShape shape = lookup.shape(b.node().typeId());
+            NodeShape shape = lookup.shape(blueprint, b.node());
             if (shape == null) {
                 continue; // fantôme : pas de câblage tant que la forme est inconnue
             }
@@ -205,7 +205,7 @@ public final class CanvasController {
         if (box == null || n == null) {
             return null;
         }
-        NodeShape shape = lookup.shape(n.typeId());
+        NodeShape shape = lookup.shape(blueprint, n);
         if (shape == null) {
             return null;
         }
@@ -225,7 +225,7 @@ public final class CanvasController {
     /** Définition d'un pin nommé (pour la couleur des liens), ou null. */
     public @Nullable NodeShape.PinDef pinDef(UUID node, String pin) {
         Node n = blueprint.node(node);
-        NodeShape shape = n == null ? null : lookup.shape(n.typeId());
+        NodeShape shape = n == null ? null : lookup.shape(blueprint, n);
         if (shape == null) {
             return null;
         }
@@ -637,7 +637,7 @@ public final class CanvasController {
      */
     private String @Nullable [] spliceTargets(Link link, UUID node) {
         Node n = blueprint.node(node);
-        NodeShape shape = n == null ? null : lookup.shape(n.typeId());
+        NodeShape shape = n == null ? null : lookup.shape(blueprint, n);
         NodeShape.PinDef source = pinDef(link.fromNode(), link.fromPin());
         NodeShape.PinDef sink = pinDef(link.toNode(), link.toPin());
         if (shape == null || source == null || sink == null) {

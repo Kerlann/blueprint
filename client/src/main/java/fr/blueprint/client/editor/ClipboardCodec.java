@@ -91,7 +91,7 @@ public final class ClipboardCodec {
     private static void graftSyntheticEvents(Blueprint fragment, NodeTypeLookup lookup) {
         List<Node> heads = new ArrayList<>();
         for (Node node : fragment.nodes().values()) {
-            NodeShape shape = lookup.shape(node.typeId());
+            NodeShape shape = lookup.shape(fragment, node);
             if (shape == null) {
                 continue;
             }
@@ -105,7 +105,7 @@ public final class ClipboardCodec {
         }
         int i = 0;
         for (Node head : heads) {
-            NodeShape shape = lookup.shape(head.typeId());
+            NodeShape shape = lookup.shape(fragment, head);
             String execIn = null;
             for (NodeShape.PinDef def : shape.inputs()) {
                 if (def.kind() == PinKind.EXEC
