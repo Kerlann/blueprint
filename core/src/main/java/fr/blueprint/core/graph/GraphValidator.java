@@ -203,8 +203,46 @@ public final class GraphValidator {
                 }
                 out.addAll(checkCall(bp, node));
             }
+            out.addAll(checkBodyLinks(bp, function, lookup));
         }
         out.addAll(findCallCycles(bp));
+        return out;
+    }
+
+    /**
+     * Les liens d'un corps, contrôlés par la <b>même règle</b> que ceux du graphe (20.2,
+     * AC4).
+     *
+     * <p>La passe des corps ne regardait que les nœuds. Un appel posé dans une fonction,
+     * dont la cible perd un paramètre, gardait donc un lien vers un pin disparu sans qu'un
+     * mot ne le dise — le graphe principal, lui, aurait protesté. Deux règles différentes
+     * selon l'endroit où l'on pose le même nœud, c'est l'écart qui se découvre à
+     * l'exécution.
+     *
+     * <p>Le blueprint jetable est le geste de {@link #canLinkIn}, et pour la même raison :
+     * la règle de câblage lit un {@code Blueprint} pour compter les cardinalités, et la
+     * réécrire pour les corps la ferait exister en deux exemplaires.
+     */
+    private static List<Diagnostic> checkBodyLinks(Blueprint bp, BlueprintFunction function,
+                                                   NodeTypeLookup lookup) {
+        if (function.links().isEmpty()) {
+            return List.of();
+        }
+        Blueprint view = new Blueprint(bp.id(), bp.meta());
+        function.nodes().values().forEach(view::putNode);
+        function.links().forEach(view::putLink);
+        bp.functions().values().forEach(view::putFunction);
+        Map<UUID, NodeShape> shapes = new HashMap<>();
+        for (Node node : function.nodes().values()) {
+            shapes.put(node.uuid(), shapeOrGhost(view, lookup, node));
+        }
+        List<Diagnostic> out = new ArrayList<>();
+        for (Link link : function.links()) {
+            Diagnostic d = checkLink(view, shapes, link, false);
+            if (d != null) {
+                out.add(d);
+            }
+        }
         return out;
     }
 

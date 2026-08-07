@@ -138,6 +138,83 @@ class FunctionValidationTest {
         assertTrue(codes(bp).contains(DiagnosticCode.FUNCTION_RECURSION));
     }
 
+    /**
+     * <b>Changer une signature ne laisse pas un lien silencieusement faux</b> (story 20.2,
+     * AC4).
+     *
+     * <p>La forme d'un nœud d'appel vient de la signature de sa fonction. Retirer un
+     * paramètre fait donc disparaître le pin où un lien arrivait — et ce lien, lui, reste.
+     * Un lien qui pointe vers un pin qui n'existe plus ne se voit pas à l'œil : le nœud se
+     * dessine sans lui, et l'auteur croit avoir un graphe qu'il n'a plus.
+     */
+    @Test
+    void changerUneSignatureNeLaissePasUnLienSilencieusementFaux() {
+        Blueprint bp = new Blueprint(Identifier.fromNamespaceAndPath("test", "sig"));
+        GraphLoader.addFunction(bp, BlueprintFunction.of("carre",
+                List.of(new BlueprintFunction.Param("n", PinTypes.DOUBLE)), List.of()));
+
+        UUID source = UUID.randomUUID();
+        UUID call = UUID.randomUUID();
+        assertTrue(new EditOperation.AddNode(source,
+                Identifier.fromNamespaceAndPath("blueprint", "math/add"), new Vec2d(0, 0))
+                .apply(bp, LOADED.nodes()).applied());
+        assertTrue(new EditOperation.AddNode(call, FuncNodes.CALL, new Vec2d(200, 0))
+                .apply(bp, LOADED.nodes()).applied());
+        assertTrue(new EditOperation.SetLiteral(call, FuncNodes.FUNCTION_PIN,
+                LiteralValue.of(PinTypes.STRING, "carre")).apply(bp, LOADED.nodes()).applied());
+        assertTrue(new EditOperation.AddLink(new Link(source, "result", call, "n"))
+                .apply(bp, LOADED.nodes()).applied());
+        assertTrue(GraphValidator.validate(bp, LOADED.nodes()).errors().isEmpty(),
+                "avant tout changement, ce graphe est sain : "
+                        + GraphValidator.validate(bp, LOADED.nodes()).errors());
+
+        assertTrue(new FunctionOps.SetSignature("carre", List.of(), List.of())
+                .apply(bp, LOADED.nodes()).applied());
+
+        assertTrue(codes(bp).contains(DiagnosticCode.PIN_NOT_FOUND),
+                "le lien vise un paramètre qui n'existe plus, et rien ne le disait : "
+                        + codes(bp));
+    }
+
+    /**
+     * <b>Les liens d'un corps sont contrôlés comme ceux du graphe</b> (AC4).
+     *
+     * <p>La passe des corps ne regardait que les nœuds. Un appel posé <b>dans</b> une
+     * fonction, dont la cible perd un paramètre, gardait donc un lien pendant sans qu'aucun
+     * diagnostic ne le signale — le graphe principal, lui, aurait protesté. Deux règles
+     * différentes selon l'endroit où l'on pose le même nœud, c'est le genre d'écart qui se
+     * découvre à l'exécution.
+     */
+    @Test
+    void lesLiensDUnCorpsSontControlesCommeCeuxDuGraphe() {
+        Blueprint bp = new Blueprint(Identifier.fromNamespaceAndPath("test", "sig2"));
+        GraphLoader.addFunction(bp, BlueprintFunction.of("carre",
+                List.of(new BlueprintFunction.Param("n", PinTypes.DOUBLE)), List.of()));
+        GraphLoader.addFunction(bp, BlueprintFunction.of("appelante", List.of(), List.of()));
+
+        UUID source = UUID.randomUUID();
+        UUID call = UUID.randomUUID();
+        assertTrue(new FunctionOps.AddNodeIn("appelante", source,
+                Identifier.fromNamespaceAndPath("blueprint", "math/add"), new Vec2d(0, 0))
+                .apply(bp, LOADED.nodes()).applied());
+        assertTrue(new FunctionOps.AddNodeIn("appelante", call, FuncNodes.CALL,
+                new Vec2d(200, 0)).apply(bp, LOADED.nodes()).applied());
+        assertTrue(new FunctionOps.SetLiteralIn("appelante", call, FuncNodes.FUNCTION_PIN,
+                LiteralValue.of(PinTypes.STRING, "carre")).apply(bp, LOADED.nodes()).applied());
+        assertTrue(new FunctionOps.AddLinkIn("appelante", new Link(source, "result", call, "n"))
+                .apply(bp, LOADED.nodes()).applied());
+        assertTrue(GraphValidator.validate(bp, LOADED.nodes()).errors().isEmpty(),
+                "avant tout changement, ce corps est sain : "
+                        + GraphValidator.validate(bp, LOADED.nodes()).errors());
+
+        assertTrue(new FunctionOps.SetSignature("carre", List.of(), List.of())
+                .apply(bp, LOADED.nodes()).applied());
+
+        assertTrue(codes(bp).contains(DiagnosticCode.PIN_NOT_FOUND),
+                "un lien pendant dans un corps doit se dire comme un lien pendant dans le "
+                        + "graphe : " + codes(bp));
+    }
+
     /** Et un corps ordinaire ne laisse rien derrière lui. */
     @Test
     void unCorpsCorrectNeProduitAucunDiagnostic() {
