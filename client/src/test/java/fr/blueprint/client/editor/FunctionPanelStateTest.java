@@ -176,6 +176,37 @@ class FunctionPanelStateTest {
                         + "compter ferait avertir d'un renommage qui ne casse rien");
     }
 
+    /**
+     * <b>L'onglet Fonctions ouvre une fonction, jamais le graphe.</b>
+     *
+     * <p>Y arriver et voir le graphe qu'on vient de quitter est le pire des affichages :
+     * rien ne distingue à l'œil « je n'ai pas encore ouvert de corps » de « ce corps
+     * contient déjà tout ça », et les nœuds posés tombent dans le graphe sous une étiquette
+     * qui annonce l'inverse.
+     */
+    @Test
+    void lOngletOuvreUneFonctionJamaisLeGraphe() {
+        assertNull(state.bodyToOpen(),
+                "sans aucune fonction, il n'y a rien à ouvrir — et surtout pas le graphe");
+
+        state.create();
+        String second = state.create();
+        assertEquals(second, state.bodyToOpen(),
+                "la création sélectionne : c'est celle qu'on vient de faire qu'on veut voir");
+
+        state.select(null);
+        assertEquals("fonction1", state.bodyToOpen(),
+                "sans sélection, la première de la liste");
+
+        state.select(second);
+        assertEquals(second, state.bodyToOpen());
+
+        state.delete(second);
+        assertEquals("fonction1", state.bodyToOpen(),
+                "une sélection qui pointe vers une fonction supprimée ne doit pas laisser "
+                        + "l'onglet sans rien à montrer");
+    }
+
     /** Supprimer une fonction la retire, et désélectionne. */
     @Test
     void supprimerRetireEtDeselectionne() {

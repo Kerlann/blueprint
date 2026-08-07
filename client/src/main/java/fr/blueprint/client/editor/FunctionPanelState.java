@@ -68,6 +68,23 @@ public final class FunctionPanelState {
         return openBody.get();
     }
 
+    /**
+     * La fonction que l'onglet doit ouvrir en y arrivant : la sélectionnée, sinon la
+     * première ; {@code null} si le blueprint n'en a aucune.
+     *
+     * <p>L'onglet Fonctions montre <b>une fonction</b>. Y arriver et voir le graphe qu'on
+     * vient de quitter est le pire des affichages : rien ne distingue à l'œil « je n'ai pas
+     * encore ouvert de corps » de « ce corps contient déjà tout ça », et les nœuds posés
+     * tombent dans le graphe sous une étiquette qui annonce l'inverse.
+     */
+    public @Nullable String bodyToOpen() {
+        if (selected != null && bp.functions().containsKey(selected)) {
+            return selected;
+        }
+        List<BlueprintFunction> all = rows();
+        return all.isEmpty() ? null : all.get(0).name();
+    }
+
     /** Les fonctions, par nom — l'ordre d'affichage, et celui de l'export texte. */
     public List<BlueprintFunction> rows() {
         List<BlueprintFunction> rows = new ArrayList<>(bp.functions().values());

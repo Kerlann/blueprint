@@ -25,6 +25,8 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 
@@ -198,6 +200,35 @@ public final class CanvasWidget {
             controller.view().open(null);
             controller.selection().clear();
         }
+        if (functionsTab() && !controller.view().inBody()) {
+            openSomethingToEdit();
+        }
+    }
+
+    /**
+     * L'onglet Fonctions montre <b>une fonction</b>, jamais le graphe principal.
+     *
+     * <p>Y arriver et voir le graphe qu'on vient de quitter est le pire des affichages :
+     * rien ne distingue à l'œil « je n'ai pas encore ouvert de corps » de « ce corps
+     * contient déjà tout ça », et les nœuds posés tombent dans le graphe sous une étiquette
+     * qui annonce l'inverse.
+     *
+     * <p>On ouvre donc celle qui est sélectionnée, à défaut la première ; et si le blueprint
+     * n'en a aucune, <b>aucun graphe</b> — le panneau de gauche dit alors quoi faire.
+     *
+     * <p>Appelé à chaque image depuis {@code setMode} : une fois un corps ouvert la
+     * condition est fausse, donc le recadrage n'a lieu qu'à l'arrivée.
+     */
+    private void openSomethingToEdit() {
+        String wanted = funcPanel.bodyToOpen();
+        if (wanted == null || !controller.view().open(wanted)) {
+            controller.view().openNothing();
+            controller.selection().clear();
+            return;
+        }
+        funcPanel.select(wanted);
+        controller.selection().clear();
+        frameAll();
     }
 
     private boolean functionsTab() {
@@ -365,7 +396,7 @@ public final class CanvasWidget {
                             I18n.get("blueprint.editor.tip.link"));
         }
         UUID uuid = box.node().uuid();
-        NodeDescriptor desc = descriptors.descriptor(box.node().typeId());
+        NodeDescriptor desc = descriptorOf(box.node());
         List<String> lines = new ArrayList<>();
         if (desc == null) {
             // Fantôme : dire QUEL mod manque, c'est toute l'information utile (FR41).
@@ -433,7 +464,7 @@ public final class CanvasWidget {
     private void openGoto() {
         List<GotoState.Target> targets = new ArrayList<>();
         for (NodeGeometry.Box b : controller.boxes()) {
-            NodeDescriptor desc = descriptors.descriptor(b.node().typeId());
+            NodeDescriptor desc = descriptorOf(b.node());
             targets.add(new GotoState.Target(b.node().uuid(),
                     desc != null ? I18n.get(desc.titleKey()) : b.node().typeId().toString()));
         }
@@ -484,6 +515,51 @@ public final class CanvasWidget {
         return (int) ((my - y) / 12);
     }
 
+    /**
+     * Descripteurs des nœuds de fonction, reconstruits à la révision — comme les boîtes.
+     *
+     * <p>Le rendu ne doit rien allouer par image (coding-standards §5), et un descripteur
+     * dérivé en coûterait un par nœud visible et par image.
+     */
+    private final Map<UUID, NodeDescriptor> derivedDescriptors = new HashMap<>();
+    private int derivedDescriptorsRevision = -1;
+
+    /**
+     * Le descripteur d'un nœud — <b>par le blueprint</b> pour les nœuds de fonction.
+     *
+     * <p>Le registre n'a d'un {@code func/call} que le squelette : le pin qui nomme la
+     * fonction et ses deux pins d'exécution. Ni paramètres, ni sorties. C'est ce squelette
+     * que le rendu dessinait, alors que la géométrie, elle, calculait déjà la boîte sur la
+     * forme complète — d'où un nœud à la bonne taille dont les pins n'apparaissaient
+     * nulle part, et des liens qu'on posait sans les voir.
+     *
+     * <p>Le contrôleur avait été corrigé, le dessin non : la story ne comptait que les sept
+     * appels de {@code CanvasController}, et les descripteurs sont un second chemin, qui ne
+     * passe pas par {@code NodeShape}.
+     */
+    private @Nullable NodeDescriptor descriptorOf(Node node) {
+        NodeDescriptor base = descriptors.descriptor(node.typeId());
+        if (base == null || !fr.blueprint.core.graph.FuncNodes.isFunctionNode(node.typeId())) {
+            return base;
+        }
+        if (controller.view().revision() != derivedDescriptorsRevision) {
+            derivedDescriptorsRevision = controller.view().revision();
+            derivedDescriptors.clear();
+        }
+        NodeDescriptor cached = derivedDescriptors.get(node.uuid());
+        if (cached != null) {
+            return cached;
+        }
+        fr.blueprint.core.graph.NodeShape shape =
+                lookup.shape(controller.blueprint(), node);
+        if (shape == null) {
+            return base;   // fonction inconnue : le squelette, et le validateur le dira
+        }
+        NodeDescriptor derived = DerivedDescriptor.withPins(base, shape);
+        derivedDescriptors.put(node.uuid(), derived);
+        return derived;
+    }
+
     private void renderNodes(GuiGraphics g, Font font) {
         List<NodeGeometry.Box> boxes = controller.boxes();
         Camera.Rect view = camera.visibleRect(width, height);
@@ -506,7 +582,7 @@ public final class CanvasWidget {
                 }
                 return !controller.canConnect(wireFrom, uuid, pin, output);
             };
-            NodeDescriptor desc = descriptors.descriptor(b.node().typeId());
+            NodeDescriptor desc = descriptorOf(b.node());
             NodeWidget.LiteralProvider literals = desc == null ? null
                     : pin -> literalToShow(b.node(), desc, pin);
             // Le nœud en pause prime sur le liseré de diagnostic : c'est LUI qu'on
@@ -1011,8 +1087,8 @@ public final class CanvasWidget {
             return false;
         }
         java.util.UUID nodeId = controller.selection().ids().iterator().next();
-        Node node = controller.blueprint().node(nodeId);
-        NodeDescriptor desc = node == null ? null : descriptors.descriptor(node.typeId());
+        Node node = controller.view().node(nodeId);
+        NodeDescriptor desc = node == null ? null : descriptorOf(node);
         if (desc == null) {
             return false;
         }
@@ -1037,8 +1113,8 @@ public final class CanvasWidget {
     /** Point d'entrée partagé canevas/panneau de détails (5.10) ; {@code row < 0} = à retrouver. */
     private boolean beginLiteralEdit(UUID nodeId, String pin,
                                      fr.blueprint.api.pin.PinType type, int row) {
-        Node node = controller.blueprint().node(nodeId);
-        NodeDescriptor desc = node == null ? null : descriptors.descriptor(node.typeId());
+        Node node = controller.view().node(nodeId);
+        NodeDescriptor desc = node == null ? null : descriptorOf(node);
         if (row < 0 && desc != null) {
             // Appel du panneau de détails : retrouver la rangée réelle du pin, sinon
             // la liste déroulante direction se dessinerait sur la rangée 0 (QA 5.2c).
