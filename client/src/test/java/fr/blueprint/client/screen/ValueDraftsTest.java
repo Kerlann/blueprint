@@ -16,12 +16,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>Ces tests portent sur la règle, pas sur l'écran : un brouillon perdu ou envoyé deux
  * fois se remarque très mal en jouant, et pas du tout en relisant.
  */
-class InputDraftsTest {
+class ValueDraftsTest {
 
     /** <b>Le défaut d'origine.</b> Treize frappes, zéro paquet. */
     @Test
     void unChampOrdinaireRetientCeQuOnTape() {
-        InputDrafts drafts = new InputDrafts();
+        ValueDrafts drafts = new ValueDrafts();
         int envois = 0;
         for (int i = 0; i < "Jean-Baptiste".length(); i++) {
             if (drafts.typed("prenom", false)) {
@@ -38,7 +38,7 @@ class InputDraftsTest {
      */
     @Test
     void leBrouillonPartALaPerteDuFocus() {
-        InputDrafts drafts = new InputDrafts();
+        ValueDrafts drafts = new ValueDrafts();
         drafts.typed("prenom", false);
 
         assertTrue(drafts.flush("prenom"), "relâcher le champ doit faire partir le texte");
@@ -53,7 +53,7 @@ class InputDraftsTest {
      */
     @Test
     void relacherSansAvoirTapeNEnvoieRien() {
-        InputDrafts drafts = new InputDrafts();
+        ValueDrafts drafts = new ValueDrafts();
         drafts.typed("prenom", false);
         drafts.flush("prenom");
 
@@ -64,7 +64,7 @@ class InputDraftsTest {
     /** {@code Entrée} envoie par un autre chemin : le brouillon ne doit pas repartir. */
     @Test
     void unePartieDejaEnvoyeeNeRepartPasAuRelachement() {
-        InputDrafts drafts = new InputDrafts();
+        ValueDrafts drafts = new ValueDrafts();
         drafts.typed("prenom", false);
         drafts.sent("prenom");
 
@@ -75,7 +75,7 @@ class InputDraftsTest {
     /** Une recherche qui filtre, elle, n'a pas le choix : chaque frappe compte. */
     @Test
     void unChampLiveEnvoieAChaqueFrappe() {
-        InputDrafts drafts = new InputDrafts();
+        ValueDrafts drafts = new ValueDrafts();
 
         assertTrue(drafts.typed("recherche", true));
         assertTrue(drafts.typed("recherche", true));
@@ -88,7 +88,7 @@ class InputDraftsTest {
     /** Deux champs remplis à la suite ne se marchent pas dessus. */
     @Test
     void deuxChampsGardentChacunSonBrouillon() {
-        InputDrafts drafts = new InputDrafts();
+        ValueDrafts drafts = new ValueDrafts();
         drafts.typed("prenom", false);
         drafts.typed("nom", false);
 
@@ -100,6 +100,44 @@ class InputDraftsTest {
     /** Relâcher « rien » — aucun champ n'a le focus — ne fait rien. */
     @Test
     void relacherAucunChampNeFaitRien() {
-        assertFalse(new InputDrafts().flush(null));
+        assertFalse(new ValueDrafts().flush(null));
+    }
+
+    /**
+     * <b>Le cas vu dans le journal du serveur.</b>
+     *
+     * <p>Régler l'âge du formulaire de jeu de rôle — de 16 à 90, par pas de 1 — traverse
+     * soixante-quatorze crans en une seconde. Le serveur accepte quarante interactions
+     * d'écran par dix secondes : le joueur crevait le quota et se faisait ignorer, avec
+     * pour toute explication un avertissement dans un journal qu'il ne lit pas.
+     */
+    @Test
+    void unGlissementDeCurseurNEnvoieQuUnPaquet() {
+        ValueDrafts drafts = new ValueDrafts();
+        int envois = 0;
+        for (int cran = 16; cran <= 90; cran++) {
+            if (drafts.typed("age", false)) {
+                envois++;
+            }
+        }
+        if (drafts.flush("age")) {
+            envois++;
+        }
+        assertEquals(1, envois,
+                "soixante-quatorze crans doivent tenir en un seul paquet, au relâchement");
+    }
+
+    /** Une jauge que le graphe doit suivre en continu reste possible, en le déclarant. */
+    @Test
+    void unCurseurLiveEnvoieAChaqueCran() {
+        ValueDrafts drafts = new ValueDrafts();
+        int envois = 0;
+        for (int cran = 0; cran < 10; cran++) {
+            if (drafts.typed("jauge", true)) {
+                envois++;
+            }
+        }
+        assertEquals(10, envois);
+        assertFalse(drafts.flush("jauge"), "tout est déjà parti : le relâchement n'ajoute rien");
     }
 }

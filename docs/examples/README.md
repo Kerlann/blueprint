@@ -122,7 +122,7 @@ la case à cocher écrivent, le champ de saisie est relu à la validation.
 | `INPUT` | numérique, relu **à la validation** seulement |
 | `DROPDOWN` | replié, il se **déplie par-dessus le reste** ; ses choix sont des lignes |
 | `TOGGLE` | grise le bouton `+10` — un widget qui en pilote un autre |
-| `SLIDER` | écrit `score` en continu, par pas de 5, **et affiche sa valeur** |
+| `SLIDER` | écrit `score` au relâchement, par pas de 5, **et affiche sa valeur** |
 | `SLOT` | autant d'émeraudes que le score — posées par `gui/set_item` |
 | `IMAGE` | une texture du jeu |
 | `ENTITY_PREVIEW` | une créature qui tourne |
@@ -187,7 +187,7 @@ partout :
 Et deux surlignages qui manquaient : la ligne **retenue** d'une `LIST` (cliquer n'y laissait
 aucune trace) et le choix visé au clavier dans une liste dépliée.
 
-## `live` : ce qu'un champ de saisie coûte au réseau
+## `live` : ce qu'une saisie et un glissement coûtent au réseau
 
 Un `INPUT` envoyait un paquet **par frappe**, sans qu'on puisse s'en passer. Taper
 « Jean-Baptiste » valait treize allers vers le serveur, treize exécutions du graphe et
@@ -195,22 +195,38 @@ treize écritures de variable — pour un nom qui n'intéresse personne avant d'
 Sur un serveur où chacun remplit un formulaire à la connexion, cela se compte en milliers
 de paquets pour rien.
 
-Un champ rapporte maintenant à **trois moments** : `Entrée`, la perte du focus (clic
-ailleurs, `Tab`, `Échap`) et la fermeture de l'écran.
+Un `SLIDER` était pire, et ça se voyait dans le journal du serveur :
 
-C'est la perte du focus qui rend le report sûr : **cliquer sur « Valider » relâche le
+```
+[Server thread/WARN] (blueprint) Interactions d'écran de Player848 au-delà du quota — ignorées
+```
+
+Traverser la plage d'âge du formulaire de jeu de rôle — de 16 à 90, par pas de 1 — envoyait
+soixante-quatorze paquets en une seconde. Le serveur en accepte **quarante par dix
+secondes** : régler son âge crevait le quota et se faisait ignorer, sans que le joueur
+puisse le deviner.
+
+Les deux rapportent maintenant à la **fin du geste** : perte du focus pour un champ (clic
+ailleurs, `Tab`, `Échap`), relâchement de la souris pour un curseur, fermeture de l'écran
+pour les deux.
+
+C'est la fin du geste qui rend le report sûr : **cliquer sur « Valider » relâche le
 champ**, donc le texte part *avant* le clic. Les deux paquets empruntent le même canal dans
 l'ordre, et le graphe trouve la valeur en place quand il traite le bouton.
 
-Pour une recherche qui filtre pendant qu'on tape — le seul cas qui le justifie — le
-comportement d'avant se déclare :
+Et l'écran ne perd rien en réactivité : la poignée du curseur et le chiffre à côté sont
+dessinés **chez le client**, qui connaît la valeur avant tout le monde. Ce qui attendait
+n'était pas l'affichage, c'était le graphe.
+
+Pour une recherche qui filtre pendant qu'on tape, ou une jauge que le graphe doit suivre en
+continu — les seuls cas qui le justifient — le comportement d'avant se déclare :
 
 ```
 input "recherche" @opts(placeholder: "Filtrer…", live: true)
 ```
 
 > **Changement de comportement.** Un écran enregistré avant ce réglage devient économe sans
-> que son auteur ait rien à faire. Un graphe qui comptait sur le report à chaque frappe —
+> que son auteur ait rien à faire. Un graphe qui comptait sur le report à chaque étape —
 > sans avoir déclaré `live` — verra son événement arriver plus tard, et une seule fois.
 
 ---

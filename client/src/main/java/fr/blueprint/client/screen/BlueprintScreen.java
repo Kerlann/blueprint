@@ -660,7 +660,21 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      *
      * @return vrai si le curseur a consommé le glissement.
      */
-    private boolean dragSlider(double mouseX) {
+    /**
+     * Le curseur suit la souris. Il ne le dit au serveur qu'au <b>relâchement</b>.
+     *
+     * <p>Il le disait à chaque cran. Traverser la plage d'âge du formulaire de jeu de rôle
+     * — de 16 à 90, par pas de 1 — envoyait soixante-quatorze paquets en une seconde, là
+     * où le serveur en accepte quarante par dix secondes : régler simplement son âge
+     * crevait le quota et se faisait ignorer, avec un avertissement dans le journal du
+     * serveur pour toute explication.
+     *
+     * <p>L'écran ne perd rien : la poignée et le chiffre à côté sont dessinés ici, avec la
+     * valeur locale. Ce qui attendait n'était pas l'affichage, c'était le graphe.
+     *
+     * @param released le geste est-il fini ? Vrai au relâchement de la souris.
+     */
+    private boolean dragSlider(double mouseX, boolean released) {
         if (pressed == null || onValue == null) {
             return false;
         }
@@ -672,18 +686,30 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         }
         double picked = sliderValueAt(element, layout().get(pressed), mouseX);
         Double last = values.get(pressed);
-        if (last != null && last == picked) {
-            return true;   // même cran : rien de neuf à dire au serveur
+        boolean bouge = last == null || last != picked;
+        if (bouge) {
+            values.put(pressed, picked);
+            drafts.typed(pressed, element.options().live());
         }
-        values.put(pressed, picked);
-        onValue.accept(new Interaction(pressed, 0, "", picked, picked != 0));
+        // Envoyer si le curseur est déclaré « live », ou si le geste se termine et qu'il
+        // reste quelque chose à dire. La garde est dans ValueDrafts, pas ici : relâcher
+        // sans avoir bougé ne doit rien renvoyer.
+        boolean envoie = bouge && element.options().live();
+        if (released) {
+            envoie |= drafts.flush(pressed);
+        }
+        if (envoie) {
+            drafts.sent(pressed);
+            double value = values.getOrDefault(pressed, picked);
+            onValue.accept(new Interaction(pressed, 0, "", value, value != 0));
+        }
         return true;
     }
 
     @Override
     public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event,
                                 double dragX, double dragY) {
-        if (dragSlider(event.x())) {
+        if (dragSlider(event.x(), false)) {
             return true;
         }
         if (dragging == null) {
@@ -798,8 +824,8 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         return true;
     }
 
-    /** Quand une frappe part vers le serveur. La règle est dans {@link InputDrafts}. */
-    private final InputDrafts drafts = new InputDrafts();
+    /** Quand une frappe part vers le serveur. La règle est dans {@link ValueDrafts}. */
+    private final ValueDrafts drafts = new ValueDrafts();
 
     /** Une frappe : retenue, sauf champ déclaré {@code live}. */
     private void typedInput(String element, String text) {
@@ -925,8 +951,9 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
         }
         pressed = element;
         // Un curseur se positionne DÈS le clic, avant même qu'on ait glissé : cliquer au
-        // milieu de la barre doit y amener la poignée, pas attendre le relâchement.
-        dragSlider(event.x());
+        // milieu de la barre doit y amener la poignée. Rien ne part encore — le geste
+        // commence, il ne finit pas.
+        dragSlider(event.x(), false);
         return true;
     }
 
@@ -976,7 +1003,7 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                     // relâchement ne rattrape que le dernier cran, et la garde de
                     // dragSlider empêche de renvoyer une valeur inchangée.
                     pressed = was;
-                    dragSlider(event.x());
+                    dragSlider(event.x(), true);
                     pressed = null;
                     return true;
                 }
