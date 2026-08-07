@@ -266,6 +266,26 @@ public final class StandardNodes {
                 })
                 .build());
 
+        // --------------------------------------------------------- fonctions (20.1)
+        // UN seul type d'appel, portant le nom de sa cible en littéral — exactement ce que
+        // font var/get et var/set. Un type par fonction polluerait un registre qui se
+        // synchronise à la connexion, et ferait de chaque appel un nœud fantôme chez tout
+        // le monde, y compris chez l'auteur qui vient de définir la fonction.
+        //
+        // La forme déclarée ici est le SQUELETTE : le pin littéral et les deux pins
+        // d'exécution. La vraie forme — les paramètres — vient du blueprint, par
+        // NodeTypeLookup#shape(Blueprint, Node). Ce type est le repli quand le nom ne
+        // résout pas.
+        r.register(NodeType.builder(fr.blueprint.core.graph.FuncNodes.CALL)
+                .category(NodeCategories.MISC)
+                .exec()
+                .in(fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN, PinTypes.STRING, "")
+                .action(ctx -> {
+                    throw new IllegalStateException(
+                            "func/call est abaissé en CallSub par le compilateur");
+                })
+                .build());
+
         // ------------------------------------------------- flux structuré (7.1b)
         // Abaissés par le compilateur (CallSub/JmpIf/Yield + Calls synthétisés) :
         // leurs actions ne doivent jamais être atteintes.

@@ -34,6 +34,14 @@ public final class GraphLoader {
         bp.putScreen(screen);
     }
 
+    public static void addFunction(Blueprint bp, BlueprintFunction function) {
+        bp.putFunction(function);
+    }
+
+    public static void dropFunction(Blueprint bp, String name) {
+        bp.dropFunction(name);
+    }
+
     public static void setLiteral(Node node, String pin, @Nullable LiteralValue value) {
         node.setLiteral(pin, value);
     }

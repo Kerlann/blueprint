@@ -53,6 +53,15 @@ public final class Blueprint {
     private final Map<UUID, CommentBox> comments = new LinkedHashMap<>();
     /** Écrans du blueprint (épic 10) — même sérialisation, même révision, même verrou. */
     private final Map<String, fr.blueprint.core.graph.screen.Screen> screens = new LinkedHashMap<>();
+    /**
+     * Fonctions du blueprint (story 20.1) — même sérialisation, même révision, même verrou.
+     *
+     * <p>Leurs nœuds ne sont <b>pas</b> dans {@link #nodes} : une fonction possède son
+     * corps. Tout ce qui parcourt un graphe doit donc parcourir les deux, et l'oubli le
+     * plus coûteux serait celui du validateur — un nœud {@code ADMIN} caché dans un corps
+     * échapperait au plafond de permission du blueprint.
+     */
+    private final Map<String, BlueprintFunction> functions = new LinkedHashMap<>();
 
     public Blueprint(Identifier id) {
         this(id, BlueprintMeta.DEFAULT);
@@ -115,6 +124,15 @@ public final class Blueprint {
 
     public fr.blueprint.core.graph.screen.@Nullable Screen screen(String name) {
         return screens.get(name);
+    }
+
+    /** Les fonctions, par nom. Vide pour l'immense majorité des blueprints. */
+    public Map<String, BlueprintFunction> functions() {
+        return Collections.unmodifiableMap(functions);
+    }
+
+    public @Nullable BlueprintFunction function(String name) {
+        return functions.get(name);
     }
 
     public @Nullable CommentBox comment(UUID uuid) {
@@ -229,6 +247,14 @@ public final class Blueprint {
         screens.remove(name);
     }
 
+    void putFunction(BlueprintFunction function) {
+        functions.put(function.name(), function);
+    }
+
+    void dropFunction(String name) {
+        functions.remove(name);
+    }
+
     void setMeta(BlueprintMeta meta) {
         this.meta = meta;
     }
@@ -300,6 +326,7 @@ public final class Blueprint {
         // Les écrans sont immuables : les partager suffit, et les oublier ici ferait
         // perdre ses menus à tout blueprint copié — instantané réseau compris.
         c.screens.putAll(screens);
+        c.functions.putAll(functions);
         c.preservedVariables = preservedVariables.copy();
         c.preservedScreens = preservedScreens.copy();
         return c;
