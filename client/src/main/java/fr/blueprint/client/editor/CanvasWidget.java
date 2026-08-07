@@ -137,6 +137,11 @@ public final class CanvasWidget {
                 () -> controller.view().function());
         this.details = new DetailsPanelState(session.blueprint(), descriptors::descriptor,
                 controller::applyOp, I18n::get);
+        // Le panneau de détails suit le graphe montré : sans quoi il chercherait dans le
+        // graphe principal un nœud sélectionné dans un corps, et resterait vide sans
+        // qu'aucun message n'explique la disparition. C'est aussi lui qui porte la
+        // signature de la fonction ouverte.
+        this.details.follow(controller.view());
     }
 
     public Camera camera() {
@@ -832,7 +837,7 @@ public final class CanvasWidget {
         }
         if (panelVisible && !scriptView.visible()
                 && DetailsPanel.contains(e.x(), e.y(), width, height)) {
-            handleDetailsPanelClick(e);
+            handleDetailsPanelClick(e, doubled);
             return true;
         }
         return false;
@@ -1102,7 +1107,7 @@ public final class CanvasWidget {
         picker.close();
     }
 
-    private void handleDetailsPanelClick(MouseButtonEvent e) {
+    private void handleDetailsPanelClick(MouseButtonEvent e, boolean doubled) {
         var rows = details.rows(controller.selection().ids());
         int index = DetailsPanel.rowAt(rows, e.y(),
                 detailsScroll.offset(rows.size(), DetailsPanel.visibleRows(height)), height);
@@ -1115,7 +1120,24 @@ public final class CanvasWidget {
             case META_DESCRIPTION -> details.openMetaEdit(DetailsPanelState.MetaField.DESCRIPTION);
             case META_CAP -> details.cyclePermissionCap();
             case LITERAL -> beginLiteralEdit(row.node(), row.pin(), row.type(), -1);
-            case WIRED -> controller.focusNode(row.node(), width, height);
+            case WIRED -> focusAnywhere(row.node(), width);
+            case PARAM_ADD_IN -> details.addParam(false);
+            case PARAM_ADD_OUT -> details.addParam(true);
+            case PARAM_IN, PARAM_OUT -> {
+                boolean output = row.kind() == DetailsPanelState.Kind.PARAM_OUT;
+                int at = Integer.parseInt(row.pin());
+                // Trois zones, comme sur une ligne de variable : le nom à gauche, le type
+                // au milieu, le « × » au bord. Cliquer le nom une fois ne fait rien —
+                // c'est le double-clic qui renomme, faute de quoi effleurer la ligne
+                // ouvrirait un champ de saisie qu'on n'a pas demandé.
+                if (e.x() >= width - 14) {
+                    details.removeParam(at, output);
+                } else if (e.x() >= width - DetailsPanel.WIDTH + 50) {
+                    details.cycleParamType(at, output);
+                } else if (doubled) {
+                    details.openParamEdit(at, output);
+                }
+            }
             default -> {
             }
         }
@@ -1527,6 +1549,9 @@ public final class CanvasWidget {
                 return true;
             }
         }
+        if (details.isEditingParam()) {
+            return keyInParamRename(e);
+        }
         if (funcPanel.isRenaming()) {
             return keyInFunctionRename(e);
         }
@@ -1552,6 +1577,17 @@ public final class CanvasWidget {
             return keyInPalette(e);
         }
         return keyOnCanvas(e);
+    }
+
+    private boolean keyInParamRename(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> details.cancelParamEdit();
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> details.commitParamEdit();
+            case GLFW.GLFW_KEY_BACKSPACE -> details.backspace();
+            default -> {
+            }
+        }
+        return true;
     }
 
     private boolean keyInFunctionRename(KeyEvent e) {
@@ -1861,6 +1897,10 @@ public final class CanvasWidget {
         }
         if (varPanel.isRenaming() && e.isAllowedChatCharacter()) {
             varPanel.type(e.codepointAsString());
+            return true;
+        }
+        if (details.isEditingParam() && e.isAllowedChatCharacter()) {
+            details.type(e.codepointAsString());
             return true;
         }
         if (details.isEditingMeta() && e.isAllowedChatCharacter()) {

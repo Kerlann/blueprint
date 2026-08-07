@@ -98,6 +98,23 @@ public final class DetailsPanel {
                 // auteur, description et plafond du blueprint.
                 case LITERAL, META_AUTHOR, META_DESCRIPTION, META_CAP ->
                         editableRow(g, font, row, left, y, edit);
+                // Un paramètre : nom, type, et le « × » qui le retire. Le préfixe dit de
+                // quel côté il est — sans lui, deux listes se suivent sans qu'on sache
+                // laquelle entre et laquelle sort.
+                case PARAM_IN, PARAM_OUT -> {
+                    g.drawString(font, (row.kind() == DetailsPanelState.Kind.PARAM_IN
+                                    ? "→ " : "← ")
+                                    + font.plainSubstrByWidth(row.label(), LABEL_WIDTH - 12),
+                            left + 4, y, LABEL_COLOR, false);
+                    g.drawString(font, font.plainSubstrByWidth(row.value(), WIDTH - 68),
+                            left + 50, y, VALUE_COLOR, false);
+                    g.drawString(font, "×", left + WIDTH - 12, y, LABEL_COLOR, false);
+                }
+                case PARAM_ADD_IN, PARAM_ADD_OUT -> {
+                    g.drawString(font, "+", left + 4, y, HEADER_COLOR, false);
+                    g.drawString(font, font.plainSubstrByWidth(row.label(), WIDTH - 20),
+                            left + 14, y, NOTE_COLOR, false);
+                }
                 default -> {
                     g.drawString(font, font.plainSubstrByWidth(row.label(), LABEL_WIDTH),
                             left + 4, y, LABEL_COLOR, false);
