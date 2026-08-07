@@ -171,26 +171,26 @@ class FunctionPanelStateTest {
                         new BlueprintFunction.Param("points", PinTypes.DOUBLE)),
                 List.of(new BlueprintFunction.Param("soigne", PinTypes.BOOL)));
 
-        assertEquals("soigner(cible, points) → soigne", FunctionPanel.label(soigner));
+        assertEquals("soigner(cible, points) → soigne", FunctionPanelLayout.label(soigner));
     }
 
     /** Sans sortie, pas de flèche qui pendrait dans le vide. */
     @Test
     void uneFonctionSansSortieNAffichePasDeFleche() {
-        assertEquals("agir()", FunctionPanel.label(
+        assertEquals("agir()", FunctionPanelLayout.label(
                 BlueprintFunction.of("agir", List.of(), List.of())));
     }
 
     /** Les trois actions d'une ligne se cliquent là où elles se dessinent. */
     @Test
     void lesActionsSeCliquentLaOuEllesSeDessinent() {
-        int w = FunctionPanel.WIDTH;
-        assertEquals(FunctionPanel.RowAction.OPEN, FunctionPanel.actionAt(w - 34, 0, true));
-        assertEquals(FunctionPanel.RowAction.RENAME, FunctionPanel.actionAt(w - 24, 0, true));
-        assertEquals(FunctionPanel.RowAction.DELETE, FunctionPanel.actionAt(w - 14, 0, true));
-        assertNull(FunctionPanel.actionAt(4, 0, true),
+        int w = FunctionPanelLayout.WIDTH;
+        assertEquals(FunctionPanelLayout.RowAction.OPEN, FunctionPanelLayout.actionAt(w - 32, true));
+        assertEquals(FunctionPanelLayout.RowAction.RENAME, FunctionPanelLayout.actionAt(w - 22, true));
+        assertEquals(FunctionPanelLayout.RowAction.DELETE, FunctionPanelLayout.actionAt(w - 12, true));
+        assertNull(FunctionPanelLayout.actionAt(4, true),
                 "le début de la ligne porte le nom, pas une action");
-        assertNull(FunctionPanel.actionAt(w - 14, 0, false),
+        assertNull(FunctionPanelLayout.actionAt(w - 12, false),
                 "une ligne non sélectionnée n'offre aucune action : ses icônes ne sont pas "
                         + "dessinées, et un clic dessus viserait du vide");
     }
@@ -204,12 +204,17 @@ class FunctionPanelStateTest {
      */
     @Test
     void lePanneauSArreteApresSaDerniereLigne() {
-        int vide = FunctionPanel.bottom(state, 300);
         state.create();
-        int uneLigne = FunctionPanel.bottom(state, 300);
+        int uneLigne = FunctionPanelLayout.bottom(state, 300);
+        state.create();
+        state.create();
+        int troisLignes = FunctionPanelLayout.bottom(state, 300);
 
-        assertTrue(uneLigne > vide, "une ligne de plus, un panneau plus haut");
-        assertTrue(uneLigne < 300, "le panneau ne descend pas jusqu'en bas de l'écran");
+        assertEquals(2 * FunctionPanelLayout.ROW_HEIGHT, troisLignes - uneLigne,
+                "chaque ligne de plus rallonge le panneau d'exactement sa hauteur");
+        assertTrue(troisLignes < 300 - DiagnosticsPanel.BAR_HEIGHT,
+                "le panneau ne descend pas jusqu'à la barre du bas : il amputerait le "
+                        + "canevas d'une colonne noire pour trois mots");
     }
 
     /** Un avertissement en attente prend sa place, sinon il déborderait du cadre. */
@@ -217,14 +222,14 @@ class FunctionPanelStateTest {
     void lAvertissementSeReserveSaPlace() {
         String name = state.create();
         poserUnAppel(name);
-        int sansAvertissement = FunctionPanel.bottom(state, 300);
+        int sansAvertissement = FunctionPanelLayout.bottom(state, 300);
 
         state.openRename(name);
         state.backspace();
         state.type("X");
         state.commitRename();   // arme l'avertissement
 
-        assertTrue(FunctionPanel.bottom(state, 300) > sansAvertissement,
+        assertTrue(FunctionPanelLayout.bottom(state, 300) > sansAvertissement,
                 "le panneau doit s'agrandir pour porter l'avertissement");
     }
 
@@ -254,22 +259,110 @@ class FunctionPanelStateTest {
         String second = state.create();
         state.select(second);
 
-        var rows = FunctionPanel.layout(state, 300, 0);
+        var rows = FunctionPanelLayout.rows(state, 300, 0);
         assertEquals(2, rows.size());
-        assertEquals(FunctionPanel.ROW_HEIGHT, rows.get(1).y() - rows.get(0).y(),
+        assertEquals(FunctionPanelLayout.ROW_HEIGHT, rows.get(1).y() - rows.get(0).y(),
                 "deux lignes consécutives sont séparées d'une hauteur de ligne");
         assertTrue(rows.get(1).selected(), "la ligne sélectionnée doit se savoir telle");
 
         state.openRename(second);
         state.type("X");
-        assertTrue(FunctionPanel.layout(state, 300, 0).get(1).text().endsWith("X_"),
+        assertTrue(FunctionPanelLayout.rows(state, 300, 0).get(1).text().endsWith("X_"),
                 "sans la frappe en cours, on taperait à l'aveugle");
+    }
+
+    /**
+     * <b>On clique la ligne qu'on voit.</b>
+     *
+     * <p>Rendu et hit-test lisent la même arithmétique. Deux calculs séparés laisseraient
+     * une bande où le clic tombe une ligne à côté — le défaut le plus pénible d'une liste,
+     * parce qu'on supprime alors la fonction voisine de celle qu'on visait.
+     */
+    @Test
+    void onCliqueLaLigneQuOnVoit() {
+        state.create();
+        state.create();
+
+        var rows = FunctionPanelLayout.rows(state, 300, 0);
+        for (int i = 0; i < rows.size(); i++) {
+            assertEquals(i, FunctionPanelLayout.rowAt(state, 10, rows.get(i).y() + 1, 0, 300),
+                    "la ligne " + i + " ne se clique pas là où elle se dessine");
+        }
+        assertEquals(-1, FunctionPanelLayout.rowAt(state, 10,
+                        rows.get(rows.size() - 1).y() + FunctionPanelLayout.ROW_HEIGHT + 1, 0, 300),
+                "sous la dernière ligne, aucune ligne");
+        assertEquals(-1, FunctionPanelLayout.rowAt(state, FunctionPanelLayout.WIDTH + 5, rows.get(0).y() + 1,
+                0, 300), "à droite du panneau, c'est le canevas");
+    }
+
+    /**
+     * <b>Chaque clic demande ce qu'il a l'air de demander.</b>
+     *
+     * <p>Le double-clic ouvre le corps là où le panneau des variables renomme : ouvrir est
+     * le geste qu'on fait vingt fois quand renommer arrive une fois. Les trois actions
+     * n'existent que sur la ligne sélectionnée — cliquer à leur emplacement sur une autre
+     * ligne la sélectionne, il ne la supprime pas.
+     */
+    @Test
+    void chaqueClicDemandeCeQuIlALAirDeDemander() {
+        String premier = state.create();
+        String second = state.create();
+        state.select(premier);
+        int w = FunctionPanelLayout.WIDTH;
+        var rows = FunctionPanelLayout.rows(state, 300, 0);
+        double yPremier = rows.get(0).y() + 1;
+        double ySecond = rows.get(1).y() + 1;
+
+        assertEquals(new FunctionPanelLayout.Click(FunctionPanelLayout.Hit.CREATE, null),
+                FunctionPanelLayout.clickAt(state, w - 8, ToolbarWidget.HEIGHT + 3, 0, 300, false));
+        assertEquals(new FunctionPanelLayout.Click(FunctionPanelLayout.Hit.OPEN, premier),
+                FunctionPanelLayout.clickAt(state, 10, yPremier, 0, 300, true),
+                "le double-clic ouvre le corps");
+        assertEquals(new FunctionPanelLayout.Click(FunctionPanelLayout.Hit.DELETE, premier),
+                FunctionPanelLayout.clickAt(state, w - 12, yPremier, 0, 300, false));
+        assertEquals(new FunctionPanelLayout.Click(FunctionPanelLayout.Hit.SELECT, second),
+                FunctionPanelLayout.clickAt(state, w - 12, ySecond, 0, 300, false),
+                "au même endroit sur une ligne NON sélectionnée, aucune action : les icônes "
+                        + "n'y sont pas dessinées, et supprimer au premier clic serait brutal");
+        assertEquals(new FunctionPanelLayout.Click(FunctionPanelLayout.Hit.DESELECT, null),
+                FunctionPanelLayout.clickAt(state, 10,
+                        rows.get(1).y() + FunctionPanelLayout.ROW_HEIGHT + 2, 0, 300, false));
+    }
+
+    /** Le « + » de l'en-tête, et rien d'autre dans l'en-tête. */
+    @Test
+    void lePlusEstDansLEnTeteADroite() {
+        assertTrue(FunctionPanelLayout.plusAt(FunctionPanelLayout.WIDTH - 8, ToolbarWidget.HEIGHT + 3));
+        assertFalse(FunctionPanelLayout.plusAt(4, ToolbarWidget.HEIGHT + 3),
+                "le titre n'est pas un bouton");
+        assertFalse(FunctionPanelLayout.plusAt(FunctionPanelLayout.WIDTH - 8,
+                        ToolbarWidget.HEIGHT + FunctionPanelLayout.HEADER_HEIGHT + 1),
+                "sous l'en-tête commence la première ligne : y créer une fonction au lieu "
+                        + "de la sélectionner serait une surprise");
+    }
+
+    /** Le corps ouvert se marque dans la liste, même quand la sélection est ailleurs. */
+    @Test
+    void leCorpsOuvertSeMarqueDansLaListe() {
+        String premier = state.create();
+        String second = state.create();
+        var ouvert = new java.util.concurrent.atomic.AtomicReference<String>(premier);
+        var vue = new FunctionPanelState(bp, op -> op.apply(bp, LOADED.nodes()).applied(),
+                () -> { }, () -> { }, ouvert::get);
+        vue.select(second);
+
+        var rows = FunctionPanelLayout.rows(vue, 300, 0);
+        assertTrue(rows.get(0).open(), "le corps ouvert doit se voir");
+        assertFalse(rows.get(0).selected());
+        assertTrue(rows.get(1).selected(), "et la sélection reste indépendante");
+        assertFalse(rows.get(1).open(),
+                "sans quoi rien ne dirait quel graphe le canevas est en train de montrer");
     }
 
     /** Un panneau vide ne dispose rien — c'est le message d'accueil qui prend la place. */
     @Test
     void unPanneauVideNeDisposeRien() {
-        assertTrue(FunctionPanel.layout(state, 300, 0).isEmpty());
+        assertTrue(FunctionPanelLayout.rows(state, 300, 0).isEmpty());
     }
 
     private void poserUnAppel(String function) {

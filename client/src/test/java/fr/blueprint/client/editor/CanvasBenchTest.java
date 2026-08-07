@@ -89,7 +89,7 @@ class CanvasBenchTest {
         if (f % 60 == 0) {
             camera.zoomBy(f % 120 == 0 ? 1 : -1, SCREEN_W / 2.0, SCREEN_H / 2.0);
         }
-        List<NodeGeometry.Box> boxes = geometry.boxes(bp, LOOKUP);
+        List<NodeGeometry.Box> boxes = geometry.boxes(new GraphView(bp), LOOKUP);
         Camera.Rect view = camera.visibleRect(SCREEN_W, SCREEN_H);
         visible.clear();
         for (int i = 0; i < boxes.size(); i++) {
@@ -114,7 +114,7 @@ class CanvasBenchTest {
         NodeGeometry geometry = new NodeGeometry();
         Camera camera = new Camera(); // origine (0,0), zoom 1
 
-        List<NodeGeometry.Box> boxes = geometry.boxes(bp, LOOKUP);
+        List<NodeGeometry.Box> boxes = geometry.boxes(new GraphView(bp), LOOKUP);
         assertEquals(NODES, boxes.size());
 
         Camera.Rect view = camera.visibleRect(SCREEN_W, SCREEN_H);

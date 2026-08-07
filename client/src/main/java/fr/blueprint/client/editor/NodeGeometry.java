@@ -53,11 +53,12 @@ public final class NodeGeometry {
     private int revision = -1;
 
     /** La liste retournée est réutilisée d'un appel à l'autre : ne pas la conserver. */
-    public List<Box> boxes(Blueprint bp, NodeTypeLookup lookup) {
-        if (bp.revision() != revision) {
-            revision = bp.revision();
+    public List<Box> boxes(GraphView view, NodeTypeLookup lookup) {
+        if (view.revision() != revision) {
+            revision = view.revision();
             boxes.clear();
-            for (Node node : bp.nodes().values()) {
+            Blueprint bp = view.blueprint();
+            for (Node node : view.nodes().values()) {
                 boxes.add(boxOf(node, lookup.shape(bp, node)));
             }
         }

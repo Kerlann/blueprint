@@ -591,6 +591,7 @@
   "blueprint.diag.screen_binding_not_found": "« %s » est lié à la variable « %s », que ce blueprint ne déclare plus",
   "blueprint.diag.function_not_found": "Cet appel vise la fonction « %s », que ce blueprint ne déclare pas",
   "blueprint.diag.duplicate_function": "Une fonction « %s » existe déjà dans ce blueprint",
+  "blueprint.diag.unsupported_in_function": "Ce geste n'existe pas dans un corps de fonction : « %s » ne porte que des nœuds et des liens",
   "blueprint.diag.event_in_function": "Un événement n'a rien à faire dans la fonction « %s » : elle s'appelle, elle ne se déclenche pas",
   "blueprint.diag.function_recursion": "Cycle d'appels : %s. Une fonction ne peut pas s'appeler, ni directement ni par un détour",
   "blueprint.category.gui/bind": "GUI — liaisons",

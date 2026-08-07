@@ -62,7 +62,7 @@ class FunctionCallShapeTest {
     @Test
     void unAppelSeDessineAvecLesPinsDeSaSignature() {
         Blueprint bp = withCall();
-        var boxes = new NodeGeometry().boxes(bp, LOADED.nodes());
+        var boxes = new NodeGeometry().boxes(new GraphView(bp), LOADED.nodes());
 
         assertEquals(1, boxes.size());
 
@@ -73,7 +73,7 @@ class FunctionCallShapeTest {
         // différence, et c'est aussi ce sur quoi il clique.
         double avecDeuxParams = boxes.get(0).height();
         double sansParam = new NodeGeometry()
-                .boxes(withCall(List.of(), List.of()), LOADED.nodes()).get(0).height();
+                .boxes(new GraphView(withCall(List.of(), List.of())), LOADED.nodes()).get(0).height();
         assertTrue(avecDeuxParams > sansParam,
                 "la boîte ne grandit pas avec la signature (" + avecDeuxParams + " contre "
                         + sansParam + ") : la géométrie résout sa forme par le registre");

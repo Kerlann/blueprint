@@ -70,5 +70,13 @@ public enum DiagnosticCode {
      * <p>Refusée et non bornée : la pile de cadres n'a pas de plafond, et le budget de
      * carburant ne couperait que tard, en nommant une cause qui n'est pas la bonne.
      */
-    FUNCTION_RECURSION
+    FUNCTION_RECURSION,
+    /**
+     * Un geste que le corps d'une fonction ne sait pas porter — un commentaire.
+     *
+     * <p>Un corps ne stocke que des nœuds et des liens. Laisser passer le geste le poserait
+     * dans le graphe principal, où l'auteur ne le chercherait jamais ; le refuser en le
+     * disant vaut mieux qu'un clic sans effet ou qu'un commentaire égaré.
+     */
+    UNSUPPORTED_IN_FUNCTION
 }

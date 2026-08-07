@@ -591,6 +591,7 @@
   "blueprint.diag.screen_binding_not_found": "\"%s\" is bound to the variable \"%s\", which this blueprint no longer declares",
   "blueprint.diag.function_not_found": "This call targets the function \"%s\", which this blueprint does not declare",
   "blueprint.diag.duplicate_function": "A function \"%s\" already exists in this blueprint",
+  "blueprint.diag.unsupported_in_function": "This gesture does not exist inside a function body: \"%s\" holds only nodes and links",
   "blueprint.diag.event_in_function": "An event has no place in the function \"%s\": it is called, it is not triggered",
   "blueprint.diag.function_recursion": "Call cycle: %s. A function cannot call itself, directly or through a detour",
   "blueprint.category.gui/bind": "GUI — bindings",

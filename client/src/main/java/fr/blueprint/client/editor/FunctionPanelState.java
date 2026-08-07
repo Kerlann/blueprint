@@ -39,16 +39,33 @@ public final class FunctionPanelState {
     private @Nullable String pendingRenameFrom;
     private int pendingBreaks;
 
+    /**
+     * Le corps que le canevas montre — la vérité vit dans {@code GraphView}, pas ici.
+     *
+     * <p>Le panneau ne fait que la <b>lire</b> pour marquer la ligne correspondante. La
+     * dupliquer donnerait deux réponses à « quel graphe est ouvert », et la mauvaise
+     * gagnerait un jour : un {@code Ctrl+Z} qui referme un corps ne passe pas par le
+     * panneau.
+     */
+    private final java.util.function.Supplier<@Nullable String> openBody;
+
     public FunctionPanelState(Blueprint bp, Function<EditOperation, Boolean> applier) {
-        this(bp, applier, () -> { }, () -> { });
+        this(bp, applier, () -> { }, () -> { }, () -> null);
     }
 
     public FunctionPanelState(Blueprint bp, Function<EditOperation, Boolean> applier,
-                              Runnable beginGesture, Runnable endGesture) {
+                              Runnable beginGesture, Runnable endGesture,
+                              java.util.function.Supplier<@Nullable String> openBody) {
         this.bp = bp;
         this.applier = applier;
         this.beginGesture = beginGesture;
         this.endGesture = endGesture;
+        this.openBody = openBody;
+    }
+
+    /** Le corps actuellement ouvert dans le canevas, ou {@code null}. */
+    public @Nullable String openBody() {
+        return openBody.get();
     }
 
     /** Les fonctions, par nom — l'ordre d'affichage, et celui de l'export texte. */

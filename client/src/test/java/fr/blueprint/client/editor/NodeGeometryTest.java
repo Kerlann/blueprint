@@ -119,13 +119,13 @@ class NodeGeometryTest {
         apply(bp, new EditOperation.AddNode(UUID.randomUUID(), TYPE, new Vec2d(0, 0)));
 
         NodeGeometry geometry = new NodeGeometry();
-        List<NodeGeometry.Box> first = geometry.boxes(bp, LOOKUP);
+        List<NodeGeometry.Box> first = geometry.boxes(new GraphView(bp), LOOKUP);
         assertEquals(1, first.size());
         // Même révision → même liste, aucun recalcul.
-        assertSame(first, geometry.boxes(bp, LOOKUP));
+        assertSame(first, geometry.boxes(new GraphView(bp), LOOKUP));
 
         apply(bp, new EditOperation.AddNode(UUID.randomUUID(), TYPE, new Vec2d(300, 0)));
-        List<NodeGeometry.Box> second = geometry.boxes(bp, LOOKUP);
+        List<NodeGeometry.Box> second = geometry.boxes(new GraphView(bp), LOOKUP);
         assertEquals(2, second.size());
     }
 

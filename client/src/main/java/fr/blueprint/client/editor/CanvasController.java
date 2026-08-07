@@ -54,6 +54,7 @@ public final class CanvasController {
     }
 
     private final Blueprint blueprint;
+    private final GraphView view;
     private final NodeTypeLookup lookup;
     private final Camera camera;
     private final NodeGeometry geometry = new NodeGeometry();
@@ -89,12 +90,24 @@ public final class CanvasController {
 
     public CanvasController(Blueprint blueprint, NodeTypeLookup lookup, Camera camera) {
         this.blueprint = blueprint;
+        this.view = new GraphView(blueprint);
         this.lookup = lookup;
         this.camera = camera;
     }
 
     public Blueprint blueprint() {
         return blueprint;
+    }
+
+    /**
+     * Le graphe édité — le principal, ou le corps de fonction ouvert (story 20.2).
+     *
+     * <p>Tout ce qui lit des nœuds, des liens ou des commentaires passe par là. Le canevas
+     * continue de fabriquer des opérations qui ignorent les fonctions ; la vue les redirige
+     * vers le corps ouvert, et l'annuler/rétablir n'en sait rien (AC3).
+     */
+    public GraphView view() {
+        return view;
     }
 
     public SelectionModel<UUID> selection() {
@@ -107,7 +120,7 @@ public final class CanvasController {
 
     /** Boîtes monde des nœuds (cache invalidé par la révision du graphe). */
     public List<NodeGeometry.Box> boxes() {
-        return geometry.boxes(blueprint, lookup);
+        return geometry.boxes(view, lookup);
     }
 
     /**
@@ -139,10 +152,10 @@ public final class CanvasController {
 
     /** Le pin d'entrée donné reçoit-il un lien ? En temps constant. */
     public boolean isWired(UUID node, String pin) {
-        if (blueprint.revision() != wiredPinsRevision) {
-            wiredPinsRevision = blueprint.revision();
+        if (view.revision() != wiredPinsRevision) {
+            wiredPinsRevision = view.revision();
             wiredPins.clear();
-            for (fr.blueprint.core.graph.Link link : blueprint.links()) {
+            for (fr.blueprint.core.graph.Link link : view.links()) {
                 wiredPins.computeIfAbsent(link.toNode(), k -> new java.util.HashSet<>())
                         .add(link.toPin());
             }
@@ -154,8 +167,8 @@ public final class CanvasController {
     /** Boîte d'un nœud par identifiant (index reconstruit à la révision). */
     public @Nullable NodeGeometry.Box boxOf(UUID node) {
         List<NodeGeometry.Box> boxes = boxes();
-        if (blueprint.revision() != boxIndexRevision) {
-            boxIndexRevision = blueprint.revision();
+        if (view.revision() != boxIndexRevision) {
+            boxIndexRevision = view.revision();
             boxIndex.clear();
             for (int i = 0; i < boxes.size(); i++) {
                 boxIndex.put(boxes.get(i).node().uuid(), boxes.get(i));
@@ -201,7 +214,7 @@ public final class CanvasController {
     /** Centre monde d'un pin nommé, ou null (nœud absent, fantôme, pin inconnu). */
     public @Nullable Vec2d pinCenter(UUID node, String pin) {
         NodeGeometry.Box box = boxOf(node);
-        Node n = blueprint.node(node);
+        Node n = view.node(node);
         if (box == null || n == null) {
             return null;
         }
@@ -224,7 +237,7 @@ public final class CanvasController {
 
     /** Définition d'un pin nommé (pour la couleur des liens), ou null. */
     public @Nullable NodeShape.PinDef pinDef(UUID node, String pin) {
-        Node n = blueprint.node(node);
+        Node n = view.node(node);
         NodeShape shape = n == null ? null : lookup.shape(blueprint, n);
         if (shape == null) {
             return null;
@@ -241,7 +254,7 @@ public final class CanvasController {
         if (from.output() == pinIsOutput) {
             return false;
         }
-        return GraphValidator.canLink(blueprint, lookup, buildLink(from, node, pin)) == null;
+        return view.canLink(lookup, buildLink(from, node, pin)) == null;
     }
 
     private static Link buildLink(PinRef from, UUID node, String pin) {
@@ -282,7 +295,7 @@ public final class CanvasController {
             // Champ large quand la rangée n'a pas de sortie en face (voir literalZone).
             Camera.Rect zone = NodeGeometry.literalZone(b, row, row < shape.outputs().size());
             if (wx >= zone.left() && wx < zone.right() && wy >= zone.top() && wy < zone.bottom()
-                    && blueprint.linksInto(b.node().uuid(), def.name()).isEmpty()) {
+                    && view.linksInto(b.node().uuid(), def.name()).isEmpty()) {
                 return new LiteralRef(b.node().uuid(), def.name(), def.type(), row);
             }
         }
@@ -383,7 +396,7 @@ public final class CanvasController {
         selection.click(id, additive);
         dragOffsets.clear();
         for (UUID sel : selection.ids()) {
-            Node node = blueprint.node(sel);
+            Node node = view.node(sel);
             if (node != null) {
                 dragOffsets.put(sel, new Vec2d(node.position().x() - wx, node.position().y() - wy));
             }
@@ -399,7 +412,7 @@ public final class CanvasController {
             }
             case MOVE_COMMENT -> {
                 fr.blueprint.core.graph.CommentBox box = activeComment == null ? null
-                        : blueprint.comment(activeComment);
+                        : view.comment(activeComment);
                 if (box == null) {
                     return;
                 }
@@ -409,7 +422,7 @@ public final class CanvasController {
                             box.uuid(), box.text(), target, box.size(), box.color())));
                 }
                 for (Map.Entry<UUID, Vec2d> e : commentNodeOffsets.entrySet()) {
-                    Node node = blueprint.node(e.getKey());
+                    Node node = view.node(e.getKey());
                     if (node == null) {
                         continue;
                     }
@@ -421,7 +434,7 @@ public final class CanvasController {
             }
             case RESIZE_COMMENT -> {
                 fr.blueprint.core.graph.CommentBox box = activeComment == null ? null
-                        : blueprint.comment(activeComment);
+                        : view.comment(activeComment);
                 if (box == null) {
                     return;
                 }
@@ -440,7 +453,7 @@ public final class CanvasController {
                 // Cibler « accroche(saisie + offset) » à chaque glissement : pas de
                 // deltas incrémentaux, l'accroche accumulerait les erreurs d'arrondi.
                 for (Map.Entry<UUID, Vec2d> e : dragOffsets.entrySet()) {
-                    Node node = blueprint.node(e.getKey());
+                    Node node = view.node(e.getKey());
                     if (node == null) {
                         continue;
                     }
@@ -522,8 +535,8 @@ public final class CanvasController {
     /** Détache tous les liens touchant ce pin (Alt+clic). */
     private void detach(PinRef pin) {
         List<Link> links = pin.output()
-                ? blueprint.linksFrom(pin.node(), pin.pin())
-                : blueprint.linksInto(pin.node(), pin.pin());
+                ? view.linksFrom(pin.node(), pin.pin())
+                : view.linksInto(pin.node(), pin.pin());
         for (Link link : List.copyOf(links)) {
             apply(new EditOperation.RemoveLink(link));
         }
@@ -546,7 +559,7 @@ public final class CanvasController {
                 // Le nœud vient d'être posé : on le relit pour que sa forme soit celle
                 // qu'il aura vraiment. Un `func/call` posé nu n'a pas encore de fonction,
                 // donc pas de forme — et l'on ne câble rien plutôt que de câbler au hasard.
-                Node added = blueprint.nodes().get(id);
+                Node added = view.nodes().get(id);
                 NodeShape shape = added == null ? null : lookup.shape(blueprint, added);
                 if (shape != null) {
                     List<NodeShape.PinDef> candidates = from.output() ? shape.inputs() : shape.outputs();
@@ -579,7 +592,7 @@ public final class CanvasController {
         double py = camera.toScreenY(wy);
         Link best = null;
         double bestDist = LINK_HIT_PX;
-        for (Link link : blueprint.links()) {
+        for (Link link : view.links()) {
             Vec2d from = WireLayer.endpoint(this, link.fromNode(), link.fromPin(), true);
             Vec2d to = WireLayer.endpoint(this, link.toNode(), link.toPin(), false);
             if (from == null || to == null) {
@@ -643,7 +656,7 @@ public final class CanvasController {
      * qui reste la source de vérité — ceci n'en est que la présélection.
      */
     private String @Nullable [] spliceTargets(Link link, UUID node) {
-        Node n = blueprint.node(node);
+        Node n = view.node(node);
         NodeShape shape = n == null ? null : lookup.shape(blueprint, n);
         NodeShape.PinDef source = pinDef(link.fromNode(), link.fromPin());
         NodeShape.PinDef sink = pinDef(link.toNode(), link.toPin());
@@ -673,7 +686,7 @@ public final class CanvasController {
     }
 
     private boolean isWired(UUID node, String pin, boolean output) {
-        for (Link link : blueprint.links()) {
+        for (Link link : view.links()) {
             if (output ? link.fromNode().equals(node) && link.fromPin().equals(pin)
                     : link.toNode().equals(node) && link.toPin().equals(pin)) {
                 return true;
@@ -719,9 +732,9 @@ public final class CanvasController {
     public boolean breakPinLinks(PinRef pin) {
         history.beginGesture();
         try {
-            int before = blueprint.links().size();
+            int before = view.links().size();
             detach(pin);
-            return blueprint.links().size() != before;
+            return view.links().size() != before;
         } finally {
             history.endGesture();
         }
@@ -731,7 +744,7 @@ public final class CanvasController {
     public boolean breakNodeLinks(UUID node) {
         history.beginGesture();
         try {
-            List<Link> links = List.copyOf(blueprint.linksTouching(node));
+            List<Link> links = List.copyOf(view.linksTouching(node));
             boolean any = false;
             for (Link link : links) {
                 any |= applyTracked(new EditOperation.RemoveLink(link));
@@ -766,7 +779,7 @@ public final class CanvasController {
         history.beginGesture();
         try {
             String name = uniqueVariableName(baseName);
-            Node node = blueprint.node(pin.node());
+            Node node = view.node(pin.node());
             fr.blueprint.api.pin.LiteralValue current =
                     node == null ? null : node.literal(pin.pin());
             // La valeur du pin devient le défaut de la variable : promouvoir ne doit
@@ -858,7 +871,7 @@ public final class CanvasController {
     }
 
     public fr.blueprint.core.graph.@Nullable CommentBox commentTitleAt(double wx, double wy) {
-        for (fr.blueprint.core.graph.CommentBox box : blueprint.comments()) {
+        for (fr.blueprint.core.graph.CommentBox box : view.comments()) {
             if (wx >= box.position().x() && wx < box.position().x() + box.size().x()
                     && wy >= box.position().y() && wy < box.position().y() + COMMENT_TITLE) {
                 return box;
@@ -868,7 +881,7 @@ public final class CanvasController {
     }
 
     public fr.blueprint.core.graph.@Nullable CommentBox commentGripAt(double wx, double wy) {
-        for (fr.blueprint.core.graph.CommentBox box : blueprint.comments()) {
+        for (fr.blueprint.core.graph.CommentBox box : view.comments()) {
             double x2 = box.position().x() + box.size().x();
             double y2 = box.position().y() + box.size().y();
             if (wx >= x2 - COMMENT_GRIP && wx < x2 && wy >= y2 - COMMENT_GRIP && wy < y2) {
@@ -904,7 +917,7 @@ public final class CanvasController {
     }
 
     public boolean renameComment(UUID id, String text) {
-        fr.blueprint.core.graph.CommentBox box = blueprint.comment(id);
+        fr.blueprint.core.graph.CommentBox box = view.comment(id);
         return box != null && applyTracked(new EditOperation.EditComment(
                 new fr.blueprint.core.graph.CommentBox(id, text, box.position(),
                         box.size(), box.color())));
@@ -926,6 +939,13 @@ public final class CanvasController {
 
     /** Ctrl+Shift+A : mise en page automatique de tout le graphe (AutoLayout core). */
     public boolean autoLayout() {
+        // AutoLayout lit le graphe principal. Dans un corps, il rangerait donc les nœuds
+        // qu'on ne regarde pas, et les identifiants qu'il rendrait n'existeraient pas ici.
+        // Ranger un corps demande de lui apprendre à lire un corps ; ce n'est pas cette
+        // story, et un refus vaut mieux qu'un rangement invisible.
+        if (view.inBody()) {
+            return false;
+        }
         return applyMoves(fr.blueprint.core.script.AutoLayout.compute(blueprint, lookup));
     }
 
@@ -936,7 +956,7 @@ public final class CanvasController {
         history.beginGesture();
         try {
             for (Map.Entry<UUID, Vec2d> e : targets.entrySet()) {
-                Node node = blueprint.node(e.getKey());
+                Node node = view.node(e.getKey());
                 if (node != null && !node.position().equals(e.getValue())) {
                     applyTracked(new EditOperation.MoveNode(e.getKey(), e.getValue()));
                 }
@@ -1029,9 +1049,13 @@ public final class CanvasController {
      * l'identifiant du blueprint restent ceux de la session.
      */
     public void replaceAll(Blueprint fragment) {
+        // Un script remplace le graphe entier, fonctions comprises : on revient d'abord au
+        // graphe principal. Rester dans un corps enverrait les suppressions au corps tout
+        // en lisant les nœuds du graphe — chacune viserait un nœud absent.
+        view.open(null);
         history.beginGesture();
         try {
-            for (UUID id : List.copyOf(blueprint.nodes().keySet())) {
+            for (UUID id : List.copyOf(view.nodes().keySet())) {
                 applyTracked(new EditOperation.RemoveNode(id));
             }
             for (String name : List.copyOf(blueprint.variables().keySet())) {
@@ -1039,7 +1063,7 @@ public final class CanvasController {
             }
             // Les commentaires suivent le même sort que le graphe (QA 5.11) : les
             // anciens partent, ceux du script arrivent.
-            for (fr.blueprint.core.graph.CommentBox comment : List.copyOf(blueprint.comments())) {
+            for (fr.blueprint.core.graph.CommentBox comment : List.copyOf(view.comments())) {
                 applyTracked(new EditOperation.RemoveComment(comment.uuid()));
             }
             for (fr.blueprint.core.graph.CommentBox comment : fragment.comments()) {
@@ -1132,7 +1156,18 @@ public final class CanvasController {
     }
 
     private boolean applyTracked(EditOperation op) {
-        EditOperation.Result result = op.apply(blueprint, lookup);
+        // Le seul point de passage : c'est ici que le geste apprend dans quel graphe il
+        // tombe. L'inverse rendu par l'opération est déjà redirigé, donc la pile
+        // d'annulation rejoue au bon endroit sans rien savoir des fonctions.
+        EditOperation targeted = view.retarget(op);
+        if (targeted == null) {
+            lastRefusal = fr.blueprint.core.graph.Diagnostic.error(
+                    fr.blueprint.core.graph.DiagnosticCode.UNSUPPORTED_IN_FUNCTION,
+                    fr.blueprint.core.graph.Diagnostic.function(String.valueOf(view.function())),
+                    String.valueOf(view.function()));
+            return false;
+        }
+        EditOperation.Result result = targeted.apply(blueprint, lookup);
         if (result.applied()) {
             if (result.inverse() != null) {
                 history.record(result.inverse());

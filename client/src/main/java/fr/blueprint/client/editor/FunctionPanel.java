@@ -1,115 +1,95 @@
 package fr.blueprint.client.editor;
 
-import fr.blueprint.core.graph.BlueprintFunction;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.language.I18n;
 
 import java.util.List;
 
 /**
- * Rendu du panneau des fonctions (story 20.2). L'état vit dans
- * {@link FunctionPanelState}.
+ * Dessin du panneau des fonctions (story 20.2). <b>Rien d'autre.</b>
  *
- * <p>La <b>même géométrie</b> que {@link VariablePanel} : même largeur, même hauteur de
- * ligne, même en-tête avec son « + », même curseur de défilement. Deux panneaux qui font
- * le même travail et se manipulent différemment obligeraient à réapprendre au second ce
- * qu'on sait du premier.
+ * <p>Où tombent les lignes, ce que porte chacune et ce que demande un clic sont décidés par
+ * {@link FunctionPanelLayout}, et l'état vit dans {@link FunctionPanelState}. Cette classe
+ * reçoit des lignes déjà placées et les peint.
  *
- * <p>Une ligne montre la <b>signature</b> et non le seul nom : {@code carre(n) → r}. Une
- * liste de noms nus obligerait à ouvrir chaque corps pour savoir lequel prend une entité,
- * ce qui est précisément la question qu'on se pose en cherchant la fonction à appeler.
+ * <p>C'est le seul morceau du panneau qui exige un jeu lancé, et c'est pour cela qu'il est
+ * seul dans son fichier : {@code VariablePanel}, qui mêle le dessin et la géométrie, a fini
+ * exclu du seuil de couverture en emportant ses décisions avec lui.
  */
 public final class FunctionPanel {
 
-    public static final int WIDTH = VariablePanel.WIDTH;
-    public static final int HEADER_HEIGHT = VariablePanel.HEADER_HEIGHT;
-    public static final int ROW_HEIGHT = VariablePanel.ROW_HEIGHT;
-
-    /** Ce qu'une ligne sélectionnée offre. {@code OPEN} est le geste principal. */
-    public enum RowAction { OPEN, RENAME, DELETE }
+    private static final int BACKGROUND = 0xF0141519;
+    private static final int BORDER = 0xFF3A3D42;
+    private static final int TITLE_COLOR = 0xFF8A8F98;
+    private static final int NAME_COLOR = 0xFFD5D8DC;
+    private static final int SELECTED_BG = 0xFF2F3A55;
+    /** Le corps ouvert : un vert sourd, distinct du bleu de la sélection. */
+    private static final int OPEN_BG = 0xFF3D5A3A;
+    private static final int ACTION_COLOR = 0xFFAFB6C0;
+    private static final int WARNING_COLOR = 0xFFE0AF68;
 
     private FunctionPanel() {
     }
 
-    /** {@code carre(n) → r} — la signature en une ligne, sans les types. */
-    public static String label(BlueprintFunction function) {
-        StringBuilder sb = new StringBuilder(function.name()).append('(');
-        for (int i = 0; i < function.inputs().size(); i++) {
-            sb.append(i == 0 ? "" : ", ").append(function.inputs().get(i).name());
+    /** {@code scroll} : première ligne affichée. */
+    public static void render(GuiGraphics g, Font font, FunctionPanelState state,
+                              int height, int scroll) {
+        int width = FunctionPanelLayout.WIDTH;
+        int top = ToolbarWidget.HEIGHT;
+        int bottom = FunctionPanelLayout.bottom(state, height);
+        g.fill(0, top, width, bottom, BACKGROUND);
+        g.fill(width - 1, top, width, bottom, BORDER);
+        g.fill(0, bottom - 1, width, bottom, BORDER);
+        g.drawString(font, I18n.get("blueprint.editor.functions.title"), 4, top + 3,
+                TITLE_COLOR, false);
+        g.drawString(font, "+", width - 10, top + 3, ACTION_COLOR, false);
+
+        List<FunctionPanelLayout.Row> rows = FunctionPanelLayout.rows(state, height, scroll);
+        if (rows.isEmpty()) {
+            // Dire quoi faire plutôt que de laisser un vide : un panneau vide sans un mot
+            // ne se distingue pas d'un panneau cassé, et le « + » est trop discret.
+            g.drawString(font, font.plainSubstrByWidth(
+                            I18n.get("blueprint.editor.functions.empty"), width - 8),
+                    4, top + FunctionPanelLayout.HEADER_HEIGHT + 2, TITLE_COLOR, false);
+            return;
         }
-        sb.append(')');
-        if (!function.outputs().isEmpty()) {
-            sb.append(" → ");
-            for (int i = 0; i < function.outputs().size(); i++) {
-                sb.append(i == 0 ? "" : ", ").append(function.outputs().get(i).name());
+        for (FunctionPanelLayout.Row row : rows) {
+            // Le corps ouvert se signale même quand la sélection est ailleurs : sans quoi
+            // rien dans le panneau ne dirait quel graphe le canevas est en train de montrer.
+            if (row.open()) {
+                g.fill(0, row.y(), width - 1, row.y() + FunctionPanelLayout.ROW_HEIGHT, OPEN_BG);
+            } else if (row.selected()) {
+                g.fill(0, row.y(), width - 1, row.y() + FunctionPanelLayout.ROW_HEIGHT,
+                        SELECTED_BG);
+            }
+            int nameWidth = row.selected() ? width - 40 : width - 8;
+            g.drawString(font, font.plainSubstrByWidth(row.text(), nameWidth), 4, row.y() + 2,
+                    NAME_COLOR, false);
+            if (row.selected()) {
+                g.drawString(font, "▸", width - 34, row.y() + 2, ACTION_COLOR, false);
+                g.drawString(font, "✎", width - 24, row.y() + 2, ACTION_COLOR, false);
+                g.drawString(font, "×", width - 14, row.y() + 2, ACTION_COLOR, false);
             }
         }
-        return sb.toString();
-    }
 
-    /**
-     * Une ligne <b>décidée</b> : ce qu'elle porte et où elle est.
-     *
-     * <p>Décider et peindre sont séparés parce que les décisions se vérifient sans
-     * fenêtre — quelle ligne est visible après un défilement, quel texte porte celle qu'on
-     * renomme, à quelle hauteur elle tombe — là où les appels de dessin ne se vérifient
-     * qu'à l'œil.
-     */
-    public record Row(String name, String text, int y, boolean selected) {
-    }
-
-    /** Les lignes à peindre, dans l'ordre, pour ce défilement et cette hauteur. */
-    public static List<Row> layout(FunctionPanelState state, int height, int scroll) {
-        List<BlueprintFunction> functions = state.rows();
-        if (functions.isEmpty()) {
-            return List.of();
+        int visible = FunctionPanelLayout.visibleRows(height);
+        int count = state.rows().size();
+        if (PanelScroll.overflows(count, visible)) {
+            int trackTop = top + FunctionPanelLayout.HEADER_HEIGHT;
+            int trackHeight = visible * FunctionPanelLayout.ROW_HEIGHT;
+            int[] thumb = PanelScroll.thumb(PanelScroll.clamp(scroll, count, visible),
+                    count, visible, trackHeight);
+            g.fill(width - 3, trackTop, width - 1, trackTop + trackHeight, BACKGROUND);
+            g.fill(width - 3, trackTop + thumb[0], width - 1, trackTop + thumb[0] + thumb[1],
+                    ACTION_COLOR);
         }
-        int visible = visibleRows(height);
-        int first = PanelScroll.clamp(scroll, functions.size(), visible);
-        List<Row> out = new java.util.ArrayList<>();
-        for (int i = first; i < functions.size() && i < first + visible; i++) {
-            BlueprintFunction f = functions.get(i);
-            boolean selected = f.name().equals(state.selected());
-            // Celle qu'on renomme montre la frappe en cours, pas sa signature : sinon le
-            // champ de saisie serait invisible et l'on taperait à l'aveugle.
-            String text = f.name().equals(state.renamingFunction())
-                    ? state.renameBuffer() + "_"
-                    : label(f);
-            out.add(new Row(f.name(), text,
-                    ToolbarWidget.HEIGHT + HEADER_HEIGHT + (i - first) * ROW_HEIGHT, selected));
-        }
-        return List.copyOf(out);
-    }
 
-    // Le RENDU arrive avec le câblage (tâche 4). L'écrire d'avance donnerait du code que
-    // rien n'appelle et que rien n'exerce — et la barrière de couverture aurait raison de
-    // le refuser : un dessin qu'aucun test ne regarde et qu'aucun écran ne montre n'est pas
-    // du travail fait, c'est du travail à vérifier plus tard.
-
-    /** Le panneau s'arrête après sa dernière ligne, comme celui des variables. */
-    public static int bottom(FunctionPanelState state, int height) {
-        int rows = Math.min(state.rows().size(), visibleRows(height));
-        int used = ToolbarWidget.HEIGHT + HEADER_HEIGHT + rows * ROW_HEIGHT + 2;
         if (state.pendingBreaks() > 0) {
-            used += 10;
+            String warn = I18n.get("blueprint.editor.functions.rename_warning",
+                    state.pendingBreaks());
+            g.drawString(font, font.plainSubstrByWidth(warn, width - 6), 4, bottom - 10,
+                    WARNING_COLOR, false);
         }
-        return Math.min(used, height);
-    }
-
-    private static int visibleRows(int height) {
-        return Math.max(1, (height - ToolbarWidget.HEIGHT - HEADER_HEIGHT - 12) / ROW_HEIGHT);
-    }
-
-    /** L'action sous le curseur sur la ligne sélectionnée, ou {@code null}. */
-    public static @Nullable RowAction actionAt(double mx, int row, boolean selected) {
-        if (!selected) {
-            return null;
-        }
-        if (mx >= WIDTH - 36 && mx < WIDTH - 26) {
-            return RowAction.OPEN;
-        }
-        if (mx >= WIDTH - 26 && mx < WIDTH - 16) {
-            return RowAction.RENAME;
-        }
-        return mx >= WIDTH - 16 && mx < WIDTH - 4 ? RowAction.DELETE : null;
     }
 }

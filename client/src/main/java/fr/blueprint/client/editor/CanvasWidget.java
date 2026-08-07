@@ -56,6 +56,7 @@ public final class CanvasWidget {
 
     private final LiteralEditState literalEdit = new LiteralEditState();
     private final VariablePanelState varPanel;
+    private final FunctionPanelState funcPanel;
     private final DetailsPanelState details;
 
     private final TapTracker spaceTap = new TapTracker();
@@ -90,6 +91,7 @@ public final class CanvasWidget {
     private final ContextMenuState contextMenu = new ContextMenuState();
     private final HoverTracker hover = new HoverTracker();
     private final PanelScroll varScroll = new PanelScroll();
+    private final PanelScroll funcScroll = new PanelScroll();
     private final PanelScroll detailsScroll = new PanelScroll();
     private final PanelScroll diagScroll = new PanelScroll();
 
@@ -130,6 +132,9 @@ public final class CanvasWidget {
                 this::variablePaletteEntries);
         this.varPanel = new VariablePanelState(session.blueprint(), lookup, controller::applyOp,
                 controller::beginGesture, controller::endGesture);
+        this.funcPanel = new FunctionPanelState(session.blueprint(), controller::applyOp,
+                controller::beginGesture, controller::endGesture,
+                () -> controller.view().function());
         this.details = new DetailsPanelState(session.blueprint(), descriptors::descriptor,
                 controller::applyOp, I18n::get);
     }
@@ -164,6 +169,18 @@ public final class CanvasWidget {
 
     public void setMode(fr.blueprint.client.editor.screen.ModeTabs.Mode mode) {
         this.mode = mode;
+        // L'onglet Graphe montre le graphe. Y revenir en laissant un corps ouvert
+        // afficherait le corps sous l'étiquette « Graphe » — et le geste suivant tomberait
+        // dans un graphe que rien n'annonce.
+        if (mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.GRAPH
+                && controller.view().inBody()) {
+            controller.view().open(null);
+            controller.selection().clear();
+        }
+    }
+
+    private boolean functionsTab() {
+        return mode == fr.blueprint.client.editor.screen.ModeTabs.Mode.FUNCTIONS;
     }
 
     public void render(GuiGraphics g, Font font, int mouseX, int mouseY) {
@@ -199,8 +216,17 @@ public final class CanvasWidget {
             scriptView.syncSelection(first, ScriptView.visibleLines(height));
         }
         if (panelVisible) {
-            VariablePanel.render(g, font, varPanel, height,
-                    varScroll.offset(varPanel.rows().size(), VariablePanel.visibleRows(height)));
+            // Les deux panneaux occupent la MÊME colonne : celui de l'onglet ouvert gagne.
+            // Les empiler donnerait deux listes dans quatre-vingt-seize pixels, et les
+            // variables restent atteignables depuis la palette même dans un corps.
+            if (functionsTab()) {
+                FunctionPanel.render(g, font, funcPanel, height,
+                        funcScroll.offset(funcPanel.rows().size(),
+                                FunctionPanelLayout.visibleRows(height)));
+            } else {
+                VariablePanel.render(g, font, varPanel, height,
+                        varScroll.offset(varPanel.rows().size(), VariablePanel.visibleRows(height)));
+            }
             if (!scriptView.visible()) {
                 var detailRows = details.rows(controller.selection().ids());
                 DetailsPanel.render(g, font, detailRows, width, height, literalEdit,
@@ -771,7 +797,13 @@ public final class CanvasWidget {
         if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
         }
-        if (panelVisible && VariablePanel.contains(e.x(), e.y(), varPanel, height)) {
+        if (panelVisible && functionsTab()
+                && FunctionPanelLayout.contains(e.x(), e.y(), funcPanel, height)) {
+            handleFunctionPanelClick(e, doubled);
+            return true;
+        }
+        if (panelVisible && !functionsTab()
+                && VariablePanel.contains(e.x(), e.y(), varPanel, height)) {
             handleVariablePanelClick(e, doubled);
             return true;
         }
@@ -1252,6 +1284,46 @@ public final class CanvasWidget {
         }
     }
 
+    /**
+     * Le panneau des fonctions : créer, sélectionner, ouvrir, renommer, supprimer.
+     *
+     * <p>Le double-clic sur la ligne <b>ouvre le corps</b> plutôt que de renommer, contre
+     * l'usage du panneau des variables — parce qu'ouvrir est ici le geste qu'on fait vingt
+     * fois quand renommer arrive une fois, et que l'action « ✎ » reste là pour l'autre.
+     */
+    private void handleFunctionPanelClick(MouseButtonEvent e, boolean doubled) {
+        FunctionPanelLayout.Click click = FunctionPanelLayout.clickAt(funcPanel, e.x(), e.y(),
+                funcScroll.offset(funcPanel.rows().size(), FunctionPanelLayout.visibleRows(height)),
+                height, doubled);
+        switch (click.hit()) {
+            case CREATE -> funcPanel.create();
+            case DESELECT -> funcPanel.select(null);
+            case SELECT -> funcPanel.select(click.name());
+            case OPEN -> openBody(click.name());
+            case RENAME -> funcPanel.openRename(click.name());
+            case DELETE -> deleteFunction(click.name());
+            default -> {
+            }
+        }
+    }
+
+    private void openBody(String name) {
+        if (controller.view().open(name)) {
+            // La sélection appartenait à l'autre graphe : la garder laisserait le panneau
+            // de détails décrire des nœuds que le canevas ne montre plus.
+            controller.selection().clear();
+            frameAll();
+        }
+    }
+
+    private void deleteFunction(String name) {
+        if (name.equals(controller.view().function())) {
+            controller.view().open(null);
+            controller.selection().clear();
+        }
+        funcPanel.delete(name);
+    }
+
     private void handleVariablePanelClick(MouseButtonEvent e, boolean doubled) {
         if (VariablePanel.plusAt(e.x(), e.y())) {
             varPanel.create();
@@ -1360,7 +1432,13 @@ public final class CanvasWidget {
         }
         // Molette AU-DESSUS d'un panneau : elle le fait défiler, elle ne zoome pas.
         int step = vAmount > 0 ? -1 : 1;
-        if (panelVisible && VariablePanel.contains(mouseX, mouseY, varPanel, height)) {
+        if (panelVisible && functionsTab()
+                && FunctionPanelLayout.contains(mouseX, mouseY, funcPanel, height)) {
+            funcScroll.scrollBy(step, funcPanel.rows().size(), FunctionPanelLayout.visibleRows(height));
+            return true;
+        }
+        if (panelVisible && !functionsTab()
+                && VariablePanel.contains(mouseX, mouseY, varPanel, height)) {
             varScroll.scrollBy(step, varPanel.rows().size(), VariablePanel.visibleRows(height));
             return true;
         }
@@ -1399,6 +1477,9 @@ public final class CanvasWidget {
                 return true;
             }
         }
+        if (funcPanel.isRenaming()) {
+            return keyInFunctionRename(e);
+        }
         if (varPanel.isRenaming()) {
             return keyInVariableRename(e);
         }
@@ -1421,6 +1502,17 @@ public final class CanvasWidget {
             return keyInPalette(e);
         }
         return keyOnCanvas(e);
+    }
+
+    private boolean keyInFunctionRename(KeyEvent e) {
+        switch (e.key()) {
+            case GLFW.GLFW_KEY_ESCAPE -> funcPanel.cancelRename();
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> funcPanel.commitRename();
+            case GLFW.GLFW_KEY_BACKSPACE -> funcPanel.backspace();
+            default -> {
+            }
+        }
+        return true;
     }
 
     private boolean keyInVariableRename(KeyEvent e) {
@@ -1681,7 +1773,8 @@ public final class CanvasWidget {
             // Tap propre (pas servi au pan) → la palette s'ouvre au curseur (UX §6).
             // Jamais pendant un geste en cours (glisser, câblage…) — QA 5.4b.
             if (spaceTap.release() && !palette.isOpen() && !literalEdit.isOpen()
-                    && !varPanel.isRenaming() && !details.isEditingMeta() && !panning
+                    && !varPanel.isRenaming() && !funcPanel.isRenaming()
+                    && !details.isEditingMeta() && !panning
                     && controller.gesture() == CanvasController.Gesture.NONE) {
                 palette.open(lastMouseX, lastMouseY,
                         camera.toWorldX(lastMouseX), camera.toWorldY(lastMouseY), null);
@@ -1710,6 +1803,10 @@ public final class CanvasWidget {
     public boolean charTyped(CharacterEvent e) {
         if (picker.isOpen() && e.isAllowedChatCharacter()) {
             picker.type(e.codepointAsString());
+            return true;
+        }
+        if (funcPanel.isRenaming() && e.isAllowedChatCharacter()) {
+            funcPanel.type(e.codepointAsString());
             return true;
         }
         if (varPanel.isRenaming() && e.isAllowedChatCharacter()) {

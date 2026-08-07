@@ -58,6 +58,12 @@ tasks.jacocoTestCoverageVerification {
                 exclude("fr/blueprint/client/editor/ToolbarWidget*")
                 exclude("fr/blueprint/client/editor/DetailsPanel")
                 exclude("fr/blueprint/client/editor/VariablePanel*")
+                // Le panneau des fonctions (20.2) n'a ici QUE ses appels de dessin : ses
+                // décisions vivent dans FunctionPanelLayout, qui reste sous le seuil.
+                // Le motif porte « .class » parce que ces exclusions filtrent un ARBRE DE
+                // FICHIERS, pas des noms de classes : sans extension ni joker, un motif ne
+                // correspond à rien et l'exclusion est silencieusement sans effet.
+                exclude("fr/blueprint/client/editor/FunctionPanel.class")
                 exclude("fr/blueprint/client/editor/DiagnosticsPanel*")
                 exclude("fr/blueprint/client/editor/PalettePopup*")
                 exclude("fr/blueprint/client/editor/RegistryPickerPopup*")
