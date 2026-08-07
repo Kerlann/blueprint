@@ -80,6 +80,20 @@ public final class ScriptGenerator {
         }
         indent--;
         line("}");
+        // Les fonctions (story 20.1) ne s'écrivent pas encore en BScript : le parcours de
+        // ce générateur est câblé au graphe principal, et un corps est un graphe à part.
+        //
+        // Le SIGNALER plutôt que de les perdre en silence. Un export qui laisse tomber une
+        // fonction entière sans un mot est exactement la panne qu'on vient de réparer côté
+        // NBT ; l'appelant décide quoi en faire — BlueprintFiles le journalise, et
+        // StressBlueprintTest fait échouer la construction si un exemple livré en porte.
+        if (!bp.functions().isEmpty()) {
+            issues.add(bp.functions().size() + " fonction(s) non émise(s) en texte "
+                    + "(story 20.1, étape 7) : " + String.join(", ", bp.functions().keySet()));
+        }
+        if (bp.hasPreservedFunctions()) {
+            issues.add("fonctions préservées (P4) non émissibles en texte");
+        }
         if (bp.hasPreservedVariables()) {
             issues.add("variables préservées (P4) non émissibles en texte");
         }
