@@ -88,6 +88,7 @@ exclude_docs: |
   /session-de-verification.md
   /modrinth.md
   /api-surface.txt
+  /requirements.txt
   /stories/
   /qa/
   /architecture/

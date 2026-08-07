@@ -1,0 +1,9 @@
+# Les dépendances du SITE de documentation, pas du mod.
+#
+# Épinglées sur la branche 9 à dessein. L'équipe de Material annonce une MkDocs 2.0 qui
+# supprime le système de plugins, réécrit le thème et n'offre pas de chemin de migration :
+# une construction qui suivrait « la dernière version » casserait le site un matin, sans
+# qu'aucun commit du dépôt n'ait bougé.
+#
+# Mettre à jour : monter la borne ici, reconstruire en local, regarder le site.
+mkdocs-material>=9.7,<10

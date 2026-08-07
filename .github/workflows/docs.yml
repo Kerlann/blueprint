@@ -37,8 +37,12 @@ jobs:
         with:
           python-version: '3.x'
           cache: pip
+          cache-dependency-path: docs/requirements.txt
 
-      - run: pip install mkdocs-material
+      # Depuis le fichier, pas en clair : le cache pip a besoin d'un fichier de
+      # dépendances, et la version y est bornée pour que MkDocs 2.0 ne casse pas le site
+      # un matin sans qu'un seul commit ait bougé.
+      - run: pip install -r docs/requirements.txt
 
       - run: mkdocs build --site-dir _site
 
