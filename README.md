@@ -23,6 +23,12 @@ existant : ses nœuds deviennent des **fantômes** qui reprennent vie à la réi
 ./gradlew runClient
 ```
 
+> Le client de développement se lance sous un pseudo FIXE (`build.gradle.kts`). Sans lui,
+> Loom en tire un au hasard à chaque lancement, et comme l'UUID hors-ligne se calcule
+> depuis le pseudo, chaque lancement est un joueur différent : tout ce qui est rangé par
+> joueur — un personnage de jeu de rôle, par exemple — repart de zéro sans que rien ne
+> l'explique.
+
 Puis, en jeu :
 
 | | |

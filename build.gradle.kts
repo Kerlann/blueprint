@@ -81,6 +81,17 @@ loom {
             vmArg("-Xmx4G")
             vmArg("-XX:+UseG1GC")
         }
+        // Un pseudo FIXE en développement. Sans lui, le client de test en tire un au
+        // hasard à chaque lancement — « Player848 », puis « Player123 » — et comme
+        // l'UUID hors-ligne se calcule depuis le pseudo, chaque lancement est un JOUEUR
+        // DIFFÉRENT. Tout ce qui est rangé par joueur repart alors de zéro : le monde de
+        // développement avait accumulé seize identités de jeu de rôle, une par session,
+        // et le formulaire de création se rouvrait à chaque fois comme si rien n'avait
+        // été enregistré.
+        named("client") {
+            programArg("--username")
+            programArg("Kerlann")
+        }
         // Story 1.6 : les tests joués dans un vrai serveur. Sans fenêtre, sans joueur,
         // sans intervention — `./gradlew runGametest` rend un rapport JUnit et un code
         // de sortie. C'est ce qui remplace une partie des vérifications manuelles.
