@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,11 +50,29 @@ public final class ScriptGenerator {
     private UUID currentEvent;
     private int indent;
 
+    /**
+     * Tous les nœuds du blueprint, corps de fonctions compris — et l'index de leurs liens.
+     *
+     * <p><b>À plat, sans pile de portées</b> : un UUID est unique dans tout le blueprint, y
+     * compris entre un corps et le graphe principal. Une pile aurait donc distingué des
+     * choses qui ne se confondent jamais, au prix d'un état de plus à pousser et dépiler
+     * dans un parcours déjà récursif.
+     */
+    private final Map<UUID, Node> allNodes = new LinkedHashMap<>();
+    private final Map<String, List<Link>> linksFromPin = new HashMap<>();
+    private final Map<String, List<Link>> linksIntoPin = new HashMap<>();
+
     private ScriptGenerator(Blueprint bp, NodeTypeLookup lookup) {
         this.bp = bp;
         this.lookup = lookup;
-        for (Node node : bp.nodes().values()) {
-            NodeShape shape = lookup.shape(node.typeId());
+        allNodes.putAll(bp.nodes());
+        indexLinks(bp.links());
+        for (var function : bp.functions().values()) {
+            allNodes.putAll(function.nodes());
+            indexLinks(function.links());
+        }
+        for (Node node : allNodes.values()) {
+            NodeShape shape = lookup.shape(bp, node);
             shapes.put(node.uuid(), shape != null ? shape : GhostNode.deduceShape(bp, lookup, node));
         }
         // Noms séquentiels dans l'ordre (déterministe) de la pré-passe : un préfixe
@@ -62,6 +81,23 @@ public final class ScriptGenerator {
         for (UUID uuid : computeLabels()) {
             labelNames.put(uuid, "l_" + next++);
         }
+    }
+
+    private void indexLinks(java.util.Collection<Link> links) {
+        for (Link link : links) {
+            linksFromPin.computeIfAbsent(link.fromNode() + "/" + link.fromPin(),
+                    k -> new ArrayList<>()).add(link);
+            linksIntoPin.computeIfAbsent(link.toNode() + "/" + link.toPin(),
+                    k -> new ArrayList<>()).add(link);
+        }
+    }
+
+    private List<Link> linksFrom(UUID node, String pin) {
+        return linksFromPin.getOrDefault(node + "/" + pin, List.of());
+    }
+
+    private List<Link> linksInto(UUID node, String pin) {
+        return linksIntoPin.getOrDefault(node + "/" + pin, List.of());
     }
 
     public static Result generate(Blueprint bp, NodeTypeLookup lookup) {
@@ -74,23 +110,13 @@ public final class ScriptGenerator {
         emitMeta();
         emitVariables();
         emitScreens();
+        emitFunctions();
         emitNotes();
         for (Node event : sortedEvents()) {
             emitEvent(event);
         }
         indent--;
         line("}");
-        // Les fonctions (story 20.1) ne s'écrivent pas encore en BScript : le parcours de
-        // ce générateur est câblé au graphe principal, et un corps est un graphe à part.
-        //
-        // Le SIGNALER plutôt que de les perdre en silence. Un export qui laisse tomber une
-        // fonction entière sans un mot est exactement la panne qu'on vient de réparer côté
-        // NBT ; l'appelant décide quoi en faire — BlueprintFiles le journalise, et
-        // StressBlueprintTest fait échouer la construction si un exemple livré en porte.
-        if (!bp.functions().isEmpty()) {
-            issues.add(bp.functions().size() + " fonction(s) non émise(s) en texte "
-                    + "(story 20.1, étape 7) : " + String.join(", ", bp.functions().keySet()));
-        }
         if (bp.hasPreservedFunctions()) {
             issues.add("fonctions préservées (P4) non émissibles en texte");
         }
@@ -362,6 +388,70 @@ public final class ScriptGenerator {
         return "\"#" + String.format("%08X", argb) + "\"";
     }
 
+    /**
+     * Les fonctions (story 20.1).
+     *
+     * <p>Triées par nom, comme les variables : deux exports du même graphe doivent être
+     * identiques octet pour octet, et l'ordre d'insertion d'une table ne l'est pas d'un
+     * chargement à l'autre.
+     *
+     * <p>Le nœud d'<b>entrée</b> du corps ne s'écrit pas comme une instruction : c'est
+     * l'en-tête qui porte son identifiant et sa position, exactement comme un {@code on}
+     * porte ceux de son nœud d'événement. Le nœud de sortie, lui, est atteint par le flux
+     * d'exécution et s'écrit donc comme n'importe quel autre.
+     */
+    private void emitFunctions() {
+        bp.functions().values().stream()
+                .sorted(Comparator.comparing(fr.blueprint.core.graph.BlueprintFunction::name))
+                .forEach(this::emitFunction);
+    }
+
+    private void emitFunction(fr.blueprint.core.graph.BlueprintFunction function) {
+        Node entry = null;
+        for (Node node : function.nodes().values()) {
+            if (fr.blueprint.core.graph.FuncNodes.PARAM.equals(node.typeId())) {
+                entry = node;
+                break;
+            }
+        }
+        StringBuilder sb = new StringBuilder("func ").append(quote(function.name()));
+        sb.append('(').append(renderParams(function.inputs())).append(')');
+        // « returns » et non « -> » : le lexeur ne connaît le tiret qu'à l'INTÉRIEUR d'un
+        // mot (« blueprint-edit »), et en faire un symbole à part entière changerait la
+        // lecture de tous les identifiants qui en portent un. Un mot-clé coûte quatre
+        // caractères de plus et ne touche à rien.
+        if (!function.outputs().isEmpty()) {
+            sb.append(" returns (").append(renderParams(function.outputs())).append(')');
+        }
+        if (entry == null) {
+            // Un corps sans entrée ne s'exécute pas ; il se sauvegarde quand même, et le
+            // texte doit le rendre tel quel plutôt que d'inventer une entrée.
+            issues.add("fonction « " + function.name() + " » sans nœud d'entrée");
+            line(sb + " { }");
+            return;
+        }
+        emitted.add(entry.uuid());
+        sb.append(" @id(").append(quote(entry.uuid().toString())).append(')');
+        sb.append(" @pos(").append(num(entry.position().x())).append(", ")
+                .append(num(entry.position().y())).append(')');
+        line(sb + " {");
+        indent++;
+        for (Link link : linksFrom(entry.uuid(),
+                fr.blueprint.core.graph.BlueprintFunction.EXEC_OUT)) {
+            emitChain(link.toNode());
+        }
+        indent--;
+        line("}");
+    }
+
+    private String renderParams(List<fr.blueprint.core.graph.BlueprintFunction.Param> params) {
+        List<String> parts = new ArrayList<>(params.size());
+        for (var param : params) {
+            parts.add(param.name() + ": " + renderType(param.type()));
+        }
+        return String.join(", ", parts);
+    }
+
     private void emitNotes() {
         bp.comments().stream()
                 .sorted(Comparator.comparing(CommentBox::uuid))
@@ -412,7 +502,7 @@ public final class ScriptGenerator {
         indent++;
         for (NodeShape.PinDef pin : shape.outputs()) {
             if (pin.kind() == PinKind.EXEC) {
-                List<Link> links = bp.linksFrom(event.uuid(), pin.name());
+                List<Link> links = linksFrom(event.uuid(), pin.name());
                 if (!links.isEmpty()) {
                     emitChain(links.get(0).toNode());
                 }
@@ -433,7 +523,7 @@ public final class ScriptGenerator {
             visited.add(event.uuid());
             for (NodeShape.PinDef pin : shapes.get(event.uuid()).outputs()) {
                 if (pin.kind() == PinKind.EXEC) {
-                    for (Link link : bp.linksFrom(event.uuid(), pin.name())) {
+                    for (Link link : linksFrom(event.uuid(), pin.name())) {
                         walk(link.toNode(), visited, labels);
                     }
                 }
@@ -449,7 +539,7 @@ public final class ScriptGenerator {
         }
         for (NodeShape.PinDef pin : shapes.get(node).outputs()) {
             if (pin.kind() == PinKind.EXEC) {
-                for (Link link : bp.linksFrom(node, pin.name())) {
+                for (Link link : linksFrom(node, pin.name())) {
                     walk(link.toNode(), visited, labels);
                 }
             }
@@ -465,7 +555,7 @@ public final class ScriptGenerator {
         if (labelNames.containsKey(uuid)) {
             line("label " + labelNames.get(uuid));
         }
-        Node node = bp.node(uuid);
+        Node node = allNodes.get(uuid);
         NodeShape shape = shapes.get(uuid);
         if (!node.config().isEmpty()) {
             issues.add("config non vide non émise : " + uuid);
@@ -474,7 +564,7 @@ public final class ScriptGenerator {
         // Cibles exec câblées, dans l'ordre déclaré.
         List<NodeShape.PinDef> linkedOuts = shape.outputs().stream()
                 .filter(pin -> pin.kind() == PinKind.EXEC
-                        && !bp.linksFrom(uuid, pin.name()).isEmpty())
+                        && !linksFrom(uuid, pin.name()).isEmpty())
                 .toList();
         // Linéaire seulement si le nœud n'a qu'UNE sortie exec déclarée : une branche
         // à sortie unique câblée doit rester un bloc « true: { … } », sinon la suite
@@ -491,7 +581,7 @@ public final class ScriptGenerator {
         if (linkedOuts.isEmpty() || firstIsLinear) {
             line(statement);
             if (firstIsLinear) {
-                emitChain(bp.linksFrom(uuid, linkedOuts.get(0).name()).get(0).toNode());
+                emitChain(linksFrom(uuid, linkedOuts.get(0).name()).get(0).toNode());
             }
         } else {
             line(statement + " {");
@@ -499,7 +589,7 @@ public final class ScriptGenerator {
             for (NodeShape.PinDef pin : linkedOuts) {
                 line(pin.name() + ": {");
                 indent++;
-                emitChain(bp.linksFrom(uuid, pin.name()).get(0).toNode());
+                emitChain(linksFrom(uuid, pin.name()).get(0).toNode());
                 indent--;
                 line("}");
             }
@@ -527,7 +617,7 @@ public final class ScriptGenerator {
                 continue;
             }
             covered.add(pin.name());
-            List<Link> incoming = bp.linksInto(node.uuid(), pin.name());
+            List<Link> incoming = linksInto(node.uuid(), pin.name());
             // Un pin peut porter un littéral de repli DERRIÈRE un lien (AddLink ne
             // l'efface pas) : on émet les deux — le parseur applique dans l'ordre.
             if (node.literal(pin.name()) != null) {
@@ -565,10 +655,10 @@ public final class ScriptGenerator {
                 .map(NodeShape.PinDef::name).findFirst().orElse(null);
         // inlining : garde anti-cycle — un chargement forgé peut câbler des purs en
         // boucle (le chargement ne refuse rien, P4) ; on retombe alors sur $node.
-        if (pure && firstDataOut != null && lookup.shape(bp.node(producer).typeId()) != null
+        if (pure && firstDataOut != null && lookup.shape(allNodes.get(producer).typeId()) != null
                 && inlining.add(producer)) {
             try {
-                Node pureNode = bp.node(producer);
+                Node pureNode = allNodes.get(producer);
                 emitted.add(producer);   // inliné = émis (sinon faux « orphelin »)
                 // @out seulement quand il change quelque chose : l'ajouter partout
                 // alourdirait chaque ligne de script pour le cas le plus rare.

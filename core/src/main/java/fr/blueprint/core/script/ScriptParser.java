@@ -208,9 +208,10 @@ public final class ScriptParser {
                 case "var" -> parseVar();
                 case "note" -> parseNote();
                 case "screen" -> parseScreen();
+                case "func" -> parseFunction();
                 case "on" -> parseEvent();
                 default -> throw new ParseError(token.line(),
-                        "attendu meta/var/screen/note/on, trouvé « " + token.text() + " »");
+                        "attendu meta/var/screen/func/note/on, trouvé « " + token.text() + " »");
             }
         }
         // setMeta est package-private : on reconstruit avec la meta définitive.
@@ -219,6 +220,7 @@ public final class ScriptParser {
         bp.variables().values().forEach(v -> GraphLoader.addVariable(complete, v));
         bp.comments().forEach(c -> GraphLoader.addComment(complete, c));
         bp.screens().values().forEach(s -> GraphLoader.addScreen(complete, s));
+        bp.functions().values().forEach(f -> GraphLoader.addFunction(complete, f));
         bp = complete;
     }
 
@@ -755,6 +757,75 @@ public final class ScriptParser {
         } catch (NumberFormatException e) {
             throw new ParseError(token.line(), "couleur invalide « " + token.text() + " »");
         }
+    }
+
+    /**
+     * {@code func "doubler"(n: double) -> (resultat: double) @id(…) @pos(…) { … }}
+     *
+     * <p>Le corps se lit avec <b>la même machinerie</b> qu'un événement : mêmes
+     * instructions, mêmes blocs, mêmes étiquettes. Ce qui change est l'endroit où les
+     * nœuds atterrissent — un blueprint <b>jetable</b> le temps du bloc, dont on récupère
+     * ensuite les nœuds et les liens pour en faire un corps.
+     *
+     * <p>Substituer le réceptacle plutôt que paramétrer les vingt méthodes de parcours :
+     * elles écrivent toutes dans {@code bp}, et leur en donner un autre coûte deux lignes
+     * là où un paramètre supplémentaire en aurait touché vingt. Le même geste que le
+     * décodage NBT d'un corps, pour la même raison.
+     */
+    private void parseFunction() {
+        expect("word", "func");
+        String name = expect("string", null).text();
+        List<fr.blueprint.core.graph.BlueprintFunction.Param> inputs = parseParams();
+        List<fr.blueprint.core.graph.BlueprintFunction.Param> outputs = List.of();
+        if (peek().text().equals("returns")) {
+            next();
+            outputs = parseParams();
+        }
+        Annotations anns = parseAnnotations();
+
+        Blueprint outer = bp;
+        bp = new Blueprint(net.minecraft.resources.Identifier
+                .fromNamespaceAndPath("blueprint", "scratch"));
+        UUID entryId = anns.idOr(UUID.randomUUID());
+        Node entry = new Node(entryId, fr.blueprint.core.graph.FuncNodes.PARAM,
+                anns.posOr(nextAutoPos()));
+        GraphLoader.setLiteral(entry, fr.blueprint.core.graph.FuncNodes.FUNCTION_PIN,
+                fr.blueprint.api.pin.LiteralValue.of(fr.blueprint.api.pin.PinTypes.STRING, name));
+        GraphLoader.addNode(bp, entry);
+
+        Map<String, String> scope = new HashMap<>();
+        for (var param : inputs) {
+            scope.put(param.name(), param.name());
+        }
+        Map<String, String> outerParams = eventParams;
+        UUID outerEvent = currentEvent;
+        eventParams = scope;
+        currentEvent = entryId;
+        expect("sym", "{");
+        parseStatements(entryId, fr.blueprint.core.graph.BlueprintFunction.EXEC_OUT);
+        eventParams = outerParams;
+        currentEvent = outerEvent;
+
+        Map<UUID, Node> nodes = new java.util.LinkedHashMap<>(bp.nodes());
+        Set<Link> links = new java.util.LinkedHashSet<>(bp.links());
+        bp = outer;
+        GraphLoader.addFunction(bp, fr.blueprint.core.graph.BlueprintFunction
+                .of(name, inputs, outputs).withBody(nodes, links));
+    }
+
+    /** {@code (n: double, cible: entity)} — vide si les parenthèses le sont. */
+    private List<fr.blueprint.core.graph.BlueprintFunction.Param> parseParams() {
+        expect("sym", "(");
+        List<fr.blueprint.core.graph.BlueprintFunction.Param> params = new ArrayList<>();
+        while (!eat("sym", ")")) {
+            if (!params.isEmpty()) {
+                expect("sym", ",");
+            }
+            String pin = expect("word", null).text();
+            expect("sym", ":");
+            params.add(new fr.blueprint.core.graph.BlueprintFunction.Param(pin, parseType()));
+        }
+        return params;
     }
 
     private void parseEvent() {

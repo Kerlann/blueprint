@@ -157,7 +157,7 @@ Type        ::= Ident ("<" Type ("," Type)* ">")?
 | `return` | Nœud `blueprint:flow/return` |
 | `label:` / `goto label` | Flux exec non structuré (repli du générateur) |
 | `note "texte" @pos(...)` | Un `CommentBox` |
-| `func f(...) -> T { … }` | Une fonction/macro utilisateur (IR prête, UI en v1.1) |
+| `func "f"(a: type) returns (r: type) { … }` | Une fonction utilisateur (story 20.1). `returns` et non `->` : le lexeur ne connaît le tiret qu'à l'intérieur d'un mot |
 
 ### Opérateurs infixes
 
