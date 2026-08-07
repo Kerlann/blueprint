@@ -1,0 +1,81 @@
+blueprint blueprint:rp {
+  meta {
+    author "Blueprint"
+    description "Serveur RP : création de personnage et fiche permanente"
+    version "1.0.0"
+    permission GAMEPLAY
+  }
+  var double age = 25.0 @player @replicated
+  var bool cree = false @player @replicated
+  var string metier = "Sans-emploi" @player @replicated
+  var string nom = "" @player @replicated
+  var string prenom = "" @player @replicated
+  var string sexe = "" @player @replicated
+  screen "creation" {
+    panel "cadre" @at(center, 0, 0) @size(220, 160) @layout(column, gap: 5, cross: stretch) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    label "titre" @in("cadre") @at(top_left, 0, 0) @size(fill, 12) @text("Qui êtes-vous ?") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    input "prenom" @in("cadre") @at(top_left, 0, 0) @size(fill, 12) @opts(placeholder: "Prénom", maxLength: 24) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    input "nom" @in("cadre") @at(top_left, 0, 0) @size(fill, 12) @opts(placeholder: "Nom de famille", maxLength: 24) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    slider "age" @in("cadre") @at(top_left, 0, 0) @size(fill, 12) @tip("Glissez : l'âge de votre personnage") @opts(placeholder: " ans", min: 16, max: 90, step: 1) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    dropdown "sexe" @in("cadre") @at(top_left, 0, 0) @size(fill, 12) @text("Choisir un sexe…") @opts(rowHeight: 13) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    dropdown "metier" @in("cadre") @at(top_left, 0, 0) @size(fill, 12) @text("Choisir un métier…") @opts(rowHeight: 13) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    label "erreur" @in("cadre") @at(top_left, 0, 0) @size(fill, 10) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    button "valider" @in("cadre") @at(top_left, 0, 0) @size(fill, 16) @text("Créer mon personnage") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+  }
+  screen "fiche" @hud {
+    panel "bandeau" @at(top_left, 4, 4) @size(120, 46) @layout(column, gap: 2, cross: stretch) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    label "prenom" @in("bandeau") @at(top_left, 0, 0) @size(fill, 10) @bind("prenom", text) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    label "nom" @in("bandeau") @at(top_left, 0, 0) @size(fill, 10) @bind("nom", text) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    label "metier" @in("bandeau") @at(top_left, 0, 0) @size(fill, 10) @bind("metier", text, format: "Métier : %s") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    progress "vie" @in("bandeau") @at(top_left, 0, 0) @size(fill, 5) @bind("@health", progress, max: 20) @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+    label "vie_texte" @in("bandeau") @at(top_left, 0, 0) @size(fill, 10) @bind("@health", text, format: "%s / 20 PV") @style("#C0141519", "#FF6B7280", 1, "#FFE6E6E6", "#C02F3A55", "#C01F2735", "#60141519", 2, left)
+  }
+  on blueprint:event/gui_input_changed(player, screen, element, text, submitted) @id("80678eef-ae88-3512-97b3-77cfafaa4d4b") @pos(-900, 1400) @with(element: "nom") {
+    blueprint:var/set(var: "nom", value: $text) @id("31b6a9fd-3aa7-370c-8c63-d0a824dab5d9") @pos(-600, 1400)
+  }
+  on blueprint:event/gui_value_changed(player, screen, element, value, checked) @id("ce6387b4-cc6b-382d-bdfe-a144b65cf317") @pos(-900, 1800) @with(element: "age") {
+    blueprint:var/set(var: "age", value: $value) @id("d4090921-210c-3c5b-9ca6-c191e48e7cc0") @pos(-600, 1800)
+  }
+  on blueprint:event/gui_clicked(player, screen, element) @id("ed2f4c49-0ed7-35e1-ac57-0bb2d4821a30") @pos(-900, 3000) @with(element: "valider") {
+    blueprint:flow/branch(condition: blueprint:logic/and(a: blueprint:logic/and(a: blueprint:logic/not_equals(a: blueprint:var/get(var: "prenom") @id("fe33187e-e480-3812-ade7-97d0d281524e") @pos(-1500, 3000), b: "") @id("d86f7d6c-3106-35d9-82c7-8eceeac75aa7") @pos(-1280, 3000), b: blueprint:logic/not_equals(a: blueprint:var/get(var: "nom") @id("c814c92d-3aeb-32b4-af2e-1feb749af13a") @pos(-1500, 3160), b: "") @id("8eab6d4d-2cdd-37d4-896a-becf9a554ce8") @pos(-1280, 3160)) @id("063353b2-fa36-3a34-bf51-46ce4e84fdd3") @pos(-1100, 3080), b: blueprint:logic/not_equals(a: blueprint:var/get(var: "sexe") @id("8b0df5bf-1049-3ec4-ab43-5f4335d2baff") @pos(-1500, 3320), b: "") @id("1eeb54da-f0d6-3cfc-9ee3-1c1d430fd0f1") @pos(-1280, 3320)) @id("1a4e7e8e-6a5f-3e9f-9ca9-20a527b43e4e") @pos(-880, 3160)) @id("8bb5700e-ccf2-3527-afdd-a75c76638777") @pos(-600, 3000) {
+      true: {
+        blueprint:var/set(var: "cree", value: true) @id("1e942461-e528-3d6d-b8c3-faed82d6b804") @pos(-340, 2840)
+        blueprint:gui/close(player: $player) @id("77e32d51-376a-3b1e-843e-d93c60dd555c") @pos(-80, 2840)
+        blueprint:hud/show(player: $player, screen: "fiche") @id("da2ca789-f0c7-34a4-867b-18ae0ee77fa8") @pos(180, 2840)
+        blueprint:gui/refresh(player: $player, screen: "fiche") @id("2567e542-596e-3e60-b9d9-82e7a0b9ab81") @pos(440, 2840)
+      }
+      false: {
+        blueprint:gui/set_text(player: $player, screen: "creation", element: "erreur", text: "Prénom, nom et sexe sont obligatoires.") @id("92ce9870-3130-3a72-be4c-9b0824134e88") @pos(-340, 3160)
+      }
+    }
+  }
+  on blueprint:event/command(player, name, arg) @id("0d1fc9b4-6375-366c-a85e-8f12d9d426dc") @pos(-900, 700) @with(name: "rp") {
+    blueprint:gui/open(player: $player, screen: "creation") @id("293fdea6-04cb-373d-8f6a-a45abafd72d6") @pos(-640, 700)
+    blueprint:gui/set_lines(player: $player, screen: "creation", element: "sexe", lines: blueprint:string/split(text: "Homme,Femme", separator: ",") @id("be3f16e0-0b0f-359f-8633-c42c60a0fcf9") @pos(-380, 880)) @id("7ee70ae6-8943-3a4d-a42a-d6beed300262") @pos(-380, 700)
+    blueprint:gui/set_lines(player: $player, screen: "creation", element: "metier", lines: blueprint:string/split(text: "Sans-emploi,Fermier,Forgeron,Marchand,Garde,Médecin", separator: ",") @id("9b080476-2aba-3d74-979d-2fccaa94e18d") @pos(-120, 880)) @id("47e2b7f9-066a-3a21-af0f-415199f3753c") @pos(-120, 700)
+    blueprint:gui/refresh(player: $player, screen: "fiche") @id("5c8d25fa-7854-305d-8b63-007cf63890e7") @pos(140, 700)
+  }
+  on blueprint:event/gui_list_clicked(player, screen, element, index, line) @id("13a64e80-7879-3a03-9157-7d30869662a6") @pos(-900, 2600) @with(element: "metier") {
+    blueprint:var/set(var: "metier", value: $line) @id("34515f48-b431-312d-991f-a8aaae99dc9e") @pos(-600, 2600)
+  }
+  on blueprint:event/gui_list_clicked(player, screen, element, index, line) @id("3db14d30-9aa6-38ec-a935-b58dd81ad5cf") @pos(-900, 2200) @with(element: "sexe") {
+    blueprint:var/set(var: "sexe", value: $line) @id("23a05962-c972-3b5c-86ce-b287f0e1c181") @pos(-600, 2200)
+  }
+  on blueprint:event/player_join(player) @id("5f3d9e5e-debb-3254-850f-1efa8bb9e7fb") @pos(-900, 0) {
+    blueprint:flow/branch(condition: blueprint:var/get(var: "cree") @id("d3ede411-a3ac-310a-b8a4-435aa6bc3a29") @pos(-900, 160)) @id("e8e59090-e83e-3c47-a6f6-eaff1ecaa932") @pos(-640, 0) {
+      true: {
+        blueprint:hud/show(player: $player, screen: "fiche") @id("7bdb6258-817f-39d2-a173-aa5fae99e4eb") @pos(-380, -160)
+        blueprint:gui/refresh(player: $player, screen: "fiche") @id("8ba1cf0c-510b-3858-96bf-cc2fd0035446") @pos(-120, -160)
+      }
+      false: {
+        blueprint:gui/open(player: $player, screen: "creation") @id("c1eb3027-1c86-3401-8b99-ccf3f49b79a2") @pos(-380, 160)
+        blueprint:gui/set_lines(player: $player, screen: "creation", element: "sexe", lines: blueprint:string/split(text: "Homme,Femme", separator: ",") @id("6ca5b19d-e34e-3db7-9b19-f0bfd988b8ca") @pos(-120, 340)) @id("498e9b0e-9fbf-3536-b7e1-4863f5481d07") @pos(-120, 160)
+        blueprint:gui/set_lines(player: $player, screen: "creation", element: "metier", lines: blueprint:string/split(text: "Sans-emploi,Fermier,Forgeron,Marchand,Garde,Médecin", separator: ",") @id("f2384bb6-08c2-3880-af1a-57a43417709c") @pos(140, 340)) @id("92545359-3e6b-3e1d-a654-d8d081765b0b") @pos(140, 160)
+        blueprint:gui/refresh(player: $player, screen: "fiche") @id("7a50b35b-2e76-37a0-b77c-a95d0eaca4cf") @pos(400, 160)
+      }
+    }
+  }
+  on blueprint:event/gui_input_changed(player, screen, element, text, submitted) @id("6579e4c8-11ea-3ebf-a9f6-66d6fb6e76ab") @pos(-900, 1000) @with(element: "prenom") {
+    blueprint:var/set(var: "prenom", value: $text) @id("d5fb3f58-8327-3c29-b335-b978a80a5294") @pos(-600, 1000)
+  }
+}

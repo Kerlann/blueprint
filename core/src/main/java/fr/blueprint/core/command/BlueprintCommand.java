@@ -131,10 +131,14 @@ public final class BlueprintCommand {
                 .then(literal("bench")
                         .requires(admin)
                         .executes(BlueprintCommand::bench))
-                // La vitrine : les onze types d'éléments d'écran, tous câblés.
+                // La vitrine : les douze types d'éléments d'écran, tous câblés.
                 .then(literal("showcase")
                         .requires(admin)
                         .executes(BlueprintCommand::showcase))
+                // Le serveur de jeu de rôle : création de personnage et fiche permanente.
+                .then(literal("rp")
+                        .requires(admin)
+                        .executes(BlueprintCommand::roleplay))
                 // Le contenu déclaré (épic 11). Sans cette commande, un fichier écarté
                 // ne se saurait que dans le journal du serveur — c'est-à-dire nulle part,
                 // pour qui vient de déposer un JSON et se demande où est son item.
@@ -583,6 +587,19 @@ public final class BlueprintCommand {
         return install(ctx, fr.blueprint.core.ShowcaseBlueprint.build(
                 fr.blueprint.core.BlueprintMod.registries().nodes()),
                 "blueprint.cmd.showcase_created", "blueprint.cmd.showcase_created_no_file");
+    }
+
+    /**
+     * Installe le blueprint de serveur RP et l'ACTIVE.
+     *
+     * <p>L'activation compte double ici : il travaille à la <b>connexion</b>, pas à la
+     * commande. Installé sans être actif, il n'aurait l'air de rien faire, et la seule
+     * façon de s'en apercevoir serait de se déconnecter pour revenir.
+     */
+    private static int roleplay(CommandContext<CommandSourceStack> ctx) {
+        return install(ctx, fr.blueprint.core.RoleplayBlueprint.build(
+                fr.blueprint.core.BlueprintMod.registries().nodes()),
+                "blueprint.cmd.rp_created", "blueprint.cmd.rp_created_no_file");
     }
 
     /**

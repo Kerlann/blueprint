@@ -1,11 +1,80 @@
 # Les blueprints livrés
 
-Deux, et chacun a un travail précis.
+Trois, et chacun a un travail précis.
 
 | | |
 |---|---|
+| [`rp.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/rp.bp) | **un serveur de jeu de rôle** — `/blueprint rp`, puis reconnecte-toi |
 | [`vitrine.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/vitrine.bp) | **les douze types d'éléments d'écran, tous câblés** — `/blueprint showcase` puis `/bpc vitrine` |
 | [`bench.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/bench.bp) | **un banc de performance** — `/blueprint bench` puis `/bpc bench` |
+
+---
+
+# Le serveur de jeu de rôle
+
+Deux écrans et un graphe. À la connexion, le joueur qui n'a pas de personnage reçoit un
+formulaire — prénom, nom, âge, sexe, métier ; celui qui en a un reçoit directement sa
+fiche. Tout est enregistré **chez le joueur** et survit au redémarrage du serveur.
+
+```
+/blueprint rp        # l'installe et l'active
+                     # puis reconnecte-toi
+/bpc rp              # rouvrir le formulaire pour se corriger
+```
+
+## Ce qu'il montre et qu'aucun autre exemple ne montrait
+
+**Le partage du travail entre le client et le serveur.** La fiche affiche cinq lignes.
+Trois viennent du serveur, deux ne viennent de nulle part.
+
+| Ligne | Source | Ce que ça coûte |
+|---|---|---|
+| Prénom, nom, métier | **variable** — seul le serveur les connaît | un paquet à la création, plus rien ensuite |
+| Barre de vie, « 18 / 20 PV » | **valeur client** — le joueur l'a déjà | **rien** : ni variable, ni tick, ni paquet |
+
+Cela se lit dans le fichier texte. Une source client s'y écrit avec un `@` :
+
+```
+progress "vie" @bind("@health", progress, max: 20)
+label "metier" @bind("metier", text, format: "Métier : %s")
+```
+
+La version naïve de cette fiche lierait la vie à une variable. Il faudrait alors un
+`server_tick` qui parcourt les joueurs connectés vingt fois par seconde, lit la vie de
+chacun, l'écrit, et envoie une modification. **À cinquante joueurs : mille lectures et
+jusqu'à mille paquets par seconde** — pour redire à chacun ce qu'il voit déjà dans ses
+propres cœurs. Un test échoue si quelqu'un refait ce chemin.
+
+## La portée des variables
+
+Toutes en **`PLAYER`**, et ce n'est pas un détail. En `GRAPH`, le deuxième joueur à créer
+son personnage effacerait le prénom du premier, et chacun verrait dans sa fiche l'identité
+du dernier arrivé.
+
+C'est ce que la portée joueur promettait — « persistante par joueur » — sans le tenir : le
+magasin rangeait par `(portée, nom)` seul, sans clé de joueur et sans écriture sur disque.
+Les deux sont réparés, et ce blueprint est ce qui l'a fait apparaître.
+
+## Trois décisions qu'on peut copier
+
+- **L'âge au curseur, pas au clavier.** Un champ numérique accepte « 700 » et oblige le
+  graphe à le refuser ensuite. Un curseur borné de 16 à 90 ne peut pas produire de valeur
+  invalide, donc il n'y a rien à valider.
+- **On garde la ligne choisie, pas son indice.** Un indice se périme dès qu'on ajoute un
+  métier au milieu de la liste : les personnages existants changeraient de métier sans que
+  personne n'ait rien touché.
+- **La vérification est côté serveur.** Un client modifié peut envoyer n'importe quel
+  contenu de champ ; griser le bouton tant que les champs sont vides serait un confort,
+  jamais une garantie.
+
+Et le prénom apparaît **deux fois dans deux étiquettes** plutôt qu'une fois dans une
+variable `identite` recomposée : une valeur dérivée se périme dès qu'on change une source
+sans repasser par le nœud qui la recompose, et rien ne le signale.
+
+## Le modifier
+
+Les métiers et les sexes sont deux chaînes séparées par des virgules, découpées par
+`string/split`. Un seul champ à changer dans l'éditeur pour ajouter « Aubergiste ».
 
 ---
 

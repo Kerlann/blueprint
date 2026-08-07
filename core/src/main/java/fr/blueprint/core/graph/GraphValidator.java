@@ -195,8 +195,11 @@ public final class GraphValidator {
                 // Un élément lié à une variable renommée n'affichera jamais rien, et se
                 // taire ici reviendrait à laisser l'auteur découvrir en jeu un menu qui
                 // reste vide — la panne exacte que la liaison existe pour éviter.
-                if (element.isBound()
-                        && !bp.variables().containsKey(element.binding().variable())) {
+                // Une liaison de source CLIENT ne nomme pas une variable mais une valeur
+                // du catalogue : la chercher parmi les variables la déclarerait morte à
+                // tous les coups. Elle est vérifiée contre le catalogue, et un nom qui
+                // n'y est pas est la MÊME erreur — un élément qui n'affichera jamais rien.
+                if (element.isBound() && !bindingResolves(bp, element.binding())) {
                     out.add(Diagnostic.error(DiagnosticCode.SCREEN_BINDING_NOT_FOUND,
                             Diagnostic.element(screen.name(), element.name()),
                             element.name(), element.binding().variable()));
@@ -204,6 +207,14 @@ public final class GraphValidator {
             }
         }
         return out;
+    }
+
+    /** Ce que cette liaison désigne existe-t-il — variable du graphe, ou valeur client ? */
+    private static boolean bindingResolves(Blueprint bp,
+                                           fr.blueprint.core.graph.screen.ElementBinding b) {
+        return b.source() == fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT
+                ? fr.blueprint.core.graph.screen.ClientValue.byKey(b.variable()) != null
+                : bp.variables().containsKey(b.variable());
     }
 
     /**
