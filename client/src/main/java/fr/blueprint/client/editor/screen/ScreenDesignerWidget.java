@@ -921,7 +921,30 @@ public final class ScreenDesignerWidget {
     }
 
     private record Row(int y, String label, java.util.List<Chip> chips,
-                       ElementPropertiesState.@Nullable Field field, @Nullable String value) {
+                       ElementPropertiesState.@Nullable Field field, @Nullable String value,
+                       ElementPropertiesState.@Nullable Section section) {
+
+        Row(int y, String label, java.util.List<Chip> chips,
+            ElementPropertiesState.@Nullable Field field, @Nullable String value) {
+            this(y, label, chips, field, value, null);
+        }
+    }
+
+    /**
+     * Les sections repliées. Un état d'affichage : rien à enregistrer.
+     *
+     * <p>Toutes ouvertes au départ. Replier par défaut ferait chercher où sont passés les
+     * réglages qu'on voyait la veille ; les laisser ouvertes donne le panneau d'avant, en
+     * mieux rangé, et le repli devient un choix plutôt qu'une découverte.
+     */
+    private final java.util.Set<ElementPropertiesState.Section> collapsedSections =
+            java.util.EnumSet.noneOf(ElementPropertiesState.Section.class);
+
+    /** Un en-tête de section : son chevron, son titre, et rien d'autre. */
+    private Row sectionRow(int y, ElementPropertiesState.Section section) {
+        String mark = collapsedSections.contains(section) ? "▸ " : "▾ ";
+        return new Row(y, mark + I18n.get(section.key()), java.util.List.of(),
+                null, null, section);
     }
 
     /**
@@ -1016,8 +1039,28 @@ public final class ScreenDesignerWidget {
             }
         }
 
+        ElementPropertiesState.Section open = null;
         for (ElementPropertiesState.Field field : ElementPropertiesState.Field.values()) {
             if (!ElementPropertiesState.applies(element, field, arranged)) {
+                continue;
+            }
+            // L'en-tête de section, posé au premier champ qui l'habite : une section sans
+            // champ applicable ne s'annonce donc jamais. Un titre suivi de rien serait la
+            // même promesse creuse qu'un champ sans effet.
+            ElementPropertiesState.Section section = ElementPropertiesState.sectionOf(field);
+            // Les champs de disposition attendent leur bloc, plus bas : les émettre ici
+            // les séparerait du défilement et du mode, qui sont la même décision.
+            if (section == ElementPropertiesState.Section.LAYOUT) {
+                continue;
+            }
+            if (section != open) {
+                open = section;
+                rows.add(sectionRow(y, section));
+                y += ROW;
+                if (collapsedSections.contains(section)) {
+                    continue;
+                }
+            } else if (collapsedSections.contains(section)) {
                 continue;
             }
             // Chaque axe de taille porte ses quatre modes : les taper en texte demandait
@@ -1033,7 +1076,18 @@ public final class ScreenDesignerWidget {
                     field == ElementPropertiesState.Field.WIDTH)
                     ? null
                     : editing ? properties.buffer() + "_" : properties.valueOf(field);
-            rows.add(new Row(y, I18n.get(fieldKey(field)), java.util.List.of(), field, value));
+            if (ElementPropertiesState.needsOwnLine(field)) {
+                // Le libellé seul, puis la valeur sur toute la largeur. Sur une seule
+                // ligne il lui restait soixante-douze pixels — une douzaine de
+                // caractères — et l'auteur éditait un nom qu'il ne pouvait pas lire.
+                rows.add(new Row(y, I18n.get(fieldKey(field)), java.util.List.of(),
+                        null, null));
+                y += ROW;
+                rows.add(new Row(y, "", java.util.List.of(), field, value));
+            } else {
+                rows.add(new Row(y, I18n.get(fieldKey(field)), java.util.List.of(),
+                        field, value));
+            }
             y += ROW;
             if (size) {
                 // Les quatre modes sur LEUR rangée, pleine largeur. Sur la même ligne que
@@ -1048,23 +1102,30 @@ public final class ScreenDesignerWidget {
 
         // Le retour à la ligne. Une case et non un champ : c'est un oui/non, et le taper
         // demanderait de connaître une syntaxe qu'aucun panneau n'affiche.
+        // Le retour à la ligne et la taille du texte continuent l'APPARENCE : ils sont de
+        // la même famille que la couleur et la marge, et leur donner un en-tête à eux
+        // couperait la section en deux pour deux rangées.
+        boolean appearanceOpen =
+                !collapsedSections.contains(ElementPropertiesState.Section.APPEARANCE);
         boolean wraps = element.style().wrap();
         // Les deux clés sont passées EN DUR à I18n.get, et non choisies avant l'appel :
         // le détecteur de clés mortes lit les sources, et une clé calculée lui paraît
         // inutilisée — il l'aurait signalée à chaque build (leçon du même test en 9.4).
         String wrapLabel = wraps ? I18n.get("blueprint.designer.wrap.on")
                 : I18n.get("blueprint.designer.wrap.off");
-        rows.add(new Row(y, I18n.get("blueprint.designer.wrap"), java.util.List.of(
-                new Chip(wrapLabel, 52, 24, wraps,
-                        () -> apply(element.styled(element.style().withWrap(!wraps))))),
-                null, null));
-        y += ROW;
+        if (appearanceOpen) {
+            rows.add(new Row(y, I18n.get("blueprint.designer.wrap"), java.util.List.of(
+                    new Chip(wrapLabel, 52, 24, wraps,
+                            () -> apply(element.styled(element.style().withWrap(!wraps))))),
+                    null, null));
+            y += ROW;
+        }
 
         // La taille du texte : des pastilles et non un champ. La police de Minecraft
         // n'existe qu'à une taille et s'agrandit par un facteur ; proposer de taper un
         // nombre laisserait croire à un réglage continu, alors qu'à ×1,3 les traits de la
         // police tombent entre deux pixels et le texte devient flou.
-        if (ElementPropertiesState.showsAnyText(element.kind())) {
+        if (appearanceOpen && ElementPropertiesState.showsAnyText(element.kind())) {
             double current = element.style().textScale();
             java.util.List<Chip> scales = new java.util.ArrayList<>();
             int step = (PROPERTIES_WIDTH - 8) / fr.blueprint.core.graph.screen.ElementStyle.SCALES.length;
@@ -1084,6 +1145,11 @@ public final class ScreenDesignerWidget {
         }
 
         if (element.kind().container()) {
+            rows.add(sectionRow(y, ElementPropertiesState.Section.LAYOUT));
+            y += ROW;
+        }
+        if (element.kind().container()
+                && !collapsedSections.contains(ElementPropertiesState.Section.LAYOUT)) {
             // Le défilement d'abord : c'est une propriété du conteneur lui-même, pas de
             // la façon dont il range, et elle vaut aussi en disposition absolue.
             rows.add(new Row(y, I18n.get("blueprint.designer.scroll"),
@@ -1109,6 +1175,17 @@ public final class ScreenDesignerWidget {
                                 cross -> apply(properties.setLayoutCross(cross))), null, null));
                 y += ROW;
             }
+            for (var field : java.util.List.of(ElementPropertiesState.Field.GAP,
+                    ElementPropertiesState.Field.CROSS_GAP,
+                    ElementPropertiesState.Field.COLUMNS)) {
+                if (!ElementPropertiesState.applies(element, field, arranged)) {
+                    continue;
+                }
+                rows.add(new Row(y, I18n.get(fieldKey(field)), java.util.List.of(), field,
+                        properties.isEditing(field) ? properties.buffer() + "_"
+                                : properties.valueOf(field)));
+                y += ROW;
+            }
         }
 
         // Les réglages propres au type (10.8). Chacun n'apparaît que là où il agit : un
@@ -1116,7 +1193,11 @@ public final class ScreenDesignerWidget {
         // des champs qu'on remplit sans que rien ne change.
         java.util.List<ElementPropertiesState.Field> richFields = optionFieldsOf(element.kind());
         if (!richFields.isEmpty()) {
-            y += 2;
+            rows.add(sectionRow(y, ElementPropertiesState.Section.OPTIONS));
+            y += ROW;
+        }
+        if (!richFields.isEmpty()
+                && !collapsedSections.contains(ElementPropertiesState.Section.OPTIONS)) {
             if (element.kind() == ElementKind.INPUT) {
                 rows.add(new Row(y, I18n.get("blueprint.designer.filter"),
                         enumChips(fr.blueprint.core.graph.screen.ElementOptions.InputFilter.values(),
@@ -1134,7 +1215,20 @@ public final class ScreenDesignerWidget {
 
         // La liaison (10.7). La variable se CHOISIT : la taper laisserait passer une
         // faute de frappe que seul le validateur signalerait, une fois le geste oublié.
-        y += 2;
+        //
+        // Repliée par DÉFAUT quand l'élément n'est lié à rien, et c'est le seul repli par
+        // défaut du panneau : cette section pose une rangée par variable du blueprint, si
+        // bien qu'à dix variables elle enfouissait les styles sous dix lignes identiques
+        // pour un réglage dont la plupart des éléments n'ont pas besoin.
+        rows.add(sectionRow(y, ElementPropertiesState.Section.BINDING));
+        y += ROW;
+        if (!element.isBound()
+                && collapsedSections.contains(ElementPropertiesState.Section.BINDING)) {
+            return closeWithStyles(rows, y, element, screen);
+        }
+        if (collapsedSections.contains(ElementPropertiesState.Section.BINDING)) {
+            return closeWithStyles(rows, y, element, screen);
+        }
         rows.add(new Row(y, I18n.get("blueprint.designer.bind"), java.util.List.of(
                 new Chip(I18n.get("blueprint.designer.bind.none"), 52, 24,
                         !element.isBound(), () -> apply(properties.bindTo("")))), null, null));
@@ -1169,8 +1263,24 @@ public final class ScreenDesignerWidget {
             }
         }
 
-        y += 2;
-        rows.add(new Row(y, I18n.get("blueprint.designer.styles"), java.util.List.of(
+        return closeWithStyles(rows, y, element, screen);
+    }
+
+    /**
+     * La dernière section : les styles nommés.
+     *
+     * <p>Extraite pour que la liaison puisse se replier sans sauter par-dessus — un
+     * { return} au milieu d'une méthode de trois cents lignes aurait fait disparaître
+     * les styles avec elle.
+     */
+    private java.util.List<Row> closeWithStyles(java.util.List<Row> rows, int y,
+                                                ScreenElement element, Screen screen) {
+        rows.add(sectionRow(y, ElementPropertiesState.Section.STYLES));
+        y += ROW;
+        if (collapsedSections.contains(ElementPropertiesState.Section.STYLES)) {
+            return rows;
+        }
+        rows.add(new Row(y, "", java.util.List.of(
                 new Chip(I18n.get("blueprint.designer.styles.create"), 4, PROPERTIES_WIDTH - 8,
                         false, controller::createStyleFromSelection)), null, null));
         y += ROW;
@@ -1322,6 +1432,15 @@ public final class ScreenDesignerWidget {
             return;
         }
         for (Row row : visiblePropertyRows()) {
+            // Un en-tête de section : un filet et un titre clair, la même grammaire que la
+            // colonne de gauche. Sans eux le panneau était une coulée de vingt-cinq
+            // rangées où rien ne disait où un sujet finissait.
+            if (row.section() != null) {
+                g.fill(left, row.y() - 2, width - 1, row.y() - 1, PANEL_BORDER);
+                g.drawString(font, font.plainSubstrByWidth(row.label(), PROPERTIES_WIDTH - 8),
+                        left + 4, row.y(), TEXT, false);
+                continue;
+            }
             if (!row.label().isEmpty()) {
                 g.drawString(font, font.plainSubstrByWidth(row.label(), PROPERTIES_WIDTH - 8),
                         left + 4, row.y(), DIM_TEXT, false);
@@ -1340,8 +1459,12 @@ public final class ScreenDesignerWidget {
                 boolean editing = properties.isEditing(row.field());
                 int color = editing
                         ? (properties.valid(this::nameFree) ? SELECTED : INVALID) : TEXT;
-                int valueX = row.chips().isEmpty() ? 52
-                        : row.chips().getLast().x() + row.chips().getLast().width() + 3;
+                // Une valeur sans libellé occupe TOUTE la largeur : c'est la rangée que
+                // needsOwnLine réserve aux textes, dont le nom, la texture et le format.
+                int valueX = !row.label().isEmpty() || !row.chips().isEmpty()
+                        ? (row.chips().isEmpty() ? 52
+                                : row.chips().getLast().x() + row.chips().getLast().width() + 3)
+                        : 6;
                 g.drawString(font, font.plainSubstrByWidth(row.value(),
                                 PROPERTIES_WIDTH - valueX - 4),
                         left + valueX, row.y(), color, false);
@@ -1559,6 +1682,15 @@ public final class ScreenDesignerWidget {
                     reportRefusal();
                     return true;
                 }
+            }
+            if (row.section() != null) {
+                // Un en-tête se replie. Toute sa largeur répond, pas seulement le
+                // chevron : viser six pixels sur un panneau qu'on trouve déjà petit
+                // serait une plaisanterie.
+                if (!collapsedSections.remove(row.section())) {
+                    collapsedSections.add(row.section());
+                }
+                return true;
             }
             if (row.field() != null) {
                 properties.beginEdit(row.field());

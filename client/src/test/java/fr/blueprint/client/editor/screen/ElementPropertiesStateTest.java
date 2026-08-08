@@ -121,6 +121,79 @@ class ElementPropertiesStateTest {
         }
     }
 
+    /**
+     * <b>Les sections se suivent sans jamais revenir en arrière.</b>
+     *
+     * <p>Le panneau émet ses champs dans l'ordre de l'énumération et pose un en-tête au
+     * premier champ de chaque section. Si l'ordre des champs ne suivait pas celui des
+     * sections, un titre réapparaîtrait plus bas — « Apparence » deux fois, avec deux
+     * moitiés de la même chose de part et d'autre d'un autre sujet.
+     */
+    @Test
+    void lesSectionsSeSuiventSansJamaisRevenirEnArriere() {
+        // Seules les quatre premières sections sortent de la boucle générale. Disposition,
+        // réglages, liaison et styles ont chacun leur bloc, posé après elle et dans l'ordre
+        // voulu — c'est pour cela que leurs champs sont exclus de la boucle.
+        var parLaBoucle = java.util.EnumSet.of(
+                ElementPropertiesState.Section.IDENTITY,
+                ElementPropertiesState.Section.POSITION,
+                ElementPropertiesState.Section.SIZE,
+                ElementPropertiesState.Section.APPEARANCE);
+        int precedent = -1;
+        for (ElementPropertiesState.Field field : ElementPropertiesState.Field.values()) {
+            var section = ElementPropertiesState.sectionOf(field);
+            if (!parLaBoucle.contains(section)) {
+                continue;
+            }
+            assertTrue(section.ordinal() >= precedent,
+                    "« " + field + " » appartient à " + section + ", qui vient avant la "
+                            + "section du champ précédent : son en-tête serait posé une "
+                            + "seconde fois, avec deux moitiés du même sujet de part et "
+                            + "d'autre d'un autre");
+            precedent = section.ordinal();
+        }
+    }
+
+    /**
+     * <b>Ce qui se tape sur une ligne, et ce qui mérite la sienne.</b>
+     *
+     * <p>Sur une seule ligne la valeur commence après le libellé et il lui reste environ
+     * soixante-douze pixels — une douzaine de caractères. Un nom, une texture ou un format
+     * n'y tiennent pas ; un nombre, toujours. Le partage se fait par nature et non sur la
+     * valeur du moment, qui ferait sauter la disposition d'une frappe à l'autre.
+     */
+    @Test
+    void ceQuiMeriteSaPropreLigne() {
+        for (var texte : java.util.List.of(ElementPropertiesState.Field.NAME,
+                ElementPropertiesState.Field.TEXT,
+                ElementPropertiesState.Field.TEXTURE,
+                ElementPropertiesState.Field.BIND_FORMAT)) {
+            assertTrue(ElementPropertiesState.needsOwnLine(texte),
+                    texte + " porte du texte : douze caractères ne suffisent pas");
+        }
+        for (var nombre : java.util.List.of(ElementPropertiesState.Field.X,
+                ElementPropertiesState.Field.PADDING,
+                ElementPropertiesState.Field.COLUMNS,
+                ElementPropertiesState.Field.BIND_DECIMALS)) {
+            assertFalse(ElementPropertiesState.needsOwnLine(nombre),
+                    nombre + " tient toujours : lui donner une ligne doublerait la hauteur "
+                            + "du panneau pour rien");
+        }
+    }
+
+    /** Chaque section a sa clé, écrite en toutes lettres pour le contrôle des clés mortes. */
+    @Test
+    void chaqueSectionAsaCle() {
+        for (var section : ElementPropertiesState.Section.values()) {
+            assertTrue(section.key().startsWith("blueprint.designer.section."),
+                    section + " : " + section.key());
+        }
+        assertEquals(ElementPropertiesState.Section.values().length,
+                java.util.Arrays.stream(ElementPropertiesState.Section.values())
+                        .map(ElementPropertiesState.Section::key).distinct().count(),
+                "deux sections qui partagent une clé porteraient le même titre");
+    }
+
     /** Une texture ne se règle que sur une image, et le survol que sur ce qui réagit. */
     @Test
     void latextureEtLeSurvolSontReserves() {

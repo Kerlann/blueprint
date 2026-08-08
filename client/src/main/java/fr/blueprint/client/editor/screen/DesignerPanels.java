@@ -25,7 +25,18 @@ public record DesignerPanels(boolean paletteOpen, boolean propertiesOpen) {
      */
     public static final int PALETTE_WIDTH = 92;
 
-    public static final int PROPERTIES_WIDTH = 128;
+    /**
+     * Élargi de 128 à 144 : à 128, un nom d'élément disposait de soixante-douze pixels —
+     * une douzaine de caractères — et l'auteur éditait ce qu'il ne pouvait pas lire. Vingt
+     * pixels de canevas contre un panneau qui se lit : l'échange est bon, et les valeurs
+     * longues ont en plus leur propre rangée désormais.
+     *
+     * <p>Pas au-delà : { PanelLabelWidthTest} veille à ce que les deux panneaux
+     * prennent moins des trois quarts d'une fenêtre de 320 unités — la plus petite
+     * réellement rencontrée. À 148 ils en prenaient exactement 75 %, et le garde-fou a
+     * rougi comme il devait.
+     */
+    public static final int PROPERTIES_WIDTH = 144;
 
     /**
      * Ce qui reste d'un panneau replié : de quoi voir un chevron et le rouvrir.

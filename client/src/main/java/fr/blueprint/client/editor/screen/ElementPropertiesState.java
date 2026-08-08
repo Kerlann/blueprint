@@ -275,6 +275,71 @@ public final class ElementPropertiesState {
 
     /** Un champ de valeur n'a de sens que si le mode en consomme une. */
     /**
+     * Les sections du panneau, dans l'ordre où elles s'affichent.
+     *
+     * <p>Le panneau était une seule coulée d'environ vingt-cinq rangées — le type, l'ancre,
+     * dix champs, le retour à la ligne, la disposition, les options, la liaison, les
+     * styles — sans un titre pour dire où un sujet finit et où le suivant commence. La
+     * colonne de gauche a reçu ses en-têtes ; celle-ci ne les avait jamais eus.
+     *
+     * <p>L'ordre suit la façon dont on travaille : on nomme, on place, on dimensionne, puis
+     * on habille. La liaison et les styles ferment la marche parce qu'on n'y touche qu'une
+     * fois le reste posé.
+     */
+    public enum Section {
+        IDENTITY, POSITION, SIZE, APPEARANCE, LAYOUT, OPTIONS, BINDING, STYLES;
+
+        /** La clé de traduction, en toutes lettres pour le contrôle des clés mortes. */
+        public String key() {
+            return switch (this) {
+                case IDENTITY -> "blueprint.designer.section.identity";
+                case POSITION -> "blueprint.designer.section.position";
+                case SIZE -> "blueprint.designer.section.size";
+                case APPEARANCE -> "blueprint.designer.section.appearance";
+                case LAYOUT -> "blueprint.designer.section.layout";
+                case OPTIONS -> "blueprint.designer.section.options";
+                case BINDING -> "blueprint.designer.section.binding";
+                case STYLES -> "blueprint.designer.section.styles";
+            };
+        }
+    }
+
+    /** À quelle section ce champ appartient. Exhaustif : un champ neuf doit choisir. */
+    public static Section sectionOf(Field field) {
+        return switch (field) {
+            case NAME -> Section.IDENTITY;
+            case X, Y -> Section.POSITION;
+            case WIDTH, HEIGHT -> Section.SIZE;
+            case TEXT, TOOLTIP, TEXTURE, BACKGROUND, BORDER, TEXT_COLOR, HOVER, PADDING ->
+                    Section.APPEARANCE;
+            case GAP, CROSS_GAP, COLUMNS -> Section.LAYOUT;
+            case PLACEHOLDER, MAX_LENGTH, OPT_MIN, OPT_MAX, STEP, ROW_HEIGHT, ENTITY ->
+                    Section.OPTIONS;
+            case BIND_FORMAT, BIND_DECIMALS, BIND_MIN, BIND_MAX -> Section.BINDING;
+        };
+    }
+
+    /**
+     * Ce champ mérite-t-il <b>sa propre ligne</b> pour sa valeur ?
+     *
+     * <p>Sur une seule ligne, la valeur commence après le libellé et il lui reste soixante-
+     * douze pixels — une douzaine de caractères. Un nom d'élément, une texture, un format
+     * ou une infobulle n'y tiennent pas, et l'auteur édite ce qu'il ne peut pas lire.
+     *
+     * <p>Le partage se fait par <b>nature</b> et non par longueur mesurée : un nombre tient
+     * toujours, un texte rarement. Le décider sur la valeur du moment ferait sauter la
+     * disposition d'une frappe à l'autre.
+     */
+    public static boolean needsOwnLine(Field field) {
+        return switch (field) {
+            case NAME, TEXT, TOOLTIP, TEXTURE, PLACEHOLDER, BIND_FORMAT, ENTITY -> true;
+            case X, Y, WIDTH, HEIGHT, BACKGROUND, BORDER, TEXT_COLOR, HOVER, PADDING,
+                 GAP, CROSS_GAP, COLUMNS, BIND_DECIMALS, BIND_MIN, BIND_MAX,
+                 MAX_LENGTH, OPT_MIN, OPT_MAX, STEP, ROW_HEIGHT -> false;
+        };
+    }
+
+    /**
      * Ce champ a-t-il un sens <b>pour ce type</b> ?
      *
      * <p>La règle retombait sur {@code default -> true} dans le widget, donc <b>onze</b>
