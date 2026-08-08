@@ -163,4 +163,47 @@ class DesignCameraTest {
         assertEquals(before + 30, camera.toLocalX(100), 1e-9,
                 "la vue doit suivre la souris au pixel, pas à l'unité");
     }
+
+    /**
+     * <b>Le concepteur s'ouvrait à 21 % de zoom.</b>
+     *
+     * <p>En échelle GUI 3 — une fenêtre de 640×360 — les deux panneaux laissent 420×308 à
+     * la zone de travail. Cadrer le canevas entier de 1920×1080 y donne 0,21 : un menu de
+     * six cents unités tient dans cent trente pixels, le texte est illisible et la grille
+     * disparaît sous quatre pixels de pas, si bien qu'on ne sait même pas si l'accroche est
+     * active.
+     *
+     * <p>Cadrer sur le <b>contenu</b> — ce que la touche {@code F} du canevas de nœuds fait
+     * de ses nœuds depuis la 5.1 — rend le facteur utilisable. Les deux mesures sont prises
+     * ici l'une contre l'autre : c'est leur rapport qui dit quelque chose, pas le nombre
+     * absolu, qui dépend de la machine et de l'échelle.
+     */
+    @Test
+    void leCadrageSuitLeContenuEtNonLaPlaceDisponible() {
+        DesignCamera surTout = new DesignCamera();
+        surTout.fit(420, 308, 1920, 1080);
+
+        DesignCamera surLeMenu = new DesignCamera();
+        // Un menu ordinaire posé au milieu du grand canevas.
+        surLeMenu.fitInto(420, 308, 660, 300, 600, 400);
+
+        assertTrue(surTout.zoom() < 0.25,
+                "le cadrage du canevas entier est bien le défaut mesuré : " + surTout.zoom());
+        assertTrue(surLeMenu.zoom() > surTout.zoom() * 2,
+                "cadrer le contenu doit au moins doubler le facteur — mesuré "
+                        + surLeMenu.zoom() + " contre " + surTout.zoom());
+    }
+
+    /** Le rectangle cadré est centré dans la zone, pas collé dans un coin. */
+    @Test
+    void leRectangleCadreEstCentre() {
+        DesignCamera camera = new DesignCamera();
+        camera.fitInto(400, 300, 100, 50, 200, 100);
+
+        double centreX = camera.toLocalX(100 + 200 / 2.0);
+        double centreY = camera.toLocalY(50 + 100 / 2.0);
+
+        assertEquals(200, centreX, 1e-6, "le centre du rectangle tombe au milieu en X");
+        assertEquals(150, centreY, 1e-6, "et au milieu en Y");
+    }
 }

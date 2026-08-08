@@ -244,3 +244,124 @@ Au premier blueprint créé, le canevas est vide avec une invite centrale :
 Un modèle « Bonjour le monde » (événement `player_join` → message de chat) est insérable
 en un clic. Aucun tutoriel modal, aucun blocage : l'objectif du brief est un premier
 blueprint fonctionnel en moins de 10 minutes sans documentation.
+
+---
+
+## 15. Concepteur d'écrans
+
+Cette section a été écrite **après** les seize stories de l'épic 10, et c'est le fait
+notable : le concepteur est le seul mode de l'éditeur à n'avoir jamais eu de section ici.
+Chaque story y a posé une capacité sans que personne ne révise la disposition. Résultat
+mesuré à la relecture : trois listes en texte brut dans une colonne de 92 px, onze champs
+sans objet sur chaque type, deux réglages hors d'atteinte faute de place, et des calques
+inatteignables dès huit écrans.
+
+Les principes U1–U6 du §1 s'appliquent ici sans exception. Ce qui suit ne fait que dire à
+quoi ils ressemblent quand on dessine un menu au lieu de câbler un graphe.
+
+### Disposition
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│  mypack:porte_secrete    [Graphe] [Écrans] [Fonctions]      [Compiler] ×   │  barre 16 px
+├──────────────┬────────────────────────────────────────────┬───────────────┤
+│ ÉCRANS    +  │                                            │  ÉCRAN        │
+│  guichet M✎× │                                            │   guichet     │
+├──────────────┤            ZONE DE TRAVAIL                 │   Modal       │
+│ ÉLÉMENTS     │       (canevas simulé · marge · grille)    │   3 éléments  │
+│ Conteneurs   │                                            │               │
+│  ▣ Panneau   │      ┌───────────────────────┐             │  — ou —       │
+│ Affichage    │      │  Guichet              │             │               │
+│  ▤ Texte     │      │  ┌─────────────────┐  │             │  Identité     │
+│  ▣ Image     │      │  │ Prendre un jeton│  │             │  Position     │
+│ Interactifs  │      │  └─────────────────┘  │             │  Taille       │
+│  ▭ Bouton    │      └───────────────────────┘             │  Apparence    │
+├──────────────┤                                            │  Liaison      │
+│ CALQUES      │                                            │  Styles       │
+│ ▾ ◉ cadre    │                                            │               │
+│    ◉ titre   │                                            │               │
+│  ◉ fermer    │                                            │               │
+├──────────────┴────────────────────────────────────────────┴───────────────┤
+│ ✕ « titre » sort de la zone garantie          1920×1080 · 412,88 · 60×20  │
+│ Fenêtre : 320 480 640 960 1280 1920  la mienne  − 47% +  cadrer  ⊢⊹⊣⊤⊸⊥  F1│
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+Deux colonnes repliables (`Tab`), comme le canevas de nœuds. Ce qui vaut pour lui vaut
+ici : **une seule source pour la géométrie**, lue par le dessin *et* par le clic. Les
+largeurs vivent dans `DesignerPanels`, les hauteurs dans `DesignerPalette`. Ce projet a
+payé trois fois pour l'avoir oublié — le panneau des variables, les sections de la
+palette, et le filet tracé au milieu de « supprimer l'écran ».
+
+### La colonne de gauche
+
+**Une seule liste défilante** pour les trois sections. Empilées sans défilement, elles se
+poussaient l'une l'autre hors de la fenêtre.
+
+**Les commandes ne sont pas des données.** Créer vit dans l'en-tête (`+`) ; renommer,
+supprimer et changer de nature vivent sur la **ligne active**. Une commande qui a
+l'apparence d'un nom d'écran se clique par erreur, et coûte un écran.
+
+**La palette groupe par ce que le modèle sait dire d'un type** — conteneur, affichage,
+interactif — avec un pictogramme et une teinte par famille. Un classement inventé se
+dément au premier type ajouté ; `container()` et `interactive()`, non.
+
+**Les calques sont un arbre**, pas une liste indentée : chaque enfant sous son parent, du
+dessus vers le dessous. Un parent se replie et cache sa descendance entière. L'œil bascule
+la visibilité — s'il est dessiné, il se clique. **Glisser un calque sur un autre le
+reparente** ; le lâcher sur l'en-tête le sort de son conteneur. On ne propose jamais une
+cible que le modèle refuserait.
+
+### Le panneau de droite
+
+**Rien de sélectionné → l'écran.** Son nom, sa nature, son compte d'éléments. Une colonne
+de 128 px réservée à « Sélectionnez un élément » est une colonne perdue.
+
+**Un champ n'apparaît que s'il agit.** La règle est un `switch` exhaustif par
+`ElementKind`, sans `default` : un treizième type ne compilera pas tant qu'on n'aura pas
+dit ce qu'il montre. Un champ rempli sans effet fait douter d'un outil plus sûrement qu'un
+champ absent.
+
+**Aucun réglage hors d'atteinte.** Au-delà de trois valeurs, les pastilles prennent leur
+propre rangée : mieux vaut une ligne de plus qu'une pastille dehors. Le panneau défile.
+
+### Les diagnostics, au moment du geste
+
+Le premier reproche du validateur s'affiche dans la barre du bas **pendant qu'on dessine**.
+Ils ne vivaient que dans l'onglet Graphe : l'auteur ne les voyait jamais, et un
+débordement de la zone garantie revenait sous forme de rapport de bug d'un joueur en
+*GUI scale* 4. La validation est débouncée, comme celle du graphe.
+
+Le cerne orange du débordement reste : un diagnostic qui **désigne** vaut mieux qu'un
+diagnostic qui décrit.
+
+### Le cadrage
+
+À l'ouverture, on cadre le **contenu** — les éléments posés, à défaut la fenêtre garantie
+320×180. Cadrer le canevas entier de 1920×1080 donnait 21 % de zoom en échelle GUI 3 : le
+texte y est illisible et la grille disparaît, si bien qu'on ignore si l'accroche est
+active. C'est ce que la touche `F` du canevas de nœuds fait de ses nœuds depuis la 5.1.
+
+Le canevas de conception reste 1920×1080 par défaut, et c'est délibéré : on dessine au
+large, puis on vérifie en réduisant. L'ancre automatique de `addElement` en est la
+contrepartie obligatoire.
+
+### Raccourcis
+
+| Geste | Effet |
+|---|---|
+| Molette | Défile le panneau survolé, sinon zoome le canevas |
+| Clic milieu · `Espace` + clic | Déplacer la vue |
+| `F` · `Ctrl+0` · `+` / `−` | Cadrer · 1:1 · un cran |
+| `Tab` | Replier / rouvrir les deux colonnes |
+| Flèches (`Maj` ×10) | Décaler d'une unité — ou changer de rang dans un conteneur qui range |
+| `Suppr` · `Ctrl+D` · `Ctrl+C`/`V` · `Ctrl+A` | Supprimer · dupliquer · copier-coller · tout |
+| `Ctrl+H` · `G` | Masquer la sélection · accroche à la grille |
+| `Pg↑` / `Pg↓` | Ordre de dessin |
+| Pavé num. `4`/`5`/`6` · `8`/`0`/`2` | Aligner — **et six boutons dans la barre**, pour les claviers sans pavé |
+| Pavé num. `+` / `−` | Répartir (3 éléments et plus) |
+| `Échap` | Désélectionne ; ne ferme qu'ensuite |
+| `F1` | L'aide, qui liste tout ceci |
+
+**Toute action a un bouton ou un raccourci découvrable** (U5, U1). Un geste réservé au
+pavé numérique n'existe pas pour qui n'en a pas.

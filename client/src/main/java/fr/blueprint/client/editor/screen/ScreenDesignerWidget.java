@@ -112,6 +112,32 @@ public final class ScreenDesignerWidget {
         return controller;
     }
 
+    /**
+     * Ce sur quoi cadrer : les éléments posés, ou la fenêtre garantie s'il n'y en a pas.
+     *
+     * <p>320×180 quand l'écran est vide, parce que c'est ce qu'on dessine quand on ne
+     * dessine rien encore — et non 1920×1080, qui est la place disponible et non le sujet.
+     *
+     * @return {@code [gauche, haut, largeur, hauteur]}, en unités.
+     */
+    private double[] contentBounds() {
+        var rects = controller.rects();
+        if (rects.isEmpty()) {
+            return new double[] {0, 0, Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT};
+        }
+        double left = Double.MAX_VALUE;
+        double topUnits = Double.MAX_VALUE;
+        double right = -Double.MAX_VALUE;
+        double bottom = -Double.MAX_VALUE;
+        for (var rect : rects.values()) {
+            left = Math.min(left, rect.x());
+            topUnits = Math.min(topUnits, rect.y());
+            right = Math.max(right, rect.x() + rect.width());
+            bottom = Math.max(bottom, rect.y() + rect.height());
+        }
+        return new double[] {left, topUnits, right - left, bottom - topUnits};
+    }
+
     public void setBounds(int top, int width, int height) {
         this.top = top;
         this.width = width;
@@ -124,7 +150,8 @@ public final class ScreenDesignerWidget {
         int unitsWidth = (int) controller.viewportWidth();
         int unitsHeight = (int) controller.viewportHeight();
         if (needsFit) {
-            camera.fit(areaWidth, areaHeight, unitsWidth, unitsHeight);
+            double[] box = contentBounds();
+            camera.fitInto(areaWidth, areaHeight, box[0], box[1], box[2], box[3]);
             needsFit = false;
         } else {
             // Borné à chaque image, et pas seulement au relâchement : la fenêtre du jeu
@@ -523,11 +550,40 @@ public final class ScreenDesignerWidget {
         String frame = I18n.get("blueprint.designer.zoom_fit");
         chips.add(new BarChip(frame, x, font.width(frame) + 8, false, () -> needsFit = true));
         x += font.width(frame) + 8;
+        // Les six alignements, en toutes lettres et cliquables. Ils n'existaient qu'au
+        // PAVÉ NUMÉRIQUE — inaccessibles sur un portable qui n'en a pas, et le fichier
+        // l'admettait : « les six touches d'alignement, en particulier, ne se devinent
+        // pas ». Six glyphes de trois pixels valent mieux que six touches introuvables ;
+        // les raccourcis restent, ils ne sont plus le seul chemin.
+        x += 6;
+        for (var align : ScreenCanvasController.Align.values()) {
+            String glyph = alignGlyph(align);
+            int w = font.width(glyph) + 5;
+            chips.add(new BarChip(glyph, x, w, false, () -> align(align)));
+            x += w;
+        }
+        x += 6;
         // Un raccourci qu'on ne peut pas découvrir n'existe que pour celui qui l'a écrit.
         String help = I18n.get("blueprint.designer.help");
         chips.add(new BarChip(help, x, font.width(help) + 8, helpVisible,
                 () -> helpVisible = !helpVisible));
         return List.copyOf(chips);
+    }
+
+    /**
+     * Le signe d'un alignement. Des <b>flèches et des barres</b>, pas des mots : « Aligner
+     * à gauche » dans une barre qui porte déjà quatorze commandes ne laisserait de place
+     * pour rien d'autre, et un pictogramme d'alignement se lit sans traduction.
+     */
+    private static String alignGlyph(ScreenCanvasController.Align align) {
+        return switch (align) {
+            case LEFT -> "⊢";
+            case CENTER_X -> "⊹";
+            case RIGHT -> "⊣";
+            case TOP -> "⊤";
+            case CENTER_Y -> "⊸";
+            case BOTTOM -> "⊥";
+        };
     }
 
     private void renderViewportBar(GuiGraphics g, Font font) {
@@ -544,6 +600,18 @@ public final class ScreenDesignerWidget {
         String readout = readout();
         g.drawString(font, readout, Math.max(panels.canvasLeft() + 4,
                 right - font.width(readout)), y - ROW, DIM_TEXT, false);
+
+        // Les diagnostics de l'écran, à GAUCHE de la ligne des repères, qui est alignée à
+        // droite et laisse la place libre. Ils ne s'affichaient que dans l'onglet Graphe —
+        // le code le note déjà à propos du seul cas qu'il avait traité, le cerne de
+        // débordement : « c'est ici, au moment du geste, que l'information sert ; après
+        // coup, elle arrive sous forme de rapport de bug d'un joueur en GUI scale 4 ».
+        String issue = firstIssue();
+        if (issue != null) {
+            g.drawString(font, font.plainSubstrByWidth(issue,
+                            right - panels.canvasLeft() - font.width(readout) - 12),
+                    panels.canvasLeft() + 4, y - ROW, INVALID, false);
+        }
 
         // Les packs dont l'écran dépend (10.5, AC5), déduits de ses textures. En rouge
         // ceux qui ne sont PAS installés ici : l'auteur voit ainsi, en concevant, ce que
@@ -562,6 +630,46 @@ public final class ScreenDesignerWidget {
             }
         }
     }
+
+    /**
+     * Le premier reproche que le validateur fait à cet écran, ou {@code null}.
+     *
+     * <p>Un seul, et le premier : la barre n'a qu'une ligne, et un auteur qui en corrige
+     * un voit apparaître le suivant. Une liste dépliable serait un panneau de plus dans
+     * une fenêtre qui en compte déjà trois.
+     *
+     * <p>La validation est <b>débouncée</b> par {@link fr.blueprint.client.editor.DiagnosticsState},
+     * comme dans l'onglet Graphe. La relancer à chaque image referait le défaut que la
+     * 10.14 a corrigé — une passe de disposition rejouée huit fois par image.
+     */
+    private @Nullable String firstIssue() {
+        if (screenIssues.shouldValidate()) {
+            screenIssues.accept(fr.blueprint.core.graph.GraphValidator
+                    .validate(session.blueprint(), lookup,
+                            fr.blueprint.client.net.BlueprintNet.limits()).diagnostics());
+        }
+        String name = controller.screenName();
+        for (var diagnostic : screenIssues.report()) {
+            if (concerns(diagnostic, name)) {
+                return I18n.get(diagnostic.translationKey(), diagnostic.args().toArray());
+            }
+        }
+        return null;
+    }
+
+    /** Ce diagnostic parle-t-il de l'écran ouvert ? */
+    private static boolean concerns(fr.blueprint.core.graph.Diagnostic diagnostic, String name) {
+        return switch (diagnostic.target()) {
+            case fr.blueprint.core.graph.Diagnostic.Target.ElementTarget t ->
+                    t.screen().equals(name);
+            case fr.blueprint.core.graph.Diagnostic.Target.ScreenTarget t ->
+                    t.screen().equals(name);
+            default -> false;
+        };
+    }
+
+    private final fr.blueprint.client.editor.DiagnosticsState screenIssues =
+            new fr.blueprint.client.editor.DiagnosticsState(System::currentTimeMillis);
 
     /** La taille simulée, la position du curseur, et le rectangle de la sélection. */
     private String readout() {

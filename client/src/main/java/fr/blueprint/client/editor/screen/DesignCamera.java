@@ -134,6 +134,29 @@ public final class DesignCamera {
         centre(areaWidth, areaHeight, unitsWidth, unitsHeight);
     }
 
+    /**
+     * Cadre sur un <b>rectangle</b> plutôt que sur le canevas entier.
+     *
+     * <p>Le concepteur s'ouvre sur un canevas de 1920×1080 — un choix assumé, on dessine au
+     * large puis on vérifie en réduisant. Le cadrer en entier donnait 21 % de zoom en
+     * échelle GUI 3 : un menu de six cents unités y tenait dans cent trente pixels, texte
+     * illisible et grille invisible, si bien qu'on ne savait même pas si l'accroche était
+     * active.
+     *
+     * <p>C'est ce que le canevas de nœuds fait de sa touche {@code F} depuis la 5.1 : il
+     * cadre les <b>nœuds</b>, pas la grille infinie. Ici, les éléments — et à défaut la
+     * fenêtre garantie, qui est ce qu'on dessine quand on ne dessine rien encore.
+     */
+    public void fitInto(int areaWidth, int areaHeight,
+                        double left, double topUnits, double unitsWidth, double unitsHeight) {
+        double outerWidth = Math.max(1, unitsWidth) + DesignSurface.MARGIN * 2.0;
+        double outerHeight = Math.max(1, unitsHeight) + DesignSurface.MARGIN * 2.0;
+        zoom = Math.clamp(Math.min(Math.max(1, areaWidth) / outerWidth,
+                Math.max(1, areaHeight) / outerHeight), MIN_ZOOM, MAX_ZOOM);
+        panX = left - (areaWidth / zoom - unitsWidth) / 2;
+        panY = topUnits - (areaHeight / zoom - unitsHeight) / 2;
+    }
+
     /** Recentre le canevas sans toucher au zoom. */
     public void centre(int areaWidth, int areaHeight, int unitsWidth, int unitsHeight) {
         panX = -(areaWidth / zoom - unitsWidth) / 2;
