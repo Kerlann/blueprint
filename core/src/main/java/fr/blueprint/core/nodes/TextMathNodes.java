@@ -50,7 +50,11 @@ public final class TextMathNodes {
          * Découper : de quoi lire une commande de chat (« /don pierre 64 ») ou une
          * charge utile de signal. Sans lui, tout ce qui arrive en texte est opaque.
          */
-        r.register(NodeType.builder(id("string/split"))
+        // Tarifé 3, comme string/replace et les deux ponts d'un dictionnaire : le travail
+        // parcourt le texte ENTIER et bâtit une liste dont la taille suit celle du texte,
+        // là où le tarif est fixe. Relevé entre ×1,6 et ×4,0 au plafond d'entrée selon
+        // l'exécution — le pic touchait le seuil et le faisait rougir par intermittence.
+        r.register(NodeType.builder(id("string/split")).fuelCost(3)
                 .category(NodeCategories.STRING_EDIT).pure()
                 .in("text", PinTypes.STRING, "")
                 .in("separator", PinTypes.STRING, " ")

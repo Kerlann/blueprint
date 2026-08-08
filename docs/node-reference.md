@@ -2859,7 +2859,7 @@ permission `SAFE` · fuel 3 · P
 
 ### `blueprint:string/split` — Split
 
-permission `SAFE` · fuel 1 · P
+permission `SAFE` · fuel 3 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|
