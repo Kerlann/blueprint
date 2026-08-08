@@ -1,7 +1,6 @@
 package fr.blueprint.client.editor;
 
 import fr.blueprint.api.pin.PinKind;
-import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.graph.Link;
 import fr.blueprint.core.graph.NodeShape;
 import fr.blueprint.core.graph.Vec2d;
@@ -42,11 +41,13 @@ public final class WireLayer {
     /** Dessine tous les liens du graphe (sous les nœuds). */
     public static void renderLinks(GuiGraphics g, Camera camera, CanvasController controller,
                                    int width, int height) {
-        Blueprint bp = controller.blueprint();
+        // Les liens du graphe MONTRÉ, pas ceux du blueprint : dans un corps de fonction,
+        // lire bp.links() ne rendait jamais rien. Le fil se posait — le modèle l'acceptait —
+        // et ne se dessinait pas, ce qui se lit comme « je n'arrive pas à relier ».
         Camera.Rect view = camera.visibleRect(width, height);
         Camera.Rect wide = new Camera.Rect(view.left() - CULL_MARGIN, view.top() - CULL_MARGIN,
                 view.right() + CULL_MARGIN, view.bottom() + CULL_MARGIN);
-        for (Link link : bp.links()) {
+        for (Link link : controller.view().links()) {
             Vec2d from = endpoint(controller, link.fromNode(), link.fromPin(), true);
             Vec2d to = endpoint(controller, link.toNode(), link.toPin(), false);
             if (from == null || to == null) {
@@ -97,7 +98,7 @@ public final class WireLayer {
      */
     public static void renderExecFlow(GuiGraphics g, Camera camera, CanvasController controller,
                                       java.util.function.Predicate<Link> hot, long timeMs) {
-        for (Link link : controller.blueprint().links()) {
+        for (Link link : controller.view().links()) {
             NodeShape.PinDef def = controller.pinDef(link.fromNode(), link.fromPin());
             if (def == null || def.kind() != PinKind.EXEC || !hot.test(link)) {
                 continue;

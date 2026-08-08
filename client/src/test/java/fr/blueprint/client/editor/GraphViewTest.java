@@ -370,6 +370,41 @@ class GraphViewTest {
     }
 
     /**
+     * <b>Un fil posé dans un corps a tout ce qu'il faut pour être dessiné.</b>
+     *
+     * <p>Le fil se posait — le modèle l'acceptait — et ne se dessinait pas : la couche des
+     * fils parcourait {@code blueprint().links()}, les liens du graphe principal, jamais
+     * ceux du corps. Vu du joueur, tirer un fil ne produisait rien, ce qui se lit « je
+     * n'arrive pas à relier » et non « le dessin manque ».
+     *
+     * <p>Le rendu lui-même demande une fenêtre ; ce qu'il <b>lit</b>, non. Ce test tient les
+     * trois lectures dont un fil dessiné dépend — la liste, les deux extrémités, la nature
+     * du pin de départ. Aucune ne peut redevenir muette sans le faire rougir.
+     */
+    @Test
+    void unFilPoseDansUnCorpsATouteCeQuIlFautPourEtreDessine() {
+        assertTrue(controller.view().open("carre"));
+        UUID a = controller.insertNode(TYPE, 0, 0, null);
+        UUID b = controller.insertNode(TYPE, 300, 0, null);
+        assertNotNull(a);
+        assertNotNull(b);
+        Link fil = new Link(a, "exec_out", b, "exec_in");
+        assertTrue(controller.applyOp(new EditOperation.AddLink(fil)));
+
+        assertTrue(controller.view().links().contains(fil),
+                "la couche des fils parcourt cette liste : hors d'elle, rien n'est dessiné");
+        assertNotNull(controller.pinCenter(a, "exec_out"), "extrémité de départ introuvable");
+        assertNotNull(controller.pinCenter(b, "exec_in"), "extrémité d'arrivée introuvable");
+        assertNotNull(controller.pinDef(a, "exec_out"),
+                "sans la nature du pin, le fil ne saurait pas s'il est d'exécution");
+
+        controller.view().open(null);
+        assertFalse(controller.view().links().contains(fil),
+                "et vu du graphe principal, ce fil n'existe pas — sans quoi il se "
+                        + "dessinerait par-dessus des nœuds qui ne sont pas les siens");
+    }
+
+    /**
      * <b>Un corps ne montre aucun commentaire.</b>
      *
      * <p>{@code BlueprintFunction} n'en stocke pas. Laisser passer ceux du graphe principal

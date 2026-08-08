@@ -291,7 +291,7 @@ public final class CanvasWidget {
         minimapLeft = Minimap.left(width, rightPanel);
         minimapTop = Minimap.top(height);
         Minimap.render(g, camera, controller.boxes(),
-                controller.blueprint().links(), controller.selection().ids(),
+                controller.view().links(), controller.selection().ids(),
                 minimapLeft, minimapTop, canvasWidth(), height);
         renderGoto(g, font);
         renderEnumOptions(g, font);
@@ -331,7 +331,9 @@ public final class CanvasWidget {
         // un curseur immobile. Le zoom compte aussi (la tolérance de clic est en pixels).
         double wx = camera.toWorldX(mx);
         double wy = camera.toWorldY(my);
-        int revision = controller.blueprint().revision();
+        // La révision de la VUE : changer de corps ne modifie rien, donc ne fait pas bouger
+        // celle du blueprint — l'infobulle resservirait celle du graphe précédent.
+        int revision = controller.view().revision();
         if (wx != tooltipCacheWorldX || wy != tooltipCacheWorldY
                 || camera.zoomIndex() != tooltipCacheZoom || revision != tooltipCacheRevision
                 || nowMs - tooltipCacheAt > TOOLTIP_CACHE_MS) {
@@ -665,7 +667,7 @@ public final class CanvasWidget {
 
     /** Boîtes de commentaire (5.7) : sous les nœuds, translucides, titre + poignée. */
     private void renderComments(GuiGraphics g, Font font) {
-        for (fr.blueprint.core.graph.CommentBox box : controller.blueprint().comments()) {
+        for (fr.blueprint.core.graph.CommentBox box : controller.view().comments()) {
             int x1 = (int) Math.round(camera.toScreenX(box.position().x()));
             int y1 = (int) Math.round(camera.toScreenY(box.position().y()));
             int x2 = (int) Math.round(camera.toScreenX(box.position().x() + box.size().x()));
@@ -937,7 +939,7 @@ public final class CanvasWidget {
 
         CanvasController.PinRef pin = controller.pinAt(wx, wy);
         if (pin != null) {
-            Node node = controller.blueprint().node(pin.node());
+            Node node = controller.view().node(pin.node());
             contextMenu.openForPin(e.x(), e.y(), pin.node(), pin.pin(),
                     isWired(pin.node(), pin.pin()),
                     node != null && node.literal(pin.pin()) != null,
@@ -952,7 +954,7 @@ public final class CanvasWidget {
                 controller.selection().click(box.node().uuid(), false);
             }
             contextMenu.openForNode(e.x(), e.y(), box.node().uuid(),
-                    !controller.blueprint().linksTouching(box.node().uuid()).isEmpty(),
+                    !controller.view().linksTouching(box.node().uuid()).isEmpty(),
                     controller.selection().size());
             return openedContextMenu();
         }
@@ -1104,7 +1106,7 @@ public final class CanvasWidget {
         for (int i = 0; i < desc.inputs().size(); i++) {
             NodeDescriptor.PinDescriptor pin = desc.inputs().get(i);
             if (pin.kind() != fr.blueprint.api.pin.PinKind.DATA
-                    || !controller.blueprint().linksInto(nodeId, pin.name()).isEmpty()) {
+                    || !controller.view().linksInto(nodeId, pin.name()).isEmpty()) {
                 continue;   // un pin câblé n'a pas de littéral à éditer
             }
             if (beginLiteralEdit(nodeId, pin.name(), pin.type(), i)) {
