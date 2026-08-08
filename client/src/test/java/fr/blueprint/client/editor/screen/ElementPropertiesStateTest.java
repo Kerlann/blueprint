@@ -299,6 +299,57 @@ class ElementPropertiesStateTest {
     }
 
     /**
+     * <b>Un « remplir » montre toujours son poids.</b>
+     *
+     * <p>Le champ affichait « fill » tout court quand la part valait un — c'est-à-dire dans
+     * le cas le plus fréquent. Il ne disait alors rien de plus que la pastille « Remplir »
+     * allumée juste en dessous, et il cachait la seule chose qu'il sait régler dans ce
+     * mode : la part que l'élément prend sur ses frères. Un réglage qu'on ne voit pas
+     * n'existe pas.
+     *
+     * <p>Le poids reste tapable dans la syntaxe de BScript, que
+     * {@link #laTailleSeTapeCommeEnBScript()} garde : ce qui s'affiche se retape.
+     */
+    @Test
+    void unRemplissageMontreSaPart() {
+        state.select(ScreenElement.of("a", ElementKind.PANEL, 0, 0, 10, 10)
+                .resized(new Extent(Extent.Mode.FILL, 1, 0, 0), Extent.of(20)));
+        assertEquals("fill:1", state.valueOf(ElementPropertiesState.Field.WIDTH),
+                "la part par défaut est une part, pas rien");
+
+        state.select(ScreenElement.of("a", ElementKind.PANEL, 0, 0, 10, 10)
+                .resized(new Extent(Extent.Mode.FILL, 3, 0, 0), Extent.of(20)));
+        assertEquals("fill:3", state.valueOf(ElementPropertiesState.Field.WIDTH));
+    }
+
+    /**
+     * Ce qui s'affiche se retape à l'identique, dans les quatre modes.
+     *
+     * <p>La garde qui compte : le champ et l'analyseur sont deux écritures de la même
+     * syntaxe, et rien n'oblige à les changer ensemble. Un aller-retour les y oblige.
+     */
+    @Test
+    void ceQuiSafficheSeRetapeAlIdentique() {
+        for (Extent taille : java.util.List.of(
+                Extent.of(60),
+                Extent.percent(0.4, 0, 0),
+                new Extent(Extent.Mode.FILL, 2, 0, 0),
+                Extent.hug())) {
+            var element = ScreenElement.of("a", ElementKind.PANEL, 0, 0, 10, 10)
+                    .resized(taille, Extent.of(20));
+            state.select(element);
+            String affiche = state.valueOf(ElementPropertiesState.Field.WIDTH);
+
+            edit(ElementPropertiesState.Field.WIDTH, affiche);
+            ScreenElement out = state.commit(LIBRE);
+            assertNotNull(out, "« " + affiche + " » ne se relit pas");
+            assertEquals(taille.mode(), out.width().mode(), "mode perdu sur « " + affiche + " »");
+            assertEquals(taille.value(), out.width().value(), 1e-9,
+                    "valeur perdue sur « " + affiche + " »");
+        }
+    }
+
+    /**
      * <b>Le test qui compte.</b> Sans tampon de frappe, taper « -1 » serait impossible :
      * le « - » seul ne se convertit pas, la conversion échouerait, et le champ
      * reviendrait à sa valeur d'avant à chaque caractère.
