@@ -151,6 +151,12 @@ public final class ScreenPainter {
     private static final int MISSING_B = 0xFF000000;
     private static final int MISSING_CELL = 8;
 
+    /**
+     * Le liseré du champ qui reçoit la frappe — le même bleu que le canevas de nœuds met
+     * autour d'un littéral en cours d'édition. Un seul repère pour les deux éditeurs.
+     */
+    private static final int FOCUS = 0xFF7AA2F7;
+
     private ScreenPainter() {
     }
 
@@ -301,7 +307,8 @@ public final class ScreenPainter {
         switch (element.kind()) {
             case IMAGE -> {
                 if (element.texture() == null) {
-                    fillBox(g, left, top, right, bottom, background, style, scale);
+                    fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
                 } else if (visuals.textureMissing(element.texture())) {
                     // Ni écran vide, ni exception : le joueur doit voir CE qui manque.
                     // Vider l'écran ou lever lui donnerait un menu blanc sans indice,
@@ -318,34 +325,47 @@ public final class ScreenPainter {
                 }
             }
             case PROGRESS -> {
-                fillBox(g, left, top, right, bottom, background, style, scale);
+                fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
                 // Le remplissage vient du graphe (10.4) ; sans lui, la barre se montre
                 // vide plutôt qu'à moitié pleine — un aperçu ne doit pas inventer.
-                int filled = left + (int) Math.round(
-                        (right - left) * visuals.progress(element.name()));
-                if (filled > left) {
-                    g.fill(left, top, filled, bottom, style.textColor());
+                //
+                // Il se peint DANS la gouttière, pas par-dessus : à ras bord il recouvrait
+                // le relief creusé, et une barre pleine redevenait un rectangle plat dont
+                // rien ne disait que c'était une barre.
+                int inset = Math.max(1, style.borderWidth() * scale) + scale;
+                int trackLeft = left + inset;
+                int trackRight = right - inset;
+                int filled = trackLeft + (int) Math.round(
+                        (trackRight - trackLeft) * visuals.progress(element.name()));
+                if (filled > trackLeft) {
+                    g.fill(trackLeft, top + inset, filled, bottom - inset, style.textColor());
                 }
             }
             // ------------------------------------------ éléments riches (10.8)
             case LIST -> {
-                fillBox(g, left, top, right, bottom, background, style, scale);
+                fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
                 paintList(g, font, element, style, left, top, right, bottom, scale, visuals);
             }
             case INPUT -> {
-                fillBox(g, left, top, right, bottom, background, style, scale);
+                fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
                 paintInput(g, font, element, style, left, top, right, bottom, scale, visuals);
             }
             case TOGGLE -> {
-                fillBox(g, left, top, right, bottom, background, style, scale);
+                fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
                 paintToggle(g, element, style, left, top, right, bottom, scale, visuals);
             }
             case SLIDER -> {
-                fillBox(g, left, top, right, bottom, background, style, scale);
+                fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
                 paintSlider(g, font, element, style, left, top, right, bottom, scale, visuals);
             }
             case SLOT -> {
-                fillBox(g, left, top, right, bottom, background, style, scale);
+                fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
                 var stack = visuals.item(element.name());
                 if (stack != null && !stack.isEmpty()) {
                     // Centré dans son cadre : un objet fait seize pixels, l'emplacement
@@ -354,14 +374,17 @@ public final class ScreenPainter {
                 }
             }
             case ENTITY_PREVIEW -> {
-                fillBox(g, left, top, right, bottom, background, style, scale);
+                fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
                 paintEntity(g, element, left, top, right, bottom);
             }
             case DROPDOWN -> {
-                fillBox(g, left, top, right, bottom, background, style, scale);
+                fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
                 paintDropdown(g, font, element, style, left, top, right, bottom, scale, visuals);
             }
-            default -> fillBox(g, left, top, right, bottom, background, style, scale);
+            default -> fillBox(g, left, top, right, bottom, background, style, scale,
+                        depthOf(element.kind()));
         }
 
         // La liste déroulante est le seul type qui dessine son propre libellé, parce que
@@ -528,6 +551,15 @@ public final class ScreenPainter {
                                    int scale, Visuals visuals) {
         String typed = visuals.input(element.name());
         boolean focused = visuals.focused(element.name());
+        // Le champ actif se cerne. Il ne se distinguait que par un curseur d'un pixel :
+        // avec plusieurs champs à l'écran, rien ne disait lequel recevait la frappe — et
+        // c'est la première question qu'on se pose en tapant.
+        if (focused) {
+            g.fill(left, top, right, top + scale, FOCUS);
+            g.fill(left, bottom - scale, right, bottom, FOCUS);
+            g.fill(left, top, left + scale, bottom, FOCUS);
+            g.fill(right - scale, top, right, bottom, FOCUS);
+        }
         int inset = Math.max(2, style.padding() * scale);
         double textScale = style.textScale();
         int lineHeight = ScaledText.lineHeight(font, textScale);
@@ -674,6 +706,43 @@ public final class ScreenPainter {
 
     private static void fillBox(GuiGraphics g, int left, int top, int right, int bottom,
                                 int background, ElementStyle style, int scale) {
+        fillBox(g, left, top, right, bottom, background, style, scale, Depth.FLAT);
+    }
+
+    /**
+     * Le relief d'un élément : ce qui dit, sans un mot, ce qu'on peut en faire.
+     *
+     * <p>Tous les éléments recevaient le <b>même</b> châssis — un fond, un cadre d'un
+     * pixel. Un champ de saisie était donc un libellé avec une bordure, et rien n'y
+     * invitait à taper. C'est exactement le retour que le canevas de nœuds a déjà reçu une
+     * fois, et sa réponse est écrite dans son code : « le littéral doit se VOIR comme un
+     * champ, même vide ».
+     */
+    public enum Depth {
+        /** Ni creux ni saillant : du contenu, pas un contrôle. */
+        FLAT,
+        /** Saillant — on appuie dessus. */
+        RAISED,
+        /** Creusé — on y met quelque chose. */
+        SUNKEN
+    }
+
+    /**
+     * Le relief que ce type appelle.
+     *
+     * <p>Exhaustif et sans {@code default} : un treizième type d'élément ne compilera pas
+     * tant qu'on n'aura pas dit s'il se presse, se remplit, ou ne fait ni l'un ni l'autre.
+     */
+    public static Depth depthOf(fr.blueprint.core.graph.screen.ElementKind kind) {
+        return switch (kind) {
+            case BUTTON, TOGGLE -> Depth.RAISED;
+            case INPUT, SLOT, PROGRESS, SLIDER, LIST, DROPDOWN -> Depth.SUNKEN;
+            case PANEL, LABEL, IMAGE, ENTITY_PREVIEW -> Depth.FLAT;
+        };
+    }
+
+    private static void fillBox(GuiGraphics g, int left, int top, int right, int bottom,
+                                int background, ElementStyle style, int scale, Depth depth) {
         if ((background >>> 24) != 0) {
             g.fill(left, top, right, bottom, background);
         }
@@ -684,6 +753,47 @@ public final class ScreenPainter {
             g.fill(left, top, left + border, bottom, style.border());
             g.fill(right - border, top, right, bottom, style.border());
         }
+        if (depth != Depth.FLAT && (background >>> 24) != 0) {
+            bevel(g, left + border, top + border, right - border, bottom - border,
+                    background, depth == Depth.RAISED, scale);
+        }
+    }
+
+    /**
+     * Un liseré clair d'un côté, sombre de l'autre — le relief des interfaces depuis
+     * toujours, et celui de Minecraft lui-même.
+     *
+     * <p>Les deux teintes sont <b>dérivées du fond de l'élément</b> et non écrites en dur :
+     * un auteur qui choisit un bouton rouge doit obtenir un bouton rouge en relief, pas un
+     * bouton rouge cerné de gris. Une peau fixe aurait écrasé le style, ce que ce
+     * concepteur ne fait nulle part ailleurs.
+     */
+    private static void bevel(GuiGraphics g, int left, int top, int right, int bottom,
+                              int background, boolean raised, int scale) {
+        if (right - left <= 2 * scale || bottom - top <= 2 * scale) {
+            return;   // trop petit pour porter un relief : il mangerait tout l'élément
+        }
+        int light = shade(background, 0.35);
+        int dark = shade(background, -0.4);
+        int topLeft = raised ? light : dark;
+        int bottomRight = raised ? dark : light;
+        g.fill(left, top, right, top + scale, topLeft);
+        g.fill(left, top, left + scale, bottom, topLeft);
+        g.fill(left, bottom - scale, right, bottom, bottomRight);
+        g.fill(right - scale, top, right, bottom, bottomRight);
+    }
+
+    /** Éclaircit ({@code amount > 0}) ou assombrit une couleur, alpha conservé. */
+    private static int shade(int argb, double amount) {
+        int out = argb & 0xFF000000;
+        for (int shift = 0; shift < 24; shift += 8) {
+            int channel = (argb >>> shift) & 0xFF;
+            int mixed = amount > 0
+                    ? (int) Math.round(channel + (255 - channel) * amount)
+                    : (int) Math.round(channel * (1 + amount));
+            out |= Math.clamp(mixed, 0, 255) << shift;
+        }
+        return out;
     }
 
     private static void paintText(GuiGraphics g, Font font, ScreenElement element,
