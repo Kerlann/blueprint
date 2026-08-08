@@ -856,6 +856,12 @@ public final class ScreenDesignerWidget {
         }
     }
 
+    /** « 1.5 » et non « 1.5000 » : le facteur part dans un libellé lu par un humain. */
+    private static String trimScale(double value) {
+        return value == Math.rint(value) ? String.valueOf((long) value)
+                : String.valueOf(value);
+    }
+
     private String hudMark() {
         Screen screen = controller.screen();
         return screen != null && screen.hud() ? "H" : "M";
@@ -1053,6 +1059,29 @@ public final class ScreenDesignerWidget {
                         () -> apply(element.styled(element.style().withWrap(!wraps))))),
                 null, null));
         y += ROW;
+
+        // La taille du texte : des pastilles et non un champ. La police de Minecraft
+        // n'existe qu'à une taille et s'agrandit par un facteur ; proposer de taper un
+        // nombre laisserait croire à un réglage continu, alors qu'à ×1,3 les traits de la
+        // police tombent entre deux pixels et le texte devient flou.
+        if (ElementPropertiesState.showsAnyText(element.kind())) {
+            double current = element.style().textScale();
+            java.util.List<Chip> scales = new java.util.ArrayList<>();
+            int step = (PROPERTIES_WIDTH - 8) / fr.blueprint.core.graph.screen.ElementStyle.SCALES.length;
+            int cx = 4;
+            for (double option : fr.blueprint.core.graph.screen.ElementStyle.SCALES) {
+                double chosen = option;
+                scales.add(new Chip("×" + trimScale(option), cx, step - 1,
+                        Math.abs(current - option) < 1e-6,
+                        () -> apply(element.styled(element.style().withTextScale(chosen)))));
+                cx += step;
+            }
+            rows.add(new Row(y, I18n.get("blueprint.designer.text_scale"),
+                    java.util.List.of(), null, null));
+            y += ROW;
+            rows.add(new Row(y, "", scales, null, null));
+            y += ROW;
+        }
 
         if (element.kind().container()) {
             // Le défilement d'abord : c'est une propriété du conteneur lui-même, pas de

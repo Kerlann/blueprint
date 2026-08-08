@@ -57,6 +57,14 @@ public enum DiagnosticCode {
      * faire doit le dire.
      */
     SCREEN_SCROLL_HUGS,
+    /**
+     * Le texte agrandi ne tient plus en hauteur dans son élément (story 10.17).
+     *
+     * <p>Un avertissement : un texte coupé est laid, il n'empêche pas le menu de
+     * fonctionner. Et seule la HAUTEUR est contrôlée — elle est exacte, là où la largeur
+     * dépend des caractères et donc de la langue.
+     */
+    ELEMENT_TEXT_TOO_TALL,
     // Liaisons de données (story 10.7)
     SCREEN_BINDING_NOT_FOUND,
     // Fonctions (story 20.1)

@@ -316,6 +316,10 @@ public final class ElementPropertiesState {
     }
 
     /** Les types qui affichent des mots — les seuls à qui « Texte » veut dire quelque chose. */
+    public static boolean showsAnyText(ElementKind kind) {
+        return showsText(kind);
+    }
+
     private static boolean showsText(ElementKind kind) {
         return switch (kind) {
             case LABEL, BUTTON, INPUT, TOGGLE, DROPDOWN, PANEL -> true;

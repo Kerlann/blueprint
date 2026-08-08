@@ -378,10 +378,13 @@ public final class ScriptGenerator {
                 hex(style.pressedBackground()), hex(style.disabledBackground()),
                 num(style.padding()),
                 style.align().name().toLowerCase(java.util.Locale.ROOT));
-        // Écrit seulement quand il est vrai : un `.bp` exporté avant l'existence du
-        // retour à la ligne se relit sans changement, et un style qui ne l'utilise pas
-        // ne gagne pas un champ que personne ne lira.
-        return style.wrap() ? base + ", wrap" : base;
+        // Écrits seulement quand ils s'écartent du défaut : un `.bp` exporté avant
+        // l'existence du retour à la ligne ou de l'échelle de texte se relit sans
+        // changement, et un style qui ne s'en sert pas ne gagne pas un champ que personne
+        // ne lira. Le mot « wrap » puis le nombre : deux formes distinctes, donc le
+        // lecteur n'a pas besoin de compter les virgules pour savoir lequel il lit.
+        String out = style.wrap() ? base + ", wrap" : base;
+        return style.textScale() == 1 ? out : out + ", " + num(style.textScale());
     }
 
     private static String hex(int argb) {

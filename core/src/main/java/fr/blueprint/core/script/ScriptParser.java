@@ -732,18 +732,29 @@ public final class ScriptParser {
         // obligatoire aurait rendu illisible tout `.bp` déjà exporté, alors que rien ne
         // l'exige — un style qui ne renvoie pas à la ligne ne l'écrit tout simplement pas.
         boolean wrap = false;
-        if (peek().kind().equals("sym") && ",".equals(peek().text())) {
+        double textScale = 1;
+        while (peek().kind().equals("sym") && ",".equals(peek().text())) {
             next();
-            Token wrapToken = expect("word", null);
-            if (!"wrap".equals(wrapToken.text())) {
-                throw new ParseError(wrapToken.line(),
-                        "attendu « wrap » après l'alignement, lu « " + wrapToken.text() + " »");
+            Token trailing = peek();
+            if ("word".equals(trailing.kind())) {
+                next();
+                if (!"wrap".equals(trailing.text())) {
+                    throw new ParseError(trailing.line(),
+                            "attendu « wrap » après l'alignement, lu « "
+                                    + trailing.text() + " »");
+                }
+                wrap = true;
+            } else {
+                // L'échelle de texte, onzième champ facultatif. Reconnue à sa FORME — un
+                // nombre là où « wrap » est un mot — plutôt qu'à sa position : compter les
+                // virgules obligerait à écrire « wrap » même quand on ne le veut pas, pour
+                // atteindre le champ suivant.
+                textScale = number(next());
             }
-            wrap = true;
         }
         try {
             return new ElementStyle(background, border, borderWidth, textColor,
-                    hover, pressed, disabled, padding, align, wrap);
+                    hover, pressed, disabled, padding, align, wrap, textScale);
         } catch (IllegalArgumentException e) {
             throw new ParseError(open.line(), e.getMessage());
         }

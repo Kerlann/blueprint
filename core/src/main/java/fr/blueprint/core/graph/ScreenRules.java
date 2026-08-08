@@ -65,6 +65,31 @@ public final class ScreenRules {
             }
         }
 
+        // Le texte agrandi ne tient plus dans son élément.
+        //
+        // Ne contrôle que la HAUTEUR, jamais la largeur, et c'est délibéré. La hauteur
+        // d'une ligne est exacte — neuf pixels, quel que soit le contenu — donc le
+        // reproche est sûr : s'il se déclenche, le texte est vraiment coupé. La largeur,
+        // elle, dépend des caractères, et le texte peut être une CLÉ de traduction : la
+        // mesurer ici donnerait un avertissement juste en français et faux dans les vingt
+        // autres langues du serveur. Mieux vaut un contrôle qui se tait sur ce qu'il ne
+        // sait pas — c'est déjà le parti de NodeGeometry, qui estime la largeur d'une
+        // pastille plutôt que de réclamer la police.
+        //
+        // Un avertissement et non une erreur : un texte coupé est laid, il n'empêche pas
+        // le menu de fonctionner, et refuser d'exécuter pour cela serait disproportionné.
+        if (showsText(element) && !arrangedByParent(screen, element)) {
+            ScreenLayout.Rect rect = ScreenLayout.resolve(screen, element,
+                    Screen.SAFE_WIDTH, Screen.SAFE_HEIGHT);
+            double lineHeight = TEXT_LINE_HEIGHT * element.style().textScale();
+            double room = rect.height() - element.style().padding() * 2.0;
+            if (lineHeight > room) {
+                return Diagnostic.warning(DiagnosticCode.ELEMENT_TEXT_TOO_TALL,
+                        Diagnostic.element(screenName, element.name()),
+                        element.name(), trim(element.style().textScale()));
+            }
+        }
+
         // Un HUD ne capte pas la souris (story 10.9) : un bouton y serait un leurre.
         if (screen.hud() && element.kind().interactive()) {
             return Diagnostic.error(DiagnosticCode.INTERACTIVE_IN_HUD,
@@ -100,6 +125,29 @@ public final class ScreenRules {
     }
 
     /** Le parent de cet élément range-t-il ses enfants ? */
+    /**
+     * La hauteur d'une ligne de texte, en unités d'écran.
+     *
+     * <p>Neuf : la police de Minecraft mesure huit pixels plus un d'interligne, et une
+     * unité d'écran vaut un pixel d'interface. Écrite ici plutôt que lue de la police
+     * parce que le validateur tourne aussi <b>côté serveur</b>, où aucune police n'existe.
+     */
+    private static final double TEXT_LINE_HEIGHT = 9;
+
+    /** Les types qui affichent des mots — les seuls que la taille du texte concerne. */
+    private static boolean showsText(ScreenElement element) {
+        return switch (element.kind()) {
+            case LABEL, BUTTON, INPUT, TOGGLE, DROPDOWN -> !element.text().value().isEmpty();
+            case PANEL, IMAGE, PROGRESS, SLOT, SLIDER, LIST, ENTITY_PREVIEW -> false;
+        };
+    }
+
+    /** « 1.5 » et non « 1.5000000 » : le nombre part dans un message lu par un humain. */
+    private static String trim(double value) {
+        return value == Math.rint(value) ? String.valueOf((long) value)
+                : String.valueOf(value);
+    }
+
     private static boolean arrangedByParent(Screen screen, ScreenElement element) {
         if (element.parent() == null) {
             return false;

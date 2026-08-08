@@ -683,17 +683,22 @@ public final class ScreenPainter {
             paintWrapped(g, font, element, text, left, top, right, bottom, padding, inner);
             return;
         }
-        // Le texte n'est pas mis à l'échelle : agrandir la police d'un facteur entier
-        // dans le concepteur donnerait un aperçu trompeur, puisqu'en jeu elle garde sa
-        // taille. Mieux vaut un texte petit et juste qu'un texte gros et faux.
-        String plain = font.plainSubstrByWidth(text.getString(), inner);
-        int y = top + (bottom - top - font.lineHeight) / 2;
+        // Le texte ne suit pas le facteur du CANEVAS : l'agrandir dans le concepteur
+        // donnerait un aperçu trompeur, puisqu'en jeu la police garde sa taille. Mieux
+        // vaut un texte petit et juste qu'un texte gros et faux.
+        //
+        // Il suit en revanche l'échelle de son STYLE, qui est une propriété de l'élément :
+        // celle-là s'applique en jeu aussi, donc l'aperçu reste honnête.
+        double textScale = element.style().textScale();
+        String plain = ScaledText.fit(font, text.getString(), inner, textScale);
+        int y = top + (bottom - top - ScaledText.lineHeight(font, textScale)) / 2;
+        int shown = ScaledText.width(font, plain, textScale);
         int x = switch (element.style().align()) {
             case LEFT -> left + padding;
-            case CENTER -> left + padding + (inner - font.width(plain)) / 2;
-            case RIGHT -> right - padding - font.width(plain);
+            case CENTER -> left + padding + (inner - shown) / 2;
+            case RIGHT -> right - padding - shown;
         };
-        g.drawString(font, plain, x, y, element.style().textColor(), false);
+        ScaledText.draw(g, font, plain, x, y, element.style().textColor(), textScale);
     }
 
     /**
@@ -715,25 +720,45 @@ public final class ScreenPainter {
     private static void paintWrapped(GuiGraphics g, Font font, ScreenElement element,
                                      Component text, int left, int top, int right,
                                      int bottom, int padding, int inner) {
-        var lines = font.split(text, inner);
+        // La coupe aux mots se fait à l'échelle 1, dans le repère où la police sait
+        // couper ; c'est la largeur DISPONIBLE qu'on y ramène. Couper à la largeur réelle
+        // puis agrandir donnerait des lignes deux fois trop longues.
+        double scale = element.style().textScale();
+        int lineHeight = ScaledText.lineHeight(font, scale);
+        var lines = font.split(text, (int) Math.floor(inner / Math.max(0.01, scale)));
         if (lines.isEmpty()) {
             return;
         }
         int room = bottom - top - padding * 2;
-        int fits = Math.max(1, Math.min(lines.size(), room / font.lineHeight));
-        int blockHeight = fits * font.lineHeight;
+        int fits = Math.max(1, Math.min(lines.size(), room / lineHeight));
+        int blockHeight = fits * lineHeight;
         int y = top + (bottom - top - blockHeight) / 2;
         for (int i = 0; i < fits; i++) {
             var line = lines.get(i);
-            int width = font.width(line);
+            int width = (int) Math.round(font.width(line) * scale);
             int x = switch (element.style().align()) {
                 case LEFT -> left + padding;
                 case CENTER -> left + padding + (inner - width) / 2;
                 case RIGHT -> right - padding - width;
             };
-            g.drawString(font, line, x, y + i * font.lineHeight,
-                    element.style().textColor(), false);
+            drawScaled(g, font, line, x, y + i * lineHeight,
+                    element.style().textColor(), scale);
         }
+    }
+
+    /** {@link ScaledText#draw} pour une ligne déjà découpée par la police. */
+    private static void drawScaled(GuiGraphics g, Font font,
+                                   net.minecraft.util.FormattedCharSequence line,
+                                   int x, int y, int color, double scale) {
+        if (scale == 1) {
+            g.drawString(font, line, x, y, color, false);
+            return;
+        }
+        g.pose().pushMatrix();
+        g.pose().translate((float) x, (float) y);
+        g.pose().scale((float) scale, (float) scale);
+        g.drawString(font, line, 0, 0, color, false);
+        g.pose().popMatrix();
     }
 
     /** Le rectangle d'un élément converti en pixels — le concepteur en a besoin aussi. */

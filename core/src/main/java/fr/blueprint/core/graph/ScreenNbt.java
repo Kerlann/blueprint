@@ -267,6 +267,12 @@ public final class ScreenNbt {
         if (style.wrap()) {
             tag.putBoolean("wrap", true);
         }
+        // Même règle : écrite seulement si elle diffère de 1. Un écran qui ne touche pas
+        // à la taille du texte pèse exactement ce qu'il pesait, et une version antérieure
+        // le relit sans rien voir.
+        if (style.textScale() != 1) {
+            tag.putDouble("textScale", style.textScale());
+        }
         return tag;
     }
 
@@ -424,7 +430,8 @@ public final class ScreenNbt {
                 tag.getIntOr("disabled", 0),
                 Math.max(0, tag.getIntOr("padding", ElementStyle.DEFAULT.padding())),
                 alignOf(tag.getStringOr("align", "")),
-                tag.getBooleanOr("wrap", false));
+                tag.getBooleanOr("wrap", false),
+                tag.getDoubleOr("textScale", 1));
     }
 
     private static @Nullable ElementKind kindOf(String raw) {
