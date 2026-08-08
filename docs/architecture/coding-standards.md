@@ -114,7 +114,7 @@ Trois formes, dans cet ordre de préférence :
 3. **Le temps mural**, seulement avec une marge d'un ordre de grandeur. C'est le cas des
    bancs de rendu, qui mesurent des images entières : ils n'ont jamais rougi.
 
-Et **deux** règles qui valent pour les trois formes :
+Et **trois** règles qui valent pour les trois formes :
 
 - **Un banc qu'on n'a jamais vu échouer ne prouve rien.** Avant de le commiter, remettre le
   défaut qu'il surveille et vérifier qu'il rougit.
@@ -122,6 +122,22 @@ Et **deux** règles qui valent pour les trois formes :
   casse ne dit rien de sa stabilité quand tout va bien. Relever la valeur qui passe, la
   comparer au seuil, et viser au moins un ordre de grandeur — c'est cet oubli, et lui
   seul, qui a produit l'échec à 0,51 contre 0,50.
+- **Un banc coûteux porte `@Tag("bench")`.** Il sort alors de `test` pour rejoindre la
+  tâche `bench`, que `check` exige — donc `./gradlew build` le lance toujours.
+
+  Deux raisons, dans cet ordre. La seconde d'abord : ils mesuraient jusqu'ici **après**
+  huit cent quarante tests dans la même machine virtuelle, sur un JIT chauffé par tout
+  autre chose que ce qu'ils chronomètrent. Seuls, ils partent d'un état connu.
+
+  La première est prosaïque : `FuelCalibrationTest` et `CompilerPerfTest` coûtaient **76
+  des 81 secondes** de `:core:test`, les huit cent quarante autres tests en coûtant cinq.
+  Une boucle de travail qui paie ça à chaque correction d'affichage n'est pas une boucle,
+  et on finit par ne plus la lancer — ce qui coûte bien plus cher qu'un banc lent.
+
+  **Le seuil n'est pas déplacé** : `jacocoTestCoverageVerification` dépend des deux tâches
+  et lit les deux traces. Mesuré : les bancs n'apportent que quinze instructions de
+  couverture (0,7711 → 0,7713), le raccord ne sert donc qu'à ce qu'un banc futur ne
+  disparaisse pas du compte en silence.
 
 ## 8. Documentation
 

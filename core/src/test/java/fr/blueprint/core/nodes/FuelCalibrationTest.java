@@ -5,6 +5,7 @@ import fr.blueprint.api.pin.PinKind;
 import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.core.registry.PluginLoader;
 import net.minecraft.resources.Identifier;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * mesurables ici : ils sont tarifés par analyse documentée, et couverts par le garde-fou
  * de {@code StandardLibraryTest}.
  */
+@Tag("bench")
 class FuelCalibrationTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("blueprint-test");

@@ -9,6 +9,7 @@ import fr.blueprint.core.graph.Link;
 import fr.blueprint.core.graph.Vec2d;
 import fr.blueprint.core.registry.PluginLoader;
 import net.minecraft.resources.Identifier;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** NFR2 : compilation d'un graphe de 1 000 nœuds < 50 ms, mesurée et consignée. */
+@Tag("bench")
 class CompilerPerfTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("blueprint-test");
