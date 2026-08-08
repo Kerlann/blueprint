@@ -58,6 +58,8 @@ public final class ScreenDesignerWidget {
     private static final int TEXT = 0xFFD5D8DC;
     private static final int DIM_TEXT = 0xFF8A909A;
     private static final int SELECTED = 0xFF7AA2F7;
+    /** Fond de la ligne active : le liseré du panneau des variables, adouci. */
+    private static final int SELECTED_ROW = 0xFF2F3A55;
     private static final int INVALID = 0xFFF7768E;
     private static final int SURFACE_BACKGROUND = 0xFF101114;
     private static final int SAFE_BORDER = 0xFF4A4F58;
@@ -647,120 +649,137 @@ public final class ScreenDesignerWidget {
         if (!panels.paletteOpen()) {
             return;
         }
-
-        int y = top + 3;
-        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.screens"), PALETTE_LABEL), 4, y, DIM_TEXT, false);
-        y += ROW;
-        for (String name : session.blueprint().screens().keySet()) {
-            boolean active = name.equals(controller.screenName());
-            // Celui qu'on renomme montre la frappe. Le tampon existait, alimenté par
-            // charTyped, et n'était dessiné nulle part : on tapait un nom sans le voir,
-            // sans savoir qu'un mode de saisie était ouvert, jusqu'à Entrée.
-            if (name.equals(renamingScreen)) {
-                g.drawString(font, font.plainSubstrByWidth(screenBuffer + "_", PALETTE_LABEL),
-                        6, y, SELECTED, false);
-                y += ROW;
-                continue;
-            }
-            g.drawString(font, font.plainSubstrByWidth(name, PALETTE_LABEL), 6, y,
-                    active ? SELECTED : TEXT, false);
-            y += ROW;
+        // Tout ce qui décide vit dans DesignerPalette ; ici il ne reste que la peinture.
+        // Les ordonnées se calculaient des deux côtés, et les deux calculs avaient divergé
+        // à un endroit tout en tombant d'accord partout ailleurs — ce qui rendait le
+        // défaut invisible. Une seule source, comme DesignerPanels le fait des largeurs.
+        DesignerPalette.Model model = paletteModel();
+        for (DesignerPalette.Row row : DesignerPalette.rows(model, top, height,
+                paletteScroll.offset(DesignerPalette.contentRows(model),
+                        DesignerPalette.visibleRows(top, height)))) {
+            paintRow(g, font, row);
         }
-        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.add_screen"), PALETTE_LABEL), 6, y, DIM_TEXT, false);
-        y += ROW;
-        // Les actions de l'écran COURANT, sous sa liste : renommer, supprimer, et le
-        // passage modal ↔ HUD, qui n'existaient nulle part — on pouvait créer un écran
-        // et plus jamais le défaire.
-        Screen current = controller.screen();
-        boolean hud = current != null && current.hud();
-        String mode = hud ? I18n.get("blueprint.designer.screen_hud")
-                : I18n.get("blueprint.designer.screen_modal");
-        g.drawString(font, font.plainSubstrByWidth(mode, PALETTE_LABEL), 6, y,
-                hud ? SELECTED : DIM_TEXT, false);
-        y += ROW;
-        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.rename_screen"), PALETTE_LABEL), 6, y, DIM_TEXT, false);
-        y += ROW;
-        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.remove_screen"), PALETTE_LABEL), 6, y, DIM_TEXT, false);
-        // La rangée de « supprimer l'écran » se consomme AVANT le filet. Sans ce pas, le
-        // filet se traçait au milieu de son texte, et les deux premiers pixels du titre
-        // « Éléments » tombaient dans sa zone cliquable — un clic à cet endroit supprimait
-        // un écran.
-        y += ROW;
-        y = separator(g, y);
-
-        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.elements"),
-                PALETTE_LABEL), 4, y, DIM_TEXT, false);
-        y += ROW;
-        for (ElementKind kind : ElementKind.values()) {
-            g.drawString(font, font.plainSubstrByWidth(I18n.get(kindKey(kind)),
-                    PALETTE_LABEL), 6, y, TEXT, false);
-            y += ROW;
-        }
-        renderLayers(g, font, separator(g, y));
     }
 
-    /**
-     * Un filet entre deux sections de la palette. Elles se suivaient sans respiration :
-     * « Screens », « Elements » et « Layers » formaient une seule colonne de mots qu'il
-     * fallait lire en entier pour trouver où l'une finissait.
-     */
-    private int separator(GuiGraphics g, int y) {
-        g.fill(4, y + SECTION_GAP / 2, PALETTE_WIDTH - 5, y + SECTION_GAP / 2 + 1, PANEL_BORDER);
-        return y + SECTION_GAP;
-    }
-
-    /**
-     * La liste des éléments, du <b>dessus vers le dessous</b> — l'ordre de dessin lu à
-     * l'envers, comme dans tout éditeur graphique.
-     *
-     * <p>C'est la seule façon d'atteindre un parent entièrement recouvert par ses
-     * enfants : sur le canevas, cliquer dessus attrape l'enfant, toujours. Sans cette
-     * liste, un panneau de fond devenait injoignable dès qu'on avait posé quelque chose
-     * par-dessus — et il n'y avait plus aucun moyen de le déplacer ni de le supprimer.
-     */
-    private void renderLayers(GuiGraphics g, Font font, int startY) {
+    /** Ce que la colonne a besoin de savoir, relu à chaque image. */
+    private DesignerPalette.Model paletteModel() {
         Screen screen = controller.screen();
-        if (screen == null) {
-            return;
-        }
-        g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.layers"), PALETTE_LABEL), 4, startY, DIM_TEXT, false);
-        int y = startY + ROW;
-        for (String name : layerOrder(screen)) {
-            if (y + ROW > height) {
-                break;   // le panneau ne déborde pas : le reste s'atteint au canevas
+        List<DesignerPalette.Layer> layers = new java.util.ArrayList<>();
+        if (screen != null) {
+            for (ScreenElement element : screen.elements().values()) {
+                layers.add(new DesignerPalette.Layer(element.name(), element.parent(),
+                        element.visible()));
             }
-            ScreenElement element = screen.element(name);
-            boolean selected = controller.selection().isSelected(name);
-            int depth = depthOf(screen, name);
-            // L'œil dit d'un coup ce qui est masqué — sans lui, un élément invisible
-            // à la conception se confond avec un élément absent.
-            g.drawString(font, element.visible() ? "◉" : "○", 4, y,
-                    element.visible() ? TEXT : DIM_TEXT, false);
-            g.drawString(font, font.plainSubstrByWidth(name, PALETTE_WIDTH - 18 - depth * 4),
-                    14 + depth * 4, y, selected ? SELECTED : TEXT, false);
-            y += ROW;
+        }
+        return new DesignerPalette.Model(
+                List.copyOf(session.blueprint().screens().keySet()), controller.screenName(),
+                renamingScreen, screenBuffer, screen != null && screen.hud(),
+                layers, List.copyOf(controller.selection().ids()),
+                List.copyOf(collapsedLayers));
+    }
+
+    private void paintRow(GuiGraphics g, Font font, DesignerPalette.Row row) {
+        int w = DesignerPalette.WIDTH;
+        switch (row.kind()) {
+            case SECTION -> {
+                g.fill(0, row.y(), w - 1, row.y() + 1, PANEL_BORDER);
+                g.drawString(font, font.plainSubstrByWidth(
+                                I18n.get(row.label()), w - 18),
+                        4, row.y() + 3, DIM_TEXT, false);
+                if ("blueprint.designer.screens".equals(row.label())) {
+                    g.drawString(font, "+", w - 12, row.y() + 3, TEXT, false);
+                }
+            }
+            case GROUP -> g.drawString(font, font.plainSubstrByWidth(
+                            I18n.get(row.label()), w - 8),
+                    4, row.y() + 2, DIM_TEXT, false);
+            case EMPTY -> g.drawString(font, font.plainSubstrByWidth(
+                            I18n.get(row.label()), w - 8),
+                    4, row.y() + 2, DIM_TEXT, false);
+            case SCREEN -> {
+                if (row.selected()) {
+                    g.fill(0, row.y(), w - 1, row.y() + DesignerPalette.ROW, SELECTED_ROW);
+                }
+                int room = row.selected() ? w - 40 : w - 8;
+                g.drawString(font, font.plainSubstrByWidth(row.label(), room), 4, row.y() + 2,
+                        row.selected() ? SELECTED : TEXT, false);
+                if (row.selected()) {
+                    // Les trois actions de la ligne active, au même endroit que celles du
+                    // panneau des variables et de celui des fonctions.
+                    g.drawString(font, hudMark(), w - 32, row.y() + 2, DIM_TEXT, false);
+                    g.drawString(font, "✎", w - 22, row.y() + 2, DIM_TEXT, false);
+                    g.drawString(font, "×", w - 12, row.y() + 2, DIM_TEXT, false);
+                }
+            }
+            case ELEMENT -> {
+                ElementKind kind = row.element();
+                kindGlyph(g, kind, 8, row.y() + DesignerPalette.ROW / 2, kindColor(kind));
+                g.drawString(font, font.plainSubstrByWidth(I18n.get(kindKey(kind)), w - 20),
+                        16, row.y() + 2, TEXT, false);
+            }
+            case LAYER -> {
+                if (row.selected()) {
+                    g.fill(0, row.y(), w - 1, row.y() + DesignerPalette.ROW, SELECTED_ROW);
+                }
+                if (row.expandable()) {
+                    g.drawString(font, row.expanded() ? "▾" : "▸",
+                            2 + row.depth() * 4, row.y() + 2, DIM_TEXT, false);
+                }
+                // L'œil dit d'un coup ce qui est masqué — sans lui, un élément invisible
+                // à la conception se confond avec un élément absent.
+                g.drawString(font, row.visible() ? "◉" : "○", DesignerPalette.eyeX(row),
+                        row.y() + 2, row.visible() ? TEXT : DIM_TEXT, false);
+                int nameX = DesignerPalette.nameX(row);
+                g.drawString(font, font.plainSubstrByWidth(row.label(), w - nameX - 4),
+                        nameX, row.y() + 2, row.selected() ? SELECTED : TEXT, false);
+            }
+            default -> {
+            }
         }
     }
 
-    /** Du dessus vers le dessous, chaque enfant sous son parent. */
-    private static List<String> layerOrder(Screen screen) {
-        List<String> out = new java.util.ArrayList<>(screen.elements().keySet());
-        java.util.Collections.reverse(out);
-        return out;
+    private String hudMark() {
+        Screen screen = controller.screen();
+        return screen != null && screen.hud() ? "H" : "M";
     }
 
-    private static int depthOf(Screen screen, String name) {
-        int depth = 0;
-        java.util.Set<String> seen = new java.util.HashSet<>();
-        seen.add(name);
-        ScreenElement element = screen.element(name);
-        String cursor = element == null ? null : element.parent();
-        while (cursor != null && seen.add(cursor) && depth < 4) {
-            depth++;
-            ScreenElement up = screen.element(cursor);
-            cursor = up == null ? null : up.parent();
+    /**
+     * La teinte d'un type, par famille — conteneur, affichage, interactif.
+     *
+     * <p>Le même partage que les groupes de la colonne, et la même raison : ce que le
+     * modèle sait déjà dire d'un type vaut mieux qu'un classement inventé.
+     */
+    private static int kindColor(ElementKind kind) {
+        return switch (DesignerPalette.groupOf(kind)) {
+            case CONTAINER -> 0xFF7DCFFF;
+            case DISPLAY -> 0xFFE5C07B;
+            case INTERACTIVE -> 0xFF9ECE6A;
+        };
+    }
+
+    /**
+     * Un pictogramme de 7×7 par famille, sur le patron de {@code NodeWidget.categoryGlyph}.
+     *
+     * <p>Douze mots en colonne se lisent tous pour en trouver un. Une forme se reconnaît de
+     * plus loin qu'un nom, et c'est ce que le canevas de nœuds fait de ses catégories
+     * depuis la 5.13.
+     */
+    private static void kindGlyph(GuiGraphics g, ElementKind kind, int cx, int cy, int color) {
+        switch (DesignerPalette.groupOf(kind)) {
+            case CONTAINER -> {              // un cadre évidé
+                g.fill(cx - 3, cy - 3, cx + 4, cy + 4, color);
+                g.fill(cx - 2, cy - 2, cx + 3, cy + 3, PANEL_BACKGROUND);
+            }
+            case DISPLAY -> {                // trois lignes de texte
+                for (int dy = -2; dy <= 2; dy += 2) {
+                    g.fill(cx - 3, cy + dy, cx + (dy == 2 ? 1 : 4), cy + dy + 1, color);
+                }
+            }
+            case INTERACTIVE -> {            // une touche enfoncée
+                g.fill(cx - 3, cy - 2, cx + 4, cy + 2, color);
+                g.fill(cx - 2, cy + 2, cx + 3, cy + 3, color);
+            }
         }
-        return depth;
     }
 
     private static String kindKey(ElementKind kind) {
@@ -781,11 +800,45 @@ public final class ScreenDesignerWidget {
                        ElementPropertiesState.@Nullable Field field, @Nullable String value) {
     }
 
+    /**
+     * Rien de sélectionné : le panneau décrit l'<b>écran</b>, pas le vide.
+     *
+     * <p>Il affichait « Sélectionnez un élément » et rien d'autre — une colonne de cent
+     * vingt-huit pixels réservée à une phrase. Or il y a quelque chose à dire : l'écran
+     * qu'on est en train de dessiner, sa nature et sa taille. C'est le précédent du panneau
+     * de détails du graphe, qui décrit le blueprint quand aucun nœud n'est choisi.
+     *
+     * <p>La nature — modal ou HUD — se règle ici plutôt que dans la colonne de gauche, où
+     * elle tenait dans une lettre. « Modal (Échap ferme) » se lit ; « M » se devine.
+     */
+    private java.util.List<Row> screenRows(Screen screen) {
+        java.util.List<Row> rows = new java.util.ArrayList<>();
+        int y = top + 3;
+        rows.add(new Row(y, I18n.get("blueprint.designer.screen"), java.util.List.of(),
+                null, screen.name()));
+        y += ROW;
+        rows.add(new Row(y, "", java.util.List.of(new Chip(
+                I18n.get(screen.hud() ? "blueprint.designer.screen_hud"
+                        : "blueprint.designer.screen_modal"),
+                4, PROPERTIES_WIDTH - 8, screen.hud(), () -> {
+                    if (!controller.toggleHud()) {
+                        reportRefusal();
+                    }
+                })), null, null));
+        y += ROW;
+        rows.add(new Row(y, I18n.get("blueprint.designer.elements"), java.util.List.of(),
+                null, String.valueOf(screen.elements().size())));
+        return rows;
+    }
+
     private java.util.List<Row> propertyRows() {
         ScreenElement element = properties.element();
         Screen screen = controller.screen();
-        if (element == null || screen == null) {
+        if (screen == null) {
             return java.util.List.of();
+        }
+        if (element == null) {
+            return screenRows(screen);
         }
         java.util.List<Row> rows = new java.util.ArrayList<>();
         int y = top + 3;
@@ -1121,12 +1174,15 @@ public final class ScreenDesignerWidget {
             return true;
         }
         if (panels.inPalette(mx)) {
-            return clickPalette(my);
+            return clickPalette(mx, my);
         }
         if (panels.inProperties(mx, width)) {
             return clickProperties(mx, my);
         }
-        if (!surface.contains(mx, my)) {
+        // La zone, pas seulement la surface : la surface ignore où elle est découpée, si
+        // bien qu'un clic dans la bande de douze pixels du haut — celle qui appartient à la
+        // barre — atteignait un élément qu'on ne voyait pas à cet endroit.
+        if (my < areaTop || !surface.contains(mx, my)) {
             return false;
         }
         commitEdit();
@@ -1135,68 +1191,71 @@ public final class ScreenDesignerWidget {
         return true;
     }
 
-    private boolean clickPalette(double my) {
-        int y = top + 3 + ROW;
-        for (String name : List.copyOf(session.blueprint().screens().keySet())) {
-            if (my >= y && my < y + ROW) {
-                controller.setScreenName(name);
-                return true;
-            }
-            y += ROW;
-        }
-        if (my >= y && my < y + ROW) {
-            addScreen();
-            return true;
-        }
-        y += ROW;
-        if (my >= y && my < y + ROW) {
-            if (!controller.toggleHud()) {
-                reportRefusal();
-            }
-            return true;
-        }
-        y += ROW;
-        if (my >= y && my < y + ROW) {
-            // Le renommage se fait dans le champ du panneau de droite, réutilisé : un
-            // second éditeur de texte donnerait deux comportements de frappe à retenir.
-            renamingScreen = controller.screenName();
-            screenBuffer = controller.screenName();
-            return true;
-        }
-        y += ROW;
-        if (my >= y && my < y + ROW) {
-            controller.removeCurrentScreen();
-            return true;
-        }
-        // Le même pas que le rendu : la rangée de suppression, puis le filet, puis le
-        // titre. Il manquait des deux côtés à la fois, ce qui les faisait tomber d'accord
-        // sur les types tout en décalant le filet et le titre — le genre d'accord qui
-        // cache un défaut au lieu de le montrer.
-        y += ROW;
-        y += SECTION_GAP + ROW;
-        for (ElementKind kind : ElementKind.values()) {
-            if (my >= y && my < y + ROW) {
-                if (controller.addElement(kind, dropX(), dropY()) == null) {
+    /**
+     * Le clic dans la colonne — <b>décidé</b> par {@link DesignerPalette}, appliqué ici.
+     *
+     * <p>L'abscisse arrive enfin jusqu'ici : sans elle, l'œil des calques était dessiné et
+     * inerte, et le clic sélectionnait au lieu de basculer la visibilité, contre ce que le
+     * commentaire de la méthode annonçait.
+     */
+    private boolean clickPalette(double mx, double my) {
+        DesignerPalette.Model model = paletteModel();
+        int scroll = paletteScroll.offset(DesignerPalette.contentRows(model),
+                DesignerPalette.visibleRows(top, height));
+        DesignerPalette.Click click =
+                DesignerPalette.clickAt(model, top, height, scroll, mx, my);
+        switch (click.hit()) {
+            case SCREEN_ADD -> addScreen();
+            case SCREEN_SELECT -> controller.setScreenName(click.name());
+            case SCREEN_MODE -> {
+                if (!controller.toggleHud()) {
                     reportRefusal();
                 }
-                return true;
             }
-            y += ROW;
-        }
-        y += SECTION_GAP + ROW;
-        // La liste des calques : sélectionner, et basculer la visibilité par l'œil.
-        Screen screen = controller.screen();
-        if (screen != null) {
-            for (String name : layerOrder(screen)) {
-                if (my >= y && my < y + ROW) {
-                    controller.selection().selectAll(List.of(name), false);
-                    return true;
+            case SCREEN_RENAME -> {
+                renamingScreen = controller.screenName();
+                screenBuffer = controller.screenName();
+            }
+            case SCREEN_DELETE -> controller.removeCurrentScreen();
+            case ELEMENT_ADD -> {
+                if (controller.addElement(click.element(), dropX(), dropY()) == null) {
+                    reportRefusal();
                 }
-                y += ROW;
+            }
+            case LAYER_SELECT -> controller.selection().selectAll(List.of(click.name()), false);
+            case LAYER_VISIBILITY -> toggleLayerVisibility(click.name());
+            case LAYER_EXPAND -> {
+                if (!collapsedLayers.remove(click.name())) {
+                    collapsedLayers.add(click.name());
+                }
+            }
+            default -> {
             }
         }
         return true;
     }
+
+    /**
+     * Masque ou révèle un seul calque, sans toucher à la sélection.
+     *
+     * <p>{@code Ctrl+H} bascule la sélection entière ; l'œil vise une ligne. Passer par la
+     * sélection ferait de la visibilité un geste qui déplace le curseur de travail.
+     */
+    private void toggleLayerVisibility(String name) {
+        Screen screen = controller.screen();
+        ScreenElement element = screen == null ? null : screen.element(name);
+        if (element == null) {
+            return;
+        }
+        if (!controller.setElement(element.withVisible(!element.visible()))) {
+            reportRefusal();
+        }
+    }
+
+    /** Les calques repliés, par nom. Un état d'affichage : rien à enregistrer. */
+    private final java.util.Set<String> collapsedLayers = new java.util.LinkedHashSet<>();
+    private final fr.blueprint.client.editor.PanelScroll paletteScroll =
+            new fr.blueprint.client.editor.PanelScroll();
 
     /**
      * Où poser un élément : le centre de ce qu'on <b>voit</b>.
@@ -1296,6 +1355,15 @@ public final class ScreenDesignerWidget {
         }
         this.mouseX = mx;
         this.mouseY = my;
+        // Au-dessus de la COLONNE, la molette la fait défiler. Elle zoomait le canevas :
+        // les trois sections s'empilaient sans défiler, et le seul geste qu'on essaie
+        // au-dessus d'une liste trop longue agissait ailleurs.
+        if (panels.paletteOpen() && panels.inPalette(mx)) {
+            DesignerPalette.Model model = paletteModel();
+            paletteScroll.scrollBy(amount > 0 ? -1 : 1, DesignerPalette.contentRows(model),
+                    DesignerPalette.visibleRows(top, height));
+            return true;
+        }
         // Au-dessus d'un panneau DÉFILANT, la molette le fait défiler — c'est le geste
         // qu'on essaie, et zoomer à la place donnerait l'impression que le panneau n'en
         // est pas un. Ailleurs, elle zoome. Le zoom reste atteignable partout dans la

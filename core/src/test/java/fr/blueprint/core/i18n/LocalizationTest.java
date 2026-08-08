@@ -47,7 +47,7 @@ class LocalizationTest {
                     + "\\(\\s*\"(blueprint\\.[A-Za-z0-9_.\\-/]+)\"");
     /** Clés écrites en dur ailleurs (constantes, tableaux) : même exigence. */
     private static final Pattern KEY_LITERAL = Pattern.compile(
-            "\"(blueprint\\.(?:cmd|editor|diag|fault|pin|key)\\.[A-Za-z0-9_.\\-/]+)\"");
+            "\"(blueprint\\.(?:cmd|editor|diag|fault|pin|key|designer)\\.[A-Za-z0-9_.\\-/]+)\"");
 
     private static Path repoRoot() {
         Path path = Path.of("").toAbsolutePath();
