@@ -59,7 +59,7 @@ public final class NodeGeometry {
             boxes.clear();
             Blueprint bp = view.blueprint();
             for (Node node : view.nodes().values()) {
-                boxes.add(boxOf(node, lookup.shape(bp, node)));
+                boxes.add(boxOf(node, EditorShape.display(node, lookup.shape(bp, node))));
             }
         }
         return boxes;

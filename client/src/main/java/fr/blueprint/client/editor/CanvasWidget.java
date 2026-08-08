@@ -556,8 +556,11 @@ public final class CanvasWidget {
         if (cached != null) {
             return cached;
         }
-        fr.blueprint.core.graph.NodeShape shape =
-                lookup.shape(controller.blueprint(), node);
+        // La MÊME forme d'affichage que la géométrie et le hit-test : ils comptent tous
+        // les trois des rangées, et un pin retiré d'un seul décalerait le dessin d'un cran
+        // par rapport à l'endroit où l'on attrape les pins.
+        fr.blueprint.core.graph.NodeShape shape = EditorShape.display(node,
+                lookup.shape(controller.blueprint(), node));
         if (shape == null) {
             return base;   // fonction inconnue : le squelette, et le validateur le dira
         }

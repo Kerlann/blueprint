@@ -1,7 +1,11 @@
 package fr.blueprint.client.editor;
 
+import fr.blueprint.api.pin.LiteralValue;
+import fr.blueprint.api.pin.PinType;
+import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.core.graph.NodeShape;
 import fr.blueprint.core.registry.NodeDescriptor;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,17 +39,51 @@ public final class DerivedDescriptor {
      */
     public static NodeDescriptor withPins(NodeDescriptor base, NodeShape shape) {
         return new NodeDescriptor(base.id(), base.category(), base.titleKey(), base.descKey(),
-                pins(shape.inputs()), pins(shape.outputs()), base.pure(), base.permission(),
-                base.fuelCost(), base.deterministic(), base.entryPoint());
+                pins(shape.inputs(), true), pins(shape.outputs(), false), base.pure(),
+                base.permission(), base.fuelCost(), base.deterministic(), base.entryPoint());
     }
 
-    private static List<NodeDescriptor.PinDescriptor> pins(List<NodeShape.PinDef> defs) {
+    private static List<NodeDescriptor.PinDescriptor> pins(List<NodeShape.PinDef> defs,
+                                                           boolean inputs) {
         List<NodeDescriptor.PinDescriptor> out = new ArrayList<>(defs.size());
         for (NodeShape.PinDef def : defs) {
-            // Pas de valeur par défaut : une forme n'en porte pas, et un paramètre de
-            // fonction n'en a pas non plus — c'est l'appelant qui fournit.
-            out.add(new NodeDescriptor.PinDescriptor(def.name(), def.kind(), def.type(), null));
+            out.add(new NodeDescriptor.PinDescriptor(def.name(), def.kind(), def.type(),
+                    inputs ? blankFor(def.type()) : null));
         }
         return out;
+    }
+
+    /**
+     * La valeur qu'un paramètre non câblé <b>propose</b>, ou {@code null} s'il doit être
+     * câblé.
+     *
+     * <p>Un champ de saisie n'apparaît sur une entrée que si elle porte une valeur — c'est
+     * ce qui distingue « on peut taper ici » de « il faut brancher quelque chose ». Une
+     * forme, elle, ne porte pas de défaut : sans cette valeur, appeler une fonction avec la
+     * constante 3 demandait de poser un nœud littéral et de le câbler, là où le nœud
+     * d'appel offre la case.
+     *
+     * <p>La liste suit celle que les nœuds du registre se donnent à eux-mêmes : les scalaires
+     * qui se tapent ont un zéro, les objets — entité, objet, état de bloc — n'en ont pas,
+     * parce qu'aucune valeur ne s'y écrit au clavier et qu'un champ vide y serait une
+     * promesse fausse.
+     */
+    private static @Nullable LiteralValue blankFor(PinType type) {
+        if (type.equals(PinTypes.BOOL)) {
+            return LiteralValue.of(PinTypes.BOOL, false);
+        }
+        if (type.equals(PinTypes.INT)) {
+            return LiteralValue.of(PinTypes.INT, 0);
+        }
+        if (type.equals(PinTypes.LONG)) {
+            return LiteralValue.of(PinTypes.LONG, 0L);
+        }
+        if (type.equals(PinTypes.DOUBLE)) {
+            return LiteralValue.of(PinTypes.DOUBLE, 0.0);
+        }
+        if (type.equals(PinTypes.STRING)) {
+            return LiteralValue.of(PinTypes.STRING, "");
+        }
+        return null;
     }
 }

@@ -185,7 +185,7 @@ public final class CanvasController {
         double r2 = PIN_HIT_RADIUS * PIN_HIT_RADIUS;
         for (int i = boxes.size() - 1; i >= 0; i--) {
             NodeGeometry.Box b = boxes.get(i);
-            NodeShape shape = lookup.shape(blueprint, b.node());
+            NodeShape shape = EditorShape.display(b.node(), lookup.shape(blueprint, b.node()));
             if (shape == null) {
                 continue; // fantôme : pas de câblage tant que la forme est inconnue
             }
@@ -218,7 +218,7 @@ public final class CanvasController {
         if (box == null || n == null) {
             return null;
         }
-        NodeShape shape = lookup.shape(blueprint, n);
+        NodeShape shape = EditorShape.display(n, lookup.shape(blueprint, n));
         if (shape == null) {
             return null;
         }
@@ -238,7 +238,7 @@ public final class CanvasController {
     /** Définition d'un pin nommé (pour la couleur des liens), ou null. */
     public @Nullable NodeShape.PinDef pinDef(UUID node, String pin) {
         Node n = view.node(node);
-        NodeShape shape = n == null ? null : lookup.shape(blueprint, n);
+        NodeShape shape = n == null ? null : EditorShape.display(n, lookup.shape(blueprint, n));
         if (shape == null) {
             return null;
         }
@@ -283,7 +283,7 @@ public final class CanvasController {
         // Par le blueprint, pas par le registre : un `func/call` tient ses pins de la
         // signature de sa fonction, et le squelette du registre n'en montrerait aucun —
         // ses littéraux seraient donc invisibles au clic.
-        NodeShape shape = lookup.shape(blueprint, b.node());
+        NodeShape shape = EditorShape.display(b.node(), lookup.shape(blueprint, b.node()));
         if (shape == null) {
             return null;
         }
@@ -560,7 +560,7 @@ public final class CanvasController {
                 // qu'il aura vraiment. Un `func/call` posé nu n'a pas encore de fonction,
                 // donc pas de forme — et l'on ne câble rien plutôt que de câbler au hasard.
                 Node added = view.nodes().get(id);
-                NodeShape shape = added == null ? null : lookup.shape(blueprint, added);
+                NodeShape shape = added == null ? null : EditorShape.display(added, lookup.shape(blueprint, added));
                 if (shape != null) {
                     List<NodeShape.PinDef> candidates = from.output() ? shape.inputs() : shape.outputs();
                     for (int i = 0; i < candidates.size(); i++) {
@@ -657,7 +657,7 @@ public final class CanvasController {
      */
     private String @Nullable [] spliceTargets(Link link, UUID node) {
         Node n = view.node(node);
-        NodeShape shape = n == null ? null : lookup.shape(blueprint, n);
+        NodeShape shape = n == null ? null : EditorShape.display(n, lookup.shape(blueprint, n));
         NodeShape.PinDef source = pinDef(link.fromNode(), link.fromPin());
         NodeShape.PinDef sink = pinDef(link.toNode(), link.toPin());
         if (shape == null || source == null || sink == null) {
@@ -1163,7 +1163,7 @@ public final class CanvasController {
                             fr.blueprint.api.pin.PinTypes.STRING, function)));
             if (from != null) {
                 Node added = view.node(id);
-                NodeShape shape = added == null ? null : lookup.shape(blueprint, added);
+                NodeShape shape = added == null ? null : EditorShape.display(added, lookup.shape(blueprint, added));
                 if (shape != null) {
                     List<NodeShape.PinDef> candidates =
                             from.output() ? shape.inputs() : shape.outputs();
