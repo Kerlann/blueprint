@@ -163,6 +163,65 @@ class LocalizationTest {
                 + String.join("\n  ", mismatched));
     }
 
+    /**
+     * <b>Une clé récupérée sans argument ne doit pas contenir de {@code %s}.</b>
+     *
+     * <p>Le contrôle de {@link #placeholdersMatchBetweenLanguages()} compare les deux
+     * langues entre elles : deux valeurs également fautives passent. Celui-ci confronte la
+     * valeur au <b>site d'appel</b>, ce qui attrape l'autre moitié du problème.
+     *
+     * <p>Le défaut réel : {@code blueprint.designer.anchor} valait « Ancre : %s » et le
+     * concepteur la récupérait sans argument. Un {@code %s} s'affichait donc littéralement
+     * dans le panneau de propriétés, à côté de la grille d'ancre — sans que rien ne casse,
+     * sans que rien ne le dise, et dans les deux langues à la fois.
+     *
+     * <p>Ne regarde que les appels à <b>un seul argument</b>, reconnaissables à la
+     * parenthèse fermante qui suit immédiatement la clé. Un appel qui passe des arguments
+     * est hors de portée d'une expression régulière, et c'est bien : mieux vaut un contrôle
+     * qui ne dit rien de ce qu'il ne sait pas qu'un contrôle qui devine.
+     */
+    @Test
+    void aKeyFetchedWithoutArgumentsCarriesNoPlaceholder() {
+        JsonObject en = lang("en_us");
+        Pattern noArgCall = Pattern.compile(
+                "(?:Component\\.translatable|translatable|I18n\\.get)"
+                        + "\\(\\s*\"(blueprint\\.[A-Za-z0-9_.\\-/]+)\"\\s*\\)");
+        List<String> offenders = new ArrayList<>();
+        for (String module : List.of("api", "core", "client", "compat", "testmod")) {
+            Path sources = repoRoot().resolve(module).resolve("src/main/java");
+            if (!Files.isDirectory(sources)) {
+                continue;
+            }
+            try (Stream<Path> files = Files.walk(sources)) {
+                files.filter(path -> path.toString().endsWith(".java")).forEach(path -> {
+                    String text;
+                    try {
+                        text = Files.readString(path, StandardCharsets.UTF_8);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                    Matcher matcher = noArgCall.matcher(text);
+                    while (matcher.find()) {
+                        String key = matcher.group(1);
+                        if (!en.has(key)) {
+                            continue;   // l'absence est le sujet d'un autre test
+                        }
+                        int expected = placeholders(en.get(key).getAsString());
+                        if (expected > 0) {
+                            offenders.add(key + " (" + path.getFileName() + ") attend "
+                                    + expected + " argument(s), n'en reçoit aucun");
+                        }
+                    }
+                });
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        assertTrue(offenders.isEmpty(),
+                "ces clés afficheraient leur %s littéralement au joueur :\n  "
+                        + String.join("\n  ", offenders));
+    }
+
     private static int placeholders(String text) {
         int count = 0;
         Matcher matcher = Pattern.compile("%(?:\\d+\\$)?[sd]").matcher(text);

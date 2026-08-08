@@ -463,7 +463,7 @@
   "blueprint.designer.rename_screen": "renommer…",
   "blueprint.designer.remove_screen": "supprimer l'écran",
   "blueprint.designer.bad_screen_name": "« %s » n'est pas un nom d'écran utilisable",
-  "blueprint.designer.anchor": "Ancre : %s",
+  "blueprint.designer.anchor": "Ancre",
   "blueprint.designer.kind.panel": "Panneau",
   "blueprint.designer.kind.label": "Texte",
   "blueprint.designer.kind.button": "Bouton",

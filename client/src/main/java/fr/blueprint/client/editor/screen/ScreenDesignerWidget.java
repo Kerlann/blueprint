@@ -158,7 +158,11 @@ public final class ScreenDesignerWidget {
         renderHoverTooltip(g, font, screen);
         renderHelp(g, font);
         if (message != null) {
-            g.drawString(font, message, panels.canvasLeft() + 4, height - ROW, INVALID, false);
+            // AU-DESSUS des pastilles, pas dessus : à height − ROW le message se peignait
+            // à deux pixels de la barre et la recouvrait, si bien qu'un refus effaçait les
+            // commandes de zoom au moment précis où l'on cherchait à comprendre.
+            g.drawString(font, message, panels.canvasLeft() + 4, height - ROW * 2 - 2,
+                    INVALID, false);
         }
     }
 
@@ -580,7 +584,12 @@ public final class ScreenDesignerWidget {
     /** Le clic dans la barre du bas ; faux si le point est ailleurs. */
     private boolean clickViewport(double mx, double my, Font font) {
         int y = height - ROW - 2;
-        if (my < y || my >= y + ROW) {
+        // La barre ne s'étend pas sous les colonnes : elle commence où commence le
+        // canevas et s'arrête où il finit. Elle absorbait le clic sur TOUTE la largeur,
+        // ce qui rendait morte la dernière rangée de la palette et des propriétés — une
+        // bande de douze pixels où plus rien ne répondait, sans que rien ne le dise.
+        if (my < y || my >= y + ROW
+                || mx < panels.canvasLeft() || mx >= width - panels.propertiesWidth()) {
             return false;
         }
         for (BarChip chip : barChips(font)) {
@@ -644,6 +653,15 @@ public final class ScreenDesignerWidget {
         y += ROW;
         for (String name : session.blueprint().screens().keySet()) {
             boolean active = name.equals(controller.screenName());
+            // Celui qu'on renomme montre la frappe. Le tampon existait, alimenté par
+            // charTyped, et n'était dessiné nulle part : on tapait un nom sans le voir,
+            // sans savoir qu'un mode de saisie était ouvert, jusqu'à Entrée.
+            if (name.equals(renamingScreen)) {
+                g.drawString(font, font.plainSubstrByWidth(screenBuffer + "_", PALETTE_LABEL),
+                        6, y, SELECTED, false);
+                y += ROW;
+                continue;
+            }
             g.drawString(font, font.plainSubstrByWidth(name, PALETTE_LABEL), 6, y,
                     active ? SELECTED : TEXT, false);
             y += ROW;
@@ -663,6 +681,11 @@ public final class ScreenDesignerWidget {
         g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.rename_screen"), PALETTE_LABEL), 6, y, DIM_TEXT, false);
         y += ROW;
         g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.remove_screen"), PALETTE_LABEL), 6, y, DIM_TEXT, false);
+        // La rangée de « supprimer l'écran » se consomme AVANT le filet. Sans ce pas, le
+        // filet se traçait au milieu de son texte, et les deux premiers pixels du titre
+        // « Éléments » tombaient dans sa zone cliquable — un clic à cet endroit supprimait
+        // un écran.
+        y += ROW;
         y = separator(g, y);
 
         g.drawString(font, font.plainSubstrByWidth(I18n.get("blueprint.designer.elements"),
@@ -915,6 +938,11 @@ public final class ScreenDesignerWidget {
         if (screen.styles().isEmpty()) {
             rows.add(new Row(y, I18n.get("blueprint.designer.styles.none"),
                     java.util.List.of(), null, null));
+            // La rangée existe, elle doit consommer sa hauteur. Sans ce pas, la première
+            // rangée qui la suivrait se peindrait par-dessus — invisible aujourd'hui
+            // parce que la liste est vide dans ce cas précis, et faux dès qu'on ajoutera
+            // une ligne derrière.
+            y += ROW;
         }
         for (String styleName : screen.styles().keySet()) {
             rows.add(new Row(y, "", java.util.List.of(
@@ -1101,7 +1129,7 @@ public final class ScreenDesignerWidget {
         if (!surface.contains(mx, my)) {
             return false;
         }
-        properties.cancel();
+        commitEdit();
         controller.press(surface.toDesignX(mx), surface.toDesignY(my),
                 e.hasShiftDown());
         return true;
@@ -1140,6 +1168,11 @@ public final class ScreenDesignerWidget {
             controller.removeCurrentScreen();
             return true;
         }
+        // Le même pas que le rendu : la rangée de suppression, puis le filet, puis le
+        // titre. Il manquait des deux côtés à la fois, ce qui les faisait tomber d'accord
+        // sur les types tout en décalant le filet et le titre — le genre d'accord qui
+        // cache un défaut au lieu de le montrer.
+        y += ROW;
         y += SECTION_GAP + ROW;
         for (ElementKind kind : ElementKind.values()) {
             if (my >= y && my < y + ROW) {
@@ -1447,23 +1480,34 @@ public final class ScreenDesignerWidget {
         switch (e.key()) {
             case GLFW.GLFW_KEY_ESCAPE -> properties.cancel();
             case GLFW.GLFW_KEY_BACKSPACE -> properties.backspace();
-            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
-                String rename = properties.pendingName();
-                ScreenElement element = properties.element();
-                ScreenElement edited = properties.commit(this::nameFree);
-                if (rename != null && element != null) {
-                    if (!controller.rename(element.name(), rename)) {
-                        reportRefusal();
-                    }
-                } else {
-                    apply(edited);
-                }
-            }
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> commitEdit();
             default -> {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * Valide la saisie en cours — par Entrée, ou en <b>partant ailleurs</b>.
+     *
+     * <p>Un clic sur le canevas jetait la frappe. On tapait une largeur, on cliquait
+     * l'élément pour la voir prendre, et la valeur disparaissait sans un mot : c'est la
+     * perte silencieuse que le principe U2 interdit. Partir d'un champ vaut désormais le
+     * valider, comme dans tout formulaire — et une valeur invalide reste refusée par
+     * {@code commit}, qui garde le champ ouvert.
+     */
+    private void commitEdit() {
+        String rename = properties.pendingName();
+        ScreenElement element = properties.element();
+        ScreenElement edited = properties.commit(this::nameFree);
+        if (rename != null && element != null) {
+            if (!controller.rename(element.name(), rename)) {
+                reportRefusal();
+            }
+        } else {
+            apply(edited);
+        }
     }
 
     private void apply(@Nullable ScreenElement edited) {

@@ -463,7 +463,7 @@
   "blueprint.designer.rename_screen": "rename…",
   "blueprint.designer.remove_screen": "delete screen",
   "blueprint.designer.bad_screen_name": "\"%s\" is not a usable screen name",
-  "blueprint.designer.anchor": "Anchor: %s",
+  "blueprint.designer.anchor": "Anchor",
   "blueprint.designer.kind.panel": "Panel",
   "blueprint.designer.kind.label": "Label",
   "blueprint.designer.kind.button": "Button",
