@@ -1,5 +1,6 @@
 package fr.blueprint.client.editor.screen;
 
+import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.core.graph.screen.Anchor;
 import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.Extent;
@@ -179,6 +180,54 @@ class ElementPropertiesStateTest {
                     nombre + " tient toujours : lui donner une ligne doublerait la hauteur "
                             + "du panneau pour rien");
         }
+    }
+
+    /**
+     * <b>Une barre nourrie d'une chaîne reste vide pour toujours.</b>
+     *
+     * <p>{@code renderProgress} lit {@code value instanceof Number} et rend zéro sinon.
+     * Proposer une variable texte pour une barre revient donc à proposer une panne — que
+     * l'auteur découvrirait en jeu, devant une barre qui ne bouge jamais.
+     */
+    @Test
+    void uneBarreNAccepteQueDesNombres() {
+        var progress = fr.blueprint.core.graph.screen.ElementBinding.Target.PROGRESS;
+
+        assertTrue(ElementPropertiesState.acceptsVariable(progress, PinTypes.DOUBLE));
+        assertTrue(ElementPropertiesState.acceptsVariable(progress, PinTypes.INT));
+        assertFalse(ElementPropertiesState.acceptsVariable(progress, PinTypes.STRING),
+                "une chaîne donnerait zéro à chaque image");
+        assertFalse(ElementPropertiesState.acceptsVariable(progress, PinTypes.ENTITY));
+    }
+
+    /**
+     * <b>Le texte et les drapeaux acceptent tout, et c'est le moteur qui le dit.</b>
+     *
+     * <p>{@code renderText} formate n'importe quoi, {@code renderFlag} a un cas par défaut
+     * qui rend vrai. Restreindre ces trois cibles serait inventer une règle que le moteur
+     * n'applique pas — et refuser un choix qui marcherait.
+     */
+    @Test
+    void leTexteEtLesDrapeauxAcceptentTout() {
+        for (var cible : java.util.List.of(
+                fr.blueprint.core.graph.screen.ElementBinding.Target.TEXT,
+                fr.blueprint.core.graph.screen.ElementBinding.Target.ENABLED,
+                fr.blueprint.core.graph.screen.ElementBinding.Target.VISIBLE)) {
+            for (var type : java.util.List.of(PinTypes.STRING, PinTypes.DOUBLE,
+                    PinTypes.BOOL, PinTypes.ENTITY, PinTypes.ITEMSTACK)) {
+                assertTrue(ElementPropertiesState.acceptsVariable(cible, type),
+                        cible + " refuse " + type + " alors que le moteur l'accepte");
+            }
+        }
+    }
+
+    /** Une texture se lit d'une référence écrite ; un nombre n'en produit jamais. */
+    @Test
+    void uneTextureSeLitDunTexte() {
+        var texture = fr.blueprint.core.graph.screen.ElementBinding.Target.TEXTURE;
+
+        assertTrue(ElementPropertiesState.acceptsVariable(texture, PinTypes.STRING));
+        assertFalse(ElementPropertiesState.acceptsVariable(texture, PinTypes.DOUBLE));
     }
 
     /** Chaque section a sa clé, écrite en toutes lettres pour le contrôle des clés mortes. */

@@ -304,6 +304,36 @@ public final class ElementPropertiesState {
         }
     }
 
+    /**
+     * Cette variable peut-elle nourrir cette cible ?
+     *
+     * <p>La règle est celle du <b>moteur</b>, relevée dans {@code ElementBinding}, et non
+     * une idée de ce qui serait raisonnable :
+     *
+     * <ul>
+     *   <li>{@code PROGRESS} lit {@code value instanceof Number}, sinon zéro — une variable
+     *       non numérique y donne une barre définitivement vide.</li>
+     *   <li>{@code TEXTURE} passe par {@code PackRef.texture}, qui attend une référence
+     *       écrite ; un nombre n'en produit jamais.</li>
+     *   <li>{@code TEXT}, {@code ENABLED} et {@code VISIBLE} acceptent <b>tout</b> :
+     *       {@code renderText} formate n'importe quoi et {@code renderFlag} a un cas par
+     *       défaut. Les restreindre serait inventer une règle que le moteur n'applique
+     *       pas, et refuser un choix qui marcherait.</li>
+     * </ul>
+     */
+    public static boolean acceptsVariable(
+            fr.blueprint.core.graph.screen.ElementBinding.Target target,
+            fr.blueprint.api.pin.PinType type) {
+        return switch (target) {
+            case TEXT, ENABLED, VISIBLE -> true;
+            case PROGRESS -> type.equals(fr.blueprint.api.pin.PinTypes.INT)
+                    || type.equals(fr.blueprint.api.pin.PinTypes.LONG)
+                    || type.equals(fr.blueprint.api.pin.PinTypes.DOUBLE);
+            case TEXTURE -> type.equals(fr.blueprint.api.pin.PinTypes.STRING)
+                    || type.equals(fr.blueprint.api.pin.PinTypes.RESOURCE_LOCATION);
+        };
+    }
+
     /** À quelle section ce champ appartient. Exhaustif : un champ neuf doit choisir. */
     public static Section sectionOf(Field field) {
         return switch (field) {

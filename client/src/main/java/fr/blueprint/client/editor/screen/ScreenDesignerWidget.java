@@ -172,8 +172,16 @@ public final class ScreenDesignerWidget {
         this.mouseX = mouseX;
         this.mouseY = mouseY;
         Screen screen = controller.screen();
-        properties.select(screen == null || controller.selection().size() != 1 ? null
-                : screen.element(controller.selection().ids().iterator().next()));
+        ScreenElement selected = screen == null || controller.selection().size() != 1 ? null
+                : screen.element(controller.selection().ids().iterator().next());
+        // Changer d'élément referme la liste des variables : la laisser ouverte donnerait
+        // un panneau différent selon ce qu'on a fait juste avant.
+        if (selected != properties.element()
+                && (selected == null || properties.element() == null
+                        || !selected.name().equals(properties.element().name()))) {
+            choosingVariable = false;
+        }
+        properties.select(selected);
         // Un élément sélectionné mais sorti d'un panneau défilant serait dessiné nulle
         // part : introuvable à la souris, impossible à déplacer ou à régler. Le ramener
         // sous les yeux est ce qui rend le découpage supportable en conception.
@@ -1229,17 +1237,46 @@ public final class ScreenDesignerWidget {
         if (collapsedSections.contains(ElementPropertiesState.Section.BINDING)) {
             return closeWithStyles(rows, y, element, screen);
         }
+        // Ce à quoi l'élément est lié, sur UNE rangée — et la liste seulement pendant
+        // qu'on choisit. Elle était dépliée en permanence, à raison d'une rangée par
+        // variable du blueprint : à quarante variables, quarante lignes identiques au
+        // milieu du panneau, pour un réglage qu'on touche une fois.
+        String bound = element.binding().variable();
         rows.add(new Row(y, I18n.get("blueprint.designer.bind"), java.util.List.of(
-                new Chip(I18n.get("blueprint.designer.bind.none"), 52, 24,
-                        !element.isBound(), () -> apply(properties.bindTo("")))), null, null));
+                new Chip(bound.isEmpty() ? I18n.get("blueprint.designer.bind.none") : bound,
+                        52, PROPERTIES_WIDTH - 56, choosingVariable,
+                        () -> choosingVariable = !choosingVariable)), null, null));
         y += ROW;
-        for (String variable : session.blueprint().variables().keySet()) {
-            String bound = variable;
+        if (choosingVariable) {
+            // « Aucune » d'abord : délier est le geste qu'on cherche quand on rouvre la
+            // liste sur un élément déjà lié, et le faire chercher au bout de quarante
+            // lignes serait le punir d'avoir choisi.
             rows.add(new Row(y, "", java.util.List.of(
-                    new Chip(variable, 4, PROPERTIES_WIDTH - 8,
-                            variable.equals(element.binding().variable()),
-                            () -> apply(properties.bindTo(bound)))), null, null));
+                    new Chip(I18n.get("blueprint.designer.bind.none"), 4, PROPERTIES_WIDTH - 8,
+                            !element.isBound(), () -> {
+                                apply(properties.bindTo(""));
+                                choosingVariable = false;
+                            })), null, null));
             y += ROW;
+            for (var variable : session.blueprint().variables().values()) {
+                // Filtré par ce que la CIBLE sait lire. Une barre nourrie d'une chaîne
+                // reste vide pour toujours, et proposer ce choix revient à proposer une
+                // panne. Celle qui est déjà liée reste listée même si elle ne convient
+                // plus : la cacher empêcherait de voir ce qui est réglé, et de le défaire.
+                boolean fits = ElementPropertiesState.acceptsVariable(
+                        element.binding().target(), variable.type());
+                if (!fits && !variable.name().equals(bound)) {
+                    continue;
+                }
+                String pick = variable.name();
+                rows.add(new Row(y, "", java.util.List.of(
+                        new Chip(pick, 4, PROPERTIES_WIDTH - 8, pick.equals(bound),
+                                () -> {
+                                    apply(properties.bindTo(pick));
+                                    choosingVariable = false;
+                                })), null, null));
+                y += ROW;
+            }
         }
         if (element.isBound()) {
             int[] cursor = {y};
@@ -1618,6 +1655,15 @@ public final class ScreenDesignerWidget {
             reportRefusal();
         }
     }
+
+    /**
+     * La liste des variables est-elle ouverte ?
+     *
+     * <p>Refermée dès qu'on choisit, et remise à zéro quand la sélection change : rouvrir
+     * un autre élément sur une liste dépliée donnerait un panneau différent selon ce qu'on
+     * a fait juste avant.
+     */
+    private boolean choosingVariable;
 
     /** Le calque qu'on traîne dans l'arbre, et le parent que le curseur désigne. */
     private @Nullable String draggedLayer;
