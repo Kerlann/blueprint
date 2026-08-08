@@ -590,18 +590,24 @@ public final class ScreenDesignerWidget {
     }
 
     /**
-     * Le signe d'un alignement. Des <b>flèches et des barres</b>, pas des mots : « Aligner
-     * à gauche » dans une barre qui porte déjà quatorze commandes ne laisserait de place
-     * pour rien d'autre, et un pictogramme d'alignement se lit sans traduction.
+     * Le signe d'un alignement. Des <b>flèches</b>, pas des mots : « Aligner à gauche »
+     * dans une barre qui porte déjà quatorze commandes ne laisserait de place pour rien
+     * d'autre, et un pictogramme d'alignement se lit sans traduction.
+     *
+     * <p>C'étaient d'abord des tourniquets mathématiques — {@code ⊢ ⊹ ⊣ ⊤ ⊸ ⊥}. Ils
+     * s'affichent, mais à sept pixels de haut les deux <b>centres</b> sont indistincts :
+     * {@code ⊹} et {@code ⊸} ne sont qu'un pâté de points, et rien ne dit lequel agit sur
+     * quel axe. Une flèche à deux têtes le dit : {@code ↔} est horizontal, {@code ↕} est
+     * vertical, et personne n'a besoin de la légende pour s'en assurer.
      */
     private static String alignGlyph(ScreenCanvasController.Align align) {
         return switch (align) {
-            case LEFT -> "⊢";
-            case CENTER_X -> "⊹";
-            case RIGHT -> "⊣";
-            case TOP -> "⊤";
-            case CENTER_Y -> "⊸";
-            case BOTTOM -> "⊥";
+            case LEFT -> "←";
+            case CENTER_X -> "↔";
+            case RIGHT -> "→";
+            case TOP -> "↑";
+            case CENTER_Y -> "↕";
+            case BOTTOM -> "↓";
         };
     }
 
@@ -1423,14 +1429,24 @@ public final class ScreenDesignerWidget {
             // une ligne derrière.
             y += ROW;
         }
+        // « Détacher » ne se montre que sur le style RÉELLEMENT appliqué. Chaque ligne le
+        // portait, donc quatre boutons pour une action qui n'en concerne qu'une — et sur
+        // trente pixels, tous affichaient « Detac ». Détacher un style qu'on n'a pas mis
+        // ne veut rien dire ; l'unique bouton restant a la place de s'écrire en entier.
+        String detach = I18n.get("blueprint.designer.styles.detach");
+        int detachWidth = detach.length() * ElementPropertiesState.CHAR_WIDTH + 6;
         for (String styleName : screen.styles().keySet()) {
-            rows.add(new Row(y, "", java.util.List.of(
-                    new Chip(styleName, 4, PROPERTIES_WIDTH - 40,
-                            styleName.equals(element.styleName()),
-                            () -> controller.applyStyleToSelection(styleName)),
-                    new Chip(I18n.get("blueprint.designer.styles.detach"),
-                            PROPERTIES_WIDTH - 34, 30, false,
-                            () -> controller.applyStyleToSelection(""))), null, null));
+            boolean applied = styleName.equals(element.styleName());
+            java.util.List<Chip> chips = applied
+                    ? java.util.List.of(
+                            new Chip(styleName, 4, PROPERTIES_WIDTH - 12 - detachWidth,
+                                    true, () -> controller.applyStyleToSelection(styleName)),
+                            new Chip(detach, PROPERTIES_WIDTH - 4 - detachWidth, detachWidth,
+                                    false, () -> controller.applyStyleToSelection("")))
+                    : java.util.List.of(
+                            new Chip(styleName, 4, PROPERTIES_WIDTH - 8, false,
+                                    () -> controller.applyStyleToSelection(styleName)));
+            rows.add(new Row(y, "", chips, null, null));
             y += ROW;
         }
         return rows;

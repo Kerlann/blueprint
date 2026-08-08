@@ -222,6 +222,46 @@ class LocalizationTest {
                         + String.join("\n  ", offenders));
     }
 
+    /**
+     * <b>Toute traduction doit survivre à {@code String.format}.</b>
+     *
+     * <p>C'est ce que le client fait de chaque valeur : {@code I18n.get} la passe au
+     * formateur, et {@code ClientLanguage} rattrape l'exception en rendant
+     * « Format error: <i>la clé</i> ». Rien ne casse, rien ne se dit, et le joueur lit un
+     * mot qui n'a aucun rapport avec ce qu'il regarde.
+     *
+     * <p>Le défaut réel : {@code blueprint.designer.size.percent} valait « % ». La pastille
+     * du mode « pourcentage » affichait donc <b>« Forma »</b> — les cinq premiers pixels de
+     * « Format error » — entre « Fixed » et « Fill », et j'ai passé deux captures d'écran à
+     * la prendre pour un libellé tronqué. Un pour cent littéral s'écrit « %% ».
+     *
+     * <p>Les deux contrôles voisins ne pouvaient pas l'attraper : l'un compare les langues
+     * entre elles, or les deux portaient le même « % » ; l'autre ne cherche que {@code %s}
+     * et {@code %d}. Celui-ci ne cherche rien — il exécute.
+     */
+    @Test
+    void everyTranslationSurvivesFormatting() {
+        for (String locale : List.of("en_us", "fr_fr")) {
+            JsonObject lang = lang(locale);
+            List<String> offenders = new ArrayList<>();
+            for (String key : lang.keySet()) {
+                String value = lang.get(key).getAsString();
+                int expected = placeholders(value);
+                Object[] args = new Object[expected];
+                java.util.Arrays.fill(args, "x");
+                try {
+                    String.format(value, args);
+                } catch (java.util.IllegalFormatException e) {
+                    offenders.add(key + " = « " + value + " » → "
+                            + e.getClass().getSimpleName());
+                }
+            }
+            assertTrue(offenders.isEmpty(), locale
+                    + " : ces clés s'afficheraient « Format error: … » en jeu :\n  "
+                    + String.join("\n  ", offenders));
+        }
+    }
+
     private static int placeholders(String text) {
         int count = 0;
         Matcher matcher = Pattern.compile("%(?:\\d+\\$)?[sd]").matcher(text);

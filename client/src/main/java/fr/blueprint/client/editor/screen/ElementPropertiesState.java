@@ -521,7 +521,11 @@ public final class ElementPropertiesState {
             case FIXED -> number(value.value());
             case PERCENT -> number(java.math.BigDecimal.valueOf(value.value()).movePointRight(2)
                     .stripTrailingZeros().doubleValue()) + "%";
-            case FILL -> value.value() == 1 ? "fill" : "fill:" + number(value.value());
+            // Le poids TOUJOURS écrit, même quand il vaut un. « fill » tout seul ne disait
+            // rien de plus que la pastille « Remplir » allumée juste en dessous, et il
+            // cachait la seule chose que ce champ sait régler en mode FILL : la part que
+            // l'élément prend sur ses frères. Un réglage qu'on ne voit pas n'existe pas.
+            case FILL -> "fill:" + number(value.value());
             case HUG -> "hug";
         };
     }

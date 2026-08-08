@@ -595,7 +595,7 @@
   "blueprint.designer.cross.end": "End",
   "blueprint.designer.cross.stretch": "Stretch",
   "blueprint.designer.size.fixed": "Fixed",
-  "blueprint.designer.size.percent": "%",
+  "blueprint.designer.size.percent": "%%",
   "blueprint.designer.size.fill": "Fill",
   "blueprint.designer.size.hug": "Hug",
   "blueprint.designer.styles.create": "From selection",
