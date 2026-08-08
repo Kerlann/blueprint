@@ -69,6 +69,9 @@ public final class ScreenDesignerWidget {
      */
     private static final int VALUE_LEFT = 52;
     private static final int INVALID = 0xFFF7768E;
+
+    /** Le fond d'un champ de saisie : plus sombre que le panneau, donc creux. */
+    private static final int FIELD_TROUGH = 0xFF121316;
     private static final int SURFACE_BACKGROUND = 0xFF101114;
     private static final int SAFE_BORDER = 0xFF4A4F58;
     private static final int GUIDE = 0xFFE0AF68;
@@ -898,26 +901,76 @@ public final class ScreenDesignerWidget {
     }
 
     /**
-     * Un pictogramme de 7×7 par famille, sur le patron de {@code NodeWidget.categoryGlyph}.
+     * Un pictogramme de 7×7 par <b>type</b>, sur le patron de {@code NodeWidget.categoryGlyph}.
      *
      * <p>Douze mots en colonne se lisent tous pour en trouver un. Une forme se reconnaît de
      * plus loin qu'un nom, et c'est ce que le canevas de nœuds fait de ses catégories
      * depuis la 5.13.
+     *
+     * <p>Mais un pictogramme par <i>famille</i> n'en était pas un : cinq types d'affichage
+     * portaient le même, et la colonne se relisait mot à mot comme avant. La teinte dit la
+     * famille — c'est ce qu'une couleur sait faire —, la forme dit l'élément.
+     *
+     * <p>Le {@code switch} est exhaustif : un treizième type ne compilera pas tant qu'on ne
+     * lui aura pas dessiné le sien.
      */
     private static void kindGlyph(GuiGraphics g, ElementKind kind, int cx, int cy, int color) {
-        switch (DesignerPalette.groupOf(kind)) {
-            case CONTAINER -> {              // un cadre évidé
+        switch (kind) {
+            case PANEL -> {                  // un cadre évidé
                 g.fill(cx - 3, cy - 3, cx + 4, cy + 4, color);
                 g.fill(cx - 2, cy - 2, cx + 3, cy + 3, PANEL_BACKGROUND);
             }
-            case DISPLAY -> {                // trois lignes de texte
+            case LABEL -> {                  // trois lignes de texte, la dernière courte
                 for (int dy = -2; dy <= 2; dy += 2) {
                     g.fill(cx - 3, cy + dy, cx + (dy == 2 ? 1 : 4), cy + dy + 1, color);
                 }
             }
-            case INTERACTIVE -> {            // une touche enfoncée
-                g.fill(cx - 3, cy - 2, cx + 4, cy + 2, color);
-                g.fill(cx - 2, cy + 2, cx + 3, cy + 3, color);
+            case IMAGE -> {                  // un cadre, et une montagne dedans
+                g.fill(cx - 3, cy - 3, cx + 4, cy + 4, color);
+                g.fill(cx - 2, cy - 2, cx + 3, cy + 3, PANEL_BACKGROUND);
+                g.fill(cx - 2, cy + 1, cx + 3, cy + 3, color);
+                g.fill(cx - 1, cy, cx + 2, cy + 1, color);
+            }
+            case PROGRESS -> {               // une jauge remplie aux deux tiers
+                g.fill(cx - 3, cy - 2, cx + 4, cy + 3, color);
+                g.fill(cx - 2, cy - 1, cx + 3, cy + 2, PANEL_BACKGROUND);
+                g.fill(cx - 2, cy - 1, cx + 1, cy + 2, color);
+            }
+            case SLOT -> {                   // la case d'inventaire : un bord épais
+                g.fill(cx - 3, cy - 3, cx + 4, cy + 4, color);
+                g.fill(cx - 1, cy - 1, cx + 2, cy + 2, PANEL_BACKGROUND);
+            }
+            case ENTITY_PREVIEW -> {         // une tête et des épaules
+                g.fill(cx - 1, cy - 3, cx + 2, cy, color);
+                g.fill(cx - 3, cy + 1, cx + 4, cy + 4, color);
+            }
+            case BUTTON -> {                 // une touche, et son ombre portée
+                g.fill(cx - 3, cy - 2, cx + 3, cy + 2, color);
+                g.fill(cx - 2, cy + 2, cx + 4, cy + 3, color);
+            }
+            case INPUT -> {                  // un curseur sur une ligne de saisie
+                g.fill(cx - 3, cy + 2, cx + 4, cy + 3, color);
+                g.fill(cx - 1, cy - 3, cx, cy + 2, color);
+                g.fill(cx - 2, cy - 3, cx + 1, cy - 2, color);
+            }
+            case TOGGLE -> {                 // une pastille poussée à droite
+                g.fill(cx - 3, cy - 2, cx + 4, cy + 3, color);
+                g.fill(cx - 2, cy - 1, cx + 1, cy + 2, PANEL_BACKGROUND);
+            }
+            case SLIDER -> {                 // un rail, et sa poignée au milieu
+                g.fill(cx - 3, cy, cx + 4, cy + 1, color);
+                g.fill(cx - 1, cy - 3, cx + 2, cy + 4, color);
+            }
+            case LIST -> {                   // des rangées séparées, toute la largeur
+                for (int dy = -3; dy <= 2; dy += 3) {
+                    g.fill(cx - 3, cy + dy, cx + 4, cy + dy + 2, color);
+                }
+            }
+            case DROPDOWN -> {               // une boîte, et le chevron qui la déroule
+                g.fill(cx - 3, cy - 3, cx + 4, cy - 1, color);
+                for (int i = 0; i < 3; i++) {
+                    g.fill(cx - 2 + i, cy + i, cx + 3 - i, cy + i + 1, color);
+                }
             }
         }
     }
@@ -1570,8 +1623,21 @@ public final class ScreenDesignerWidget {
                         ? (row.chips().isEmpty() ? VALUE_LEFT
                                 : row.chips().getLast().x() + row.chips().getLast().width() + 3)
                         : 6;
+                // Un champ vide doit se VOIR comme un champ. « Texte » et « Infobulle »
+                // ne peignaient rien tant qu'ils étaient vides : l'auteur voyait un
+                // libellé suivi de blanc, sans rien qui dise qu'on peut cliquer et taper.
+                // C'est le retour que le canevas de nœuds a déjà reçu sur ses littéraux,
+                // et la même réponse — un creux, comme ScreenPainter.Depth.SUNKEN.
+                if (row.field() != null) {
+                    int fx = left + valueX - 2;
+                    int fy = row.y() - 1;
+                    g.fill(fx, fy, left + PROPERTIES_WIDTH - 4, fy + ROW - 2,
+                            editing ? SELECTED : PANEL_BORDER);
+                    g.fill(fx + 1, fy + 1, left + PROPERTIES_WIDTH - 5, fy + ROW - 3,
+                            FIELD_TROUGH);
+                }
                 g.drawString(font, font.plainSubstrByWidth(row.value(),
-                                PROPERTIES_WIDTH - valueX - 4),
+                                PROPERTIES_WIDTH - valueX - 6),
                         left + valueX, row.y(), color, false);
             }
         }
