@@ -1816,7 +1816,7 @@ permission `SAFE` · fuel 1 · P
 
 ### `blueprint:map/keys` — Map keys
 
-permission `SAFE` · fuel 1 · P
+permission `SAFE` · fuel 3 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|
@@ -1840,7 +1840,7 @@ permission `SAFE` · fuel 1 · P
 
 ### `blueprint:map/values` — Map values
 
-permission `SAFE` · fuel 1 · P
+permission `SAFE` · fuel 3 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|

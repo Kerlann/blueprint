@@ -122,15 +122,27 @@ public final class MapNodes {
                 .build());
 
         /* Les deux ponts vers les listes : sans eux, « pour chaque » ne peut pas
-         * parcourir un dictionnaire, et un dictionnaire ne servirait qu'à ranger. */
-        r.register(NodeType.builder(id("map/keys"))
+         * parcourir un dictionnaire, et un dictionnaire ne servirait qu'à ranger.
+         *
+         * Tarifés 3 et non 1, et ce sont les SEULS nœuds de ce fichier à l'être : tous les
+         * autres lisent ou écrivent une entrée — un coût constant, celui de l'unité. Ces
+         * deux-là recopient le dictionnaire ENTIER dans une liste neuve. Leur coût suit donc
+         * la taille du dictionnaire là où le tarif, lui, est fixe ; ce que le nombre paie
+         * est le plafond d'entrée que le banc mesure, soit deux à trois fois l'unité.
+         *
+         * Trois, et non le « tarif suggéré 5 » lu dans le rouge du banc : cette valeur-là
+         * venait d'une mesure isolée à ×4,6, le haut d'une bande qui s'étend de ×1,5 à ×4,6
+         * d'une exécution à l'autre. Tarifer sur le pic du bruit surfacture un nœud pour de
+         * bon ; trois couvre les relevés répétés, et la tolérance ×4 du banc laisse la
+         * marge qu'il faut au bruit sans masquer un ordre de grandeur. */
+        r.register(NodeType.builder(id("map/keys")).fuelCost(3)
                 .category(NodeCategories.MAP_QUERY).pure().generic("K").generic("V")
                 .in("map", PinTypes.mapOf(PinTypes.generic("K"), PinTypes.generic("V")))
                 .out("keys", PinTypes.listOf(PinTypes.generic("K")))
                 .action(ctx -> ctx.out("keys", List.copyOf(map(ctx.in("map")).keySet())))
                 .build());
 
-        r.register(NodeType.builder(id("map/values"))
+        r.register(NodeType.builder(id("map/values")).fuelCost(3)
                 .category(NodeCategories.MAP_QUERY).pure().generic("K").generic("V")
                 .in("map", PinTypes.mapOf(PinTypes.generic("K"), PinTypes.generic("V")))
                 .out("values", PinTypes.listOf(PinTypes.generic("V")))
