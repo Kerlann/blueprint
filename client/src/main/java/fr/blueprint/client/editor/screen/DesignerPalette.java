@@ -350,6 +350,72 @@ public final class DesignerPalette {
         }
     }
 
+    // -------------------------------------------------------------------- reparentage
+
+    /**
+     * Le <b>parent</b> que ce point désigne pour un calque qu'on traîne, ou {@code null} si
+     * rien de valable ne s'y trouve. La chaîne vide veut dire « à la racine de l'écran ».
+     *
+     * <p>Reparenter était impossible : le glisser sur le canevas confine dans le parent
+     * existant, le panneau n'a pas de champ, et le seul contournement était de supprimer
+     * l'élément puis de le recréer — au centre de la vue, pas sous le curseur. Le modèle,
+     * lui, savait faire depuis toujours : {@code SetElement} porte l'élément entier et
+     * {@code ScreenRules.checkPlacement} refuse déjà les cycles, les parents absents et les
+     * parents qui ne sont pas des conteneurs. Il manquait le geste.
+     *
+     * <p>On ne propose que ce que le modèle accepterait : ni soi-même, ni sa propre
+     * descendance. Montrer une cible que l'opération refusera ensuite est le genre de
+     * promesse qui fait douter d'un outil.
+     */
+    public static @Nullable String dropTarget(Model model, int top, int height, int scroll,
+                                              String dragged, double my) {
+        Row row = rowAt(model, top, height, scroll, my);
+        if (row == null) {
+            return null;
+        }
+        // L'en-tête « Calques » est la cible « racine » : c'est là qu'on lâche pour sortir
+        // un élément de son conteneur, et il est juste au-dessus de la liste.
+        if (row.kind() == Kind.SECTION && "blueprint.designer.layers".equals(row.label())) {
+            return "";
+        }
+        if (row.kind() != Kind.LAYER || row.name() == null || row.name().equals(dragged)) {
+            return null;
+        }
+        return descendsFrom(model, row.name(), dragged) ? null : row.name();
+    }
+
+    /** {@code name} est-il {@code ancestor} ou l'un de ses descendants ? */
+    private static boolean descendsFrom(Model model, String name, String ancestor) {
+        String cursor = name;
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        while (cursor != null && seen.add(cursor)) {
+            if (cursor.equals(ancestor)) {
+                return true;
+            }
+            cursor = parentOf(model, cursor);
+        }
+        return false;
+    }
+
+    private static @Nullable String parentOf(Model model, String name) {
+        for (Layer layer : model.layers()) {
+            if (layer.name().equals(name)) {
+                return layer.parent();
+            }
+        }
+        return null;
+    }
+
+    /** La rangée sous l'ordonnée donnée, ou {@code null}. */
+    public static @Nullable Row rowAt(Model model, int top, int height, int scroll, double my) {
+        for (Row row : rows(model, top, height, scroll)) {
+            if (my >= row.y() && my < row.y() + rowHeight(row)) {
+                return row;
+            }
+        }
+        return null;
+    }
+
     /** L'abscisse de l'œil d'un calque — le dessin et le clic la lisent ici. */
     public static int eyeX(Row row) {
         return 8 + row.depth() * 4;

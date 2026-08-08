@@ -538,6 +538,49 @@ class ScreenCanvasControllerTest {
 
     /** Un écran supprimé sous les pieds du concepteur ne le fait pas tomber. */
     @Test
+    void reparenterUnElementNeDemandeAucuneOperationNeuve() {
+        put(ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 100, 80));
+        put(ScreenElement.of("titre", ElementKind.LABEL, 10, 10, 40, 20));
+        assertNull(element("titre").parent(), "posé à la racine");
+
+        assertTrue(controller.setElement(element("titre").withParent("cadre")),
+                "SetElement porte l'élément ENTIER, parent compris — le modèle savait "
+                        + "reparenter, il manquait le geste");
+        assertEquals("cadre", element("titre").parent());
+
+        assertTrue(controller.setElement(element("titre").withParent(null)),
+                "et l'on doit pouvoir ressortir");
+        assertNull(element("titre").parent());
+    }
+
+    /**
+     * <b>Un cycle est refusé par le modèle, pas seulement évité par l'interface.</b>
+     *
+     * <p>La colonne ne propose jamais une cible interdite, mais l'opération doit tenir
+     * seule : elle arrive aussi du réseau, où personne n'a filtré les cibles.
+     */
+    @Test
+    void reparenterEnCycleEstRefuse() {
+        put(ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 100, 80));
+        put(ScreenElement.of("interne", ElementKind.PANEL, 10, 10, 60, 40)
+                .withParent("cadre"));
+
+        assertFalse(controller.setElement(element("cadre").withParent("interne")),
+                "« cadre » deviendrait son propre ancêtre : la branche serait invisible");
+        assertNull(element("cadre").parent(), "et rien ne doit avoir bougé");
+    }
+
+    /** Un élément ne se range pas dans ce qui n'est pas un conteneur. */
+    @Test
+    void reparenterVersUnNonConteneurEstRefuse() {
+        put(ScreenElement.of("texte", ElementKind.LABEL, 0, 0, 60, 20));
+        put(ScreenElement.of("autre", ElementKind.LABEL, 10, 30, 40, 20));
+
+        assertFalse(controller.setElement(element("autre").withParent("texte")),
+                "un libellé n'accueille pas d'enfants");
+    }
+
+    @Test
     void unEcranDisparuNeCassePas() {
         put(ScreenElement.of("a", ElementKind.LABEL, 10, 10, 40, 20));
         new ScreenOps.RemoveScreen("menu").apply(bp, LOOKUP);

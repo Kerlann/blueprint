@@ -215,6 +215,69 @@ class DesignerPaletteTest {
         assertFalse(types.isEmpty());
     }
 
+    /**
+     * <b>Glisser un calque sur un autre le lui donne pour parent.</b>
+     *
+     * <p>Reparenter était impossible : le glisser sur le canevas confine dans le parent
+     * existant, le panneau n'a pas de champ, et le seul contournement était de supprimer
+     * puis recréer — au centre de la vue, pas sous le curseur. Le modèle savait faire
+     * depuis toujours ; il manquait le geste.
+     */
+    @Test
+    void glisserUnCalqueSurUnAutreLeLuiDonnePourParent() {
+        var m = model(List.of("g"), List.of(
+                new DesignerPalette.Layer("cadre", null, true),
+                new DesignerPalette.Layer("titre", null, true)));
+        var lignes = of(DesignerPalette.rows(m, TOP, HEIGHT, 0), DesignerPalette.Kind.LAYER);
+        var cadre = lignes.stream().filter(r -> "cadre".equals(r.name())).findFirst()
+                .orElseThrow();
+
+        assertEquals("cadre", DesignerPalette.dropTarget(m, TOP, HEIGHT, 0, "titre",
+                cadre.y() + 1));
+    }
+
+    /**
+     * <b>On ne propose jamais une cible que le modèle refuserait.</b>
+     *
+     * <p>Ni soi-même, ni sa propre descendance : {@code ScreenRules} refuse déjà le cycle,
+     * mais montrer une cible que l'opération rejettera ensuite est le genre de promesse qui
+     * fait douter d'un outil. Le petit-enfant compte autant que l'enfant.
+     */
+    @Test
+    void onNeProposeJamaisUneCibleQueLeModeleRefuserait() {
+        var m = model(List.of("g"), List.of(
+                new DesignerPalette.Layer("cadre", null, true),
+                new DesignerPalette.Layer("titre", "cadre", true),
+                new DesignerPalette.Layer("valeur", "titre", true)));
+        var lignes = of(DesignerPalette.rows(m, TOP, HEIGHT, 0), DesignerPalette.Kind.LAYER);
+
+        for (DesignerPalette.Row row : lignes) {
+            assertEquals(null, DesignerPalette.dropTarget(m, TOP, HEIGHT, 0, "cadre",
+                            row.y() + 1),
+                    "« cadre » ne peut devenir l'enfant ni de lui-même ni de « " + row.name()
+                            + " », qui descend de lui");
+        }
+    }
+
+    /**
+     * L'en-tête « Calques » est la cible <b>racine</b>.
+     *
+     * <p>Sortir un élément de son conteneur n'avait aucun geste. Il en faut un, et il doit
+     * être là où l'on regarde : juste au-dessus de la liste.
+     */
+    @Test
+    void lEnTeteDesCalquesSortDeSonConteneur() {
+        var m = model(List.of("g"), List.of(
+                new DesignerPalette.Layer("cadre", null, true),
+                new DesignerPalette.Layer("titre", "cadre", true)));
+        var entete = of(DesignerPalette.rows(m, TOP, HEIGHT, 0), DesignerPalette.Kind.SECTION)
+                .stream().filter(r -> r.label().endsWith(".layers")).findFirst().orElseThrow();
+
+        assertEquals("", DesignerPalette.dropTarget(m, TOP, HEIGHT, 0, "titre",
+                        entete.y() + 2),
+                "la chaîne vide veut dire « à la racine de l'écran »");
+    }
+
     /** Sans écran ni calque, la colonne dit quoi faire au lieu de rester vide. */
     @Test
     void uneListeVideDitQuoiFaire() {

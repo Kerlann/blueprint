@@ -682,7 +682,9 @@ public final class ScreenDesignerWidget {
         int w = DesignerPalette.WIDTH;
         switch (row.kind()) {
             case SECTION -> {
-                g.fill(0, row.y(), w - 1, row.y() + 1, PANEL_BORDER);
+                g.fill(0, row.y(), w - 1, row.y() + 1,
+                        "".equals(dropTarget) && row.label().endsWith(".layers")
+                                ? SELECTED : PANEL_BORDER);
                 g.drawString(font, font.plainSubstrByWidth(
                                 I18n.get(row.label()), w - 18),
                         4, row.y() + 3, DIM_TEXT, false);
@@ -720,6 +722,14 @@ public final class ScreenDesignerWidget {
             case LAYER -> {
                 if (row.selected()) {
                     g.fill(0, row.y(), w - 1, row.y() + DesignerPalette.ROW, SELECTED_ROW);
+                }
+                // La cible d'un reparentage en cours : un liseré, pas un fond. Elle se
+                // superpose à la sélection sans l'effacer — celle qu'on traîne EST la
+                // sélection, et perdre son repère au milieu du geste serait déroutant.
+                if (row.name() != null && row.name().equals(dropTarget)) {
+                    g.fill(0, row.y(), w - 1, row.y() + 1, SELECTED);
+                    g.fill(0, row.y() + DesignerPalette.ROW - 1, w - 1,
+                            row.y() + DesignerPalette.ROW, SELECTED);
                 }
                 if (row.expandable()) {
                     g.drawString(font, row.expanded() ? "▾" : "▸",
@@ -1222,7 +1232,15 @@ public final class ScreenDesignerWidget {
                     reportRefusal();
                 }
             }
-            case LAYER_SELECT -> controller.selection().selectAll(List.of(click.name()), false);
+            case LAYER_SELECT -> {
+                controller.selection().selectAll(List.of(click.name()), false);
+                // Le clic sélectionne ; s'il se prolonge en glisser, il reparente. Armer
+                // ici plutôt qu'au premier mouvement garde le geste continu — attendre un
+                // seuil ferait rater les déplacements courts, qui sont les plus fréquents
+                // dans un arbre où deux lignes voisines sont à douze pixels.
+                draggedLayer = click.name();
+                dropTarget = null;
+            }
             case LAYER_VISIBILITY -> toggleLayerVisibility(click.name());
             case LAYER_EXPAND -> {
                 if (!collapsedLayers.remove(click.name())) {
@@ -1251,6 +1269,34 @@ public final class ScreenDesignerWidget {
             reportRefusal();
         }
     }
+
+    /**
+     * Applique le reparentage lâché dans l'arbre.
+     *
+     * <p>Aucune opération neuve : {@code SetElement} porte l'élément entier, et
+     * {@code ScreenRules.checkPlacement} refuse déjà les cycles, les parents absents et les
+     * parents qui ne sont pas des conteneurs. Le modèle savait reparenter depuis toujours —
+     * ce qui manquait était un geste pour le lui demander.
+     */
+    private void applyReparent() {
+        Screen screen = controller.screen();
+        ScreenElement element = screen == null || draggedLayer == null
+                ? null : screen.element(draggedLayer);
+        if (element == null || dropTarget == null) {
+            return;
+        }
+        String parent = dropTarget.isEmpty() ? null : dropTarget;
+        if (java.util.Objects.equals(element.parent(), parent)) {
+            return;   // lâché sur son parent actuel : rien à faire, et rien à annuler
+        }
+        if (!controller.setElement(element.withParent(parent))) {
+            reportRefusal();
+        }
+    }
+
+    /** Le calque qu'on traîne dans l'arbre, et le parent que le curseur désigne. */
+    private @Nullable String draggedLayer;
+    private @Nullable String dropTarget;
 
     /** Les calques repliés, par nom. Un état d'affichage : rien à enregistrer. */
     private final java.util.Set<String> collapsedLayers = new java.util.LinkedHashSet<>();
@@ -1325,6 +1371,15 @@ public final class ScreenDesignerWidget {
             camera.panByScreen(dx, dy);
             return true;
         }
+        if (draggedLayer != null) {
+            // On suit le curseur pour dessiner la cible ; rien n'est appliqué avant de
+            // lâcher. Reparenter en cours de route ferait sauter l'arbre sous la main.
+            dropTarget = DesignerPalette.dropTarget(paletteModel(), top, height,
+                    paletteScroll.offset(DesignerPalette.contentRows(paletteModel()),
+                            DesignerPalette.visibleRows(top, height)),
+                    draggedLayer, e.y());
+            return true;
+        }
         if (controller.gesture() == ScreenCanvasController.Gesture.NONE) {
             return false;
         }
@@ -1335,6 +1390,12 @@ public final class ScreenDesignerWidget {
     public boolean mouseReleased(MouseButtonEvent e) {
         if (panning) {
             panning = false;
+            return true;
+        }
+        if (draggedLayer != null) {
+            applyReparent();
+            draggedLayer = null;
+            dropTarget = null;
             return true;
         }
         if (controller.gesture() == ScreenCanvasController.Gesture.NONE) {
