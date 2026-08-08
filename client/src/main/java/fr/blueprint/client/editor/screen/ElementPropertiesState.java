@@ -618,4 +618,38 @@ public final class ElementPropertiesState {
                 s.hoverBackground(), s.pressedBackground(), s.disabledBackground(),
                 value, s.align(), s.wrap());
     }
+
+    /**
+     * Largeur estimée d'un caractère de la police de Minecraft.
+     *
+     * <p>Six : la moyenne des caractères latins, interlettrage compris. Le même nombre et
+     * la même raison que {@code NodeGeometry.CHAR_WIDTH} — mesurer demanderait la police,
+     * ce qui rendrait invérifiable sans client une décision qui se vérifie très bien.
+     */
+    public static final int CHAR_WIDTH = 6;
+
+    /**
+     * Combien de pastilles tiennent côte à côte sans qu'un mot soit coupé.
+     *
+     * <p>Cinq cibles de liaison sur 136 pixels, c'était 27 pixels chacune : « Visible »
+     * devenait « Visib », « Détaché » devenait « Detac ». Un libellé deviné n'est pas un
+     * libellé — l'auteur doit cliquer pour savoir ce qu'il vient de choisir.
+     *
+     * <p>Au moins une par ligne, quoi qu'il arrive : mieux vaut un mot tronqué qu'une
+     * division par zéro ou une rangée vide.
+     *
+     * @param room          la largeur disponible, en pixels
+     * @param longestLabel  la longueur du plus long libellé, en caractères
+     * @param count         le nombre de pastilles
+     */
+    public static int chipsPerRow(int room, int longestLabel, int count) {
+        int needed = longestLabel * CHAR_WIDTH + 4;
+        return Math.max(1, Math.min(count, room / Math.max(1, needed)));
+    }
+
+    /** Le nombre de lignes qu'occupera une rangée de pastilles. */
+    public static int chipLines(int room, int longestLabel, int count) {
+        int perRow = chipsPerRow(room, longestLabel, count);
+        return (count + perRow - 1) / perRow;
+    }
 }

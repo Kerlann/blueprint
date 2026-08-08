@@ -60,6 +60,14 @@ public final class ScreenDesignerWidget {
     private static final int SELECTED = 0xFF7AA2F7;
     /** Fond de la ligne active : le liseré du panneau des variables, adouci. */
     private static final int SELECTED_ROW = 0xFF2F3A55;
+
+    /**
+     * L'abscisse de la colonne des valeurs, dans le panneau de droite.
+     *
+     * <p>Une seule source : le libellé s'arrête ici, la valeur commence ici. Les deux la
+     * calculaient séparément, et le libellé se peignait par-dessus la valeur.
+     */
+    private static final int VALUE_LEFT = 52;
     private static final int INVALID = 0xFFF7768E;
     private static final int SURFACE_BACKGROUND = 0xFF101114;
     private static final int SAFE_BORDER = 0xFF4A4F58;
@@ -925,7 +933,16 @@ public final class ScreenDesignerWidget {
      * les deux se recalculaient chacun leurs ordonnées, et toute rangée ajoutée au milieu
      * décalait les clics d'un cran sans que rien ne le dise (story 10.10).
      */
-    private record Chip(String label, int x, int width, boolean active, Runnable onClick) {
+    /**
+     * @param line la rangée de la pastille dans son groupe : 0 sauf quand une énumération
+     *             trop large passe à la ligne plutôt que de couper ses mots.
+     */
+    private record Chip(String label, int x, int width, boolean active, Runnable onClick,
+                        int line) {
+
+        Chip(String label, int x, int width, boolean active, Runnable onClick) {
+            this(label, x, width, active, onClick, 0);
+        }
     }
 
     private record Row(int y, String label, java.util.List<Chip> chips,
@@ -947,6 +964,33 @@ public final class ScreenDesignerWidget {
      */
     private final java.util.Set<ElementPropertiesState.Section> collapsedSections =
             java.util.EnumSet.noneOf(ElementPropertiesState.Section.class);
+
+    /**
+     * Poser une rangée et rendre le y de la suivante.
+     *
+     * <p>Une rangée dont les pastilles passent à la ligne en occupe deux : avancer d'une
+     * seule ferait peindre la suivante par-dessus. Le seul moyen sûr est que personne
+     * n'écrive { y += ROW} après une rangée à pastilles.
+     */
+    private static int addRow(java.util.List<Row> rows, Row row) {
+        rows.add(row);
+        return row.y() + rowHeight(row);
+    }
+
+    /**
+     * La hauteur d'une rangée : une de plus par ligne de pastilles supplémentaire.
+     *
+     * <p>Le rendu, le clic ET l'avance du curseur la lisent <b>ici</b>. Trois arithmétiques
+     * séparées, c'est le piège qui a déjà mordu ce panneau : ce qui se dessine et ce qui se
+     * clique cessent alors de désigner la même chose.
+     */
+    private static int rowHeight(Row row) {
+        int lines = 1;
+        for (Chip chip : row.chips()) {
+            lines = Math.max(lines, chip.line() + 1);
+        }
+        return lines * ROW;
+    }
 
     /** Un en-tête de section : son chevron, son titre, et rien d'autre. */
     private Row sectionRow(int y, ElementPropertiesState.Section section) {
@@ -1101,10 +1145,11 @@ public final class ScreenDesignerWidget {
                 // Les quatre modes sur LEUR rangée, pleine largeur. Sur la même ligne que
                 // le libellé, la dernière finissait à 123 sur un panneau de 128 et la
                 // valeur se peignait à 126 : elle était de fait invisible.
-                rows.add(new Row(y, "",
+                Row modes = new Row(y, "",
                         sizeModeChips(element, field == ElementPropertiesState.Field.WIDTH),
-                        null, null));
-                y += ROW;
+                        null, null);
+                rows.add(modes);
+                y += rowHeight(modes);
             }
         }
 
@@ -1160,28 +1205,24 @@ public final class ScreenDesignerWidget {
                 && !collapsedSections.contains(ElementPropertiesState.Section.LAYOUT)) {
             // Le défilement d'abord : c'est une propriété du conteneur lui-même, pas de
             // la façon dont il range, et elle vaut aussi en disposition absolue.
-            rows.add(new Row(y, I18n.get("blueprint.designer.scroll"),
+            y = addRow(rows, new Row(y, I18n.get("blueprint.designer.scroll"),
                     enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Scroll.values(),
                             element.layout().scroll(), "blueprint.designer.scroll.",
                             axis -> apply(element.withLayout(
                                     element.layout().withScroll(axis)))), null, null));
-            y += ROW;
-            rows.add(new Row(y, I18n.get("blueprint.designer.layout"),
+            y = addRow(rows, new Row(y, I18n.get("blueprint.designer.layout"),
                     enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Mode.values(),
                             element.layout().mode(), "blueprint.designer.layout.",
                             mode -> apply(properties.setLayoutMode(mode))), null, null));
-            y += ROW;
             if (element.arranges()) {
-                rows.add(new Row(y, I18n.get("blueprint.designer.main"),
+                y = addRow(rows, new Row(y, I18n.get("blueprint.designer.main"),
                         enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Distribute.values(),
                                 element.layout().main(), "blueprint.designer.main.",
                                 main -> apply(properties.setLayoutMain(main))), null, null));
-                y += ROW;
-                rows.add(new Row(y, I18n.get("blueprint.designer.cross"),
+                y = addRow(rows, new Row(y, I18n.get("blueprint.designer.cross"),
                         enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Cross.values(),
                                 element.layout().cross(), "blueprint.designer.cross.",
                                 cross -> apply(properties.setLayoutCross(cross))), null, null));
-                y += ROW;
             }
             for (var field : java.util.List.of(ElementPropertiesState.Field.GAP,
                     ElementPropertiesState.Field.CROSS_GAP,
@@ -1207,11 +1248,10 @@ public final class ScreenDesignerWidget {
         if (!richFields.isEmpty()
                 && !collapsedSections.contains(ElementPropertiesState.Section.OPTIONS)) {
             if (element.kind() == ElementKind.INPUT) {
-                rows.add(new Row(y, I18n.get("blueprint.designer.filter"),
+                y = addRow(rows, new Row(y, I18n.get("blueprint.designer.filter"),
                         enumChips(fr.blueprint.core.graph.screen.ElementOptions.InputFilter.values(),
                                 element.options().filter(), "blueprint.designer.filter.",
                                 filter -> apply(properties.setFilter(filter))), null, null));
-                y += ROW;
             }
             for (var field : richFields) {
                 rows.add(new Row(y, I18n.get(fieldKey(field)), java.util.List.of(), field,
@@ -1371,19 +1411,34 @@ public final class ScreenDesignerWidget {
      *
      * <p>Au-delà de trois valeurs, la rangée abandonne son libellé et les pastilles
      * occupent toute la largeur : mieux vaut une ligne de plus qu'une pastille dehors.
+     *
+     * <p>Et si elles ne tiennent toujours pas, elles <b>passent à la ligne</b>. À cinq
+     * valeurs sur cent quarante-quatre pixels, chacune disposait de vingt-sept pixels et
+     * « Enabled » se lisait « Activ », « Detach » se lisait « Detac » : des mots coupés au
+     * milieu, qu'on devine au lieu de les lire. Un mot tronqué ne se comprend pas plus
+     * vite qu'un mot absent.
      */
     private <E extends Enum<E>> java.util.List<Chip> enumChips(
             E[] values, E current, String keyPrefix, java.util.function.Consumer<E> onPick) {
-        int left = values.length > 3 ? 4 : 52;
+        int left = values.length > 3 ? 4 : VALUE_LEFT;
         int room = PROPERTIES_WIDTH - left - 4;
-        int step = room / values.length;
-        java.util.List<Chip> chips = new java.util.ArrayList<>(values.length);
-        int x = left;
+        java.util.List<String> labels = new java.util.ArrayList<>(values.length);
+        int longest = 0;
         for (E value : values) {
             String label = I18n.get(keyPrefix + value.name().toLowerCase(java.util.Locale.ROOT));
-            chips.add(new Chip(label, x, step - 1, current == value,
-                    () -> onPick.accept(value)));
-            x += step;
+            labels.add(label);
+            longest = Math.max(longest, label.length());
+        }
+        // La largeur d'un caractère est ESTIMÉE, comme NodeGeometry estime celle d'une
+        // pastille de variable : mesurer demanderait la police, et rendrait cette décision
+        // invérifiable sans client. Une estimation large vaut mieux qu'un mot coupé.
+        int perRow = ElementPropertiesState.chipsPerRow(room, longest, values.length);
+        int step = room / perRow;
+        java.util.List<Chip> chips = new java.util.ArrayList<>(values.length);
+        for (int i = 0; i < values.length; i++) {
+            E value = values[i];
+            chips.add(new Chip(labels.get(i), left + (i % perRow) * step, step - 1,
+                    current == value, () -> onPick.accept(value), i / perRow));
         }
         return chips;
     }
@@ -1397,14 +1452,18 @@ public final class ScreenDesignerWidget {
                                               String keyPrefix,
                                               java.util.function.Consumer<E> onPick) {
         java.util.List<Chip> chips = enumChips(values, current, keyPrefix, onPick);
+        Row row;
         if (values.length > 3) {
             rows.add(new Row(y[0], I18n.get(labelKey), java.util.List.of(), null, null));
             y[0] += ROW;
-            rows.add(new Row(y[0], "", chips, null, null));
+            row = new Row(y[0], "", chips, null, null);
         } else {
-            rows.add(new Row(y[0], I18n.get(labelKey), chips, null, null));
+            row = new Row(y[0], I18n.get(labelKey), chips, null, null);
         }
-        y[0] += ROW;
+        rows.add(row);
+        // La hauteur RÉELLE de la rangée : une énumération qui passe à la ligne en occupe
+        // plusieurs, et avancer d'une seule ferait peindre la suivante par-dessus.
+        y[0] += rowHeight(row);
     }
 
     /**
@@ -1479,17 +1538,26 @@ public final class ScreenDesignerWidget {
                 continue;
             }
             if (!row.label().isEmpty()) {
-                g.drawString(font, font.plainSubstrByWidth(row.label(), PROPERTIES_WIDTH - 8),
+                // Le libellé s'arrête AVANT la colonne des valeurs. Il avait droit à toute
+                // la largeur du panneau, si bien qu'un nom long se peignait par-dessus sa
+                // propre valeur : « Background » et « #C0141519 » donnaient
+                // « Backgrou#C0141519 », un mot qui n'existe pas et une couleur qu'on ne
+                // sait plus lire.
+                int room = row.value() == null && row.chips().isEmpty()
+                        ? PROPERTIES_WIDTH - 8    // seul sur sa ligne : toute la place
+                        : VALUE_LEFT - 6;
+                g.drawString(font, font.plainSubstrByWidth(row.label(), room),
                         left + 4, row.y(), DIM_TEXT, false);
             }
             for (Chip chip : row.chips()) {
                 int x = left + chip.x();
-                g.fill(x, row.y() - 1, x + chip.width(), row.y() + ROW - 3,
+                int cy = row.y() + chip.line() * ROW;
+                g.fill(x, cy - 1, x + chip.width(), cy + ROW - 3,
                         chip.active() ? SELECTED : PANEL_BORDER);
                 if (!chip.label().isEmpty()) {
                     g.drawString(font,
                             font.plainSubstrByWidth(chip.label(), chip.width() - 2),
-                            x + 1, row.y(), chip.active() ? PANEL_BACKGROUND : TEXT, false);
+                            x + 1, cy, chip.active() ? PANEL_BACKGROUND : TEXT, false);
                 }
             }
             if (row.value() != null) {
@@ -1499,7 +1567,7 @@ public final class ScreenDesignerWidget {
                 // Une valeur sans libellé occupe TOUTE la largeur : c'est la rangée que
                 // needsOwnLine réserve aux textes, dont le nom, la texture et le format.
                 int valueX = !row.label().isEmpty() || !row.chips().isEmpty()
-                        ? (row.chips().isEmpty() ? 52
+                        ? (row.chips().isEmpty() ? VALUE_LEFT
                                 : row.chips().getLast().x() + row.chips().getLast().width() + 3)
                         : 6;
                 g.drawString(font, font.plainSubstrByWidth(row.value(),
@@ -1719,11 +1787,16 @@ public final class ScreenDesignerWidget {
         }
         double local = mx - (width - panels.propertiesWidth());
         for (Row row : visiblePropertyRows()) {
-            if (my < row.y() - 1 || my >= row.y() + ROW - 1) {
+            if (my < row.y() - 1 || my >= row.y() - 1 + rowHeight(row)) {
                 continue;
             }
             for (Chip chip : row.chips()) {
-                if (local >= chip.x() && local < chip.x() + chip.width()) {
+                // La ligne de la pastille compte : une énumération qui passe à la ligne
+                // pose sa seconde rangée douze pixels plus bas, et cliquer la première
+                // colonne y déclencherait la valeur du dessus.
+                if (my >= row.y() - 1 + chip.line() * ROW
+                        && my < row.y() + ROW - 1 + chip.line() * ROW
+                        && local >= chip.x() && local < chip.x() + chip.width()) {
                     chip.onClick().run();
                     reportRefusal();
                     return true;
