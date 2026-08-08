@@ -134,12 +134,17 @@ public final class ScreenRules {
      */
     private static final double TEXT_LINE_HEIGHT = 9;
 
-    /** Les types qui affichent des mots — les seuls que la taille du texte concerne. */
+    /**
+     * Cet élément a-t-il des mots à couper ?
+     *
+     * <p>Ce n'est pas le <b>type</b> qui décide mais le <b>texte</b> : le peintre dessine
+     * l'étiquette de n'importe quel élément dès qu'elle n'est pas vide — une barre de
+     * progression peut porter son nom, un emplacement le sien. Trier par type écarterait à
+     * tort ceux qui en portent une, et avertir un élément vide serait du bruit qu'on ne
+     * peut pas corriger.
+     */
     private static boolean showsText(ScreenElement element) {
-        return switch (element.kind()) {
-            case LABEL, BUTTON, INPUT, TOGGLE, DROPDOWN -> !element.text().value().isEmpty();
-            case PANEL, IMAGE, PROGRESS, SLOT, SLIDER, LIST, ENTITY_PREVIEW -> false;
-        };
+        return !element.text().value().isEmpty();
     }
 
     /** « 1.5 » et non « 1.5000000 » : le nombre part dans un message lu par un humain. */

@@ -216,31 +216,32 @@ class ElementTextScaleTest {
     }
 
     /**
-     * <b>Ce qui n'affiche aucun mot n'est jamais reproché.</b>
+     * <b>C'est le texte qui décide, pas le type.</b>
      *
-     * <p>Une image ou une barre de progression n'ont pas de texte à couper. Les compter
-     * donnerait un avertissement que rien ne permet de corriger — le pire genre.
+     * <p>Correction d'une croyance fausse : j'avais d'abord écarté l'image, la barre,
+     * l'emplacement et l'aperçu d'entité, en les tenant pour muets. Le peintre appelle en
+     * réalité {@code paintText} pour <b>tous</b> les types sauf la liste déroulante, et
+     * dessine leur étiquette dès qu'elle n'est pas vide. Trier par type aurait laissé
+     * passer une barre de progression dont le nom se coupe en deux.
      */
     @Test
-    void ceQuiNaffichePasDeMotNestJamaisReproche() {
-        for (ElementKind muet : List.of(ElementKind.IMAGE, ElementKind.PROGRESS,
-                ElementKind.SLOT, ElementKind.ENTITY_PREVIEW)) {
-            Blueprint bp = with(new Screen("menu", false, List.of(
-                    ScreenElement.of("e", muet, 0, 0, 40, 8)
+    void cestLeTexteQuiDecidePasLeType() {
+        for (ElementKind kind : List.of(ElementKind.IMAGE, ElementKind.PROGRESS,
+                ElementKind.SLOT, ElementKind.LABEL)) {
+            Blueprint vide = with(new Screen("menu", false, List.of(
+                    ScreenElement.of("e", kind, 0, 0, 40, 8)
                             .styled(ElementStyle.DEFAULT.withTextScale(3)))));
-            assertFalse(codes(bp).contains(DiagnosticCode.ELEMENT_TEXT_TOO_TALL),
-                    muet + " n'affiche aucun mot : rien à couper");
+            assertFalse(codes(vide).contains(DiagnosticCode.ELEMENT_TEXT_TOO_TALL),
+                    kind + " sans étiquette n'a rien à couper — l'avertir serait du bruit "
+                            + "qu'on ne peut pas corriger");
+
+            Blueprint etiquete = with(new Screen("menu", false, List.of(
+                    ScreenElement.of("e", kind, 0, 0, 40, 8)
+                            .withText(ScreenText.literal("Vie"))
+                            .styled(ElementStyle.DEFAULT.withTextScale(3)))));
+            assertTrue(codes(etiquete).contains(DiagnosticCode.ELEMENT_TEXT_TOO_TALL),
+                    kind + " porte une étiquette de vingt-sept pixels dans huit unités : "
+                            + "elle sera coupée, quel que soit le type");
         }
-    }
-
-    /** Un élément sans texte non plus, même s'il pourrait en porter. */
-    @Test
-    void unElementSansTexteNestPasReproche() {
-        Blueprint bp = with(new Screen("menu", false, List.of(
-                ScreenElement.of("vide", ElementKind.LABEL, 0, 0, 40, 8)
-                        .styled(ElementStyle.DEFAULT.withTextScale(3)))));
-
-        assertFalse(codes(bp).contains(DiagnosticCode.ELEMENT_TEXT_TOO_TALL),
-                "un libellé vide n'a rien à couper — l'avertir serait du bruit");
     }
 }

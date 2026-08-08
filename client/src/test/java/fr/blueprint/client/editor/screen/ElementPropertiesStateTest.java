@@ -101,15 +101,23 @@ class ElementPropertiesStateTest {
         }
     }
 
-    /** Ce qui n'affiche aucun mot n'a ni « Texte » ni « Couleur du texte ». */
+    /**
+     * <b>Tout élément peut porter une étiquette.</b>
+     *
+     * <p>Correction d'une croyance fausse : j'avais réservé « Texte » aux types « qui
+     * parlent » et l'avais retiré de l'image, de la barre, de l'emplacement et de l'aperçu
+     * d'entité. Le peintre, lui, appelle {@code paintText} pour <b>tous</b> les types sauf
+     * la liste déroulante et dessine leur texte dès qu'il n'est pas vide. Masquer le champ
+     * retirait donc une capacité qui existe — une barre de progression peut porter son nom.
+     */
     @Test
-    void ceQuiNaffichePasDeMotNaPasDeChampTexte() {
-        for (ElementKind muet : java.util.List.of(ElementKind.IMAGE, ElementKind.PROGRESS,
-                ElementKind.SLOT, ElementKind.ENTITY_PREVIEW)) {
-            var champs = shown(ScreenElement.of("e", muet, 0, 0, 40, 20));
-            assertFalse(champs.contains(ElementPropertiesState.Field.TEXT), muet + " : texte");
-            assertFalse(champs.contains(ElementPropertiesState.Field.TEXT_COLOR),
-                    muet + " : couleur du texte");
+    void toutElementPeutPorterUneEtiquette() {
+        for (ElementKind kind : ElementKind.values()) {
+            var champs = shown(ScreenElement.of("e", kind, 0, 0, 40, 20));
+            assertTrue(champs.contains(ElementPropertiesState.Field.TEXT),
+                    kind + " : le peintre dessine son texte, le panneau doit le proposer");
+            assertTrue(champs.contains(ElementPropertiesState.Field.TEXT_COLOR),
+                    kind + " : et sa couleur");
         }
     }
 

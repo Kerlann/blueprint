@@ -315,15 +315,29 @@ public final class ElementPropertiesState {
         };
     }
 
-    /** Les types qui affichent des mots — les seuls à qui « Texte » veut dire quelque chose. */
+    /**
+     * Les types qui affichent des mots — les seuls à qui « Texte » veut dire quelque chose.
+     *
+     * <p><b>Tous, et c'est une correction.</b> J'avais d'abord réservé le champ aux types
+     * « qui parlent » — libellé, bouton, saisie, case, liste déroulante — en écartant
+     * l'image, la barre, l'emplacement et l'aperçu d'entité. C'était faux : le peintre
+     * appelle {@code paintText} pour <b>tous</b> les types sauf la liste déroulante, et
+     * dessine leur texte dès qu'il n'est pas vide. Une barre de progression peut donc
+     * porter son étiquette, et un emplacement son nom — masquer le champ retirait une
+     * capacité qui existe.
+     *
+     * <p>La liste déroulante fait exception dans l'autre sens : elle dessine son propre
+     * libellé, et son texte lui sert d'<i>invite</i>. Le champ garde donc un sens pour
+     * elle aussi.
+     */
     public static boolean showsAnyText(ElementKind kind) {
         return showsText(kind);
     }
 
     private static boolean showsText(ElementKind kind) {
         return switch (kind) {
-            case LABEL, BUTTON, INPUT, TOGGLE, DROPDOWN, PANEL -> true;
-            case IMAGE, PROGRESS, SLOT, SLIDER, LIST, ENTITY_PREVIEW -> false;
+            case LABEL, BUTTON, INPUT, TOGGLE, DROPDOWN, PANEL,
+                 IMAGE, PROGRESS, SLOT, SLIDER, LIST, ENTITY_PREVIEW -> true;
         };
     }
 

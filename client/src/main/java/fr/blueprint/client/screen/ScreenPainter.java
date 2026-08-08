@@ -455,10 +455,12 @@ public final class ScreenPainter {
                         ? Component.translatable(element.text().value()).getString()
                         : element.text().value());
 
-        String shown = font.plainSubstrByWidth(label,
-                Math.max(0, right - left - 2 * inset - arrow - 2));
-        g.drawString(font, shown, left + inset + 1,
-                (top + bottom) / 2 - font.lineHeight / 2, style.textColor(), false);
+        double textScale = style.textScale();
+        String shown = ScaledText.fit(font, label,
+                Math.max(0, right - left - 2 * inset - arrow - 2), textScale);
+        ScaledText.draw(g, font, shown, left + inset + 1,
+                (top + bottom) / 2 - ScaledText.lineHeight(font, textScale) / 2,
+                style.textColor(), textScale);
 
         // Le chevron : trois traits qui rétrécissent, dessinés à la main faute de pouvoir
         // tracer un triangle — la même contrainte que les fils du canevas.
@@ -491,9 +493,14 @@ public final class ScreenPainter {
             if (index == selected) {
                 g.fill(left + inset, y, right - inset, y + rowHeight, style.hoverBackground());
             }
-            String line = font.plainSubstrByWidth(lines.get(index),
-                    right - left - 2 * inset - (view.scrollable() ? 4 : 0));
-            g.drawString(font, line, left + inset + 1, y + 1, style.textColor(), false);
+            // La hauteur de rangée reste celle des options : c'est elle qui décide combien
+            // de lignes tiennent, et la faire suivre le texte changerait le nombre de
+            // lignes visibles à chaque réglage de police. Un texte trop grand pour sa
+            // rangée déborde donc, comme un texte trop long est tronqué.
+            String line = ScaledText.fit(font, lines.get(index),
+                    right - left - 2 * inset - (view.scrollable() ? 4 : 0), style.textScale());
+            ScaledText.draw(g, font, line, left + inset + 1, y + 1,
+                    style.textColor(), style.textScale());
             y += rowHeight;
         }
         g.disableScissor();
@@ -522,20 +529,26 @@ public final class ScreenPainter {
         String typed = visuals.input(element.name());
         boolean focused = visuals.focused(element.name());
         int inset = Math.max(2, style.padding() * scale);
-        int baseline = (top + bottom) / 2 - font.lineHeight / 2;
+        double textScale = style.textScale();
+        int lineHeight = ScaledText.lineHeight(font, textScale);
+        int baseline = (top + bottom) / 2 - lineHeight / 2;
 
         String shown = typed.isEmpty() && !focused ? element.options().placeholder() : typed;
         int color = typed.isEmpty() && !focused
                 ? (style.textColor() & 0x00FFFFFF) | 0x80000000 : style.textColor();
-        // La FIN visible, comme dans tout champ de saisie : c'est là qu'on tape.
+        // La FIN visible, comme dans tout champ de saisie : c'est là qu'on tape. La place
+        // se mesure au FACTEUR, sinon on garderait deux fois trop de caractères et le
+        // curseur se poserait hors du champ.
         int room = right - left - 2 * inset - (focused ? 3 : 0);
-        while (font.width(shown) > room && shown.length() > 1) {
+        while (ScaledText.width(font, shown, textScale) > room && shown.length() > 1) {
             shown = shown.substring(1);
         }
-        g.drawString(font, shown, left + inset, baseline, color, false);
+        ScaledText.draw(g, font, shown, left + inset, baseline, color, textScale);
         if (focused) {
-            g.fill(left + inset + font.width(shown) + 1, baseline - 1,
-                    left + inset + font.width(shown) + 2, baseline + font.lineHeight,
+            // Le curseur suit le texte : sa hauteur est celle d'une ligne, sa position
+            // celle de la fin du texte — toutes deux à l'échelle.
+            int caret = left + inset + ScaledText.width(font, shown, textScale);
+            g.fill(caret + 1, baseline - 1, caret + 2, baseline + lineHeight,
                     style.textColor());
         }
     }
@@ -602,8 +615,9 @@ public final class ScreenPainter {
                 (double) (right - left) / scale) * scale;
         if (reserved > 0) {
             trackRight -= reserved;
-            g.drawString(font, readout, trackRight + 2 * scale,
-                    (top + bottom) / 2 - font.lineHeight / 2, style.textColor(), false);
+            ScaledText.draw(g, font, readout, trackRight + 2 * scale,
+                    (top + bottom) / 2 - ScaledText.lineHeight(font, style.textScale()) / 2,
+                    style.textColor(), style.textScale());
         }
 
         g.fill(trackLeft, trackTop, trackRight, trackTop + 2 * scale, style.border());
@@ -633,7 +647,10 @@ public final class ScreenPainter {
         if (readout.isEmpty()) {
             return 0;
         }
-        int width = font.width(readout) + 2;
+        // À l'échelle du style : la place réservée et le texte dessiné se calculent au
+        // même facteur, sinon la piste céderait trop peu de place et le chiffre passerait
+        // dessous — « un chiffre à moitié recouvert est pire que pas de chiffre ».
+        int width = ScaledText.width(font, readout, element.style().textScale()) + 2;
         double usable = laidOutWidth - 2 * Math.max(2, element.style().padding());
         return usable > width + 8 ? width : 0;
     }
