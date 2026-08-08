@@ -2845,7 +2845,7 @@ permission `SAFE` · fuel 5 · P
 
 ### `blueprint:string/replace` — Replace
 
-permission `SAFE` · fuel 1 · P
+permission `SAFE` · fuel 3 · P
 
 | Entrées | Type | Défaut |
 |---|---|---|

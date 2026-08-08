@@ -101,7 +101,12 @@ public final class TextMathNodes {
                 })
                 .build());
 
-        r.register(NodeType.builder(id("string/replace"))
+        // Tarifé 3 comme map/keys et map/values, et pour la même raison : le travail suit
+        // la LONGUEUR du texte, là où le tarif est fixe. Le banc le mesure au plafond
+        // d'entrée — trente-deux mille caractères — entre ×2,4 et ×4,0 selon l'exécution,
+        // quand string/substring et string/concat, à coût constant, restent sous l'unité.
+        // Trois couvre la bande relevée sans la surfacturer sur son pic.
+        r.register(NodeType.builder(id("string/replace")).fuelCost(3)
                 .category(NodeCategories.STRING_EDIT).pure()
                 .in("text", PinTypes.STRING, "")
                 .in("search", PinTypes.STRING, "")
