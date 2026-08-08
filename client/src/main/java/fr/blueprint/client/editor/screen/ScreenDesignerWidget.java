@@ -841,6 +841,32 @@ public final class ScreenDesignerWidget {
         return rows;
     }
 
+    /**
+     * Les rangées <b>visibles</b> du panneau, décalées du défilement.
+     *
+     * <p>Le panneau ne défilait ni ne se découpait : au-delà de la hauteur de la fenêtre,
+     * les rangées étaient peintes dehors et les clics les atteignaient quand même. Un
+     * élément lié dans un blueprint à quelques variables passait trente rangées sans
+     * peine — le cas normal, pas le cas extrême.
+     */
+    private java.util.List<Row> visiblePropertyRows() {
+        java.util.List<Row> all = propertyRows();
+        int visible = Math.max(1, (height - top - ROW * 2) / ROW);
+        int offset = propertiesScroll.offset(all.size(), visible) * ROW;
+        java.util.List<Row> out = new java.util.ArrayList<>();
+        for (Row row : all) {
+            int y = row.y() - offset;
+            if (y < top || y + ROW > height - ROW) {
+                continue;
+            }
+            out.add(new Row(y, row.label(), row.chips(), row.field(), row.value()));
+        }
+        return out;
+    }
+
+    private final fr.blueprint.client.editor.PanelScroll propertiesScroll =
+            new fr.blueprint.client.editor.PanelScroll();
+
     private java.util.List<Row> propertyRows() {
         ScreenElement element = properties.element();
         Screen screen = controller.screen();
@@ -877,21 +903,33 @@ public final class ScreenDesignerWidget {
         }
 
         for (ElementPropertiesState.Field field : ElementPropertiesState.Field.values()) {
-            if (!fieldApplies(element, field, arranged)) {
+            if (!ElementPropertiesState.applies(element, field, arranged)) {
                 continue;
             }
             // Chaque axe de taille porte ses quatre modes : les taper en texte demandait
             // de connaître une syntaxe qu'aucun panneau n'affichait.
-            java.util.List<Chip> chips = java.util.List.of();
-            if (field == ElementPropertiesState.Field.WIDTH
-                    || field == ElementPropertiesState.Field.HEIGHT) {
-                boolean horizontal = field == ElementPropertiesState.Field.WIDTH;
-                chips = sizeModeChips(element, horizontal);
-            }
+            boolean size = field == ElementPropertiesState.Field.WIDTH
+                    || field == ElementPropertiesState.Field.HEIGHT;
             boolean editing = properties.isEditing(field);
-            rows.add(new Row(y, I18n.get(fieldKey(field)), chips, field,
-                    editing ? properties.buffer() + "_" : properties.valueOf(field)));
+            // La valeur d'un axe en mode « Ajuster » ne veut rien dire : la taille vient
+            // des enfants. sizeValueMatters existait et n'était appelé nulle part, si bien
+            // qu'on pouvait taper un nombre sans effet — ce que le panneau reproche
+            // ailleurs aux champs sans objet.
+            String value = size && !properties.sizeValueMatters(
+                    field == ElementPropertiesState.Field.WIDTH)
+                    ? null
+                    : editing ? properties.buffer() + "_" : properties.valueOf(field);
+            rows.add(new Row(y, I18n.get(fieldKey(field)), java.util.List.of(), field, value));
             y += ROW;
+            if (size) {
+                // Les quatre modes sur LEUR rangée, pleine largeur. Sur la même ligne que
+                // le libellé, la dernière finissait à 123 sur un panneau de 128 et la
+                // valeur se peignait à 126 : elle était de fait invisible.
+                rows.add(new Row(y, "",
+                        sizeModeChips(element, field == ElementPropertiesState.Field.WIDTH),
+                        null, null));
+                y += ROW;
+            }
         }
 
         // Le retour à la ligne. Une case et non un champ : c'est un oui/non, et le taper
@@ -973,11 +1011,12 @@ public final class ScreenDesignerWidget {
             y += ROW;
         }
         if (element.isBound()) {
-            rows.add(new Row(y, I18n.get("blueprint.designer.bind.target"),
-                    enumChips(fr.blueprint.core.graph.screen.ElementBinding.Target.values(),
-                            element.binding().target(), "blueprint.designer.bind.",
-                            target -> apply(properties.bindTarget(target))), null, null));
-            y += ROW;
+            int[] cursor = {y};
+            enumRows(rows, cursor, "blueprint.designer.bind.target",
+                    fr.blueprint.core.graph.screen.ElementBinding.Target.values(),
+                    element.binding().target(), "blueprint.designer.bind.",
+                    target -> apply(properties.bindTarget(target)));
+            y = cursor[0];
             for (var field : java.util.List.of(
                     ElementPropertiesState.Field.BIND_FORMAT,
                     ElementPropertiesState.Field.BIND_DECIMALS,
@@ -1023,45 +1062,71 @@ public final class ScreenDesignerWidget {
     /** Les quatre modes de taille d'un axe, celui en cours mis en avant. */
     private java.util.List<Chip> sizeModeChips(ScreenElement element, boolean horizontal) {
         var current = (horizontal ? element.width() : element.height()).mode();
-        java.util.List<Chip> chips = new java.util.ArrayList<>(4);
-        int x = 52;
-        for (var mode : fr.blueprint.core.graph.screen.Extent.Mode.values()) {
+        var modes = fr.blueprint.core.graph.screen.Extent.Mode.values();
+        int step = (PROPERTIES_WIDTH - 8) / modes.length;
+        java.util.List<Chip> chips = new java.util.ArrayList<>(modes.length);
+        int x = 4;
+        for (var mode : modes) {
             String label = I18n.get("blueprint.designer.size."
                     + mode.name().toLowerCase(java.util.Locale.ROOT));
-            chips.add(new Chip(label, x, 17, current == mode,
+            chips.add(new Chip(label, x, step - 1, current == mode,
                     () -> apply(properties.setSizeMode(horizontal, mode))));
-            x += 18;
+            x += step;
         }
         return chips;
     }
 
+    /**
+     * Les pastilles d'une énumération, <b>tenant dans le panneau</b>.
+     *
+     * <p>Le pas était figé à 18 px depuis {@code x = 52} : à cinq valeurs, la dernière
+     * courait jusqu'à 141 sur un panneau de 128. Les deux dernières cibles de liaison —
+     * « Activé » et « Visible » — n'étaient donc ni lisibles ni cliquables, alors que le
+     * modèle les propose depuis la 10.7. Un réglage qu'on ne peut pas atteindre n'existe
+     * pas.
+     *
+     * <p>Au-delà de trois valeurs, la rangée abandonne son libellé et les pastilles
+     * occupent toute la largeur : mieux vaut une ligne de plus qu'une pastille dehors.
+     */
     private <E extends Enum<E>> java.util.List<Chip> enumChips(
             E[] values, E current, String keyPrefix, java.util.function.Consumer<E> onPick) {
+        int left = values.length > 3 ? 4 : 52;
+        int room = PROPERTIES_WIDTH - left - 4;
+        int step = room / values.length;
         java.util.List<Chip> chips = new java.util.ArrayList<>(values.length);
-        int x = 52;
+        int x = left;
         for (E value : values) {
             String label = I18n.get(keyPrefix + value.name().toLowerCase(java.util.Locale.ROOT));
-            chips.add(new Chip(label, x, 17, current == value, () -> onPick.accept(value)));
-            x += 18;
+            chips.add(new Chip(label, x, step - 1, current == value,
+                    () -> onPick.accept(value)));
+            x += step;
         }
         return chips;
+    }
+
+    /**
+     * Une rangée d'énumération : le libellé au-dessus quand les pastilles prennent toute
+     * la largeur, sur la même ligne sinon.
+     */
+    private <E extends Enum<E>> void enumRows(java.util.List<Row> rows, int[] y,
+                                              String labelKey, E[] values, E current,
+                                              String keyPrefix,
+                                              java.util.function.Consumer<E> onPick) {
+        java.util.List<Chip> chips = enumChips(values, current, keyPrefix, onPick);
+        if (values.length > 3) {
+            rows.add(new Row(y[0], I18n.get(labelKey), java.util.List.of(), null, null));
+            y[0] += ROW;
+            rows.add(new Row(y[0], "", chips, null, null));
+        } else {
+            rows.add(new Row(y[0], I18n.get(labelKey), chips, null, null));
+        }
+        y[0] += ROW;
     }
 
     /**
      * Un champ n'est montré que s'il agit. Un x/y sur un enfant rangé par son conteneur
      * s'écrirait sans rien changer à l'écran, et {@code colonnes} n'existe qu'en grille.
      */
-    private static boolean fieldApplies(ScreenElement element,
-                                        ElementPropertiesState.Field field, boolean arranged) {
-        return switch (field) {
-            case X, Y -> !arranged;
-            case GAP, CROSS_GAP -> element.arranges();
-            case COLUMNS -> element.layout().mode()
-                    == fr.blueprint.core.graph.screen.LayoutSpec.Mode.GRID;
-            default -> true;
-        };
-    }
-
     /**
      * Un réglage de liaison n'est montré que s'il agit : le format ne veut rien dire pour
      * une case à cocher, les bornes n'existent que pour une barre.
@@ -1119,7 +1184,7 @@ public final class ScreenDesignerWidget {
                     DIM_TEXT, false);
             return;
         }
-        for (Row row : propertyRows()) {
+        for (Row row : visiblePropertyRows()) {
             if (!row.label().isEmpty()) {
                 g.drawString(font, font.plainSubstrByWidth(row.label(), PROPERTIES_WIDTH - 8),
                         left + 4, row.y(), DIM_TEXT, false);
@@ -1347,7 +1412,7 @@ public final class ScreenDesignerWidget {
             return true;
         }
         double local = mx - (width - panels.propertiesWidth());
-        for (Row row : propertyRows()) {
+        for (Row row : visiblePropertyRows()) {
             if (my < row.y() - 1 || my >= row.y() + ROW - 1) {
                 continue;
             }
@@ -1419,6 +1484,11 @@ public final class ScreenDesignerWidget {
         // Au-dessus de la COLONNE, la molette la fait défiler. Elle zoomait le canevas :
         // les trois sections s'empilaient sans défiler, et le seul geste qu'on essaie
         // au-dessus d'une liste trop longue agissait ailleurs.
+        if (panels.propertiesOpen() && panels.inProperties(mx, width)) {
+            propertiesScroll.scrollBy(amount > 0 ? -1 : 1, propertyRows().size(),
+                    Math.max(1, (height - top - ROW * 2) / ROW));
+            return true;
+        }
         if (panels.paletteOpen() && panels.inPalette(mx)) {
             DesignerPalette.Model model = paletteModel();
             paletteScroll.scrollBy(amount > 0 ? -1 : 1, DesignerPalette.contentRows(model),

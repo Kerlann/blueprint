@@ -38,6 +38,113 @@ class ElementPropertiesStateTest {
         }
     }
 
+    private static java.util.List<ElementPropertiesState.Field> shown(ScreenElement element) {
+        java.util.List<ElementPropertiesState.Field> out = new java.util.ArrayList<>();
+        for (var field : ElementPropertiesState.Field.values()) {
+            if (ElementPropertiesState.applies(element, field, false)) {
+                out.add(field);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * <b>Un type ne montre que ce qui le concerne.</b>
+     *
+     * <p>La règle retombait sur {@code default -> true} : onze champs sans objet
+     * s'affichaient sur chaque élément. Un simple libellé proposait « Indication »,
+     * « Longueur max », « Pas », « Hauteur de ligne » et « Type d'entité » — exactement ce
+     * que le commentaire voisin disait vouloir éviter : « un champ rempli sans effet est
+     * ce qui fait douter d'un outil ».
+     */
+    @Test
+    void unTypeNeMontreQueCeQuiLeConcerne() {
+        var libelle = shown(ScreenElement.of("t", ElementKind.LABEL, 0, 0, 40, 20));
+
+        for (var absent : java.util.List.of(
+                ElementPropertiesState.Field.PLACEHOLDER,
+                ElementPropertiesState.Field.MAX_LENGTH,
+                ElementPropertiesState.Field.STEP,
+                ElementPropertiesState.Field.ROW_HEIGHT,
+                ElementPropertiesState.Field.ENTITY,
+                ElementPropertiesState.Field.OPT_MIN,
+                ElementPropertiesState.Field.OPT_MAX)) {
+            assertFalse(libelle.contains(absent),
+                    "un libellé n'a que faire de « " + absent + " »");
+        }
+        assertTrue(libelle.contains(ElementPropertiesState.Field.TEXT),
+                "en revanche il porte du texte");
+    }
+
+    /**
+     * <b>Aucun champ n'est proposé deux fois.</b>
+     *
+     * <p>Six l'étaient : les quatre réglages de liaison et les deux de saisie
+     * apparaissaient dans la boucle générale <i>et</i> dans leur section dédiée. Deux
+     * lignes distinctes éditaient la même valeur, et corriger l'une ne montrait rien sur
+     * l'autre.
+     */
+    @Test
+    void aucunChampNestProposeDeuxFois() {
+        var saisie = shown(ScreenElement.of("s", ElementKind.INPUT, 0, 0, 80, 20));
+
+        for (var double_ : java.util.List.of(
+                ElementPropertiesState.Field.PLACEHOLDER,
+                ElementPropertiesState.Field.MAX_LENGTH,
+                ElementPropertiesState.Field.BIND_FORMAT,
+                ElementPropertiesState.Field.BIND_DECIMALS,
+                ElementPropertiesState.Field.BIND_MIN,
+                ElementPropertiesState.Field.BIND_MAX)) {
+            assertFalse(saisie.contains(double_),
+                    "« " + double_ + " » a sa section : la boucle générale ne doit pas "
+                            + "l'afficher aussi");
+        }
+    }
+
+    /** Ce qui n'affiche aucun mot n'a ni « Texte » ni « Couleur du texte ». */
+    @Test
+    void ceQuiNaffichePasDeMotNaPasDeChampTexte() {
+        for (ElementKind muet : java.util.List.of(ElementKind.IMAGE, ElementKind.PROGRESS,
+                ElementKind.SLOT, ElementKind.ENTITY_PREVIEW)) {
+            var champs = shown(ScreenElement.of("e", muet, 0, 0, 40, 20));
+            assertFalse(champs.contains(ElementPropertiesState.Field.TEXT), muet + " : texte");
+            assertFalse(champs.contains(ElementPropertiesState.Field.TEXT_COLOR),
+                    muet + " : couleur du texte");
+        }
+    }
+
+    /** Une texture ne se règle que sur une image, et le survol que sur ce qui réagit. */
+    @Test
+    void latextureEtLeSurvolSontReserves() {
+        assertTrue(shown(ScreenElement.of("i", ElementKind.IMAGE, 0, 0, 40, 20))
+                .contains(ElementPropertiesState.Field.TEXTURE));
+        assertFalse(shown(ScreenElement.of("t", ElementKind.LABEL, 0, 0, 40, 20))
+                .contains(ElementPropertiesState.Field.TEXTURE),
+                "le modèle réserve la texture aux images ; le panneau la proposait partout");
+        assertTrue(shown(ScreenElement.of("b", ElementKind.BUTTON, 0, 0, 40, 20))
+                .contains(ElementPropertiesState.Field.HOVER));
+        assertFalse(shown(ScreenElement.of("t", ElementKind.LABEL, 0, 0, 40, 20))
+                .contains(ElementPropertiesState.Field.HOVER),
+                "un libellé ne réagit pas au survol");
+    }
+
+    /**
+     * La valeur d'un axe en mode « Ajuster » ne veut rien dire.
+     *
+     * <p>{@code sizeValueMatters} existait et n'était appelé nulle part : on pouvait taper
+     * un nombre sans le moindre effet, la taille venant des enfants.
+     */
+    @Test
+    void laValeurDunAxeEnAjusterNeVeutRienDire() {
+        var ajuste = ScreenElement.of("c", ElementKind.PANEL, 0, 0, 40, 20)
+                .resized(fr.blueprint.core.graph.screen.Extent.hug(),
+                        fr.blueprint.core.graph.screen.Extent.of(20));
+        state.select(ajuste);
+
+        assertFalse(state.sizeValueMatters(true), "la largeur vient des enfants");
+        assertTrue(state.sizeValueMatters(false), "la hauteur, elle, reste écrite");
+    }
+
     private void edit(ElementPropertiesState.Field field, String text) {
         state.beginEdit(field);
         for (int i = state.buffer().length(); i > 0; i--) {

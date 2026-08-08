@@ -2,6 +2,7 @@ package fr.blueprint.client.editor.screen;
 
 import fr.blueprint.core.graph.screen.Anchor;
 import fr.blueprint.core.graph.screen.ElementStyle;
+import fr.blueprint.core.graph.screen.ElementKind;
 import fr.blueprint.core.graph.screen.Extent;
 import fr.blueprint.core.graph.screen.ScreenElement;
 import fr.blueprint.core.graph.screen.ScreenText;
@@ -273,6 +274,55 @@ public final class ElementPropertiesState {
     }
 
     /** Un champ de valeur n'a de sens que si le mode en consomme une. */
+    /**
+     * Ce champ a-t-il un sens <b>pour ce type</b> ?
+     *
+     * <p>La règle retombait sur {@code default -> true} dans le widget, donc <b>onze</b>
+     * champs sans objet s'affichaient sur chaque élément : un simple libellé proposait
+     * « Indication », « Longueur max », « Pas », « Hauteur de ligne » et « Type d'entité ».
+     * Le commentaire voisin disait pourtant déjà pourquoi c'est grave — « un champ rempli
+     * sans effet est exactement ce qui fait douter d'un outil » — et ne l'appliquait qu'aux
+     * liaisons.
+     *
+     * <p>Six d'entre eux étaient en outre affichés <b>deux fois</b> : dans la boucle
+     * générale, et dans leur section dédiée. Deux lignes distinctes éditaient la même
+     * valeur.
+     *
+     * <p>Le {@code switch} est exhaustif et sans {@code default} : un champ ajouté ne
+     * compilera pas tant qu'on n'aura pas dit à quels types il s'adresse. Et la règle vit
+     * ici plutôt que dans le widget parce qu'elle se vérifie sans fenêtre.
+     */
+    public static boolean applies(ScreenElement element, Field field, boolean arranged) {
+        ElementKind kind = element.kind();
+        return switch (field) {
+            case NAME -> true;
+            case X, Y -> !arranged;
+            case WIDTH, HEIGHT, BACKGROUND, BORDER, TOOLTIP -> true;
+            // Le texte et sa couleur : ce qui en porte. Une image, une barre, un
+            // emplacement ou un aperçu d'entité n'affichent aucun mot.
+            case TEXT, TEXT_COLOR -> showsText(kind);
+            // Le survol ne se voit que sur ce qui réagit au survol.
+            case HOVER -> kind.interactive();
+            case PADDING -> kind.container();
+            case TEXTURE -> kind == ElementKind.IMAGE;
+            case GAP, CROSS_GAP -> element.arranges();
+            case COLUMNS -> element.layout().mode()
+                    == fr.blueprint.core.graph.screen.LayoutSpec.Mode.GRID;
+            // Les quatre réglages de liaison et les sept réglages riches ont chacun leur
+            // section. Les montrer ici aussi les affichait en double.
+            case BIND_FORMAT, BIND_DECIMALS, BIND_MIN, BIND_MAX,
+                 PLACEHOLDER, MAX_LENGTH, OPT_MIN, OPT_MAX, STEP, ROW_HEIGHT, ENTITY -> false;
+        };
+    }
+
+    /** Les types qui affichent des mots — les seuls à qui « Texte » veut dire quelque chose. */
+    private static boolean showsText(ElementKind kind) {
+        return switch (kind) {
+            case LABEL, BUTTON, INPUT, TOGGLE, DROPDOWN, PANEL -> true;
+            case IMAGE, PROGRESS, SLOT, SLIDER, LIST, ENTITY_PREVIEW -> false;
+        };
+    }
+
     public boolean sizeValueMatters(boolean horizontal) {
         if (element == null) {
             return false;
