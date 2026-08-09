@@ -1,0 +1,208 @@
+# Blueprints
+
+**Un éditeur de logique par nœuds, en jeu, pour Minecraft 1.21.11 (Fabric).**
+
+*[English version](README.md)*
+
+On pose des nœuds, on les relie, on déclare des variables typées — et le graphe s'exécute
+côté serveur sur de vrais événements du monde. Tout graphe se compile en un script texte
+lisible (**BScript**) et tout BScript se re-parse en graphe. Les autres mods déclarent
+leurs propres nœuds sans dépendance dure, et un mod retiré ne casse jamais un graphe
+existant : ses nœuds deviennent des **fantômes** qui reprennent vie à la réinstallation.
+
+> **État : v1.0.0 publiée**, plus une passe d'optimisation depuis (épics 13 à 19). Les neuf
+> épics du PRD, plus trois nés de l'usage réel — les **interfaces graphiques** (épic 10), le
+> **contenu déclaré** (épic 11) et **l'éditeur à l'usage** (épic 12). 86 documents de story,
+> 85 gates QA, **1 209 tests headless** et **20 gametests** dans un serveur réel. Reste la
+> session de vérification visuelle, listée dans [`docs/README.md`](docs/README.md) : elle ne
+> couvre que ce qu'aucun test ne peut juger — l'aspect et l'ergonomie.
+
+---
+
+## Démarrer
+
+```bash
+./gradlew runClient
+```
+
+> Le client de développement se lance sous un pseudo FIXE (`build.gradle.kts`). Sans lui,
+> Loom en tire un au hasard à chaque lancement, et comme l'UUID hors-ligne se calcule
+> depuis le pseudo, chaque lancement est un joueur différent : tout ce qui est rangé par
+> joueur — un personnage de jeu de rôle, par exemple — repart de zéro sans que rien ne
+> l'explique.
+
+Puis, en jeu :
+
+| | |
+|---|---|
+| `/blueprint showcase` puis `/bpc vitrine` | voir les douze types de widgets, tous câblés |
+| `/blueprint bench` puis `/bpc bench` | lancer le banc de performance |
+| `/blueprint-edit create mon_premier` | créer le sien |
+| `F6` | rouvrir le dernier édité |
+
+Le guide pas à pas est dans [`docs/getting-started.md`](docs/getting-started.md) — premier
+blueprint en dix minutes, raccourcis, dépannage.
+
+## Ce que le mod sait faire
+
+- **Éditeur complet** : palette, câblage typé, littéraux sur les nœuds, variables et
+  portées, annuler/rétablir, copier/coller en BScript, diagnostics cliquables, vue script,
+  commentaires, minimap, thème JSON rechargeable, navigation au clavier.
+- **Exécution sûre** : compilation en IR, VM bornée par un budget de fuel, suspension qui
+  survit à un redémarrage, blueprint glouton ou en faute désactivé automatiquement.
+- **239 types de nœuds** livrés — interfaces (34), événements (26), monde (20), maths (20),
+  joueur (19), chaînes (12), entité (12), flux (12), vecteurs (11), logique (10), listes,
+  tables, texte, items, positions, scores — plus `/bpc <nom>` pour déclencher un graphe à
+  la commande.
+- **Multijoueur** : synchronisation du registre au login, ouverture et enregistrement par
+  paquets avec verrou optimiste, garde de graphe et quotas côté serveur.
+- **Extensible** de trois façons : builder Java, annotation `@BlueprintNode`, ou simple
+  JSON de datapack — voir [`docs/extension-api.md`](docs/extension-api.md).
+- **Débogage** : points d'arrêt, pas-à-pas et valeurs affichées dans l'éditeur ;
+  profileur par nœud ; audit des nœuds `ADMIN`.
+
+## Ce que ça coûte à un serveur
+
+Un éditeur par nœuds évoque volontiers un interpréteur qui rame. Voici les mesures, prises
+par des bancs commités qui échouent la construction s'ils dérivent.
+
+**Dans un vrai serveur**, avec des graphes branchés sur `server_tick` :
+
+| Graphes actifs | Temps d'ordonnancement par tick | Part du budget de 50 ms |
+|---|---|---|
+| 50 | ~0,25 ms | **0,5 %** |
+| 200 | ~0,6 ms | **1,2 %** |
+
+*(gametest `quadruplerLesGraphesNeQuadruplePasLeCoutParGraphe`, serveur dédié réel)*
+
+**Sur les chemins isolés**, avant et après le travail d'optimisation :
+
+| | Avant | Après |
+|---|---|---|
+| Allocation par appel de nœud | 744 o | **288 o** |
+| Compilation d'un graphe dense de 1 000 nœuds | 112 ms | **~4 ms** |
+| Validation, quand le graphe quadruple | × 3,67 | **× 1,00** |
+| Disposition d'écran, quand les éléments quadruplent | × 3,67 | **× 0,44** |
+
+**Et vérifiable soi-même en trois commandes.** Le mod livre un
+[banc de performance](docs/examples/README.md) : un graphe à trois boucles imbriquées —
+deux cents tours de `for`, deux cents de `while`, un parcours de liste — qu'on peut ouvrir,
+lire et modifier dans l'éditeur.
+
+```
+/blueprint bench                            # l'installe et l'active
+/blueprint profile blueprint:bench on
+/bpc bench                                  # trois fois, pour chauffer le JIT
+/blueprint profile blueprint:bench reset    # on jette les tours d'échauffement
+/bpc bench                                  # le tour qu'on mesure
+/blueprint profile blueprint:bench
+```
+
+| Par lancement | |
+|---|---|
+| Appels de nœuds | **1 034** |
+| Carburant consommé | **4 286** sur les 10 000 d'un tick |
+| Temps dans la VM, à chaud | **~350 µs** |
+
+Les trois se reproduisent à l'identique d'un lancement à l'autre — au point que deux
+mesures chaudes successives tiennent dans 5 %.
+
+La remise à zéro n'est pas une coquetterie : le profileur **cumule**, et le tout premier
+tour coûte **sept fois** plus que les suivants. Le compilateur JVM n'a pas encore chauffé —
+cela vaut pour n'importe quel code Java et n'a rien de propre au mod, mais lire sans
+l'écarter donne un chiffre faux d'un ordre de grandeur.
+
+Le rapport montre aussi où le temps va vraiment : les quatre cents additions de la boucle
+coûtent moins cher qu'un seul `player/send_message`, qui construit et envoie un paquet
+réseau. Dans un graphe de gameplay, ce sont les **effets** qui coûtent, pas le calcul.
+
+Trois choses expliquent ces chiffres, et aucune n'est un tour de passe-passe :
+
+- **un graphe se compile**, il ne s'interprète pas nœud par nœud — le passage en IR est
+  fait une fois et mis en cache par révision ;
+- **la boucle d'exécution n'alloue presque plus rien** : le contexte d'appel réutilise les
+  tampons de son exécution, et les types comme les pins sont résolus une fois pour toute
+  l'IR au lieu d'être recherchés à chaque nœud ;
+- **rien n'est illimité** : chaque nœud déclare son coût en carburant, un tick a un budget,
+  et un graphe qui le dépasse est coupé plutôt que de faire ramer tout le monde.
+
+La méthode de mesure est décrite dans
+[`docs/architecture/coding-standards.md`](docs/architecture/coding-standards.md) §7.1, et le
+détail de chaque optimisation — y compris ce qui a été **écarté** et pourquoi — dans
+[`docs/plan-optimisation.md`](docs/plan-optimisation.md).
+
+## Construire et tester
+
+```bash
+./gradlew build          # 6 modules, 1 209 tests headless, couverture, docs générées
+./gradlew runGametest    # 20 tests dans un vrai serveur, sans fenêtre
+./gradlew runClient      # jouer
+```
+
+`build` échoue si : un test tombe, la couverture de `core` passe sous 80 %, le module
+`api` référence l'implémentation, la référence des nœuds ne correspond plus au registre,
+ou la surface publique de l'api a changé sans être régénérée. Ces deux derniers points se
+régénèrent avec `-Dblueprint.regenDocs=true`.
+
+> **Ne construisez pas pendant que le jeu tourne** : Gradle réécrit les jars sous la JVM
+> et le classloader tombe sur un zip à moitié écrit (`ZipException: invalid LOC header`).
+
+## Structure
+
+Multi-module, mais **un seul JAR** en sortie (`build/libs/blueprint-<version>.jar`) :
+
+```
+api/       surface publique pour les mods tiers (publiable seule : blueprint-api)
+core/      entrypoint serveur, modèle, registre, compilateur, VM, BScript, persistance, réseau
+client/    entrypoint client, éditeur visuel
+compat/    intégrations conditionnelles avec des mods tiers
+testmod/   mod d'exemple validant l'api (exclu du JAR final)
+gametest/  tests joués dans un vrai serveur (exclu du JAR final)
+```
+
+Le module `api` ne peut pas référencer l'implémentation : `:api:checkApiIsolation`,
+branchée sur `check`, fait échouer le build sinon. Sa surface publique est figée dans
+[`docs/api-surface.txt`](docs/api-surface.txt) et comparée à chaque construction.
+
+```bash
+./gradlew :api:publishToMavenLocal   # publie fr.blueprint:blueprint-api
+```
+
+## Stack
+
+| Composant | Version |
+|---|---|
+| Minecraft | 1.21.11 |
+| Fabric Loom | 1.13.6 |
+| Fabric Loader | 0.18.2 |
+| Fabric API | 0.139.4+1.21.11 |
+| Java | 21 |
+| Gradle | 8.14 |
+
+Mappings officiels Mojang. Les pièges de nommage rencontrés sont consignés dans
+[`docs/architecture/tech-stack.md`](docs/architecture/tech-stack.md) — à lire avant
+d'appeler une API du jeu.
+
+## Documentation
+
+Le dossier de conception complet (méthode BMAD) est dans [`docs/`](docs/README.md) :
+brief, PRD, architecture, spécification BScript, API d'extension, spec UX de l'éditeur,
+stories et gates QA.
+
+| Pour | Lire |
+|---|---|
+| Jouer | [`docs/getting-started.md`](docs/getting-started.md) |
+| Mesurer les performances en jeu | [`docs/examples/`](docs/examples/README.md) |
+| Chercher un nœud | [`docs/node-reference.md`](docs/node-reference.md) *(généré)* |
+| Écrire un mod compagnon | [`docs/extension-api.md`](docs/extension-api.md) |
+| Comprendre les choix | [`docs/architecture.md`](docs/architecture.md) |
+| Savoir ce qui a changé | [`CHANGELOG.md`](CHANGELOG.md) |
+| Savoir où en est le projet | [`docs/rapport-de-fin.md`](docs/rapport-de-fin.md) |
+
+## Licence
+
+[MIT](LICENSE) — © 2026 Kerlann.
+
+Tu peux l'utiliser, le modifier, le redistribuer et le vendre, y compris dans un
+projet fermé ; la seule obligation est de conserver l'avis de copyright. Un mod
+compagnon qui s'appuie sur `blueprint-api` choisit librement sa propre licence.
