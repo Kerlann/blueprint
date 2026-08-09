@@ -201,7 +201,7 @@ calling a game API.
 
 ## Documentation
 
-The full design record (BMAD method) is in [`docs/`](docs/README.md): brief, PRD,
+The full design record is in [`docs/`](docs/README.md): brief, PRD,
 architecture, BScript specification, extension API, editor UX spec, stories and QA gates.
 Most of it is in French.
 

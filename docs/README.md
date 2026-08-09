@@ -1,6 +1,7 @@
-# Documentation Blueprint — dossier BMAD
+# Documentation Blueprint
 
-Dossier de planification suivant la **méthode BMAD** (Analyst → PM → Architect → UX → SM → Dev → QA).
+Dossier de planification et de conception, écrit dans l'ordre où il a servi : analyse,
+produit, architecture, UX, puis story par story avec sa vérification.
 
 ## Index
 
@@ -21,8 +22,6 @@ Dossier de planification suivant la **méthode BMAD** (Analyst → PM → Archit
 | [`stories/`](stories/) | SM | Stories prêtes pour l'agent Dev |
 | [`session-de-verification.md`](session-de-verification.md) | QA | **Ce qui reste à voir en jeu** : 42 points en quatre blocs, une heure |
 
-Configuration : [`../.bmad-core/core-config.yaml`](../.bmad-core/core-config.yaml)
-
 ## Le produit en trois phrases
 
 Blueprint est un mod Fabric 1.21.11 qui apporte en jeu un **éditeur de logique par nœuds** :
@@ -32,7 +31,7 @@ lisible (BScript)** et tout BScript se re-parse en graphe. Les **autres mods dé
 leurs propres nœuds** via un entrypoint Fabric, une annotation, ou un simple JSON de
 datapack — sans dépendance dure et sans casser les graphes existants quand ils sont retirés.
 
-## Cycle BMAD
+## Le cycle suivi
 
 ```
 brief.md ──► prd.md ──► architecture.md + ux-ui-spec.md

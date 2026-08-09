@@ -1,6 +1,5 @@
 # UX/UI Spec — éditeur Blueprint
 
-**Agent BMAD :** UX Expert (Sally)
 **Version :** 1.0 — 2026-08-02
 **Couvre :** épic 5, plus les aspects UI des épics 8 et 9
 

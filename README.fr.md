@@ -185,7 +185,7 @@ d'appeler une API du jeu.
 
 ## Documentation
 
-Le dossier de conception complet (méthode BMAD) est dans [`docs/`](docs/README.md) :
+Le dossier de conception complet est dans [`docs/`](docs/README.md) :
 brief, PRD, architecture, spécification BScript, API d'extension, spec UX de l'éditeur,
 stories et gates QA.
 

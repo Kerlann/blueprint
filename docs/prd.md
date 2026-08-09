@@ -1,6 +1,5 @@
 # PRD — Blueprint
 
-**Agent BMAD :** Product Manager (John)
 **Statut :** Approuvé pour architecture
 **Version :** 1.0 — 2026-08-02
 **Entrée :** `docs/brief.md`

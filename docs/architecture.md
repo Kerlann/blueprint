@@ -1,6 +1,5 @@
 # Architecture — Blueprint
 
-**Agent BMAD :** Architect (Winston)
 **Version :** 1.0 — 2026-08-02
 **Entrées :** `docs/prd.md`, `docs/brief.md`
 **Shards chargés par l'agent Dev :** `docs/architecture/tech-stack.md`, `coding-standards.md`, `source-tree.md`

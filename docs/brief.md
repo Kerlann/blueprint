@@ -1,6 +1,5 @@
 # Project Brief — Blueprint
 
-**Agent BMAD :** Analyst (Mary)
 **Statut :** Approuvé — entrée du PRD
 **Date :** 2026-08-02
 **Version :** 1.0
@@ -115,7 +114,7 @@ Un mod unique qui fournit :
 | Dérive de l'API publique | Moyen | `fr.blueprint.api` figé, semver, `@ApiStatus`, tests de compatibilité binaire |
 | Round-trip BScript imparfait (perte de mise en page) | Moyen | Métadonnées de position en commentaires structurés + auto-layout déterministe |
 
-## 9. Livrables du dossier BMAD
+## 9. Livrables du dossier de conception
 
 | Document | Rôle |
 |---|---|
