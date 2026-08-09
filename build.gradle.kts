@@ -159,6 +159,30 @@ tasks.named("check") {
 }
 
 loom {
+    // Ce qui compose « le mod » en DÉVELOPPEMENT — et sans quoi les traductions
+    // disparaissent.
+    //
+    // Fabric prend pour racine du mod l'entrée de classpath qui porte le
+    // fabric.mod.json. Depuis que ce manifeste a déménagé dans `fabric/` (lot A1), cette
+    // racine est `fabric/build/resources/main`, qui ne contient que lui — pendant que
+    // `assets/blueprint/lang/` est resté dans `core/build/resources/main`, une autre
+    // entrée, invisible au gestionnaire de ressources. Résultat en jeu : les clés
+    // s'affichent brutes, « blueprint.editor.diag.ok » au lieu du texte.
+    //
+    // Le JAR livré n'a jamais eu le problème : il fusionne tous les modules dans une
+    // seule archive, où manifeste et assets se retrouvent voisins. C'était donc un bug
+    // que seul le développement voyait, et qu'aucun test n'attrape.
+    //
+    // C'est le pendant exact du bloc `mods` de ModDevGradle côté NeoForge, posé lui dès
+    // le premier jour parce que le LinkageError l'avait imposé. Ici rien ne plantait :
+    // ça s'est contenté de ne plus traduire.
+    mods {
+        create("blueprint") {
+            listOf(":api", ":platform", ":core", ":client", ":compat", ":fabric")
+                    .forEach { sourceSet("main", project(it)) }
+        }
+    }
+
     runs {
         configureEach {
             vmArg("-Xmx4G")
