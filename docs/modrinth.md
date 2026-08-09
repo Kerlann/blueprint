@@ -78,9 +78,17 @@ curl -s -o /dev/null -w "%{http_code}\n" https://api.modrinth.com/v2/project/<sl
   `raw.githubusercontent.com/Kerlann/blueprint/main/docs/images/...`. La seconde garde les
   captures versionnées avec le code — ce qui évite une page qui montre une interface que le
   mod n'a plus.
-- Toutes les captures vivent dans `docs/images/`. Cinq d'entre elles traînaient à la
-  racine du dépôt et y ont été rangées : `addnode.png`, `variable.png`,
-  `callfunctions.png`, `functions.png`, `screen.png`.
+- Toutes les captures vivent dans `docs/images/` — et **ce document ne les énumère pas**.
+  Il l'a fait deux fois, et deux fois la liste s'est retrouvée à citer des fichiers
+  renommés ou supprimés. Le dossier fait foi ; une copie de son contenu dans une phrase ne
+  fait que vieillir.
+
+- **Pour l'image mise en avant** (celle de la carte, dans les résultats de recherche) :
+  `editeur-graphe.png`, mais **recadrée sur les nœuds**. Telle quelle, le graphe n'occupe
+  qu'environ 40 % de la largeur et la moitié de la hauteur — réduite à la taille d'une
+  carte, elle se lit comme un rectangle noir. Le test qui tranche : réduire à 400 px et
+  regarder à un mètre. Toutes ces captures sont en 1920 et pensées pour être lues de près,
+  ce qui est le bon réflexe pour la documentation et le mauvais pour une vitrine.
 
 ## Langue
 
@@ -233,11 +241,16 @@ Guide de démarrage :
 
 # Le résumé (256 caractères)
 
-> In-game node editor: wire logic, declare typed variables, run it server-side on real
-> world events. 239 nodes, and every graph is readable text and back again. Screen
-> designer, declared content, profiler, and an API for other mods to add nodes.
+Le champ « Summary » de Modrinth est du **texte brut** : ni mise en forme, ni retour à la
+ligne, ni lien. Il est donc écrit ici sur **une seule ligne**, sans citation ni repli — une
+citation Markdown mettrait des `>` en tête et des sauts de ligne au milieu, et Modrinth
+refuse le tout. C'est arrivé une fois ; le format de ce bloc est la correction.
 
-*(243 caractères — la limite est 256)*
+```
+In-game node editor: wire logic, declare typed variables, run it server-side on real world events. 239 nodes, and every graph is readable text and back again. Screen designer, declared content, profiler, and an API for other mods to add nodes.
+```
+
+*(243 caractères — la limite est 256, et tout y est en ASCII)*
 
 > **Les chiffres se revérifient, ils bougent.** Le total des nœuds a deux sources qui
 > doivent concorder : l'en-tête de `docs/node-reference.md`, qui est généré et fait
