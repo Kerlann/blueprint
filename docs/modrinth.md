@@ -68,9 +68,9 @@ curl -s -o /dev/null -w "%{http_code}\n" https://api.modrinth.com/v2/project/<sl
   `raw.githubusercontent.com/Kerlann/blueprint/main/docs/images/...`. La seconde garde les
   captures versionnées avec le code — ce qui évite une page qui montre une interface que le
   mod n'a plus.
-- Les captures déjà présentes à la racine du dépôt (`addnode.png`, `variable.png`,
-  `pastille.png`, `image1.png`, `image2.png`) sont à déplacer dans `docs/images/` et à
-  commiter avant de s'en servir.
+- Toutes les captures vivent dans `docs/images/`. Cinq d'entre elles traînaient à la
+  racine du dépôt et y ont été rangées : `addnode.png`, `variable.png`,
+  `callfunctions.png`, `functions.png`, `screen.png`.
 
 ## Langue
 
