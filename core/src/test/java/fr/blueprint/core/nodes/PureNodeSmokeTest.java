@@ -58,7 +58,10 @@ class PureNodeSmokeTest {
      */
     private static final List<String> LOWERED = List.of(
             "var/get", "var/set", "flow/sequence", "flow/while", "flow/for",
-            "flow/wait_until", "flow/for_each", "flow/gate", "flow/do_once");
+            "flow/wait_until", "flow/for_each", "flow/gate", "flow/do_once",
+            // Épic 20 : ajoutés par les fonctions, et oubliés des deux listes jusqu'au
+            // jour où le gametest les a signalés comme « nœuds non purs qui lèvent ».
+            "func/call", "func/param", "func/result");
 
     /**
      * Les nœuds purs qui touchent malgré tout un registre du jeu, et ne peuvent donc pas

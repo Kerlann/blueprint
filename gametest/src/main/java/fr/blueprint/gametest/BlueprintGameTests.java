@@ -1223,7 +1223,10 @@ public final class BlueprintGameTests {
      */
     private static final java.util.List<String> LOWERED = java.util.List.of(
             "var/get", "var/set", "flow/sequence", "flow/while", "flow/for",
-            "flow/wait_until", "flow/for_each", "flow/gate", "flow/do_once");
+            "flow/wait_until", "flow/for_each", "flow/gate", "flow/do_once",
+            // Épic 20 : ajoutés par les fonctions, et oubliés des deux listes jusqu'au
+            // jour où le gametest les a signalés comme « nœuds non purs qui lèvent ».
+            "func/call", "func/param", "func/result");
 
     /**
      * VERIFY-11.8 automatisé : <b>chaque nœud non pur est exécuté au moins une fois</b>,
