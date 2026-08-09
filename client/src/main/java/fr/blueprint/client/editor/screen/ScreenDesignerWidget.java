@@ -1133,22 +1133,6 @@ public final class ScreenDesignerWidget {
         // neuf valeurs à l'aveugle — jusqu'à huit clics pour atteindre celle qu'on veut.
         // Inutile si le parent range ses enfants : leur place ne vient pas de l'ancre.
         boolean arranged = arrangedByParent(screen, element);
-        if (!arranged) {
-            int[] cell = properties.anchorCell();
-            for (int row = 0; row < 3; row++) {
-                java.util.List<Chip> chips = new java.util.ArrayList<>(3);
-                for (int column = 0; column < 3; column++) {
-                    int c = column;
-                    int r = row;
-                    chips.add(new Chip("", 52 + column * 11, 10,
-                            cell[0] == column && cell[1] == row,
-                            () -> apply(properties.setAnchor(c, r))));
-                }
-                rows.add(new Row(y, row == 0 ? I18n.get("blueprint.designer.anchor") : "",
-                        chips, null, null));
-                y += ROW;
-            }
-        }
 
         ElementPropertiesState.Section open = null;
         for (ElementPropertiesState.Field field : ElementPropertiesState.Field.values()) {
@@ -1210,6 +1194,31 @@ public final class ScreenDesignerWidget {
                 rows.add(modes);
                 y += rowHeight(modes);
             }
+            // L'ancre ferme la section POSITION, dont elle fait partie.
+            //
+            // Elle se posait avant la boucle, donc AVANT le premier en-tête : une grille
+            // 3×3 flottait au-dessus de « Identité », sans titre de section au-dessus
+            // d'elle, et ne se repliait avec rien. Un contrôle hors de toute section est
+            // orphelin — l'auteur ne sait ni à quoi il se rattache, ni où le chercher.
+            //
+            // Ici, elle hérite de tout : l'en-tête « Position », le repli, le défilement.
+            // Et le `continue` d'une section repliée l'emporte avec le reste.
+            if (field == ElementPropertiesState.Field.Y && !arranged) {
+                int[] cell = properties.anchorCell();
+                for (int row = 0; row < 3; row++) {
+                    java.util.List<Chip> chips = new java.util.ArrayList<>(3);
+                    for (int column = 0; column < 3; column++) {
+                        int c = column;
+                        int r = row;
+                        chips.add(new Chip("", VALUE_LEFT + column * 11, 10,
+                                cell[0] == column && cell[1] == row,
+                                () -> apply(properties.setAnchor(c, r))));
+                    }
+                    rows.add(new Row(y, row == 0 ? I18n.get("blueprint.designer.anchor") : "",
+                            chips, null, null));
+                    y += ROW;
+                }
+            }
         }
 
         // Le retour à la ligne. Une case et non un champ : c'est un oui/non, et le taper
@@ -1264,24 +1273,23 @@ public final class ScreenDesignerWidget {
                 && !collapsedSections.contains(ElementPropertiesState.Section.LAYOUT)) {
             // Le défilement d'abord : c'est une propriété du conteneur lui-même, pas de
             // la façon dont il range, et elle vaut aussi en disposition absolue.
-            y = addRow(rows, new Row(y, I18n.get("blueprint.designer.scroll"),
-                    enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Scroll.values(),
-                            element.layout().scroll(), "blueprint.designer.scroll.",
-                            axis -> apply(element.withLayout(
-                                    element.layout().withScroll(axis)))), null, null));
-            y = addRow(rows, new Row(y, I18n.get("blueprint.designer.layout"),
-                    enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Mode.values(),
-                            element.layout().mode(), "blueprint.designer.layout.",
-                            mode -> apply(properties.setLayoutMode(mode))), null, null));
+            y = enumRow(rows, y, "blueprint.designer.scroll",
+                    fr.blueprint.core.graph.screen.LayoutSpec.Scroll.values(),
+                    element.layout().scroll(), "blueprint.designer.scroll.",
+                    axis -> apply(element.withLayout(element.layout().withScroll(axis))));
+            y = enumRow(rows, y, "blueprint.designer.layout",
+                    fr.blueprint.core.graph.screen.LayoutSpec.Mode.values(),
+                    element.layout().mode(), "blueprint.designer.layout.",
+                    mode -> apply(properties.setLayoutMode(mode)));
             if (element.arranges()) {
-                y = addRow(rows, new Row(y, I18n.get("blueprint.designer.main"),
-                        enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Distribute.values(),
-                                element.layout().main(), "blueprint.designer.main.",
-                                main -> apply(properties.setLayoutMain(main))), null, null));
-                y = addRow(rows, new Row(y, I18n.get("blueprint.designer.cross"),
-                        enumChips(fr.blueprint.core.graph.screen.LayoutSpec.Cross.values(),
-                                element.layout().cross(), "blueprint.designer.cross.",
-                                cross -> apply(properties.setLayoutCross(cross))), null, null));
+                y = enumRow(rows, y, "blueprint.designer.main",
+                        fr.blueprint.core.graph.screen.LayoutSpec.Distribute.values(),
+                        element.layout().main(), "blueprint.designer.main.",
+                        main -> apply(properties.setLayoutMain(main)));
+                y = enumRow(rows, y, "blueprint.designer.cross",
+                        fr.blueprint.core.graph.screen.LayoutSpec.Cross.values(),
+                        element.layout().cross(), "blueprint.designer.cross.",
+                        cross -> apply(properties.setLayoutCross(cross)));
             }
             for (var field : java.util.List.of(ElementPropertiesState.Field.GAP,
                     ElementPropertiesState.Field.CROSS_GAP,
@@ -1307,10 +1315,10 @@ public final class ScreenDesignerWidget {
         if (!richFields.isEmpty()
                 && !collapsedSections.contains(ElementPropertiesState.Section.OPTIONS)) {
             if (element.kind() == ElementKind.INPUT) {
-                y = addRow(rows, new Row(y, I18n.get("blueprint.designer.filter"),
-                        enumChips(fr.blueprint.core.graph.screen.ElementOptions.InputFilter.values(),
-                                element.options().filter(), "blueprint.designer.filter.",
-                                filter -> apply(properties.setFilter(filter))), null, null));
+                y = enumRow(rows, y, "blueprint.designer.filter",
+                        fr.blueprint.core.graph.screen.ElementOptions.InputFilter.values(),
+                        element.options().filter(), "blueprint.designer.filter.",
+                        filter -> apply(properties.setFilter(filter)));
             }
             for (var field : richFields) {
                 rows.add(new Row(y, I18n.get(fieldKey(field)), java.util.List.of(), field,
@@ -1489,7 +1497,7 @@ public final class ScreenDesignerWidget {
      */
     private <E extends Enum<E>> java.util.List<Chip> enumChips(
             E[] values, E current, String keyPrefix, java.util.function.Consumer<E> onPick) {
-        int left = values.length > 3 ? 4 : VALUE_LEFT;
+        int left = ElementPropertiesState.chipsTakeFullWidth(values.length) ? 4 : VALUE_LEFT;
         int room = PROPERTIES_WIDTH - left - 4;
         java.util.List<String> labels = new java.util.ArrayList<>(values.length);
         int longest = 0;
@@ -1520,19 +1528,40 @@ public final class ScreenDesignerWidget {
                                               String labelKey, E[] values, E current,
                                               String keyPrefix,
                                               java.util.function.Consumer<E> onPick) {
+        y[0] = enumRow(rows, y[0], labelKey, values, current, keyPrefix, onPick);
+    }
+
+    /**
+     * Une rangée d'énumération, et l'ordonnée de la suivante.
+     *
+     * <p><b>Le seul chemin.</b> La section Disposition en avait un second : elle posait le
+     * libellé et les pastilles sur la même rangée, alors qu'au-delà de trois valeurs les
+     * pastilles partent de {@code x = 4} et occupent toute la largeur. Elles peignaient
+     * donc par-dessus leur propre libellé, et les quatre rangées — défilement, disposition,
+     * axe principal, axe transverse — se retrouvaient anonymes. Deux d'entre elles
+     * affichaient mot pour mot « Début · Centre · Fin » sans que rien ne dise laquelle
+     * rangeait dans quel sens.
+     *
+     * <p>Une méthode qui décide, et personne qui la contourne : c'est la même règle que
+     * {@link #addRow} applique à la hauteur.
+     */
+    private <E extends Enum<E>> int enumRow(java.util.List<Row> rows, int y,
+                                            String labelKey, E[] values, E current,
+                                            String keyPrefix,
+                                            java.util.function.Consumer<E> onPick) {
         java.util.List<Chip> chips = enumChips(values, current, keyPrefix, onPick);
         Row row;
-        if (values.length > 3) {
-            rows.add(new Row(y[0], I18n.get(labelKey), java.util.List.of(), null, null));
-            y[0] += ROW;
-            row = new Row(y[0], "", chips, null, null);
+        if (ElementPropertiesState.chipsTakeFullWidth(values.length)) {
+            rows.add(new Row(y, I18n.get(labelKey), java.util.List.of(), null, null));
+            y += ROW;
+            row = new Row(y, "", chips, null, null);
         } else {
-            row = new Row(y[0], I18n.get(labelKey), chips, null, null);
+            row = new Row(y, I18n.get(labelKey), chips, null, null);
         }
         rows.add(row);
         // La hauteur RÉELLE de la rangée : une énumération qui passe à la ligne en occupe
         // plusieurs, et avancer d'une seule ferait peindre la suivante par-dessus.
-        y[0] += rowHeight(row);
+        return y + rowHeight(row);
     }
 
     /**

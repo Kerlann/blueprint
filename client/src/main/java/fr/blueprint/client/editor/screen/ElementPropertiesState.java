@@ -651,6 +651,23 @@ public final class ElementPropertiesState {
         return Math.max(1, Math.min(count, room / Math.max(1, needed)));
     }
 
+    /**
+     * Cette énumération prend-elle toute la largeur du panneau ?
+     *
+     * <p><b>Une seule décision, deux lecteurs.</b> Au-delà de trois valeurs, les pastilles
+     * partent du bord gauche au lieu de la colonne des valeurs — et le libellé doit alors
+     * monter sur sa propre rangée, sinon elles le recouvrent.
+     *
+     * <p>Ces deux conséquences étaient calculées séparément, chacune avec son
+     * {@code > 3}. Une rangée qui appelait l'une sans l'autre peignait ses pastilles
+     * par-dessus son titre : c'est ce qui est arrivé aux quatre rangées de la section
+     * Disposition, dont deux affichaient mot pour mot « Début · Centre · Fin » sans que
+     * rien ne dise laquelle rangeait dans quel sens.
+     */
+    public static boolean chipsTakeFullWidth(int count) {
+        return count > 3;
+    }
+
     /** Le nombre de lignes qu'occupera une rangée de pastilles. */
     public static int chipLines(int room, int longestLabel, int count) {
         int perRow = chipsPerRow(room, longestLabel, count);
