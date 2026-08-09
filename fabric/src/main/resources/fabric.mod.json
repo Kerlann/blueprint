@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "blueprint",
   "version": "${version}",
-  "name": "Blueprint",
+  "name": "Blueprints",
   "description": "Un éditeur de logique par nœuds, en jeu, à la manière des Blueprints d'Unreal. On pose des nœuds, on les relie, on déclare des variables typées, et le graphe s'exécute côté serveur sur de vrais événements du monde. Comprend un concepteur d'écrans, la déclaration d'items et de blocs par fichiers, un format texte lisible (BScript) et une API pour que les autres mods ajoutent leurs propres nœuds.",
   "authors": [
     "Kerlann"

@@ -3,10 +3,20 @@
 Deux choses à régler avant la page elle-même : **le nom** et **l'espace de noms**. Ils ne
 coûtent pas la même chose, et les confondre est le piège de cette étape.
 
-## Le nom est pris — mais pas l'espace de noms
+## Décidé : **Blueprints**, slug `blueprints-mod`
 
-`modrinth.com/mod/blueprint` est occupé par la bibliothèque **Blueprint** de Team
-Abnormals (Forge/NeoForge, 1.15 à 1.21). Vérifié : l'API répond `200`.
+Le nom affiché est **Blueprints**, le slug **`blueprints-mod`** — vérifié libre.
+
+Le singulier était impossible : `modrinth.com/mod/blueprint` est occupé par la
+bibliothèque **Blueprint** de Team Abnormals (Forge/NeoForge), **6,86 millions de
+téléchargements**. Le pluriel nu l'est aussi, par un mod **Fabric** homonyme (~27 000
+téléchargements) — d'où le suffixe.
+
+> **La collision est assumée, pas ignorée.** Le mod se retrouve à une lettre de deux
+> projets établis, un sur chaque chargeur visé. Il faut s'attendre à des tickets ouverts
+> au mauvais endroit, et le jour où le module NeoForge sort, à partager le terrain de la
+> bibliothèque à 6,86 M. Un nom distinct — `blockprint` était libre — aurait évité tout
+> cela ; le choix a été fait de rester dans la famille.
 
 Ce qui doit changer et ce qui n'a pas à changer :
 
@@ -50,8 +60,8 @@ curl -s -o /dev/null -w "%{http_code}\n" https://api.modrinth.com/v2/project/<sl
 
 | Champ | Valeur |
 |---|---|
-| **Nom** | le nom retenu |
-| **Slug** | le même, en minuscules |
+| **Nom** | `Blueprints` |
+| **Slug** | `blueprints-mod` — **pas** le nom en minuscules : `blueprints` est déjà pris |
 | **Résumé** | 256 caractères maximum, visible dans les résultats de recherche — c'est lui qui décide du clic |
 | **Description** | le corps Markdown, ci-dessous |
 | **Catégories** | `Utility`, `Game mechanics`, `Library` (le mod expose une API de nœuds) |
@@ -97,17 +107,19 @@ tête ce qui distingue ce mod des autres éditeurs par nœuds :
 
 # Brouillon du corps de la page
 
-<!-- Copier ce qui suit dans la description Modrinth. Remplacer <NOM> par le nom retenu. -->
+<!-- Copier ce qui suit dans la description Modrinth. Rien à remplacer. -->
 
 ![The node editor](https://raw.githubusercontent.com/Kerlann/blueprint/main/docs/images/editor.png)
 
-# \<NOM\>
+# Blueprints
 
 **An in-game node editor for Minecraft 1.21.11 (Fabric).** Place nodes, wire them, declare
 typed variables — and the graph runs **server-side** on real world events.
 
-> Formerly named *Blueprint*; the mod id and namespace are still `blueprint`, because
-> renaming them would break every graph already written.
+> Not related to *Blueprint* by Team Abnormals, nor to the mod called *Blueprints* — the
+> names collide, the projects do not. This one is `blueprints-mod`. Its mod id and
+> namespace stay `blueprint`, because renaming them would break every graph already
+> written.
 
 ## Graphs are text, and text is graphs
 
@@ -153,9 +165,9 @@ editor. Nothing is hidden behind a benchmark harness you cannot see.
 - **A full editor** — palette, typed wiring, literals on nodes, variables and scopes,
   undo/redo, copy-paste as BScript, clickable diagnostics, script view, comments, minimap,
   a reloadable JSON theme, keyboard navigation.
-- **236 node types** — flow (12), maths (20), world (20), player (19), strings (12),
-  entities (12), vectors (11), logic (10), lists, maps, text, items, scoreboards — plus 26
-  events and `/bpc <name>` to fire a graph from a command.
+- **239 node types** — screens (34), maths (20), world (20), player (19), strings (12),
+  flow (12), entities (12), vectors (11), logic (10), lists, maps, text, items,
+  scoreboards — **including 26 events**, plus `/bpc <name>` to fire a graph from a command.
 - **A screen designer** — 12 widget kinds (labels, buttons, lists, dropdowns, sliders,
   toggles, inputs, progress bars, item slots, images, entity previews, panels), with
   **bindings**: a label can *follow* a variable instead of being written by a node.
@@ -205,7 +217,7 @@ construction** s'ils dérivent : 200 graphes branchés sur `server_tick` prennen
 tick, soit 1,2 % du budget. Chaque graphe tourne sur un budget de carburant — une boucle
 folle est coupée et signalée, jamais laissée faire tomber le serveur.
 
-Le reste : 236 types de nœuds, un concepteur d'écrans à 12 types de widgets, du contenu déclaré en
+Le reste : 239 types de nœuds (dont 26 événements), un concepteur d'écrans à 12 types de widgets, du contenu déclaré en
 JSON, points d'arrêt et profileur, et une API pour que les autres mods ajoutent leurs
 nœuds sans dépendance dure — un mod retiré laisse des nœuds **fantômes** qui reprennent vie
 à la réinstallation.
@@ -220,19 +232,31 @@ Guide de démarrage :
 # Le résumé (256 caractères)
 
 > In-game node editor: wire logic, declare typed variables, run it server-side on real
-> world events. 236 nodes, and every graph is readable text and back again. Screen
+> world events. 239 nodes, and every graph is readable text and back again. Screen
 > designer, declared content, profiler, and an API for other mods to add nodes.
 
 *(243 caractères — la limite est 256)*
+
+> **Les chiffres se revérifient, ils bougent.** Le total des nœuds a deux sources qui
+> doivent concorder : l'en-tête de `docs/node-reference.md`, qui est généré et fait
+> échouer la construction s'il dérive, et la ligne de démarrage du serveur. Attention au
+> piège : le serveur de développement **Fabric** en annonce cinq de plus, parce que
+> `testmod` en ajoute — et testmod n'est jamais livré. C'est le compte sans lui qui va sur
+> la page.
 
 ---
 
 # Avant de publier
 
-- [ ] Slug revérifié libre
-- [ ] Captures déplacées dans `docs/images/` et commitées
+- [ ] Slug `blueprints-mod` revérifié libre juste avant la création
+- [x] Captures déplacées dans `docs/images/` et commitées
+- [x] `name` / `displayName` mis à `Blueprints` dans les deux manifestes (`id` inchangé)
 - [ ] Une capture de l'éditeur, une du concepteur d'écrans, une de la vitrine en jeu
-- [ ] `fabric.mod.json` : `name` mis au nom retenu (`id` inchangé)
 - [ ] Version taguée `v1.0.x` — le workflow `build.yml` ne construit que sur tag
 - [ ] Le jar téléversé est celui de l'action, pas un jar local
 - [ ] Dépendance Fabric API déclarée **requise** sur la version Modrinth
+- [ ] **Ne pas annoncer NeoForge.** Le module existe et démarre (serveur et client), mais
+      aucune partie n'y a été jouée, aucun écran affiché, aucun gametest — et trois écarts
+      connus subsistent (paquets volumineux non fragmentés, `player_sleep` muet, casse de
+      bloc signalée avant plutôt qu'après). Voir `docs/plan-multiloader.md`. La page reste
+      Fabric tant que ces trois lignes ne sont pas fermées.

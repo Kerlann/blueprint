@@ -6,7 +6,7 @@ issueTrackerURL = "https://github.com/Kerlann/blueprint/issues"
 [[mods]]
 modId = "blueprint"
 version = "${version}"
-displayName = "Blueprint"
+displayName = "Blueprints"
 authors = "Kerlann"
 displayURL = "https://github.com/Kerlann/blueprint"
 description = '''
