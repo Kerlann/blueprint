@@ -1051,6 +1051,23 @@ public final class ScreenDesignerWidget {
         return lines * ROW;
     }
 
+    /**
+     * Les places des pastilles d'une rangée, telles que le routage les attend.
+     *
+     * <p>Une pastille du panneau ne vient pas toujours d'une énumération — la grille
+     * d'ancre, la case de retour à la ligne et la liste des styles posent les leurs à la
+     * main. Toutes passent néanmoins par le même routage : c'est ce qui garantit qu'aucune
+     * n'a sa propre façon de répondre au clic.
+     */
+    private static java.util.List<ElementPropertiesState.ChipSlot> slotsOf(Row row) {
+        java.util.List<ElementPropertiesState.ChipSlot> slots =
+                new java.util.ArrayList<>(row.chips().size());
+        for (Chip chip : row.chips()) {
+            slots.add(new ElementPropertiesState.ChipSlot(chip.x(), chip.width(), chip.line()));
+        }
+        return slots;
+    }
+
     /** Un en-tête de section : son chevron, son titre, et rien d'autre. */
     private Row sectionRow(int y, ElementPropertiesState.Section section) {
         String mark = collapsedSections.contains(section) ? "▸ " : "▾ ";
@@ -1444,7 +1461,7 @@ public final class ScreenDesignerWidget {
         String detach = I18n.get("blueprint.designer.styles.detach");
         int detachWidth = detach.length() * ElementPropertiesState.CHAR_WIDTH + 6;
         for (String styleName : screen.styles().keySet()) {
-            boolean applied = styleName.equals(element.styleName());
+            boolean applied = ElementPropertiesState.detachable(styleName, element.styleName());
             java.util.List<Chip> chips = applied
                     ? java.util.List.of(
                             new Chip(styleName, 4, PROPERTIES_WIDTH - 12 - detachWidth,
@@ -1509,13 +1526,14 @@ public final class ScreenDesignerWidget {
         // La largeur d'un caractère est ESTIMÉE, comme NodeGeometry estime celle d'une
         // pastille de variable : mesurer demanderait la police, et rendrait cette décision
         // invérifiable sans client. Une estimation large vaut mieux qu'un mot coupé.
-        int perRow = ElementPropertiesState.chipsPerRow(room, longest, values.length);
-        int step = room / perRow;
+        java.util.List<ElementPropertiesState.ChipSlot> slots =
+                ElementPropertiesState.chipSlots(left, room, longest, values.length);
         java.util.List<Chip> chips = new java.util.ArrayList<>(values.length);
         for (int i = 0; i < values.length; i++) {
             E value = values[i];
-            chips.add(new Chip(labels.get(i), left + (i % perRow) * step, step - 1,
-                    current == value, () -> onPick.accept(value), i / perRow));
+            ElementPropertiesState.ChipSlot slot = slots.get(i);
+            chips.add(new Chip(labels.get(i), slot.x(), slot.width(),
+                    current == value, () -> onPick.accept(value), slot.line()));
         }
         return chips;
     }
@@ -1649,13 +1667,14 @@ public final class ScreenDesignerWidget {
             }
             for (Chip chip : row.chips()) {
                 int x = left + chip.x();
-                int cy = row.y() + chip.line() * ROW;
-                g.fill(x, cy - 1, x + chip.width(), cy + ROW - 3,
+                // Le même haut que le clic. Deux calculs, c'est une pastille qui ment.
+                int top = ElementPropertiesState.chipTop(row.y(), chip.line());
+                g.fill(x, top, x + chip.width(), top + ElementPropertiesState.CHIP_HEIGHT,
                         chip.active() ? SELECTED : PANEL_BORDER);
                 if (!chip.label().isEmpty()) {
                     g.drawString(font,
                             font.plainSubstrByWidth(chip.label(), chip.width() - 2),
-                            x + 1, cy, chip.active() ? PANEL_BACKGROUND : TEXT, false);
+                            x + 1, top + 1, chip.active() ? PANEL_BACKGROUND : TEXT, false);
                 }
             }
             if (row.value() != null) {
@@ -1901,17 +1920,13 @@ public final class ScreenDesignerWidget {
             if (my < row.y() - 1 || my >= row.y() - 1 + rowHeight(row)) {
                 continue;
             }
-            for (Chip chip : row.chips()) {
-                // La ligne de la pastille compte : une énumération qui passe à la ligne
-                // pose sa seconde rangée douze pixels plus bas, et cliquer la première
-                // colonne y déclencherait la valeur du dessus.
-                if (my >= row.y() - 1 + chip.line() * ROW
-                        && my < row.y() + ROW - 1 + chip.line() * ROW
-                        && local >= chip.x() && local < chip.x() + chip.width()) {
-                    chip.onClick().run();
-                    reportRefusal();
-                    return true;
-                }
+            // Le routage sort du même endroit que le placement : ElementPropertiesState.
+            // Une pastille désigne donc forcément ce qu'elle montre.
+            int hit = ElementPropertiesState.chipAt(slotsOf(row), row.y(), local, my);
+            if (hit >= 0) {
+                row.chips().get(hit).onClick().run();
+                reportRefusal();
+                return true;
             }
             if (row.section() != null) {
                 // Un en-tête se replie. Toute sa largeur répond, pas seulement le

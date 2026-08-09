@@ -668,6 +668,84 @@ public final class ElementPropertiesState {
         return count > 3;
     }
 
+    /** La hauteur d'une rangée du panneau : le pas vertical entre deux lignes. */
+    public static final int ROW = DesignerPalette.ROW;
+
+    /**
+     * La hauteur <b>peinte</b> d'une pastille, deux pixels sous le pas.
+     *
+     * <p>Ces deux pixels sont l'écart entre deux pastilles empilées. La zone
+     * <b>cliquable</b>, elle, couvre le pas entier : sans quoi une bande morte de deux
+     * pixels séparerait chaque ligne, et un clic tombé pile dedans ne ferait rien — le
+     * genre de raté qu'on met sur le compte de sa souris.
+     */
+    public static final int CHIP_HEIGHT = ROW - 2;
+
+    /** Le haut d'une pastille, selon la ligne qu'elle occupe dans sa rangée. */
+    public static int chipTop(int rowY, int line) {
+        return rowY - 1 + line * ROW;
+    }
+
+    /** La place d'une pastille dans sa rangée : abscisse, largeur, ligne. */
+    public record ChipSlot(int x, int width, int line) {
+        public boolean contains(double localX) {
+            return localX >= x && localX < x + width;
+        }
+    }
+
+    /**
+     * Où se posent les pastilles d'une énumération.
+     *
+     * <p>Le placement et le routage du clic sortent d'<b>ici</b> tous les deux. C'est la
+     * troisième fois que ce panneau se fait prendre par la même faute : une arithmétique
+     * pour peindre, une autre pour cliquer, et le jour où l'une change sans l'autre on
+     * appuie sur une valeur pour en obtenir une autre. Une pastille qui ment sur ce
+     * qu'elle fait est pire qu'une pastille absente.
+     *
+     * @param left         l'abscisse de la première colonne, dans le panneau
+     * @param room         la largeur disponible à partir de {@code left}
+     * @param longestLabel la longueur du plus long libellé, en caractères
+     * @param count        le nombre de pastilles
+     */
+    public static List<ChipSlot> chipSlots(int left, int room, int longestLabel, int count) {
+        int perRow = chipsPerRow(room, longestLabel, count);
+        int step = room / perRow;
+        List<ChipSlot> slots = new java.util.ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            slots.add(new ChipSlot(left + (i % perRow) * step, step - 1, i / perRow));
+        }
+        return List.copyOf(slots);
+    }
+
+    /**
+     * La pastille sous le curseur, ou {@code -1}.
+     *
+     * <p>La ligne compte autant que la colonne : une énumération repliée pose sa seconde
+     * rangée douze pixels plus bas, et ignorer l'ordonnée ferait déclencher à la première
+     * colonne de la seconde ligne la valeur qui se trouve juste au-dessus.
+     */
+    public static int chipAt(List<ChipSlot> slots, int rowY, double localX, double y) {
+        for (int i = 0; i < slots.size(); i++) {
+            ChipSlot slot = slots.get(i);
+            int top = chipTop(rowY, slot.line());
+            if (y >= top && y < top + ROW && slot.contains(localX)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Un style ne se détache que s'il est <b>appliqué</b>.
+     *
+     * <p>Chaque ligne de la liste portait son bouton « Détacher » : quatre boutons pour
+     * une action qui n'en concerne qu'une, et sur trente pixels chacun affichait
+     * « Detac ». Détacher un style qu'on n'a pas mis ne veut rien dire.
+     */
+    public static boolean detachable(String styleName, @Nullable String appliedStyle) {
+        return styleName.equals(appliedStyle);
+    }
+
     /** Le nombre de lignes qu'occupera une rangée de pastilles. */
     public static int chipLines(int room, int longestLabel, int count) {
         int perRow = chipsPerRow(room, longestLabel, count);

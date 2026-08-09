@@ -54,11 +54,11 @@ Chaque ligne dit quel test protège déjà la **décision** correspondante.
 | 2.5 | Regarder « Texte » et « Infobulle », **vides** | Un creux marque le champ : on voit où cliquer avant d'avoir tapé | — |
 | 2.6 | Sélectionner un **texte** | Ni « Indication », ni « Pas », ni « Type d'entité », ni « Hauteur de ligne » | `unTypeNeMontreQueCeQuiLeConcerne` |
 | 2.7 | Sélectionner une **saisie** | « Indication » et « Longueur max » apparaissent **une seule fois** | `aucunChampNestProposeDeuxFois` |
-| 2.8 | Lier l'élément à une variable | Les **cinq** cibles se lisent en entier et se cliquent toutes — y compris celles de la seconde ligne | `ChipWrapTest` |
+| 2.8 | Lier l'élément à une variable | Les **cinq** cibles se lisent en entier | `ChipWrapTest`, `ChipHitTest` — le clic de la seconde ligne est prouvé, il n'a plus à se vérifier à la main |
 | 2.9 | Regarder Largeur | Sa valeur est **lisible**, et les quatre modes sont sur leur propre rangée | — |
 | 2.10 | Passer la largeur en « Ajuster » | La valeur disparaît : elle vient des enfants | `laValeurDunAxeEnAjusterNeVeutRienDire` |
 | 2.11 | Passer la largeur en « Remplir » | La valeur montre le **poids** (`fill:1`), pas le seul mot « fill » | `unRemplissageMontreSaPart` |
-| 2.12 | Appliquer un style nommé, en avoir plusieurs | « Détacher » n'apparaît que sur le style **appliqué**, et s'écrit en entier | — |
+| 2.12 | Appliquer un style nommé, en avoir plusieurs | « Détacher » n'apparaît que sur le style **appliqué**, et s'écrit en entier | `unStyleNeSeDetacheQueSilEstApplique` (la règle), `PanelMessageWidthTest` (la largeur) |
 | 2.13 | Sélectionner un conteneur lié, dérouler | Le panneau **défile** ; le bas est atteignable | — |
 | 2.14 | Taper une largeur puis cliquer l'élément | La valeur est **validée**, pas jetée | — |
 
