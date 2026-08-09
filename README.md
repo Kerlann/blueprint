@@ -48,7 +48,7 @@ blueprint en dix minutes, raccourcis, dépannage.
   commentaires, minimap, thème JSON rechargeable, navigation au clavier.
 - **Exécution sûre** : compilation en IR, VM bornée par un budget de fuel, suspension qui
   survit à un redémarrage, blueprint glouton ou en faute désactivé automatiquement.
-- **236 types de nœuds** livrés — interfaces (34), événements (26), monde (20), maths (20),
+- **239 types de nœuds** livrés — interfaces (34), événements (26), monde (20), maths (20),
   joueur (19), chaînes (12), entité (12), flux (12), vecteurs (11), logique (10), listes,
   tables, texte, items, positions, scores — plus `/bpc <nom>` pour déclencher un graphe à
   la commande.

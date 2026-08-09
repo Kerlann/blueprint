@@ -13,6 +13,7 @@
     "issues": "https://github.com/Kerlann/blueprint/issues"
   },
   "license": "MIT",
+  "icon": "assets/blueprint/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [

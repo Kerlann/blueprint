@@ -109,7 +109,7 @@ tête ce qui distingue ce mod des autres éditeurs par nœuds :
 
 <!-- Copier ce qui suit dans la description Modrinth. Rien à remplacer. -->
 
-![The node editor](https://raw.githubusercontent.com/Kerlann/blueprint/main/docs/images/editor.png)
+![The node editor](https://raw.githubusercontent.com/Kerlann/blueprint/main/docs/images/editeur-graphe.png)
 
 # Blueprints
 
@@ -175,6 +175,8 @@ editor. Nothing is hidden behind a benchmark harness you cannot see.
 - **Debugging** — breakpoints, single-step, live values in the editor, a per-node profiler.
 - **Multiplayer from the start** — registry sync on login, optimistic locking on save,
   server-side guards and quotas.
+
+![The screen designer](https://raw.githubusercontent.com/Kerlann/blueprint/main/docs/images/concepteur-ecran.png)
 
 ## Extensible three ways
 
@@ -251,6 +253,10 @@ Guide de démarrage :
 - [ ] Slug `blueprints-mod` revérifié libre juste avant la création
 - [x] Captures déplacées dans `docs/images/` et commitées
 - [x] `name` / `displayName` mis à `Blueprints` dans les deux manifestes (`id` inchangé)
+- [x] Icône : `core/src/main/resources/assets/blueprint/icon.png`, déclarée par
+      `icon` (Fabric) et `logoFile` (NeoForge) — un seul fichier pour les deux JARs
+- [ ] Téléverser cette même icône dans le champ « Icon » de Modrinth (elle ne se déduit
+      pas du jar)
 - [ ] Une capture de l'éditeur, une du concepteur d'écrans, une de la vitrine en jeu
 - [ ] Version taguée `v1.0.x` — le workflow `build.yml` ne construit que sur tag
 - [ ] Le jar téléversé est celui de l'action, pas un jar local

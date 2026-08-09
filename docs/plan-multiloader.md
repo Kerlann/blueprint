@@ -23,9 +23,25 @@ d'attache du dépôt à la plateforme.
 > **`/bpc bench` rend « Command "bench" triggered 1 blueprint(s) »** — c'est-à-dire
 > commande → pont d'événement → compilation → VM → ordonnanceur.
 >
-> Ce qui n'a **pas** été observé : un écran affiché, un client qui parle à un serveur, un
-> événement du monde autre que la commande. Et il n'existe aucun gametest de ce côté.
-> Trois écarts connus sont listés au §E.
+> **Vérifié à la main par Kerlann, sur le client NeoForge** : `/bpc` ouvre un menu, et
+> l'événement `player_join` déclenche un `send_message` qui arrive au joueur. Cela valide
+> d'un coup toute la chaîne descendante — commande → pont → VM → `gui/show_screen` →
+> paquet `ScreenOpen` → récepteur client → rendu — ainsi qu'un événement du monde autre
+> que la commande.
+>
+> Ce qui n'a **toujours pas** été observé, par ordre d'importance :
+>
+> 1. **Un gros graphe dans l'éditeur.** C'est là que manque la fragmentation des paquets
+>    (§E) : un menu tient dans un paquet ordinaire, un graphe de mille nœuds non. Test
+>    décisif : `/blueprint bench` puis F6.
+> 2. **Un clic dans un menu.** Ouvrir prouve le sens descendant ; cliquer prouverait le
+>    sens montant (`ScreenInteraction`).
+> 3. **Le JAR assemblé**, jamais chargé par une installation NeoForge réelle — seulement
+>    le mode développement, dont le chemin de chargement de classes diffère. Ce n'est pas
+>    une nuance théorique : la première panne du portage était justement un
+>    `LinkageError` de classloader.
+>
+> Et il n'existe aucun gametest de ce côté. Trois écarts connus sont listés au §E.
 >
 > (Les neuf avertissements « Nœud d'événement non synthétisé » du journal ne sont **pas**
 > une régression : ils sortent à l'identique sur Fabric, où neuf identifiants d'événement

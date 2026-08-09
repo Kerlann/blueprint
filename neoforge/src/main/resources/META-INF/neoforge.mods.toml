@@ -7,6 +7,9 @@ issueTrackerURL = "https://github.com/Kerlann/blueprint/issues"
 modId = "blueprint"
 version = "${version}"
 displayName = "Blueprints"
+# Le MÊME fichier que l'icône Fabric : il vit dans les ressources de `core`, donc il part
+# dans les deux JARs sans être dupliqué. Le chemin est relatif à la racine de l'archive.
+logoFile = "assets/blueprint/icon.png"
 authors = "Kerlann"
 displayURL = "https://github.com/Kerlann/blueprint"
 description = '''
