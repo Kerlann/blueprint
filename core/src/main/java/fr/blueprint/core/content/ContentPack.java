@@ -100,14 +100,32 @@ public record ContentPack(Map<String, String> files, Map<String, Path> textures,
         Map<String, Path> textures = new LinkedHashMap<>();
         List<String> rejected = new ArrayList<>();
 
+        // min_format / max_format, et SURTOUT PAS pack_format.
+        //
+        // Au-delà du format 64, le jeu refuse un pack qui n'annonce sa version que par
+        // « pack_format » : « declares support for version newer than 64, but is missing
+        // mandatory fields min_format and max_format ». Le pack était donc rejeté en
+        // entier — donc les textures des items et blocs déclarés ne se chargeaient pas,
+        // et l'épic 11 rendait des damiers.
+        //
+        // Les deux champs valent un ENTIER NU, et l'entier ne veut pas dire la même chose
+        // des deux côtés : « min_format: 65 » signifie 65.0, « max_format: 65 » signifie
+        // 65.n'importe quoi. Écrire le même nombre dans les deux couvre donc toute la
+        // version majeure, ce qui est ce qu'on veut d'un pack régénéré à chaque
+        // démarrage : un correctif de Mojang qui incrémente le mineur ne doit pas faire
+        // disparaître les textures.
+        //
+        // « supported_formats » n'a pas sa place ici : le jeu le refuse explicitement dès
+        // que le majeur dépasse 64.
         files.put("pack.mcmeta", """
                 {
                   "pack": {
-                    "pack_format": %d,
+                    "min_format": %d,
+                    "max_format": %d,
                     "description": "Contenu déclaré par Blueprint — régénéré au démarrage."
                   }
                 }
-                """.formatted(PACK_FORMAT));
+                """.formatted(PACK_FORMAT, PACK_FORMAT));
 
         for (ItemDefinition item : items) {
             String name = item.id().getPath();

@@ -54,12 +54,28 @@ class ContentPackTest {
         assertTrue(model.contains("minecraft:item/generated"), model);
     }
 
+    /**
+     * Le mcmeta doit annoncer un <b>intervalle</b>, pas une version.
+     *
+     * <p>L'ancienne version de ce test vérifiait que le fichier contenait le champ qu'on
+     * venait d'y écrire : il ne pouvait donc rien attraper. Le jeu, lui, a une règle —
+     * au-delà du format 64, un pack qui n'annonce que {@code pack_format} est
+     * <b>rejeté en entier</b>, et {@code supported_formats} est refusé. C'est cette règle
+     * qui est écrite ici, et c'est elle qui manquait : le pack du contenu déclaré a été
+     * refusé en silence, si bien que chaque item déclaré s'affichait en damier.
+     */
     @Test
-    void leMcmetaDeclareLaVersionDuJeuCompile(@TempDir Path dir) throws IOException {
+    void leMcmetaDeclareLIntervalleQueLeJeuExige(@TempDir Path dir) throws IOException {
         var pack = ContentPack.of(List.of(item("rubis", png(dir, "rubis.png", 16, 16))));
         String meta = pack.files().get("pack.mcmeta");
         assertNotNull(meta);
-        assertTrue(meta.contains("\"pack_format\": " + ContentPack.PACK_FORMAT), meta);
+
+        assertTrue(meta.contains("\"min_format\": " + ContentPack.PACK_FORMAT), meta);
+        assertTrue(meta.contains("\"max_format\": " + ContentPack.PACK_FORMAT), meta);
+        assertFalse(meta.contains("pack_format"),
+                "pack_format seul fait rejeter le pack au-delà du format 64 : " + meta);
+        assertFalse(meta.contains("supported_formats"),
+                "supported_formats est refusé au-delà du format 64 : " + meta);
     }
 
     /**
