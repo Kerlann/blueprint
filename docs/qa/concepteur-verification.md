@@ -39,8 +39,8 @@ Chaque ligne dit quel test protège déjà la **décision** correspondante.
 | 1.7 | Poser un panneau puis un texte dedans | Le texte apparaît **sous** le panneau, indenté, avec un chevron sur le parent | `lesCalquesFormentUnArbre` |
 | 1.8 | Cliquer le chevron | La branche se replie ; les petits-enfants disparaissent aussi | `unParentReplieCacheToutSaDescendance` |
 | 1.9 | Cliquer l'œil d'un calque | Il bascule `◉`/`○` et l'élément disparaît du canevas — **sans** changer la sélection | `lOeilBasculeLaVisibiliteIlNeSelectionnePas` |
-| 1.10 | Glisser un calque sur un autre | Un liseré marque la cible ; au relâchement il devient son enfant | `glisserUnCalqueSurUnAutreLeLuiDonnePourParent` |
-| 1.11 | Glisser un calque sur l'en-tête CALQUES | Il ressort à la racine | `lEnTeteDesCalquesSortDeSonConteneur` |
+| 1.10 | Glisser un calque sur un autre | Un liseré marque la cible ; au relâchement il devient son enfant **sans bouger d'un pixel sur l'écran** | `glisserUnCalqueSurUnAutreLeLuiDonnePourParent` (la cible), `ReparentKeepsPlaceTest` (la place) |
+| 1.11 | Glisser un calque sur l'en-tête CALQUES | Il ressort à la racine, toujours sans bouger | `lEnTeteDesCalquesSortDeSonConteneur`, `sortirUnElementNeLeDeplacePasNonPlus` |
 | 1.12 | Glisser un parent sur son propre enfant | **Aucune** cible ne s'allume — le geste ne propose pas ce qu'il refuserait | `onNeProposeJamaisUneCibleQueLeModeleRefuserait` |
 
 ## 2. Le panneau de droite

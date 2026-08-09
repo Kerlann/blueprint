@@ -1849,7 +1849,12 @@ public final class ScreenDesignerWidget {
         if (java.util.Objects.equals(element.parent(), parent)) {
             return;   // lâché sur son parent actuel : rien à faire, et rien à annuler
         }
-        if (!controller.setElement(element.withParent(parent))) {
+        // Le geste déplace dans l'ARBRE ; rien en lui ne demande de déplacer sur l'écran.
+        // Sans conversion, un élément donné à un conteneur posé en (40, 30) sautait de
+        // quarante pixels à droite au moment du relâchement — au pire moment possible,
+        // celui où l'auteur vient de viser une cible.
+        if (!controller.setElement(
+                ScreenDesignerReparent.adopted(screen, element, parent))) {
             reportRefusal();
         }
     }
