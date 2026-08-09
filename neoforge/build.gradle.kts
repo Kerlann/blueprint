@@ -111,6 +111,17 @@ tasks.matching { it.name == "runServer" }.configureEach {
     val scenario = rootProject.file("docs/qa/scenario-serveur.txt")
     inputs.file(scenario)
     doFirst {
+        // Monde NEUF à chaque scénario, comme runGametest le fait déjà côté Fabric.
+        //
+        // Sans cela le scénario n'est pas reproductible, et il l'a prouvé : au second
+        // passage, `/blueprint bench` répondait « already exists », et `/bpc bench`
+        // « no enabled blueprint declares the command » — parce que le graphe du passage
+        // précédent avait été sauvegardé, faute comprise, donc désactivé. Un scénario
+        // dont le résultat dépend du run d'avant ne vérifie plus rien.
+        //
+        // (Ce qu'il a révélé au passage mérite son propre test : l'état désactivé avait
+        // bien traversé un redémarrage. La persistance marche sur NeoForge.)
+        delete(layout.buildDirectory.dir("run/server/world"))
         val lignes = scenario.readLines().filter { it.isNotBlank() && !it.startsWith("#") }
         val sortie = PipedOutputStream()
         val entree = PipedInputStream(sortie, 8192)

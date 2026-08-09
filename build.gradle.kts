@@ -205,6 +205,9 @@ tasks.matching { it.name == "runServer" }.configureEach {
     val scenario = rootProject.file("docs/qa/scenario-serveur.txt")
     inputs.file(scenario)
     doFirst {
+        // Monde neuf, pour la même raison que côté NeoForge : un scénario rejoué doit
+        // partir du même état, sinon les deux chargeurs ne sont plus comparables.
+        delete(rootProject.file("run/world"))
         val lignes = scenario.readLines().filter { it.isNotBlank() && !it.startsWith("#") }
         val sortie = PipedOutputStream()
         val entree = PipedInputStream(sortie, 8192)
