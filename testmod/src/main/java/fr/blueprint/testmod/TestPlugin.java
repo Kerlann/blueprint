@@ -8,13 +8,22 @@ import fr.blueprint.api.registry.NodeRegistry;
 import net.minecraft.resources.Identifier;
 
 /**
- * Mod d'exemple : il ne dépend que du module {@code api} et déclare trois nœuds via
- * l'entrypoint {@code blueprint} — la preuve vivante du contrat d'{@code extension-api.md}.
+ * Mod d'exemple : il ne dépend que du module {@code api} et déclare trois nœuds — la
+ * preuve vivante du contrat d'{@code extension-api.md}.
+ *
+ * <p>Il se déclare par les <b>deux</b> voies, entrypoint et service, comme un mod tiers
+ * qui voudrait marcher sur tous les chargeurs. C'est aussi ce qui vérifie en vrai que
+ * Blueprint ne le charge qu'une fois.
  */
 public final class TestPlugin implements BlueprintPlugin {
 
     private static Identifier id(String path) {
         return Identifier.fromNamespaceAndPath("blueprint_testmod", path);
+    }
+
+    @Override
+    public String modId() {
+        return "blueprint_testmod";
     }
 
     @Override

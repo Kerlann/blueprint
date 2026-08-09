@@ -1,0 +1,6 @@
+# Le scénario que les DEUX chargeurs rejouent à l'identique.
+# Sans lui, comparer Fabric et NeoForge reviendrait à comparer deux souvenirs.
+blueprint content
+blueprint bench
+blueprint list
+bpc bench

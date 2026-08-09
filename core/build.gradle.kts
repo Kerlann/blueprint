@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
     implementation(project(path = ":api", configuration = "namedElements"))
+    implementation(project(path = ":platform", configuration = "namedElements"))
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -116,12 +117,4 @@ tasks.check {
     // lance qu'à la demande ne mesure plus rien, et la doctrine §7.1 tomberait avec lui.
     // Ce qui change, c'est QUAND on le paie — au build, plus à chaque `test`.
     dependsOn(tasks.jacocoTestCoverageVerification, bench)
-}
-
-tasks.processResources {
-    inputs.property("version", project.version)
-
-    filesMatching("fabric.mod.json") {
-        expand("version" to project.version)
-    }
 }

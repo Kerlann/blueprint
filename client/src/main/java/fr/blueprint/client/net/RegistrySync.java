@@ -8,8 +8,7 @@ import fr.blueprint.core.net.BlueprintPayloads;
 import fr.blueprint.core.net.DescriptorSync;
 import fr.blueprint.core.registry.NodeDescriptor;
 import fr.blueprint.core.registry.RegistryHash;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import fr.blueprint.platform.Platform;
 import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,7 +42,8 @@ public final class RegistrySync {
     private static final Map<Identifier, PinType> OPAQUE = new ConcurrentHashMap<>();
 
     public static void register() {
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.RegistryHash.TYPE,
+        var network = Platform.clientNetwork();
+        network.receive(BlueprintPayloads.RegistryHash.TYPE,
                 (payload, context) -> {
                     String local = RegistryHash.of(BlueprintMod.registries().nodes());
                     if (local.equals(payload.hash())) {
@@ -55,10 +55,10 @@ public final class RegistrySync {
                             "Registre serveur divergent ({}≠{}) — demande des descripteurs",
                             payload.hash().substring(0, 8), local.substring(0, 8));
                     reset();
-                    context.responseSender().sendPacket(new BlueprintPayloads.RegistryRequest(0));
+                    context.reply(new BlueprintPayloads.RegistryRequest(0));
                 });
 
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.DescriptorChunk.TYPE,
+        network.receive(BlueprintPayloads.DescriptorChunk.TYPE,
                 (payload, context) -> {
                     expected = payload.total();
                     CHUNKS.put(payload.index(), payload.data());
@@ -79,7 +79,11 @@ public final class RegistrySync {
                     CHUNKS.clear();
                 });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
+    }
+
+    /** Déconnexion : le registre reçu du serveur quitté n'a plus cours. */
+    public static void onDisconnect() {
+        reset();
     }
 
     /** Construit le registre synchronisé — pur, testable sans réseau. */

@@ -1,14 +1,21 @@
 package fr.blueprint.core;
 
-import fr.blueprint.api.BlueprintPlugin;
 import fr.blueprint.core.command.BlueprintCommand;
 import fr.blueprint.core.config.BlueprintConfig;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.loader.api.FabricLoader;
+import fr.blueprint.platform.Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class BlueprintMod implements ModInitializer {
+/**
+ * Le démarrage de Blueprint, côté serveur.
+ *
+ * <p>Cette classe <b>était</b> le point d'entrée Fabric ({@code implements
+ * ModInitializer}). Elle ne l'est plus : c'est {@code fr.blueprint.fabric.FabricBootstrap}
+ * qui l'est, et qui appelle {@link #init()}. La nuance n'est pas cosmétique — tant que le
+ * démarrage <i>était</i> un point d'entrée Fabric, aucun autre chargeur ne pouvait
+ * l'atteindre. Maintenant, n'importe lequel le peut, et aucun n'a de traitement de faveur.
+ */
+public class BlueprintMod {
     public static final String MOD_ID = "blueprint";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -56,29 +63,57 @@ public class BlueprintMod implements ModInitializer {
      * déposer un fichier, savoir que zéro item a été lu vaut mieux qu'un silence dont on
      * ne peut pas dire s'il signifie « tout va bien » ou « le dossier n'a pas été vu ».
      */
-    private void registerDeclaredContent() {
+    private static void registerDeclaredContent() {
         var report = fr.blueprint.core.content.ContentLoader.load(BlueprintPaths.content());
         var rejected = new java.util.ArrayList<>(report.rejected());
-        var registered = fr.blueprint.core.content.ContentRegistrar.registerAll(report, rejected);
-        contentRejected = java.util.List.copyOf(rejected);
         // Gardées pour la commande : un item sans image s'enregistre très bien et
         // s'affiche en damier. C'est la question la plus posée d'un contenu déclaré, et
-        // seule la définition sait y répondre (11.2).
+        // seule la définition sait y répondre (11.2). Posées ici, dès la lecture du
+        // disque : elles ne dépendent d'aucun registre.
         contentDeclared = report.items();
         contentBlocks = report.blocks();
-        // Le butin des blocs déclarés : ils n'ont pas de table, faute d'un datapack où
-        // l'écrire, et c'est ce branchement qui leur en tient lieu (11.3).
-        fr.blueprint.core.content.ContentDrops.register();
-        if (!registered.isEmpty() || !rejected.isEmpty()) {
+        // Le butin des blocs déclarés (11.3) n'est plus branché ici : ils n'ont pas de
+        // table de butin, et c'est le chargeur qui appelle ContentDrops.afterBlockBroken
+        // sur son propre événement de casse.
+
+        // Les deux passes, et c'est le chargeur qui décide quand chacune part. Les blocs
+        // d'abord : l'item d'un bloc a besoin du bloc. Cela ne change rien à la suite des
+        // items — voir ContentRegistrar.itemOrder, qui est justement là pour ça.
+        var registrar = Platform.registrar();
+        registrar.whenOpen(net.minecraft.core.registries.Registries.BLOCK,
+                () -> fr.blueprint.core.content.ContentRegistrar.registerBlocks(report, rejected));
+        registrar.whenOpen(net.minecraft.core.registries.Registries.ITEM, () -> {
+            var registered =
+                    fr.blueprint.core.content.ContentRegistrar.registerItems(report, rejected);
+            // Le bilan DANS l'action, pas après elle : sur un chargeur dont la fenêtre
+            // s'ouvre plus tard, « après » signifierait « avant que quoi que ce soit ne
+            // soit enregistré », et le journal annoncerait zéro item sur un dossier plein.
+            contentRejected = java.util.List.copyOf(rejected);
+            if (registered.isEmpty() && rejected.isEmpty()) {
+                return;
+            }
+            // Comptés, pas déduits : un bloc refusé par la première passe n'a pas d'item,
+            // et l'ancienne soustraction « tout moins les blocs déclarés » annonçait alors
+            // moins d'items qu'il n'y en a — voire un nombre négatif.
+            int items = 0;
+            for (net.minecraft.resources.Identifier id : registered.keySet()) {
+                if (report.items().containsKey(id)) {
+                    items++;
+                }
+            }
             LOGGER.info("Contenu déclaré : {} item(s) et {} bloc(s) enregistré(s), {} écarté(s)",
-                    registered.size() - report.blocks().size(), report.blocks().size(),
-                    rejected.size());
+                    items, registered.size() - items, rejected.size());
             rejected.forEach(reason -> LOGGER.warn("Contenu écarté — {}", reason));
-        }
+        });
     }
 
-    @Override
-    public void onInitialize() {
+    /**
+     * Tout le démarrage serveur, appelé par le module du chargeur — et par lui seul.
+     *
+     * <p>Ce qu'elle fait n'a rien de spécifique à Fabric ; ce qui l'était, c'était la
+     * façon d'y arriver.
+     */
+    public static void init() {
         LOGGER.info("Blueprint initialisé");
 
         // Un seul dossier, à la racine du jeu. La reprise de l'ancien emplacement
@@ -86,7 +121,6 @@ public class BlueprintMod implements ModInitializer {
         // réécrite aux valeurs par défaut.
         BlueprintPaths.migrateLegacy();
         config = BlueprintConfig.load(BlueprintPaths.root());
-        BlueprintCommand.register(config);
         // NFR15 : l'audit des nœuds ADMIN se coupe depuis la configuration serveur.
         fr.blueprint.core.debug.AdminAudit.enabled(config.auditAdminNodes());
 
@@ -95,143 +129,174 @@ public class BlueprintMod implements ModInitializer {
         // Registry.freeze() est passé et l'enregistrement lève.
         registerDeclaredContent();
 
-        int declared = FabricLoader.getInstance()
-                .getEntrypointContainers("blueprint", BlueprintPlugin.class)
-                .size();
-        registries = fr.blueprint.core.registry.PluginLoader.loadFromFabric();
+        // Compté sur ce qui a RÉELLEMENT été retenu, et non sur ce que le chargeur
+        // annonce : depuis le lot C, un plugin peut venir de deux voies, et un plugin
+        // déclaré des deux côtés ne compte qu'une fois.
+        var plugins = fr.blueprint.core.registry.PluginLoader.discover();
+        registries = fr.blueprint.core.registry.PluginLoader.load(plugins, true,
+                fr.blueprint.core.registry.PluginLoader.discoverHolders());
         LOGGER.info("{} plugin(s) Blueprint détecté(s) — {} type(s) de pins, {} nœud(s), {} événement(s), {} en échec",
-                declared, registries.pinTypes().all().size(), registries.nodes().all().size(),
+                plugins.size(), registries.pinTypes().all().size(), registries.nodes().all().size(),
                 registries.events().all().size(), registries.failedMods().size());
 
-        // Le dispatcher d'événements vit avec le serveur : installé au démarrage
-        // (avec le pont événement → ordonnanceur), retiré à l'arrêt.
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server -> {
-            var dispatcher = new fr.blueprint.core.event.EventDispatcher(
-                    new fr.blueprint.core.event.EventDispatcher.ThreadGate() {
-                        @Override
-                        public boolean isOnThread() {
-                            return server.isSameThread();
-                        }
-
-                        @Override
-                        public void submit(Runnable task) {
-                            server.execute(task);
-                        }
-                    });
-            var bridge = new fr.blueprint.core.event.BlueprintEventBridge(
-                    BlueprintManager.of(server), registries.nodes(), schedulerOf(server),
-                    envFactory(server));
-            bridge.wire(dispatcher, registries.events().all());
-            BRIDGES.put(server, bridge);
-            fr.blueprint.api.event.BlueprintEvents.install(dispatcher);
-        });
-
-        // /bpc <nom> [texte] : déclenche les blueprints déclarant la commande (7.7).
-        // Un préfixe fixe plutôt que des racines dynamiques : Brigadier ne sait pas
-        // retirer proprement un nœud racine, /bpc suggère les noms VIVANTS.
-        net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register(
-                (dispatcher, access, environment) -> dispatcher.register(
-                        net.minecraft.commands.Commands.literal("bpc")
-                                .then(net.minecraft.commands.Commands.argument("name",
-                                                com.mojang.brigadier.arguments.StringArgumentType.word())
-                                        .suggests((context, builder) -> {
-                                            var bridge = BRIDGES.get(context.getSource().getServer());
-                                            if (bridge != null) {
-                                                bridge.commandNames().forEach(builder::suggest);
-                                            }
-                                            return builder.buildFuture();
-                                        })
-                                        .executes(context -> runBpc(context, ""))
-                                        .then(net.minecraft.commands.Commands.argument("arg",
-                                                        com.mojang.brigadier.arguments.StringArgumentType.greedyString())
-                                                .executes(context -> runBpc(context,
-                                                        com.mojang.brigadier.arguments.StringArgumentType
-                                                                .getString(context, "arg")))))));
-
-        // Persistance (6.1) : chargement + rapport quand les mondes sont prêts, puis
-        // liaison vivante — chaque sauvegarde du monde capture l'état courant.
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            var storage = server.overworld().getDataStorage()
-                    .computeIfAbsent(fr.blueprint.core.storage.BlueprintStorage.TYPE);
-            var report = fr.blueprint.core.storage.PersistenceHooks.restore(
-                    storage, BlueprintManager.of(server), schedulerOf(server), registries,
-                    new fr.blueprint.core.storage.ServerRefResolver(server), envFactory(server));
-            storage.bindLive(BlueprintManager.of(server), schedulerOf(server));
-            // Le dossier `blueprint/exports/` devient un REFLET de ce que le monde
-            // contient, et non plus une photo du jour où l'on a pensé à exporter. Sans
-            // cela il dérive dès l'enregistrement suivant — et l'on croit relire son
-            // travail alors qu'on relit une version d'avant.
-            //
-            // Un reflet, pas une seconde source de vérité : rien ne relit ce dossier au
-            // démarrage, et un blueprint SUPPRIMÉ n'y est pas effacé. Effacer le fichier
-            // détruirait la dernière copie de quelque chose que le joueur vient de retirer
-            // du monde ; le laisser ne coûte qu'un fichier réimportable.
-            if (config().autoExport()) {
-                // Le dossier est résolu UNE fois : BlueprintPaths.exports() crée au passage
-                // deux niveaux de répertoires, et le rappeler à chaque enregistrement les
-                // recréait pour rien, sur le fil serveur.
-                java.nio.file.Path exports = BlueprintPaths.exports();
-                // exportAsync et non export : l'écriture part sur le pool d'entrées-sorties.
-                // Le contrat « au mieux, jamais au prix de l'enregistrement » n'était tenu
-                // que pour les erreurs, pas pour le temps d'attente.
-                BlueprintManager.of(server).mirrorWith(bp ->
-                        BlueprintFiles.exportAsync(bp, exports, registries));
-            }
-            LOGGER.info("Persistance : {} blueprint(s) chargé(s), {} préservé(s) brut(s), "
-                            + "{} exécution(s) reprise(s), {} annulée(s)",
-                    report.blueprintsLoaded(), report.blueprintsCorrupt(),
-                    report.executionsResumed(), report.executionsCancelled());
-        });
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
-            fr.blueprint.api.event.BlueprintEvents.uninstall();
-            // Les barres de boss sont le seul état vivant que laissent les nœuds :
-            // sans ce nettoyage, elles survivraient à un rechargement sans propriétaire.
-            fr.blueprint.core.nodes.BossBarNodes.clear();
-            BRIDGES.remove(server);
-        });
-
-        // Fin de tick : émettre server_tick (coût nul sans abonné — paresse 2.5) puis
-        // ordonnancer. Un blueprint glouton ou en faute est désactivé via le manager.
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
-            fr.blueprint.api.event.BlueprintEvents.fire(
-                    fr.blueprint.core.event.StandardEvents.SERVER_TICK, payload -> {
-                    });
-            schedulerOf(server).tick(config.fuelPerTick());
-            // Après l'ordonnancement : le budget de signaux du tick repart à neuf.
-            // Avant, il bornerait les signaux émis PENDANT ce tick de façon décalée.
-            var bridge = BRIDGES.get(server);
-            if (bridge != null) {
-                bridge.endTick();
-            }
-            // En DERNIER : les modifications d'écran demandées pendant ce tick partent
-            // ensemble (10.4, AC3b). Les envoyer plus tôt en laisserait passer une
-            // partie dans la trame suivante, et l'écran se rafraîchirait en deux fois.
-            fr.blueprint.core.net.ServerBlueprintNet.flushScreenUpdates(server);
-        });
-
-        registerWorldEventBridges();
         registerRegistrySync();
         fr.blueprint.core.net.ServerBlueprintNet.register(config);
         fr.blueprint.core.net.DebugNet.register(config);
-        registerDatapackNodes();
+    }
+
+    /**
+     * Le serveur démarre. Le dispatcher d'événements vit avec lui : installé ici (avec le
+     * pont événement → ordonnanceur), retiré à l'arrêt.
+     */
+    public static void serverStarting(net.minecraft.server.MinecraftServer server) {
+        var dispatcher = new fr.blueprint.core.event.EventDispatcher(
+                new fr.blueprint.core.event.EventDispatcher.ThreadGate() {
+                    @Override
+                    public boolean isOnThread() {
+                        return server.isSameThread();
+                    }
+
+                    @Override
+                    public void submit(Runnable task) {
+                        server.execute(task);
+                    }
+                });
+        var bridge = new fr.blueprint.core.event.BlueprintEventBridge(
+                BlueprintManager.of(server), registries.nodes(), schedulerOf(server),
+                envFactory(server));
+        bridge.wire(dispatcher, registries.events().all());
+        BRIDGES.put(server, bridge);
+        fr.blueprint.api.event.BlueprintEvents.install(dispatcher);
+    }
+
+    /**
+     * Les commandes du mod, posées dans le dispatcher que le chargeur fournit.
+     *
+     * <p>Les deux arbres ensemble : {@code /blueprint} et {@code /bpc} s'enregistraient à
+     * deux endroits différents parce que deux abonnements Fabric distincts les portaient.
+     * Le chargeur n'a plus qu'un fil à brancher, et l'ordre entre elles cesse de dépendre
+     * de l'ordre des abonnements.
+     */
+    public static void registerCommands(
+            com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher) {
+        dispatcher.register(BlueprintCommand.build(config));
+        dispatcher.register(bpcCommand());
+    }
+
+    /**
+     * {@code /bpc <nom> [texte]} : déclenche les blueprints déclarant la commande (7.7).
+     *
+     * <p>Un préfixe fixe plutôt que des racines dynamiques : Brigadier ne sait pas retirer
+     * proprement un nœud racine, {@code /bpc} suggère les noms VIVANTS.
+     */
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<
+            net.minecraft.commands.CommandSourceStack> bpcCommand() {
+        return net.minecraft.commands.Commands.literal("bpc")
+                .then(net.minecraft.commands.Commands.argument("name",
+                                com.mojang.brigadier.arguments.StringArgumentType.word())
+                        .suggests((context, builder) -> {
+                            var bridge = BRIDGES.get(context.getSource().getServer());
+                            if (bridge != null) {
+                                bridge.commandNames().forEach(builder::suggest);
+                            }
+                            return builder.buildFuture();
+                        })
+                        .executes(context -> runBpc(context, ""))
+                        .then(net.minecraft.commands.Commands.argument("arg",
+                                        com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                                .executes(context -> runBpc(context,
+                                        com.mojang.brigadier.arguments.StringArgumentType
+                                                .getString(context, "arg")))));
+    }
+
+    /**
+     * Persistance (6.1) : chargement + rapport quand les mondes sont prêts, puis liaison
+     * vivante — chaque sauvegarde du monde capture l'état courant.
+     */
+    public static void serverStarted(net.minecraft.server.MinecraftServer server) {
+        var storage = server.overworld().getDataStorage()
+                .computeIfAbsent(fr.blueprint.core.storage.BlueprintStorage.TYPE);
+        var report = fr.blueprint.core.storage.PersistenceHooks.restore(
+                storage, BlueprintManager.of(server), schedulerOf(server), registries,
+                new fr.blueprint.core.storage.ServerRefResolver(server), envFactory(server));
+        storage.bindLive(BlueprintManager.of(server), schedulerOf(server));
+        // Le dossier `blueprint/exports/` devient un REFLET de ce que le monde
+        // contient, et non plus une photo du jour où l'on a pensé à exporter. Sans
+        // cela il dérive dès l'enregistrement suivant — et l'on croit relire son
+        // travail alors qu'on relit une version d'avant.
+        //
+        // Un reflet, pas une seconde source de vérité : rien ne relit ce dossier au
+        // démarrage, et un blueprint SUPPRIMÉ n'y est pas effacé. Effacer le fichier
+        // détruirait la dernière copie de quelque chose que le joueur vient de retirer
+        // du monde ; le laisser ne coûte qu'un fichier réimportable.
+        if (config().autoExport()) {
+            // Le dossier est résolu UNE fois : BlueprintPaths.exports() crée au passage
+            // deux niveaux de répertoires, et le rappeler à chaque enregistrement les
+            // recréait pour rien, sur le fil serveur.
+            java.nio.file.Path exports = BlueprintPaths.exports();
+            // exportAsync et non export : l'écriture part sur le pool d'entrées-sorties.
+            // Le contrat « au mieux, jamais au prix de l'enregistrement » n'était tenu
+            // que pour les erreurs, pas pour le temps d'attente.
+            BlueprintManager.of(server).mirrorWith(bp ->
+                    BlueprintFiles.exportAsync(bp, exports, registries));
+        }
+        LOGGER.info("Persistance : {} blueprint(s) chargé(s), {} préservé(s) brut(s), "
+                        + "{} exécution(s) reprise(s), {} annulée(s)",
+                report.blueprintsLoaded(), report.blueprintsCorrupt(),
+                report.executionsResumed(), report.executionsCancelled());
+    }
+
+    /** Le serveur s'arrête : on démonte ce que le démarrage avait installé. */
+    public static void serverStopped(net.minecraft.server.MinecraftServer server) {
+        fr.blueprint.api.event.BlueprintEvents.uninstall();
+        // Les barres de boss sont le seul état vivant que laissent les nœuds :
+        // sans ce nettoyage, elles survivraient à un rechargement sans propriétaire.
+        fr.blueprint.core.nodes.BossBarNodes.clear();
+        BRIDGES.remove(server);
+    }
+
+    /**
+     * Fin de tick : émettre {@code server_tick} (coût nul sans abonné — paresse 2.5) puis
+     * ordonnancer. Un blueprint glouton ou en faute est désactivé via le manager.
+     */
+    public static void endServerTick(net.minecraft.server.MinecraftServer server) {
+        fr.blueprint.api.event.BlueprintEvents.fire(
+                fr.blueprint.core.event.StandardEvents.SERVER_TICK, payload -> {
+                });
+        schedulerOf(server).tick(config.fuelPerTick());
+        // Après l'ordonnancement : le budget de signaux du tick repart à neuf.
+        // Avant, il bornerait les signaux émis PENDANT ce tick de façon décalée.
+        var bridge = BRIDGES.get(server);
+        if (bridge != null) {
+            bridge.endTick();
+        }
+        // En DERNIER : les modifications d'écran demandées pendant ce tick partent
+        // ensemble (10.4, AC3b). Les envoyer plus tôt en laisserait passer une
+        // partie dans la trame suivante, et l'écran se rafraîchirait en deux fois.
+        fr.blueprint.core.net.ServerBlueprintNet.flushScreenUpdates(server);
+        // Le débogueur pousse ses instantanés au même moment, et non plus depuis son
+        // propre abonnement : un seul fil de tick à brancher côté chargeur.
+        fr.blueprint.core.net.DebugNet.endServerTick(server);
     }
 
     /**
      * Nœuds composites des datapacks (8.2) : relus à chaque {@code /reload}. Le hash du
      * registre change alors — les clients connectés doivent le réapprendre (6.2), sinon
      * leur palette resterait sur l'ancien lot.
+     *
+     * <p>L'identifiant du rechargeur reste ici, avec ce qu'il fait : c'est une donnée du
+     * mod, pas du chargeur.
      */
-    private static void registerDatapackNodes() {
-        net.fabricmc.fabric.api.resource.v1.ResourceLoader
-                .get(net.minecraft.server.packs.PackType.SERVER_DATA)
-                .registerReloader(
-                        net.minecraft.resources.Identifier.fromNamespaceAndPath(MOD_ID, "datapack_nodes"),
-                        (net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> {
-                            fr.blueprint.core.datapack.DatapackNodes.reload(manager, registries);
-                            registryHash = null;
-                            descriptorStream = null;
-                            announceRegistry();
-                        });
+    public static final net.minecraft.resources.Identifier DATAPACK_NODES_RELOADER =
+            net.minecraft.resources.Identifier.fromNamespaceAndPath(MOD_ID, "datapack_nodes");
+
+    /** Voir {@link #DATAPACK_NODES_RELOADER}. Appelé à chaque rechargement des données. */
+    public static void reloadDatapackNodes(
+            net.minecraft.server.packs.resources.ResourceManager manager) {
+        fr.blueprint.core.datapack.DatapackNodes.reload(manager, registries);
+        registryHash = null;
+        descriptorStream = null;
+        announceRegistry();
     }
 
     /** Réannonce le hash aux joueurs connectés (après un /reload). */
@@ -240,13 +305,14 @@ public class BlueprintMod implements ModInitializer {
         synchronized (BRIDGES) {
             servers = new java.util.HashSet<>(BRIDGES.keySet());
         }
+        var network = Platform.serverNetwork();
         for (net.minecraft.server.MinecraftServer server : servers) {
             for (net.minecraft.server.level.ServerPlayer player
                     : server.getPlayerList().getPlayers()) {
-                if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(player,
+                if (network.canSend(player,
                         fr.blueprint.core.net.BlueprintPayloads.RegistryHash.TYPE)) {
                     SYNCED.remove(player.getUUID());
-                    net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
+                    network.send(player,
                             new fr.blueprint.core.net.BlueprintPayloads.RegistryHash(registryHash()));
                 }
             }
@@ -283,44 +349,17 @@ public class BlueprintMod implements ModInitializer {
      * et compressé — un client sans les mods du serveur voit quand même les nœuds.
      */
     private static void registerRegistrySync() {
-        var s2c = net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C();
-        s2c.register(fr.blueprint.core.net.BlueprintPayloads.RegistryHash.TYPE,
+        var network = Platform.serverNetwork();
+        network.registerS2C(fr.blueprint.core.net.BlueprintPayloads.RegistryHash.TYPE,
                 fr.blueprint.core.net.BlueprintPayloads.RegistryHash.CODEC);
-        s2c.register(fr.blueprint.core.net.BlueprintPayloads.DescriptorChunk.TYPE,
+        network.registerS2C(fr.blueprint.core.net.BlueprintPayloads.DescriptorChunk.TYPE,
                 fr.blueprint.core.net.BlueprintPayloads.DescriptorChunk.CODEC);
-        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playC2S().register(
-                fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.TYPE,
+        network.registerC2S(fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.TYPE,
                 fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.CODEC);
-        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(
-                fr.blueprint.core.net.BlueprintPayloads.ServerLimits.TYPE,
+        network.registerS2C(fr.blueprint.core.net.BlueprintPayloads.ServerLimits.TYPE,
                 fr.blueprint.core.net.BlueprintPayloads.ServerLimits.CODEC);
 
-        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register(
-                (handler, sender, server) -> {
-                    // Un client vanilla (ou sans Blueprint) ne reçoit rien : le paquet
-                    // serait inconnu de sa connexion.
-                    if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(
-                            handler.player,
-                            fr.blueprint.core.net.BlueprintPayloads.RegistryHash.TYPE)) {
-                        sender.sendPacket(new fr.blueprint.core.net.BlueprintPayloads
-                                .RegistryHash(registryHash()));
-                    }
-                    // Les bornes de CE serveur (10.6). Sans elles, l'éditeur validerait
-                    // avec les défauts du modèle : sur un serveur aux quotas resserrés,
-                    // l'auteur découvrirait le refus à l'enregistrement, après le
-                    // travail plutôt que pendant.
-                    if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(
-                            handler.player,
-                            fr.blueprint.core.net.BlueprintPayloads.ServerLimits.TYPE)) {
-                        var limits = config.graphLimits();
-                        sender.sendPacket(new fr.blueprint.core.net.BlueprintPayloads
-                                .ServerLimits(limits.maxNodes(), limits.maxScreens(),
-                                        limits.maxElementsPerScreen()));
-                    }
-                });
-
-        net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
-                fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.TYPE,
+        network.receive(fr.blueprint.core.net.BlueprintPayloads.RegistryRequest.TYPE,
                 (payload, context) -> {
                     // Une seule livraison par connexion : le registre est gelé, une
                     // seconde demande ne peut rien apporter (et ne coûtera rien).
@@ -330,7 +369,7 @@ public class BlueprintMod implements ModInitializer {
                     java.util.List<byte[]> chunks =
                             fr.blueprint.core.net.DescriptorSync.chunks(descriptorStream());
                     for (int i = 0; i < chunks.size(); i++) {
-                        context.responseSender().sendPacket(
+                        context.reply(
                                 new fr.blueprint.core.net.BlueprintPayloads.DescriptorChunk(
                                         i, chunks.size(), chunks.get(i)));
                     }
@@ -339,173 +378,64 @@ public class BlueprintMod implements ModInitializer {
                             registries.nodes().all().size(), chunks.size(),
                             descriptorStream().length);
                 });
+    }
 
-        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
-                (handler, server) -> SYNCED.remove(handler.player.getUUID()));
+    /**
+     * Un joueur arrive. <b>Un seul fil</b> pour le chargeur, où il y en avait deux : la
+     * synchro du registre et l'événement {@code player_join} s'abonnaient séparément, et
+     * leur ordre relatif ne tenait qu'à l'ordre des abonnements dans {@code init()}.
+     * Il est maintenant écrit, et le même chez tous les chargeurs.
+     */
+    public static void playerJoined(net.minecraft.server.level.ServerPlayer player) {
+        fr.blueprint.core.event.WorldEvents.playerJoined(player);
+        greet(player);
+    }
+
+    /**
+     * Un joueur part : il ne garde ni quota, ni écran fantôme, ni abonnement au débogueur
+     * (10.3 AC5). Là encore, quatre abonnements distincts se rejoignent en un seul appel,
+     * dans l'ordre où ils s'exécutaient.
+     */
+    public static void playerDisconnected(net.minecraft.server.level.ServerPlayer player) {
+        fr.blueprint.core.event.WorldEvents.playerQuit(player);
+        SYNCED.remove(player.getUUID());
+        fr.blueprint.core.net.ServerBlueprintNet.forget(player.getUUID());
+        fr.blueprint.core.net.DebugNet.forget(player.getUUID());
+    }
+
+    /**
+     * Ce qu'un joueur reçoit en arrivant : le hash du registre, et les bornes du serveur.
+     *
+     * <p>Le passage par {@code ServerNetwork#send} plutôt que par l'émetteur fourni avec
+     * l'événement d'arrivée n'est pas un détour : cet émetteur est un type du chargeur, et
+     * il ne sert de toute façon qu'à écrire sur la connexion de ce joueur — ce que
+     * {@code send} fait déjà.
+     */
+    private static void greet(net.minecraft.server.level.ServerPlayer player) {
+        var network = Platform.serverNetwork();
+        // Un client vanilla (ou sans Blueprint) ne reçoit rien : le paquet
+        // serait inconnu de sa connexion.
+        if (network.canSend(player,
+                fr.blueprint.core.net.BlueprintPayloads.RegistryHash.TYPE)) {
+            network.send(player, new fr.blueprint.core.net.BlueprintPayloads
+                    .RegistryHash(registryHash()));
+        }
+        // Les bornes de CE serveur (10.6). Sans elles, l'éditeur validerait
+        // avec les défauts du modèle : sur un serveur aux quotas resserrés,
+        // l'auteur découvrirait le refus à l'enregistrement, après le
+        // travail plutôt que pendant.
+        if (network.canSend(player,
+                fr.blueprint.core.net.BlueprintPayloads.ServerLimits.TYPE)) {
+            var limits = config.graphLimits();
+            network.send(player, new fr.blueprint.core.net.BlueprintPayloads
+                    .ServerLimits(limits.maxNodes(), limits.maxScreens(),
+                            limits.maxElementsPerScreen()));
+        }
     }
 
     /** Joueurs déjà servis (par UUID) — remis à zéro à la déconnexion. */
     private static final java.util.Set<java.util.UUID> SYNCED =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
-
-    /** Ponts Fabric → événements Blueprint (story 7.6) — fins, vérifiés en jeu/gametest. */
-    private static void registerWorldEventBridges() {
-        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register(
-                (handler, sender, server) -> fr.blueprint.api.event.BlueprintEvents.fire(
-                        fr.blueprint.core.event.StandardEvents.PLAYER_JOIN,
-                        payload -> payload.set("player", handler.player)));
-        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
-                (handler, server) -> fr.blueprint.api.event.BlueprintEvents.fire(
-                        fr.blueprint.core.event.StandardEvents.PLAYER_QUIT,
-                        payload -> payload.set("player", handler.player)));
-        net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register(
-                (player, world, hand, hit) -> {
-                    // Garde main principale (correction QA EVENT-001) : Fabric appelle le
-                    // callback pour chaque main — sans garde, un clic émettrait deux événements.
-                    if (hand == net.minecraft.world.InteractionHand.MAIN_HAND
-                            && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.PLAYER_USE_BLOCK,
-                                payload -> payload.set("player", serverPlayer)
-                                        .set("pos", hit.getBlockPos())
-                                        .set("face", hit.getDirection()));
-                    }
-                    return net.minecraft.world.InteractionResult.PASS;
-                });
-        net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
-                (player, world, hand) -> {
-                    if (hand == net.minecraft.world.InteractionHand.MAIN_HAND
-                            && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                        // La pile est COPIÉE : l'événement peut s'exécuter des ticks plus
-                        // tard (flow/wait), et d'ici là le joueur aura pu consommer,
-                        // jeter ou empiler ce qu'il tenait. Un graphe lirait alors un
-                        // objet différent de celui qui l'a déclenché.
-                        var held = serverPlayer.getMainHandItem().copy();
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.PLAYER_USE_ITEM,
-                                payload -> payload.set("player", serverPlayer)
-                                        .set("stack", held)
-                                        .set("item", net.minecraft.core.registries
-                                                .BuiltInRegistries.ITEM.getKey(held.getItem())));
-                    }
-                    return net.minecraft.world.InteractionResult.PASS;
-                });
-        net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register(
-                (world, player, pos, state, blockEntity) -> {
-                    if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.PLAYER_BREAK_BLOCK,
-                                payload -> payload.set("player", serverPlayer)
-                                        .set("pos", pos.immutable())
-                                        // L'ÉTAT reçu, jamais le bloc relu à la position :
-                                        // AFTER veut dire que le bloc n'y est plus, et une
-                                        // relecture rendrait de l'air.
-                                        .set("block", net.minecraft.core.registries
-                                                .BuiltInRegistries.BLOCK.getKey(state.getBlock())));
-                    }
-                });
-        net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register(
-                (entity, damageSource) -> fr.blueprint.api.event.BlueprintEvents.fire(
-                        fr.blueprint.core.event.StandardEvents.ENTITY_DEATH,
-                        payload -> payload.set("entity", entity)));
-        net.fabricmc.fabric.api.message.v1.ServerMessageEvents.CHAT_MESSAGE.register(
-                (message, sender, params) -> fr.blueprint.api.event.BlueprintEvents.fire(
-                        fr.blueprint.core.event.StandardEvents.PLAYER_CHAT,
-                        payload -> payload.set("player", sender)
-                                .set("message", message.signedContent())));
-        registerCombatEventBridges();
-        registerPlayerEventBridges();
-    }
-
-    /**
-     * Combat (batch 4). Les dégâts subis sont le socle de tout script de combat :
-     * sans eux, un graphe ne savait d'une entité que sa mort.
-     */
-    private static void registerCombatEventBridges() {
-        net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register(
-                (entity, source, baseAmount, damageTaken, blocked) ->
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.ENTITY_DAMAGED,
-                                payload -> {
-                                    // damageTaken, pas baseAmount : c'est ce que
-                                    // l'entité a RÉELLEMENT encaissé, armure et
-                                    // enchantements déduits.
-                                    payload.set("entity", entity)
-                                            .set("amount", (double) damageTaken);
-                                    if (source.getEntity() != null) {
-                                        payload.set("attacker", source.getEntity());
-                                    }
-                                }));
-        net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY
-                .register((world, killer, victim, source) ->
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.ENTITY_KILLED,
-                                payload -> payload.set("killer", killer).set("victim", victim)));
-        net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register(
-                (player, world, hand, entity, hit) -> {
-                    // Garde main principale, comme pour use_block (QA EVENT-001) :
-                    // Fabric appelle le callback pour chaque main.
-                    if (hand == net.minecraft.world.InteractionHand.MAIN_HAND
-                            && player instanceof net.minecraft.server.level.ServerPlayer sp) {
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.PLAYER_ATTACK_ENTITY,
-                                payload -> payload.set("player", sp).set("target", entity));
-                    }
-                    return net.minecraft.world.InteractionResult.PASS;
-                });
-        net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(
-                (player, world, hand, entity, hit) -> {
-                    if (hand == net.minecraft.world.InteractionHand.MAIN_HAND
-                            && player instanceof net.minecraft.server.level.ServerPlayer sp) {
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.PLAYER_USE_ENTITY,
-                                payload -> payload.set("player", sp).set("target", entity));
-                    }
-                    return net.minecraft.world.InteractionResult.PASS;
-                });
-    }
-
-    /** Cycle de vie du joueur (batch 4) : réapparition, dimension, sommeil. */
-    private static void registerPlayerEventBridges() {
-        net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.AFTER_RESPAWN.register(
-                (oldPlayer, newPlayer, alive) ->
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.PLAYER_RESPAWN,
-                                // « alive » de Fabric signifie « n'est pas mort » :
-                                // c'est le retour par le portail de l'End, pas une
-                                // réapparition après la mort. Le nom du pin le dit.
-                                payload -> payload.set("player", newPlayer)
-                                        .set("end_portal", alive)));
-        net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD
-                .register((player, origin, destination) -> {
-                        // Le monde se recharge sous ses pieds : un menu qui resterait
-                        // affiché montrerait un état d'avant le changement (10.3, AC5).
-                        fr.blueprint.core.net.ServerBlueprintNet.closeScreen(player);
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.PLAYER_CHANGE_WORLD,
-                                payload -> payload.set("player", player)
-                                        .set("from", origin.dimension().identifier())
-                                        .set("to", destination.dimension().identifier()));
-                });
-        net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.START_SLEEPING.register(
-                (entity, pos) -> {
-                    // Fabric émet pour toute entité vivante ; seul un joueur dort
-                    // vraiment, et un pin « player » ne peut pas recevoir un zombie.
-                    if (entity instanceof net.minecraft.server.level.ServerPlayer sp) {
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.PLAYER_SLEEP,
-                                payload -> payload.set("player", sp).set("pos", pos.immutable()));
-                    }
-                });
-        net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.STOP_SLEEPING.register(
-                (entity, pos) -> {
-                    if (entity instanceof net.minecraft.server.level.ServerPlayer sp) {
-                        fr.blueprint.api.event.BlueprintEvents.fire(
-                                fr.blueprint.core.event.StandardEvents.PLAYER_WAKE_UP,
-                                payload -> payload.set("player", sp));
-                    }
-                });
-    }
 
     /** Fabrique d'environnement d'exécution — partagée par le pont et la reprise (6.1). */
     private static fr.blueprint.core.event.BlueprintEventBridge.EnvFactory envFactory(

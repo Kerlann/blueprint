@@ -1,6 +1,6 @@
 package fr.blueprint.core;
 
-import net.fabricmc.loader.api.FabricLoader;
+import fr.blueprint.platform.Platform;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,7 +28,7 @@ public final class BlueprintPaths {
 
     /** {@code <jeu>/blueprint} — créé à la demande. */
     public static Path root() {
-        return ensure(FabricLoader.getInstance().getGameDir().resolve("blueprint"));
+        return ensure(Platform.paths().gameDir().resolve("blueprint"));
     }
 
     /** Les {@code .bp} exportés et importés. */
@@ -66,7 +66,7 @@ public final class BlueprintPaths {
      * parce qu'on a changé d'avis sur le rangement.
      */
     public static Path legacyRoot() {
-        return FabricLoader.getInstance().getConfigDir().resolve("blueprint");
+        return Platform.paths().configDir().resolve("blueprint");
     }
 
     /**

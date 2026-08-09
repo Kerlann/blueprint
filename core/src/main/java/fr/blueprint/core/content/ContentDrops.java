@@ -1,6 +1,5 @@
 package fr.blueprint.core.content;
 
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 
@@ -34,16 +33,17 @@ public final class ContentDrops {
      * l'événement n'est pas déclenché quand la casse a été annulée. Poser le butin plus tôt
      * le ferait apparaître même quand une protection de terrain refuse la casse.
      */
-    public static void register() {
-        PlayerBlockBreakEvents.AFTER.register((level, player, pos, state, entity) -> {
-            if (level.isClientSide() || player.isCreative()
-                    || !(state.getBlock() instanceof DeclaredBlock declared)) {
-                return;
-            }
-            if (!declared.definition().dropsFor(declared.referenceSpeed(player))) {
-                return;
-            }
-            Block.popResource(level, pos, new ItemStack(state.getBlock()));
-        });
+    public static void afterBlockBroken(net.minecraft.world.level.Level level,
+                                        net.minecraft.world.entity.player.Player player,
+                                        net.minecraft.core.BlockPos pos,
+                                        net.minecraft.world.level.block.state.BlockState state) {
+        if (level.isClientSide() || player.isCreative()
+                || !(state.getBlock() instanceof DeclaredBlock declared)) {
+            return;
+        }
+        if (!declared.definition().dropsFor(declared.referenceSpeed(player))) {
+            return;
+        }
+        Block.popResource(level, pos, new ItemStack(state.getBlock()));
     }
 }

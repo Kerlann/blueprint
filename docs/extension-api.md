@@ -28,10 +28,29 @@ public final class MyPlugin implements BlueprintPlugin {
 }
 ```
 
+Déclarez ensuite votre plugin. **Un fichier de service — c'est la voie recommandée**, et
+la seule qui marche sur tous les chargeurs :
+
+```
+# META-INF/services/fr.blueprint.api.BlueprintPlugin
+com.example.MyPlugin
+```
+
+```java
+// Obligatoire par cette voie : cet identifiant est montré aux joueurs sous « fourni par ».
+@Override public String modId() { return "monmod"; }
+```
+
+L'ancienne voie, l'entrypoint Fabric, **continue de fonctionner** et ne demande pas
+`modId()` — Fabric le connaît déjà :
+
 ```json
 // fabric.mod.json
 "entrypoints": { "blueprint": ["com.example.MyPlugin"] }
 ```
+
+Déclarer les **deux** est sans risque et c'est ce que fait Blueprint lui-même : un plugin
+trouvé par les deux voies n'est chargé qu'une fois.
 
 ```gradle
 // build.gradle — dépendance douce : le mod fonctionne sans Blueprint
@@ -300,12 +319,18 @@ Deux façons de faire lire ces classes :
   }
   ```
 
-- **Sans aucune classe de plugin** — déclarez les porteuses dans `fabric.mod.json`,
-  Blueprint les scanne au démarrage :
+- **Sans aucune classe de plugin** — déclarez les porteuses dans les métadonnées de votre
+  mod, Blueprint les scanne au démarrage :
 
   ```json
+  // fabric.mod.json
   "custom": { "blueprint:node_holders": ["com.example.MyNodes"] }
   ```
+
+  Cette voie-ci reste attachée aux métadonnées du chargeur, contrairement à la
+  déclaration du plugin : elle existe précisément pour n'écrire **aucune ligne de
+  Java**, et un fichier de service exige une classe à instancier. Chaque chargeur aura
+  donc sa clé — celle ci-dessus pour Fabric.
 
 Une déclaration fautive (identifiant invalide, méthode non statique, type sans pin,
 valeur par défaut illisible…) est **refusée avec un message qui nomme la méthode**, et

@@ -355,7 +355,6 @@
   "blueprint.editor.unsaved.discard": "Quitter sans enregistrer",
   "blueprint.editor.unsaved.cancel": "Continuer l'édition",
   "blueprint.editor.cmd.multiplayer": "Aucun serveur Blueprint connecté — /blueprint-edit demo ouvre le graphe de démo",
-  "blueprint.editor.cmd.unknown": "Aucun blueprint « %s » — /blueprint-edit create %s pour le créer",
   "blueprint.editor.cmd.list": "Blueprints éditables : %s",
   "blueprint.editor.net.conflict": "Le blueprint %s a changé sur le serveur (révision %s) — votre travail est intact ; réenregistrez pour l'écraser",
   "blueprint.editor.net.denied": "Le serveur refuse vos modifications sur %s",

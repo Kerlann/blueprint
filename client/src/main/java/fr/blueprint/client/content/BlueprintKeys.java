@@ -2,8 +2,7 @@ package fr.blueprint.client.content;
 
 import fr.blueprint.core.net.BlueprintPayloads;
 import fr.blueprint.core.net.ServerBlueprintNet;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import fr.blueprint.platform.Platform;
 import net.minecraft.client.KeyMapping;
 import org.lwjgl.glfw.GLFW;
 
@@ -38,8 +37,9 @@ public final class BlueprintKeys {
 
     /** Déclare les touches. À appeler à l'initialisation du client. */
     public static void register(KeyMapping.Category category) {
+        var client = Platform.client();
         for (int slot = 1; slot <= ServerBlueprintNet.KEY_SLOTS; slot++) {
-            KEYS[slot - 1] = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+            KEYS[slot - 1] = client.registerKey(new KeyMapping(
                     "key.blueprint.action_" + slot, GLFW.GLFW_KEY_UNKNOWN, category));
         }
     }
@@ -53,7 +53,7 @@ public final class BlueprintKeys {
      * qu'on atteint sans le vouloir.
      */
     public static void tick() {
-        if (!ClientPlayNetworking.canSend(BlueprintPayloads.KeyPress.TYPE)) {
+        if (!Platform.clientNetwork().canSend(BlueprintPayloads.KeyPress.TYPE)) {
             // Serveur sans Blueprint, ou pas encore connecté. Les pressions sont tout de
             // même consommées : les garder en attente ferait partir une rafale au moment
             // de la connexion, pour des touches pressées longtemps avant.
@@ -73,7 +73,7 @@ public final class BlueprintKeys {
             // graphe verrait sinon deux exécutions pour un geste que le joueur croit
             // unique.
             if (pressed) {
-                ClientPlayNetworking.send(new BlueprintPayloads.KeyPress(slot));
+                Platform.clientNetwork().send(new BlueprintPayloads.KeyPress(slot));
             }
         }
     }

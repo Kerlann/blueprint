@@ -4,8 +4,8 @@ import fr.blueprint.core.BlueprintManager;
 import fr.blueprint.core.BlueprintMod;
 import fr.blueprint.core.config.BlueprintConfig;
 import fr.blueprint.core.graph.Blueprint;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import fr.blueprint.platform.Platform;
+import fr.blueprint.platform.net.ServerNetContext;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -37,21 +37,20 @@ public final class ServerBlueprintNet {
         REQUESTS = new RateLimiter(LIMITS.requestsPerWindow(), LIMITS.windowMillis(),
                 System::currentTimeMillis);
 
-        var s2c = PayloadTypeRegistry.playS2C();
-        var c2s = PayloadTypeRegistry.playC2S();
-        s2c.register(BlueprintPayloads.ListData.TYPE, BlueprintPayloads.ListData.CODEC);
-        s2c.registerLarge(BlueprintPayloads.GraphData.TYPE, BlueprintPayloads.GraphData.CODEC,
+        var network = Platform.serverNetwork();
+        network.registerS2C(BlueprintPayloads.ListData.TYPE, BlueprintPayloads.ListData.CODEC);
+        network.registerS2CLarge(BlueprintPayloads.GraphData.TYPE, BlueprintPayloads.GraphData.CODEC,
                 CHUNK_BYTES);
-        s2c.register(BlueprintPayloads.SaveAck.TYPE, BlueprintPayloads.SaveAck.CODEC);
-        c2s.register(BlueprintPayloads.ListRequest.TYPE, BlueprintPayloads.ListRequest.CODEC);
-        c2s.register(BlueprintPayloads.OpenRequest.TYPE, BlueprintPayloads.OpenRequest.CODEC);
-        c2s.register(BlueprintPayloads.CreateRequest.TYPE, BlueprintPayloads.CreateRequest.CODEC);
-        c2s.registerLarge(BlueprintPayloads.SaveRequest.TYPE, BlueprintPayloads.SaveRequest.CODEC,
+        network.registerS2C(BlueprintPayloads.SaveAck.TYPE, BlueprintPayloads.SaveAck.CODEC);
+        network.registerC2S(BlueprintPayloads.ListRequest.TYPE, BlueprintPayloads.ListRequest.CODEC);
+        network.registerC2S(BlueprintPayloads.OpenRequest.TYPE, BlueprintPayloads.OpenRequest.CODEC);
+        network.registerC2S(BlueprintPayloads.CreateRequest.TYPE, BlueprintPayloads.CreateRequest.CODEC);
+        network.registerC2SLarge(BlueprintPayloads.SaveRequest.TYPE, BlueprintPayloads.SaveRequest.CODEC,
                 CHUNK_BYTES);
-        c2s.register(BlueprintPayloads.SetEnabled.TYPE, BlueprintPayloads.SetEnabled.CODEC);
-        c2s.register(BlueprintPayloads.ScreenValue.TYPE, BlueprintPayloads.ScreenValue.CODEC);
+        network.registerC2S(BlueprintPayloads.SetEnabled.TYPE, BlueprintPayloads.SetEnabled.CODEC);
+        network.registerC2S(BlueprintPayloads.ScreenValue.TYPE, BlueprintPayloads.ScreenValue.CODEC);
 
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ListRequest.TYPE,
+        network.receive(BlueprintPayloads.ListRequest.TYPE,
                 (payload, context) -> {
                     if (!allowed(REQUESTS, context, "liste")) {
                         return;
@@ -59,29 +58,29 @@ public final class ServerBlueprintNet {
                     List<Identifier> ids = new ArrayList<>();
                     BlueprintManager.of(context.server()).all()
                             .forEach(bp -> ids.add(bp.id()));
-                    context.responseSender().sendPacket(new BlueprintPayloads.ListData(
+                    context.reply(new BlueprintPayloads.ListData(
                             ids, mayEdit(config, context)));
                 });
 
-        c2s.register(BlueprintPayloads.FileListRequest.TYPE,
+        network.registerC2S(BlueprintPayloads.FileListRequest.TYPE,
                 BlueprintPayloads.FileListRequest.CODEC);
-        s2c.register(BlueprintPayloads.FileList.TYPE, BlueprintPayloads.FileList.CODEC);
-        s2c.register(BlueprintPayloads.OpenBrowser.TYPE, BlueprintPayloads.OpenBrowser.CODEC);
-        c2s.register(BlueprintPayloads.ImportRequest.TYPE, BlueprintPayloads.ImportRequest.CODEC);
+        network.registerS2C(BlueprintPayloads.FileList.TYPE, BlueprintPayloads.FileList.CODEC);
+        network.registerS2C(BlueprintPayloads.OpenBrowser.TYPE, BlueprintPayloads.OpenBrowser.CODEC);
+        network.registerC2S(BlueprintPayloads.ImportRequest.TYPE, BlueprintPayloads.ImportRequest.CODEC);
 
         // Les fichiers importables. Réservé à qui peut éditer : la liste des fichiers
         // du serveur n'est pas une information publique.
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.FileListRequest.TYPE,
+        network.receive(BlueprintPayloads.FileListRequest.TYPE,
                 (payload, context) -> {
                     if (!mayEdit(config, context) || !allowed(REQUESTS, context, "fichiers")) {
                         return;
                     }
-                    context.responseSender().sendPacket(
+                    context.reply(
                             new BlueprintPayloads.FileList(fr.blueprint.core.BlueprintFiles
                                     .listExports(fr.blueprint.core.BlueprintPaths.exports())));
                 });
 
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ImportRequest.TYPE,
+        network.receive(BlueprintPayloads.ImportRequest.TYPE,
                 (payload, context) -> {
                     if (!mayEdit(config, context) || !allowed(SAVES, context, "import")) {
                         deny(context, Identifier.withDefaultNamespace("import"),
@@ -117,7 +116,7 @@ public final class ServerBlueprintNet {
                     sendGraph(context, imported, true);
                 });
 
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.OpenRequest.TYPE,
+        network.receive(BlueprintPayloads.OpenRequest.TYPE,
                 (payload, context) -> {
                     if (!allowed(REQUESTS, context, "ouverture")) {
                         return;
@@ -132,7 +131,7 @@ public final class ServerBlueprintNet {
                     sendGraph(context, bp, mayEdit(config, context));
                 });
 
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.CreateRequest.TYPE,
+        network.receive(BlueprintPayloads.CreateRequest.TYPE,
                 (payload, context) -> {
                     if (!mayEdit(config, context)
                             || !allowed(SAVES, context, "création")) {
@@ -152,7 +151,7 @@ public final class ServerBlueprintNet {
                     sendGraph(context, created, true);
                 });
 
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.SaveRequest.TYPE,
+        network.receive(BlueprintPayloads.SaveRequest.TYPE,
                 (payload, context) -> {
                     Identifier id = payload.blueprint();
                     if (!mayEdit(config, context)
@@ -198,7 +197,7 @@ public final class ServerBlueprintNet {
                     BlueprintManager manager = BlueprintManager.of(context.server());
                     BlueprintManager.SaveResult result =
                             manager.save(snapshot, payload.baseRevision());
-                    context.responseSender().sendPacket(new BlueprintPayloads.SaveAck(
+                    context.reply(new BlueprintPayloads.SaveAck(
                             id, statusOf(result.outcome()), result.revision()));
                     if (result.outcome() == BlueprintManager.SaveOutcome.CONFLICT) {
                         // Resynchro CIBLÉE (AC3) : le client reçoit l'état courant du
@@ -210,7 +209,7 @@ public final class ServerBlueprintNet {
                     }
                 });
 
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.SetEnabled.TYPE,
+        network.receive(BlueprintPayloads.SetEnabled.TYPE,
                 (payload, context) -> {
                     if (!mayEdit(config, context)
                             || !allowed(SAVES, context, "activation")) {
@@ -222,12 +221,12 @@ public final class ServerBlueprintNet {
                             .setEnabled(payload.blueprint(), payload.enabled());
                 });
 
-        s2c.register(BlueprintPayloads.ScreenOpen.TYPE, BlueprintPayloads.ScreenOpen.CODEC);
-        s2c.register(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
-        c2s.register(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
+        network.registerS2C(BlueprintPayloads.ScreenOpen.TYPE, BlueprintPayloads.ScreenOpen.CODEC);
+        network.registerS2C(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
+        network.registerC2S(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
 
-        s2c.register(BlueprintPayloads.ScreenUpdates.TYPE, BlueprintPayloads.ScreenUpdates.CODEC);
-        c2s.register(BlueprintPayloads.ScreenInteraction.TYPE,
+        network.registerS2C(BlueprintPayloads.ScreenUpdates.TYPE, BlueprintPayloads.ScreenUpdates.CODEC);
+        network.registerC2S(BlueprintPayloads.ScreenInteraction.TYPE,
                 BlueprintPayloads.ScreenInteraction.CODEC);
         CLICKS = new RateLimiter(LIMITS.clicksPerWindow(), LIMITS.windowMillis(),
                 System::currentTimeMillis);
@@ -236,7 +235,7 @@ public final class ServerBlueprintNet {
 
         // Le joueur a fermé son écran (Échap). Sans ce message, le serveur croirait
         // l'écran encore ouvert et accepterait des clics dessus longtemps après.
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenClose.TYPE,
+        network.receive(BlueprintPayloads.ScreenClose.TYPE,
                 (payload, context) -> {
                     var open = SCREENS.of(context.player().getUUID());
                     if (SCREENS.closed(context.player().getUUID()) && open != null) {
@@ -247,25 +246,25 @@ public final class ServerBlueprintNet {
                     }
                 });
 
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenInteraction.TYPE,
+        network.receive(BlueprintPayloads.ScreenInteraction.TYPE,
                 (payload, context) -> receiveClick(context.player(), payload));
 
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenValue.TYPE,
+        network.receive(BlueprintPayloads.ScreenValue.TYPE,
                 (payload, context) -> receiveValue(context.player(), payload));
 
         // Les touches (11.4). Même quota que les clics : une pression est bon marché,
         // mille non, et un client modifié peut en envoyer autant qu'il veut.
-        c2s.register(BlueprintPayloads.KeyPress.TYPE, BlueprintPayloads.KeyPress.CODEC);
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.KeyPress.TYPE,
+        network.registerC2S(BlueprintPayloads.KeyPress.TYPE, BlueprintPayloads.KeyPress.CODEC);
+        network.receive(BlueprintPayloads.KeyPress.TYPE,
                 (payload, context) -> receiveKey(context.server(), context.player(), payload));
 
-        // Un joueur parti ne garde ni quota ni écran fantôme (10.3, AC5).
-        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
-                (handler, server) -> {
-                    SAVES.forget(handler.player.getUUID());
-                    REQUESTS.forget(handler.player.getUUID());
-                    SCREENS.forget(handler.player.getUUID());   // HUD compris (10.9)
-                });
+    }
+
+    /** Un joueur parti ne garde ni quota ni écran fantôme (10.3, AC5). */
+    public static void forget(java.util.UUID player) {
+        SAVES.forget(player);
+        REQUESTS.forget(player);
+        SCREENS.forget(player);   // HUD compris (10.9)
     }
 
     /** Les écrans ouverts, par joueur (story 10.3) — un seul chacun. */
@@ -514,7 +513,7 @@ public final class ServerBlueprintNet {
             return false;
         }
         int instance = SCREENS.opened(player.getUUID(), blueprintId, screenName);
-        ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenOpen(
+        Platform.serverNetwork().send(player, new BlueprintPayloads.ScreenOpen(
                 blueprintId, screenName, instance, ScreenSync.toBytes(screen)));
         fr.blueprint.api.event.BlueprintEvents.fire(
                 fr.blueprint.core.event.StandardEvents.GUI_OPENED,
@@ -671,7 +670,7 @@ public final class ServerBlueprintNet {
         // réencodait et regzippait l'écran entier vingt fois par seconde et par joueur,
         // pour renvoyer des octets identiques.
         if (SCREENS.showHud(player.getUUID(), blueprintId, screenName, screen)) {
-            ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenOpen(
+            Platform.serverNetwork().send(player, new BlueprintPayloads.ScreenOpen(
                     blueprintId, screenName, 0, ScreenSync.toBytes(screen)));
         }
         return true;
@@ -679,13 +678,13 @@ public final class ServerBlueprintNet {
 
     public static void hideHud(net.minecraft.server.level.ServerPlayer player, String screenName) {
         if (SCREENS.hideHud(player.getUUID(), screenName)) {
-            ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenClose(screenName));
+            Platform.serverNetwork().send(player, new BlueprintPayloads.ScreenClose(screenName));
         }
     }
 
     public static void hideAllHuds(net.minecraft.server.level.ServerPlayer player) {
         if (SCREENS.hideAllHuds(player.getUUID())) {
-            ServerPlayNetworking.send(player,
+            Platform.serverNetwork().send(player,
                     new BlueprintPayloads.ScreenClose(BlueprintPayloads.ALL_HUDS));
         }
     }
@@ -704,6 +703,11 @@ public final class ServerBlueprintNet {
      * paquet et non cinq.
      */
     public static void flushScreenUpdates(net.minecraft.server.MinecraftServer server) {
+        // Résolu UNE fois, hors de la boucle : cette méthode est appelée à CHAQUE fin de
+        // tick, et Platform.serverNetwork() prend un moniteur. Le coût est minuscule, mais
+        // la règle de coding-standards §5 sur les chemins par tick n'admet pas d'exception
+        // au motif que c'est petit — c'est ainsi qu'on en accumule vingt.
+        var network = Platform.serverNetwork();
         for (java.util.UUID uuid : SCREENS.pendingPlayers()) {
             // Le joueur d'abord : vider la file marque les modifications comme
             // AFFICHÉES. Le faire avant de savoir qu'on peut envoyer laisserait la
@@ -719,7 +723,7 @@ public final class ServerBlueprintNet {
             var open = SCREENS.of(uuid);
             var updates = SCREENS.drain(uuid);
             if (!updates.isEmpty()) {
-                ServerPlayNetworking.send(player, new BlueprintPayloads.ScreenUpdates(
+                network.send(player, new BlueprintPayloads.ScreenUpdates(
                         open == null ? 0 : open.instance(), updates));
             }
         }
@@ -738,7 +742,7 @@ public final class ServerBlueprintNet {
         if (bp == null) {
             return false;
         }
-        ServerPlayNetworking.send(player, new BlueprintPayloads.GraphData(
+        Platform.serverNetwork().send(player, new BlueprintPayloads.GraphData(
                 bp.id(), bp.revision(), mayEdit(CONFIG, player), GraphSync.toBytes(bp)));
         return true;
     }
@@ -746,14 +750,14 @@ public final class ServerBlueprintNet {
     /** Ouvre le navigateur chez un joueur, avec de quoi le remplir. */
     public static void openBrowser(ServerPlayer player) {
         announceList(player.level().getServer());
-        ServerPlayNetworking.send(player, new BlueprintPayloads.OpenBrowser());
+        Platform.serverNetwork().send(player, new BlueprintPayloads.OpenBrowser());
     }
 
     /** Referme l'écran d'un joueur et le lui dit. */
     public static void closeScreen(net.minecraft.server.level.ServerPlayer player) {
         var open = SCREENS.of(player.getUUID());
         if (SCREENS.closed(player.getUUID())) {
-            ServerPlayNetworking.send(player, BlueprintPayloads.ScreenClose.modal());
+            Platform.serverNetwork().send(player, BlueprintPayloads.ScreenClose.modal());
             fireClosed(player, open);
         }
     }
@@ -808,10 +812,11 @@ public final class ServerBlueprintNet {
      */
     public static void closeScreensOf(net.minecraft.server.MinecraftServer server,
                                       Identifier blueprint) {
+        var network = Platform.serverNetwork();
         for (java.util.UUID uuid : SCREENS.closeAllOf(blueprint)) {
             var player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
-                ServerPlayNetworking.send(player, BlueprintPayloads.ScreenClose.modal());
+                network.send(player, BlueprintPayloads.ScreenClose.modal());
             }
         }
         // Les HUD aussi : un HUD n'a pas d'Échap, donc en laisser un qui pointe un
@@ -819,7 +824,7 @@ public final class ServerBlueprintNet {
         SCREENS.takeHudsOf(blueprint).forEach((uuid, screens) -> {
             var player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
-                screens.forEach(screen -> ServerPlayNetworking.send(player,
+                screens.forEach(screen -> network.send(player,
                         new BlueprintPayloads.ScreenClose(screen)));
             }
         });
@@ -838,7 +843,7 @@ public final class ServerBlueprintNet {
      * paquets ne doit pas devenir un flot de lignes de journal (le déni de service se
      * déplacerait sur le disque).
      */
-    private static boolean allowed(RateLimiter limiter, ServerPlayNetworking.Context context,
+    private static boolean allowed(RateLimiter limiter, ServerNetContext context,
                                    String what) {
         if (limiter.allow(context.player().getUUID())) {
             return true;
@@ -853,7 +858,7 @@ public final class ServerBlueprintNet {
     private static final java.util.concurrent.atomic.AtomicLong DROPPED =
             new java.util.concurrent.atomic.AtomicLong();
 
-    private static String name(ServerPlayNetworking.Context context) {
+    private static String name(ServerNetContext context) {
         return context.player().getGameProfile().name();
     }
 
@@ -893,9 +898,10 @@ public final class ServerBlueprintNet {
     public static void announceList(net.minecraft.server.MinecraftServer server) {
         List<Identifier> ids = new ArrayList<>();
         BlueprintManager.of(server).all().forEach(bp -> ids.add(bp.id()));
+        var network = Platform.serverNetwork();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (ServerPlayNetworking.canSend(player, BlueprintPayloads.ListData.TYPE)) {
-                ServerPlayNetworking.send(player,
+            if (network.canSend(player, BlueprintPayloads.ListData.TYPE)) {
+                network.send(player,
                         new BlueprintPayloads.ListData(ids, mayEdit(CONFIG, player)));
             }
         }
@@ -904,7 +910,7 @@ public final class ServerBlueprintNet {
     /** La configuration en vigueur — mémorisée pour les envois hors requête. */
     private static BlueprintConfig CONFIG = BlueprintConfig.DEFAULT;
 
-    private static boolean mayEdit(BlueprintConfig config, ServerPlayNetworking.Context context) {
+    private static boolean mayEdit(BlueprintConfig config, ServerNetContext context) {
         return mayEdit(config, context.player());
     }
 
@@ -918,15 +924,15 @@ public final class ServerBlueprintNet {
                 new net.minecraft.server.players.NameAndId(player.getGameProfile()));
     }
 
-    private static void sendGraph(ServerPlayNetworking.Context context, Blueprint bp,
+    private static void sendGraph(ServerNetContext context, Blueprint bp,
                                   boolean writable) {
-        context.responseSender().sendPacket(new BlueprintPayloads.GraphData(
+        context.reply(new BlueprintPayloads.GraphData(
                 bp.id(), bp.revision(), writable, GraphSync.toBytes(bp)));
     }
 
-    private static void deny(ServerPlayNetworking.Context context, Identifier id,
+    private static void deny(ServerNetContext context, Identifier id,
                              BlueprintPayloads.SaveStatus status, int revision) {
-        context.responseSender().sendPacket(
+        context.reply(
                 new BlueprintPayloads.SaveAck(id, status, revision));
     }
 

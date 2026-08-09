@@ -16,10 +16,10 @@
   "environment": "*",
   "entrypoints": {
     "main": [
-      "fr.blueprint.core.BlueprintMod"
+      "fr.blueprint.fabric.FabricBootstrap"
     ],
     "client": [
-      "fr.blueprint.client.BlueprintClient"
+      "fr.blueprint.fabric.client.FabricClientBootstrap"
     ],
     "blueprint": [
       "fr.blueprint.compat.CompatPlugin"

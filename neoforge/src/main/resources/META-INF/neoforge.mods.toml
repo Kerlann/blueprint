@@ -1,0 +1,32 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/Kerlann/blueprint/issues"
+
+[[mods]]
+modId = "blueprint"
+version = "${version}"
+displayName = "Blueprint"
+authors = "Kerlann"
+displayURL = "https://github.com/Kerlann/blueprint"
+description = '''
+Un éditeur de logique par nœuds, en jeu, à la manière des Blueprints d'Unreal. On pose des
+nœuds, on les relie, on déclare des variables typées, et le graphe s'exécute côté serveur
+sur de vrais événements du monde. Comprend un concepteur d'écrans, la déclaration d'items
+et de blocs par fichiers, un format texte lisible (BScript) et une API pour que les autres
+mods ajoutent leurs propres nœuds.
+'''
+
+[[dependencies.blueprint]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.11,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.blueprint]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.11,1.22)"
+ordering = "NONE"
+side = "BOTH"

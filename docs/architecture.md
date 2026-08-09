@@ -76,13 +76,27 @@ nom, vérifier dans le JAR mergé de Loom (`javap`) — voir `tech-stack.md`.
 | Module | Dépendances | Contenu | Publié ? |
 |---|---|---|---|
 | `api` | Minecraft uniquement | Interfaces et types publics (`fr.blueprint.api.*`) | Oui (Maven, pour les mods tiers) |
-| `core` | `api` | Modèle, registre, compilateur, VM, BScript, persistance, réseau serveur, nœuds standard | Non |
+| `platform` | `api` | Ce que le code commun demande au chargeur : des interfaces, aucune réponse | Non |
+| `core` | `api`, `platform` | Modèle, registre, compilateur, VM, BScript, persistance, réseau serveur, nœuds standard | Non |
 | `client` | `core` | Éditeur, rendu, réseau client | Non |
-| `compat` | `core` | Intégrations conditionnelles par mod tiers | Non |
+| `compat` | `core`, `platform` | Intégrations conditionnelles par mod tiers | Non |
+| `fabric` | tous | Point d'entrée Fabric et implémentations de `platform` | Non |
+| `neoforge` | tous | Idem pour NeoForge — **écrit et compilé, jamais exécuté** | Non |
 | `testmod` | `api` | Mod d'exemple validant l'API en test d'intégration | Non |
 
-Le JAR final embarque `api` + `core` + `client` + `compat`. `api` est aussi publié seul
-pour être consommé en `compileOnly` par les mods tiers.
+Deux JARs : `blueprint` (Fabric) et `blueprint-neoforge`, chacun embarquant
+`api` + `platform` + `core` + `client` + `compat` plus son module de chargeur. `api` est
+aussi publié seul pour être consommé en `compileOnly` par les mods tiers.
+
+**Aucun module commun ne nomme un chargeur** — vérifié à la compilation (leur classpath
+n'a ni fabric-api ni NeoForge) et par la tâche `checkLoaderIsolation`. La frontière se
+traverse dans deux sens :
+
+- le code commun **appelle** la plateforme (chemins, mods présents) via
+  `Platform`, résolu par `ServiceLoader` ;
+- la plateforme **appelle** le code commun (initialisation, événements du monde,
+  commandes) par simple appel — le module du chargeur est le point d'entrée, donc c'est
+  lui qui pousse, et il n'y a rien à découvrir.
 
 ---
 

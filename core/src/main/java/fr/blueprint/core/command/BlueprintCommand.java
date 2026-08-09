@@ -7,7 +7,6 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import fr.blueprint.core.BlueprintManager;
 import fr.blueprint.core.config.BlueprintConfig;
 import fr.blueprint.core.graph.Blueprint;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.IdentifierArgument;
@@ -58,17 +57,16 @@ public final class BlueprintCommand {
                     BlueprintManager.of(ctx.getSource().getServer()).all().stream().map(Blueprint::id),
                     builder);
 
-    public static void register(BlueprintConfig config) {
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
-                dispatcher.register(build(config)));
-    }
-
     /**
-     * Arbre séparé de l'enregistrement : testable headless. Brigadier brut plutôt que
-     * {@code Commands.literal/hasPermission} — l'init statique de {@code Commands} exige
-     * le bootstrap des registres, ces fabriques non.
+     * L'arbre de {@code /blueprint}, sans son enregistrement : testable headless.
+     * Brigadier brut plutôt que {@code Commands.literal/hasPermission} — l'init statique
+     * de {@code Commands} exige le bootstrap des registres, ces fabriques non.
+     *
+     * <p>Cette séparation existait déjà, pour les tests. Elle sert maintenant deux fois :
+     * c'est ce qui a permis au lot A4 de ne rien toucher ici — le chargeur appelle
+     * {@code BlueprintMod.registerCommands}, qui appelle ceci.
      */
-    static LiteralArgumentBuilder<CommandSourceStack> build(BlueprintConfig config) {
+    public static LiteralArgumentBuilder<CommandSourceStack> build(BlueprintConfig config) {
         Permission required = config.adminPermission();
         Predicate<CommandSourceStack> admin = required == null
                 ? source -> true

@@ -1580,4 +1580,83 @@ public final class BlueprintGameTests {
             helper.succeed();
         });
     }
+
+    /**
+     * Le contenu déclaré entre dans les registres, et dans l'ordre qui décide des
+     * identifiants réseau (épic 11, lot B du plan multiloader).
+     *
+     * <p>Ce que ce test protège n'est pas visible en jeu et ne se voit pas non plus dans
+     * un journal. Un item enregistré reçoit un <b>rang</b>, et c'est ce rang qui voyage
+     * sur le réseau à la place du nom. Client et serveur le calculent chacun de leur côté,
+     * sans se concerter : si les deux suites divergent d'un cran, le client affiche un
+     * item pour un autre, ou se déconnecte sur un paquet illisible.
+     *
+     * <p>Tant qu'un seul chargeur existait, l'ordre était un effet de bord de l'écriture
+     * du code. Le lot B a coupé l'enregistrement en deux passes — les blocs, puis les
+     * items — parce que NeoForge ouvre ses registres quand il veut. Ce test dit que la
+     * coupure n'a rien déplacé, et il le dira encore le jour où un second chargeur
+     * exécutera les deux passes dans un autre ordre.
+     *
+     * <p>Il lit le <b>vrai</b> registre du serveur, pas un plan : {@code ContentOrderTest}
+     * vérifie déjà la fonction pure, et deux tests d'accord entre eux ne prouvent rien
+     * si aucun ne regarde le résultat.
+     */
+    @GameTest
+    public void declaredContentKeepsTheOrderThatDecidesNetworkIds(GameTestHelper helper) {
+        var report = fr.blueprint.core.content.ContentLoader.load(
+                fr.blueprint.core.BlueprintPaths.content());
+        helper.assertTrue(!report.items().isEmpty() && !report.blocks().isEmpty(),
+                Component.literal("aucun contenu déclaré dans le serveur de test : ce test "
+                        + "passerait sans rien vérifier (voir la copie faite par runGametest)"));
+
+        // Les items : le rang doit croître le long de la suite annoncée, sans trou de
+        // logique — un item déclaré absent du registre est un échec, pas une tolérance.
+        int previous = -1;
+        for (Identifier declared : fr.blueprint.core.content.ContentRegistrar.itemOrder(report)) {
+            var item = net.minecraft.core.registries.BuiltInRegistries.ITEM
+                    .getOptional(declared).orElse(null);
+            helper.assertTrue(item != null, Component.literal(
+                    "l'item déclaré « " + declared + " » n'est pas dans le registre"));
+            int rank = net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(item);
+            helper.assertTrue(rank > previous, Component.literal(
+                    "« " + declared + " » a le rang " + rank + ", après " + previous
+                            + " : la suite des items ne suit plus itemOrder — un client "
+                            + "et un serveur ne numéroteraient plus pareil"));
+            previous = rank;
+        }
+
+        // Les blocs, même exigence dans leur propre registre.
+        previous = -1;
+        for (Identifier declared : fr.blueprint.core.content.ContentRegistrar.blockOrder(report)) {
+            var block = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                    .getOptional(declared).orElse(null);
+            helper.assertTrue(block != null, Component.literal(
+                    "le bloc déclaré « " + declared + " » n'est pas dans le registre"));
+            int rank = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getId(block);
+            helper.assertTrue(rank > previous, Component.literal(
+                    "« " + declared + " » a le rang " + rank + ", après " + previous));
+            previous = rank;
+        }
+
+        // Et l'invariant qui résume les deux : TOUT item du dossier items/ passe avant
+        // TOUT item de bloc. C'est la propriété que la coupure en deux passes pouvait
+        // casser sans que rien d'autre ne bronche.
+        int dernierItemNu = -1;
+        for (Identifier declared : report.items().keySet()) {
+            dernierItemNu = Math.max(dernierItemNu,
+                    net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(
+                            net.minecraft.core.registries.BuiltInRegistries.ITEM
+                                    .getOptional(declared).orElseThrow()));
+        }
+        for (Identifier declared : report.blocks().keySet()) {
+            int rank = net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(
+                    net.minecraft.core.registries.BuiltInRegistries.ITEM
+                            .getOptional(declared).orElseThrow());
+            helper.assertTrue(rank > dernierItemNu, Component.literal(
+                    "l'item du bloc « " + declared + " » (rang " + rank + ") est passé avant "
+                            + "un item du dossier items/ (rang " + dernierItemNu + ")"));
+        }
+
+        helper.succeed();
+    }
 }

@@ -84,6 +84,7 @@ exclude_docs: |
   /prd.md
   /ux-ui-spec.md
   /plan-optimisation.md
+  /plan-multiloader.md
   /rapport-de-fin.md
   /session-de-verification.md
   /modrinth.md

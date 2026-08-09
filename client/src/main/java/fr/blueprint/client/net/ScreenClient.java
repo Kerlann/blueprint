@@ -3,7 +3,7 @@ package fr.blueprint.client.net;
 import fr.blueprint.client.screen.BlueprintScreen;
 import fr.blueprint.core.net.BlueprintPayloads;
 import fr.blueprint.core.net.ScreenSync;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import fr.blueprint.platform.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
@@ -22,11 +22,12 @@ public final class ScreenClient {
     }
 
     public static void register() {
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenOpen.TYPE,
+        var network = Platform.clientNetwork();
+        network.receive(BlueprintPayloads.ScreenOpen.TYPE,
                 (payload, context) -> {
                     var model = ScreenSync.fromBytes(payload.data());
                     if (model == null) {
-                        context.client().gui.setOverlayMessage(Component.translatable(
+                        Minecraft.getInstance().gui.setOverlayMessage(Component.translatable(
                                 "blueprint.screen.unreadable", payload.screen()), false);
                         return;
                     }
@@ -41,7 +42,7 @@ public final class ScreenClient {
                     // ce qui déclenche son removed() — donc un ScreenClose vers un
                     // serveur qui a déjà noté le nouveau. D'où la fermeture SILENCIEUSE
                     // ici : prévenir le serveur effacerait ce qu'il vient d'ouvrir.
-                    closeQuietly(context.client());
+                    closeQuietly(Minecraft.getInstance());
                     var screen = new BlueprintScreen(payload.blueprint(), model,
                             payload.instance(), ScreenClient::notifyClosed, element ->
                             sendClick(payload.blueprint(), model.name(), element,
@@ -51,13 +52,13 @@ public final class ScreenClient {
                     // fréquent.
                     screen.setOnValue(interaction -> sendValue(payload.blueprint(),
                             model.name(), payload.instance(), interaction));
-                    context.client().setScreen(screen);
+                    Minecraft.getInstance().setScreen(screen);
                 });
 
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenClose.TYPE,
+        network.receive(BlueprintPayloads.ScreenClose.TYPE,
                 (payload, context) -> {
                     if (payload.screen().isEmpty()) {
-                        closeQuietly(context.client());
+                        closeQuietly(Minecraft.getInstance());
                     } else if (BlueprintPayloads.ALL_HUDS.equals(payload.screen())) {
                         fr.blueprint.client.screen.BlueprintHud.view().hideAll();
                     } else {
@@ -68,28 +69,29 @@ public final class ScreenClient {
         // Les modifications d'un tick arrivent ensemble. Chacune nomme son écran :
         // elles vont donc au modal ou à l'un des HUD, et sont jetées si leur
         // destinataire n'est plus affiché.
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ScreenUpdates.TYPE,
+        network.receive(BlueprintPayloads.ScreenUpdates.TYPE,
                 (payload, context) -> {
                     fr.blueprint.client.screen.BlueprintHud.view().apply(payload.updates());
-                    if (context.client().screen instanceof BlueprintScreen open) {
+                    if (Minecraft.getInstance().screen instanceof BlueprintScreen open) {
                         open.apply(payload.instance(), payload.updates());
                     }
                 });
 
         // Une déconnexion ne laisse pas les HUD du serveur précédent à l'écran.
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT
-                .register((handler, client) -> {
-                    fr.blueprint.client.screen.BlueprintHud.view().clear();
-                    // Les modèles d'aperçu portent une référence à leur niveau : les
-                    // garder après une déconnexion retiendrait tout l'ancien monde.
-                    fr.blueprint.client.screen.EntityPreviews.clear();
-                });
+    }
+
+    /** Déconnexion : aucun écran du serveur quitté ne doit rester à l'image. */
+    public static void onDisconnect() {
+        fr.blueprint.client.screen.BlueprintHud.view().clear();
+        // Les modèles d'aperçu portent une référence à leur niveau : les
+        // garder après une déconnexion retiendrait tout l'ancien monde.
+        fr.blueprint.client.screen.EntityPreviews.clear();
     }
 
     private static void sendClick(net.minecraft.resources.Identifier blueprint,
                                   String screen, String element, int instance) {
-        if (ClientPlayNetworking.canSend(BlueprintPayloads.ScreenInteraction.TYPE)) {
-            ClientPlayNetworking.send(new BlueprintPayloads.ScreenInteraction(
+        if (Platform.clientNetwork().canSend(BlueprintPayloads.ScreenInteraction.TYPE)) {
+            Platform.clientNetwork().send(new BlueprintPayloads.ScreenInteraction(
                     blueprint, screen, element, instance));
         }
     }
@@ -97,8 +99,8 @@ public final class ScreenClient {
     private static void sendValue(net.minecraft.resources.Identifier blueprint, String screen,
                                   int instance,
                                   fr.blueprint.client.screen.BlueprintScreen.Interaction value) {
-        if (ClientPlayNetworking.canSend(BlueprintPayloads.ScreenValue.TYPE)) {
-            ClientPlayNetworking.send(new BlueprintPayloads.ScreenValue(
+        if (Platform.clientNetwork().canSend(BlueprintPayloads.ScreenValue.TYPE)) {
+            Platform.clientNetwork().send(new BlueprintPayloads.ScreenValue(
                     blueprint, screen, value.element(), instance, value.index(),
                     value.text(), value.number(), value.flag()));
         }
@@ -130,8 +132,8 @@ public final class ScreenClient {
         if (suppressNotify) {
             return;
         }
-        if (ClientPlayNetworking.canSend(BlueprintPayloads.ScreenClose.TYPE)) {
-            ClientPlayNetworking.send(BlueprintPayloads.ScreenClose.modal());
+        if (Platform.clientNetwork().canSend(BlueprintPayloads.ScreenClose.TYPE)) {
+            Platform.clientNetwork().send(BlueprintPayloads.ScreenClose.modal());
         }
     }
 }

@@ -30,11 +30,18 @@ package fr.blueprint.api;
  */
 public final class BlueprintApi {
 
-    /** Version de la surface publique, au format {@code majeure.mineure.corrective}. */
-    public static final String API_VERSION = "1.2.0";
+    /**
+     * Version de la surface publique, au format {@code majeure.mineure.corrective}.
+     *
+     * <p>1.3 : {@code BlueprintPlugin.modId()}, et avec lui la déclaration par fichier de
+     * service. Mineure et non majeure — la méthode a un défaut, donc aucun plugin existant
+     * n'a besoin d'être retouché, et l'entrypoint continue de marcher exactement comme
+     * avant.
+     */
+    public static final String API_VERSION = "1.3.0";
 
     public static final int MAJOR = 1;
-    public static final int MINOR = 2;
+    public static final int MINOR = 3;
     public static final int PATCH = 0;
 
     private BlueprintApi() {

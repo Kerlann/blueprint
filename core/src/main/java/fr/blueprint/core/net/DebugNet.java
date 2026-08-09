@@ -5,8 +5,8 @@ import fr.blueprint.core.BlueprintMod;
 import fr.blueprint.core.config.BlueprintConfig;
 import fr.blueprint.core.debug.DebugSession;
 import fr.blueprint.core.debug.DebugSessions;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import fr.blueprint.platform.Platform;
+import fr.blueprint.platform.net.ServerNetContext;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -46,12 +46,13 @@ public final class DebugNet {
             new RateLimiter(60, 10_000L, System::currentTimeMillis);
 
     public static void register(BlueprintConfig config) {
-        PayloadTypeRegistry.playS2C().register(BlueprintPayloads.DebugSnapshot.TYPE,
+        var network = Platform.serverNetwork();
+        network.registerS2C(BlueprintPayloads.DebugSnapshot.TYPE,
                 BlueprintPayloads.DebugSnapshot.CODEC);
-        PayloadTypeRegistry.playC2S().register(BlueprintPayloads.DebugCommand.TYPE,
+        network.registerC2S(BlueprintPayloads.DebugCommand.TYPE,
                 BlueprintPayloads.DebugCommand.CODEC);
 
-        ServerPlayNetworking.registerGlobalReceiver(BlueprintPayloads.DebugCommand.TYPE,
+        network.receive(BlueprintPayloads.DebugCommand.TYPE,
                 (payload, context) -> {
                     // QA SEC-005 : les actions de débogage sont des paquets comme les
                     // autres — chacune déclenche un instantané en réponse, donc chacune
@@ -62,31 +63,40 @@ public final class DebugNet {
                     handle(config, payload, context);
                 });
 
-        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
-                (handler, server) -> unsubscribeEverywhere(handler.player.getUUID()));
+    }
 
-        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(
-                server -> {
-                    if (SUBSCRIBERS.isEmpty() || ++tickCounter % PUSH_EVERY_TICKS != 0) {
-                        return;
-                    }
-                    SUBSCRIBERS.forEach((blueprint, players) -> {
-                        // QA DBG-001 : la session a pu être fermée par la commande
-                        // /blueprint debug off, qui ne connaît pas les abonnés. Sans ce
-                        // ménage, on pousserait « débogage inactif » à ces joueurs
-                        // jusqu'à la fin des temps.
-                        if (DebugSessions.of(blueprint) == null) {
-                            push(server, blueprint, players);
-                            SUBSCRIBERS.remove(blueprint);
-                            return;
-                        }
-                        push(server, blueprint, players);
-                    });
-                });
+    /** Un joueur parti n'est plus abonné, et son quota repart à zéro. */
+    public static void forget(UUID player) {
+        unsubscribeEverywhere(player);
+    }
+
+    /**
+     * Pousse les instantanés aux abonnés, une fin de tick sur cinq.
+     *
+     * <p>Appelé depuis {@code BlueprintMod.endServerTick} et non plus depuis un abonnement
+     * à part : le contrat « sans abonnés, il ne se passe rigoureusement rien » est tenu
+     * par le premier test ci-dessous, pas par le fait d'avoir son propre abonnement.
+     */
+    public static void endServerTick(MinecraftServer server) {
+        if (SUBSCRIBERS.isEmpty() || ++tickCounter % PUSH_EVERY_TICKS != 0) {
+            return;
+        }
+        SUBSCRIBERS.forEach((blueprint, players) -> {
+            // QA DBG-001 : la session a pu être fermée par la commande
+            // /blueprint debug off, qui ne connaît pas les abonnés. Sans ce
+            // ménage, on pousserait « débogage inactif » à ces joueurs
+            // jusqu'à la fin des temps.
+            if (DebugSessions.of(blueprint) == null) {
+                push(server, blueprint, players);
+                SUBSCRIBERS.remove(blueprint);
+                return;
+            }
+            push(server, blueprint, players);
+        });
     }
 
     private static void handle(BlueprintConfig config, BlueprintPayloads.DebugCommand payload,
-                               ServerPlayNetworking.Context context) {
+                               ServerNetContext context) {
         ServerPlayer player = context.player();
         var required = config.adminPermission();
         boolean allowed = required == null || player.permissions().hasPermission(required)
@@ -152,16 +162,16 @@ public final class DebugNet {
         }
         // Réponse immédiate : l'éditeur ne doit pas attendre le prochain tick pour voir
         // l'effet de son propre clic.
-        context.responseSender().sendPacket(snapshot(id));
+        context.reply(snapshot(id));
     }
 
     private static void push(MinecraftServer server, Identifier blueprint, Set<UUID> players) {
         BlueprintPayloads.DebugSnapshot snapshot = snapshot(blueprint);
+        var network = Platform.serverNetwork();
         for (UUID uuid : players) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (player != null && ServerPlayNetworking.canSend(player,
-                    BlueprintPayloads.DebugSnapshot.TYPE)) {
-                ServerPlayNetworking.send(player, snapshot);
+            if (player != null && network.canSend(player, BlueprintPayloads.DebugSnapshot.TYPE)) {
+                network.send(player, snapshot);
             }
         }
     }

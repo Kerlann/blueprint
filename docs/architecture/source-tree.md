@@ -26,7 +26,8 @@ D:\Blueprint\
 ```
 D:\Blueprint\
 ├─ build.gradle.kts                 build racine, config commune des sous-projets
-├─ settings.gradle.kts              include("api", "core", "client", "compat", "testmod")
+├─ settings.gradle.kts              include("api", "platform", "core", "client", "compat",
+│                                           "fabric", "testmod", "gametest")
 │
 ├─ api/src/main/java/fr/blueprint/api/
 │  ├─ BlueprintApi.java             API_VERSION, points d'entrée statiques
@@ -112,11 +113,26 @@ D:\Blueprint\
 │  ├─ CompatLoader.java             charge conditionnellement selon isModLoaded
 │  └─ <modid>/…                     une intégration par mod
 │
+├─ platform/src/main/java/fr/blueprint/platform/
+│  ├─ Platform.java                 résolution des services par ServiceLoader
+│  ├─ PlatformPaths.java            gameDir / configDir
+│  ├─ PlatformMods.java             isLoaded / plugins / nodeHolders
+│  ├─ net/ ServerNetwork, ClientNetwork, + leurs contextes
+│  └─ client/ ClientPlatform (touches, HUD), ClientFeedback (commandes client)
+│
+├─ fabric/src/main/java/fr/blueprint/fabric/
+│  ├─ FabricBootstrap.java          ModInitializer — init() + FabricServerEvents
+│  ├─ FabricServerEvents.java       LES vingt fils du serveur, et rien d'autre
+│  ├─ FabricPaths.java / FabricMods.java     implémentations de platform
+│  ├─ net/ FabricServerNetwork, FabricClientNetwork
+│  └─ client/ FabricClientBootstrap, FabricClientPlatform
+│
 ├─ testmod/src/main/java/fr/blueprint/testmod/
 │  └─ TestPlugin.java               3 nœuds d'exemple validant l'API (story 2.2)
 │
 └─ src/main/resources/  →  réparti par module
-   ├─ fabric.mod.json               entrypoints main / client / blueprint
+   ├─ fabric.mod.json               dans fabric/ : c'est une métadonnée de chargeur
+   ├─ META-INF/services/            dans fabric/ : les implémentations de platform
    ├─ assets/blueprint/lang/{en_us,fr_fr}.json
    ├─ assets/blueprint/theme/default.json
    ├─ assets/blueprint/textures/gui/…
@@ -134,8 +150,10 @@ D:\Blueprint\
 | Un paquet réseau | payload dans `core/net/`, handler client dans `client/net/` |
 | Un widget de l'éditeur | `client/editor/` |
 | Une intégration avec un mod précis | `compat/<modid>/` — **jamais** ailleurs |
+| Un appel à `net.fabricmc.*` | `fabric/` — **jamais** ailleurs (tâche `checkLoaderIsolation`). Si le code commun en a besoin, la question se pose dans `platform/` et se répond dans `fabric/` |
+| Un nouvel événement du monde | la charge utile dans `core/event/WorldEvents`, le fil dans `fabric/FabricServerEvents` — et l'ajouter à `EventCoverageTest.SOURCES` si un nouveau fichier le déclenche |
 | Un élément d'écran, une passe de disposition | `core/graph/screen/` (modèle, pur) + `client/editor/screen/` (concepteur) |
-| Un item ou un bloc déclaré, son chargement, son pack | `core/content/` — jamais dans `graph/` : cela ne vit pas dans un blueprint |
+| Un item ou un bloc déclaré, son chargement, son pack | `core/content/` — jamais dans `graph/` : cela ne vit pas dans un blueprint. L'**ordre** d'entrée dans les registres se décide dans `ContentRegistrar.itemOrder` et nulle part ailleurs : il fixe les identifiants réseau |
 | Une chaîne visible | les deux fichiers `lang/` |
 
 ## Ressources et données

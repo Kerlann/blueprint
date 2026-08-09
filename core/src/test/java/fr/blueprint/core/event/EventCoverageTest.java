@@ -33,6 +33,12 @@ class EventCoverageTest {
     /** Les fichiers où un événement peut légitimement être déclenché. */
     private static final List<String> SOURCES = List.of(
             "core/src/main/java/fr/blueprint/core/BlueprintMod.java",
+            // Les événements du monde depuis le lot A4 du plan multiloader : ils vivaient
+            // dans BlueprintMod, collés à l'événement Fabric qui les appelait. Le fichier
+            // du CHARGEUR (fabric/FabricServerEvents) n'est volontairement PAS dans cette
+            // liste : y mettre un pont ne prouverait plus qu'un événement se déclenche
+            // partout, seulement qu'il se déclenche sur Fabric.
+            "core/src/main/java/fr/blueprint/core/event/WorldEvents.java",
             "core/src/main/java/fr/blueprint/core/event/BlueprintEventBridge.java",
             "core/src/main/java/fr/blueprint/core/nodes/StandardNodes.java",
             "core/src/main/java/fr/blueprint/core/command/BlueprintCommand.java",

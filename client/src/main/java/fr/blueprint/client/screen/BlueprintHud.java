@@ -1,7 +1,7 @@
 package fr.blueprint.client.screen;
 
 import fr.blueprint.core.graph.screen.Screen;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import fr.blueprint.platform.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.Identifier;
@@ -31,9 +31,9 @@ public final class BlueprintHud {
     }
 
     public static void register() {
-        HudElementRegistry.addLast(
+        Platform.client().registerHudLayer(
                 Identifier.fromNamespaceAndPath("blueprint", "screens"),
-                (graphics, tickCounter) -> render(graphics));
+                BlueprintHud::render);
     }
 
     /**

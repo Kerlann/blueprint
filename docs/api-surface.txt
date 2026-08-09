@@ -11,6 +11,7 @@ class fr.blueprint.api.BlueprintApi
 
 interface fr.blueprint.api.BlueprintPlugin
   method public abstract void registerNodes(fr.blueprint.api.registry.NodeRegistry)
+  method public java.lang.String modId()
   method public void registerEvents(fr.blueprint.api.event.EventRegistry)
   method public void registerTypes(fr.blueprint.api.registry.PinTypeRegistry)
 

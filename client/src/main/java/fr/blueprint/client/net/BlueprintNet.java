@@ -6,8 +6,7 @@ import fr.blueprint.core.BlueprintMod;
 import fr.blueprint.core.graph.Blueprint;
 import fr.blueprint.core.net.BlueprintPayloads;
 import fr.blueprint.core.net.GraphSync;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import fr.blueprint.platform.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -51,7 +50,7 @@ public final class BlueprintNet {
     }
 
     public static boolean connected() {
-        return ClientPlayNetworking.canSend(BlueprintPayloads.OpenRequest.TYPE);
+        return Platform.clientNetwork().canSend(BlueprintPayloads.OpenRequest.TYPE);
     }
 
     /**
@@ -67,17 +66,14 @@ public final class BlueprintNet {
     }
 
     public static void register() {
+        var network = Platform.clientNetwork();
         // Les bornes arrivent au join, avant toute ouverture d'éditeur : l'auteur voit
         // donc dès son premier geste ce que ce serveur-ci accepte, plutôt que de le
         // découvrir au refus de l'enregistrement.
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ServerLimits.TYPE,
+        network.receive(BlueprintPayloads.ServerLimits.TYPE,
                 (payload, context) -> limits = payload.toGraphLimits());
 
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT
-                .register((handler, client) ->
-                        limits = fr.blueprint.core.graph.GraphLimits.DEFAULT);
-
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.ListData.TYPE,
+        network.receive(BlueprintPayloads.ListData.TYPE,
                 (payload, context) -> {
                     known = List.copyOf(payload.ids());
                     writable = payload.writable();
@@ -95,14 +91,14 @@ public final class BlueprintNet {
                     }
                 });
 
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.OpenBrowser.TYPE,
-                (payload, context) -> context.client().setScreen(
+        network.receive(BlueprintPayloads.OpenBrowser.TYPE,
+                (payload, context) -> Minecraft.getInstance().setScreen(
                         new fr.blueprint.client.browser.BlueprintBrowserScreen()));
 
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.FileList.TYPE,
+        network.receive(BlueprintPayloads.FileList.TYPE,
                 (payload, context) -> files = List.copyOf(payload.files()));
 
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.GraphData.TYPE,
+        network.receive(BlueprintPayloads.GraphData.TYPE,
                 (payload, context) -> {
                     Blueprint graph = GraphSync.fromBytes(payload.data(),
                             typeId -> BlueprintMod.registries().pinTypes()
@@ -123,7 +119,7 @@ public final class BlueprintNet {
                     openEditor(payload.blueprint(), graph, payload.writable());
                 });
 
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.SaveAck.TYPE,
+        network.receive(BlueprintPayloads.SaveAck.TYPE,
                 (payload, context) -> {
                     boolean accepted = payload.status() == BlueprintPayloads.SaveStatus.SAVED;
                     if (accepted && payload.blueprint().equals(pendingId)) {
@@ -157,21 +153,32 @@ public final class BlueprintNet {
                     }
                 });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            known = List.of();
-            files = List.of();
-            writable = false;
-            active = null;
-            activeId = null;
-            pendingSnapshot = null;
-            pendingId = null;
-            listPending = false;
-        });
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            if (ClientPlayNetworking.canSend(BlueprintPayloads.ListRequest.TYPE)) {
-                sender.sendPacket(new BlueprintPayloads.ListRequest(0));
-            }
-        });
+    }
+
+    /**
+     * Le client quitte un serveur : plus rien de ce serveur ne doit survivre.
+     *
+     * <p>Les deux nettoyages qui s'abonnaient séparément — les bornes du serveur d'un
+     * côté, l'état de l'éditeur de l'autre — sont réunis, dans l'ordre où ils
+     * s'exécutaient.
+     */
+    public static void onDisconnect() {
+        limits = fr.blueprint.core.graph.GraphLimits.DEFAULT;
+        known = List.of();
+        files = List.of();
+        writable = false;
+        active = null;
+        activeId = null;
+        pendingSnapshot = null;
+        pendingId = null;
+        listPending = false;
+    }
+
+    /** Le client arrive : demander la liste, si le serveur sait de quoi on parle. */
+    public static void onJoin() {
+        if (Platform.clientNetwork().canSend(BlueprintPayloads.ListRequest.TYPE)) {
+            Platform.clientNetwork().send(new BlueprintPayloads.ListRequest(0));
+        }
     }
 
     private static Component message(BlueprintPayloads.SaveAck ack) {
@@ -193,7 +200,7 @@ public final class BlueprintNet {
             return;
         }
         listPending = show;
-        ClientPlayNetworking.send(new BlueprintPayloads.ListRequest(0));
+        Platform.clientNetwork().send(new BlueprintPayloads.ListRequest(0));
     }
 
     /** Le serveur laisse-t-il ce joueur écrire ? Annoncé avec la liste. */
@@ -209,27 +216,27 @@ public final class BlueprintNet {
     }
 
     public static void requestFiles() {
-        if (connected() && ClientPlayNetworking.canSend(
+        if (connected() && Platform.clientNetwork().canSend(
                 BlueprintPayloads.FileListRequest.TYPE)) {
-            ClientPlayNetworking.send(new BlueprintPayloads.FileListRequest());
+            Platform.clientNetwork().send(new BlueprintPayloads.FileListRequest());
         }
     }
 
     public static void requestImport(String file) {
-        if (connected() && ClientPlayNetworking.canSend(BlueprintPayloads.ImportRequest.TYPE)) {
-            ClientPlayNetworking.send(new BlueprintPayloads.ImportRequest(file));
+        if (connected() && Platform.clientNetwork().canSend(BlueprintPayloads.ImportRequest.TYPE)) {
+            Platform.clientNetwork().send(new BlueprintPayloads.ImportRequest(file));
         }
     }
 
     public static void requestOpen(Identifier id) {
         if (connected()) {
-            ClientPlayNetworking.send(new BlueprintPayloads.OpenRequest(id));
+            Platform.clientNetwork().send(new BlueprintPayloads.OpenRequest(id));
         }
     }
 
     public static void requestCreate(Identifier id) {
         if (connected()) {
-            ClientPlayNetworking.send(new BlueprintPayloads.CreateRequest(id));
+            Platform.clientNetwork().send(new BlueprintPayloads.CreateRequest(id));
         }
     }
 
@@ -273,7 +280,7 @@ public final class BlueprintNet {
             }
             pendingSnapshot = snapshot;
             pendingId = id;
-            ClientPlayNetworking.send(new BlueprintPayloads.SaveRequest(
+            Platform.clientNetwork().send(new BlueprintPayloads.SaveRequest(
                     id, baseRevision, GraphSync.toBytes(snapshot)));
             return true;
         });
@@ -282,7 +289,7 @@ public final class BlueprintNet {
         session.setWritable(canWrite);
         session.setTestHandler(() -> {
             if (connected()) {
-                ClientPlayNetworking.send(new BlueprintPayloads.SetEnabled(id, true));
+                Platform.clientNetwork().send(new BlueprintPayloads.SetEnabled(id, true));
             }
         });
         active = session;

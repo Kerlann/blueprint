@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation(project(path = ":api", configuration = "namedElements"))
+    implementation(project(path = ":platform", configuration = "namedElements"))
     implementation(project(path = ":core", configuration = "namedElements"))
 }
 

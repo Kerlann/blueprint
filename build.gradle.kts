@@ -1,4 +1,8 @@
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
+// Dans un script Gradle Kotlin, `java` désigne l'extension du greffon Java et masque le
+// paquetage : `java.io.PipedInputStream` ne résout pas sans cet import.
+import java.io.PipedInputStream
+import java.io.PipedOutputStream
 
 plugins {
     id("fabric-loom") version "1.13.6"
@@ -15,8 +19,6 @@ base {
 // Configuration commune : chaque module compile contre Minecraft avec les mêmes
 // mappings ; les dépendances ENTRE modules passent par "namedElements" (voir plus bas).
 allprojects {
-    apply(plugin = "fabric-loom")
-
     version = "1.0.0"
     group = "fr.blueprint"
 
@@ -24,13 +26,44 @@ allprojects {
         mavenCentral()
     }
 
-    val loomExt = extensions.getByType<LoomGradleExtensionAPI>()
+    // Loom pour tout le monde SAUF le module NeoForge, qui a sa propre chaîne d'outils
+    // (ModDevGradle) et refuserait de cohabiter avec celle-ci.
+    //
+    // Les deux chaînes s'entendent malgré tout, et c'est ce qui rend le lot E abordable :
+    // en 1.21, Loom comme ModDevGradle compilent contre un Minecraft aux mappings
+    // OFFICIELS de Mojang. Les classes de `core` produites par Loom nomment donc
+    // exactement les mêmes membres que ce que NeoForge attend, et se lient telles quelles
+    // — c'est la sortie brute des sourceSets qui voyage, jamais le JAR remappé.
+    if (path == ":neoforge") {
+        apply(plugin = "java")
+    } else {
+        apply(plugin = "fabric-loom")
+    }
 
-    dependencies {
-        "minecraft"("com.mojang:minecraft:$minecraftVersion")
-        "mappings"(loomExt.officialMojangMappings())
-        "modImplementation"("net.fabricmc:fabric-loader:$loaderVersion")
-        "modImplementation"("net.fabricmc.fabric-api:fabric-api:$fabricVersion")
+    val loomExt = extensions.findByType<LoomGradleExtensionAPI>()
+
+    // Minecraft pour TOUT LE MONDE, le chargeur pour presque personne.
+    //
+    // C'est le lot D du plan multiloader, et c'est ce qui transforme une règle en fait :
+    // `checkLoaderIsolation` lit les sources et peut s'oublier, un chemin de classes ne
+    // s'oublie pas. Depuis ce commit, écrire `net.fabricmc` dans core ne produit plus un
+    // avertissement mais une erreur de compilation, à la ligne, dans l'IDE.
+    //
+    // La liste est courte et doit le rester : `fabric` est le module du chargeur ;
+    // `testmod` et `gametest` sont des mods Fabric à part entière, jamais livrés ; le
+    // projet racine porte les configurations de lancement, qui ont besoin du chargeur
+    // pour démarrer le jeu.
+    val voientLeChargeur = setOf(":", ":fabric", ":testmod", ":gametest")
+
+    if (loomExt != null) {
+        dependencies {
+            "minecraft"("com.mojang:minecraft:$minecraftVersion")
+            "mappings"(loomExt.officialMojangMappings())
+            if (path in voientLeChargeur) {
+                "modImplementation"("net.fabricmc:fabric-loader:$loaderVersion")
+                "modImplementation"("net.fabricmc.fabric-api:fabric-api:$fabricVersion")
+            }
+        }
     }
 
     extensions.configure<JavaPluginExtension> {
@@ -54,25 +87,75 @@ allprojects {
 // unique et porte les configurations de lancement (runClient / runServer).
 dependencies {
     implementation(project(path = ":api", configuration = "namedElements"))
+    implementation(project(path = ":platform", configuration = "namedElements"))
     implementation(project(path = ":core", configuration = "namedElements"))
     implementation(project(path = ":client", configuration = "namedElements"))
     implementation(project(path = ":compat", configuration = "namedElements"))
+    implementation(project(path = ":fabric", configuration = "namedElements"))
     // testmod : uniquement sur le classpath de dev, jamais dans le JAR final
     runtimeOnly(project(path = ":testmod", configuration = "namedElements"))
     // gametest : idem — chargé par runGametest, absent du JAR livré (story 1.6)
     runtimeOnly(project(path = ":gametest", configuration = "namedElements"))
 }
 
-// JAR unique : api + core + client + compat (testmod exclu). remapJar remappe le tout.
+// JAR unique : api + platform + core + client + compat + fabric (testmod exclu).
+// remapJar remappe le tout.
 tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.FAIL
-    listOf(":api", ":core", ":client", ":compat").forEach { path ->
+    listOf(":api", ":platform", ":core", ":client", ":compat", ":fabric").forEach { path ->
         from(provider { project(path).extensions.getByType<SourceSetContainer>()["main"].output })
     }
     // La licence MIT exige que son texte accompagne toute redistribution — et un JAR
     // téléchargé est une redistribution. Le champ "license" du fabric.mod.json l'annonce
     // sans le fournir : le déclarer sans le joindre ne remplit pas la condition.
     from(rootProject.file("LICENSE"))
+}
+
+// Le critère du lot A, rendu MÉCANIQUE : aucun module commun ne mentionne le chargeur.
+//
+// Une règle qu'on se rappelle est une règle qu'on oublie. Celle-ci s'est déjà défendue
+// pendant le lot A lui-même : un `FabricLoader.getGameDir()` restait dans BlueprintClient,
+// invisible au relevé des imports parce qu'il était écrit en toutes lettres au milieu
+// d'un appel.
+//
+// Sur les SOURCES et non les .class, contrairement à checkApiIsolation : les noms du
+// chargeur ne survivent pas tous à la compilation, et c'est le geste d'écrire l'import
+// qu'on veut interdire. Le lot D rendra la chose plus forte encore en retirant fabric-api
+// du chemin de compilation de ces modules ; d'ici là, ceci tient la ligne.
+val checkLoaderIsolation = tasks.register("checkLoaderIsolation") {
+    description = "Échoue si un module commun mentionne un chargeur (plan multiloader, lot A)"
+    group = "verification"
+    val communs = listOf("api", "platform", "core", "client", "compat")
+    val sources = communs.map { project(":$it").file("src/main/java") }
+    // Les DEUX chargeurs, depuis le lot E : la règle n'a jamais visé Fabric en
+    // particulier, elle vise le fait de nommer un chargeur dans du code commun.
+    val chargeurs = listOf("net.fabricmc", "net.neoforged")
+    inputs.files(sources)
+    doLast {
+        val fautifs = mutableListOf<String>()
+        sources.forEach { racine ->
+            if (!racine.exists()) return@forEach
+            racine.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { f ->
+                val contenu = f.readText(Charsets.UTF_8)
+                chargeurs.filter { contenu.contains(it) }.forEach { chargeur ->
+                    fautifs.add(rootDir.toPath().relativize(f.toPath()).toString()
+                        + " (" + chargeur + ")")
+                }
+            }
+        }
+        if (fautifs.isNotEmpty()) {
+            throw GradleException(
+                "Ces fichiers de modules communs nomment un chargeur :\n  " +
+                    fautifs.joinToString("\n  ") +
+                    "\nLa question se pose dans platform/, la réponse s'écrit dans " +
+                    "fabric/ ou neoforge/. Voir docs/plan-multiloader.md §2."
+            )
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(checkLoaderIsolation)
 }
 
 loom {
@@ -107,6 +190,39 @@ loom {
     }
 }
 
+// Le MÊME serveur piloté que côté NeoForge, sur le MÊME scénario.
+//
+// C'est ce qui rend les deux chargeurs comparables : sans une entrée identique, dire
+// « ça se comporte pareil » revient à comparer deux souvenirs. La mécanique est décrite
+// dans neoforge/build.gradle.kts, y compris pourquoi les commandes attendent le
+// démarrage.
+//
+// `./gradlew runServer -Pblueprint.scenario`
+tasks.matching { it.name == "runServer" }.configureEach {
+    if (!project.hasProperty("blueprint.scenario")) {
+        return@configureEach
+    }
+    val scenario = rootProject.file("docs/qa/scenario-serveur.txt")
+    inputs.file(scenario)
+    doFirst {
+        val lignes = scenario.readLines().filter { it.isNotBlank() && !it.startsWith("#") }
+        val sortie = PipedOutputStream()
+        val entree = PipedInputStream(sortie, 8192)
+        Thread {
+            Thread.sleep(30_000)
+            lignes.forEach { ligne ->
+                sortie.write((ligne + System.lineSeparator()).toByteArray())
+                sortie.flush()
+                Thread.sleep(3_000)
+            }
+            Thread.sleep(10_000)
+            sortie.write(("stop" + System.lineSeparator()).toByteArray())
+            sortie.flush()
+        }.apply { isDaemon = true }.start()
+        (this as JavaExec).standardInput = entree
+    }
+}
+
 // Monde neuf à chaque lancement. Sans ça, les blueprints qu'un test a laissés derrière
 // lui (échec, donc pas de nettoyage) sont RESTAURÉS par la persistance au démarrage
 // suivant et font échouer les runs d'après : les tests s'empoisonnent entre eux.
@@ -116,5 +232,19 @@ tasks.named<Delete>("clean") {
 tasks.named("runGametest") {
     doFirst {
         delete(layout.buildDirectory.dir("gametest/run/world"))
+        // Du contenu déclaré POUR DE VRAI dans le serveur de test (épic 11).
+        //
+        // Il n'y en avait aucun : l'épic 11 n'avait pas une seule vérification en jeu, et
+        // c'est pourtant le seul code du projet dont l'échec se paie avant l'écran titre.
+        // Le lot B du plan multiloader en avait besoin — il déplace la fenêtre
+        // d'enregistrement, et déplacer sans filet ce qui décide des identifiants réseau
+        // n'était pas défendable.
+        //
+        // Les mêmes fichiers que la documentation : ils sont déjà validés par
+        // ContentExamplesTest, donc un échec ici parle du registre, pas du JSON.
+        copy {
+            from(rootProject.file("docs/examples/content"))
+            into(layout.buildDirectory.dir("gametest/run/blueprint/content"))
+        }
     }
 }

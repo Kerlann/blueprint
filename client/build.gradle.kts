@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
     implementation(project(path = ":api", configuration = "namedElements"))
+    implementation(project(path = ":platform", configuration = "namedElements"))
     implementation(project(path = ":core", configuration = "namedElements"))
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))

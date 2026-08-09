@@ -3,15 +3,17 @@ package fr.blueprint.core.registry;
 import fr.blueprint.api.BlueprintPlugin;
 import fr.blueprint.core.BlueprintMod;
 import fr.blueprint.core.event.EventRegistryImpl;
-import net.fabricmc.loader.api.FabricLoader;
+import fr.blueprint.platform.Platform;
+import fr.blueprint.platform.PlatformMods;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.ServiceLoader;
 import java.util.Set;
 
 /**
- * Chargement des plugins de l'entrypoint {@code blueprint}. Trois phases, tous plugins
+ * Chargement des plugins tiers, par service ou par entrypoint. Trois phases, tous plugins
  * confondus : types → nœuds → événements (un plugin peut utiliser les types d'un autre).
  * Un plugin qui lève est isolé : journalisé avec le nom du mod, ses enregistrements
  * partiels retirés — ses nœuds deviendront fantômes, jamais un crash au démarrage.
@@ -31,48 +33,83 @@ public final class PluginLoader {
     }
 
     /**
-     * Classes porteuses de méthodes {@code @BlueprintNode} déclarées par un mod dans son
-     * {@code fabric.mod.json} (story 8.1) : la voie sans plugin ni processeur.
+     * Classes porteuses de méthodes {@code @BlueprintNode} déclarées par un mod dans ses
+     * métadonnées (story 8.1) : la voie sans plugin ni processeur.
      *
      * <pre>{@code "custom": { "blueprint:node_holders": ["com.example.MyNodes"] } }</pre>
+     *
+     * <p>La <i>forme</i> de la déclaration appartient au chargeur — c'est
+     * {@code PlatformMods} qui la lit. Ce qu'on en fait est ici, et ne change pas d'un
+     * chargeur à l'autre.
      */
     public record NodeHolders(String modId, List<String> classNames) {
     }
 
-    /** Adaptateur Fabric : ne contient aucune logique, tout est dans {@link #load}. */
-    public static LoadedRegistries loadFromFabric() {
-        List<PluginEntry> entries = new ArrayList<>();
-        FabricLoader.getInstance()
-                .getEntrypointContainers("blueprint", BlueprintPlugin.class)
-                .forEach(container -> entries.add(new PluginEntry(
-                        container.getProvider().getMetadata().getId(),
-                        container.getEntrypoint())));
-        return load(entries, true, holdersFromFabric());
+    /**
+     * Tous les plugins présents, par les <b>deux</b> voies, dédoublonnés.
+     *
+     * <p>La voie du chargeur (entrypoint {@code fabric.mod.json}) et la voie portable
+     * ({@link ServiceLoader}) coexistent délibérément. La première est annoncée depuis la
+     * story 8.1 et des mods tiers ont pu s'écrire contre elle ; la retirer casserait un
+     * contrat publié pour économiser vingt lignes. La seconde est la seule qui marche
+     * partout — c'est celle que {@code docs/extension-api.md} recommande désormais.
+     *
+     * <p>Le chargeur passe en premier : son modid vient de ses métadonnées, il fait
+     * autorité sur ce que le plugin déclare de lui-même.
+     */
+    public static List<PluginEntry> discover() {
+        List<BlueprintPlugin> services = new ArrayList<>();
+        ServiceLoader.load(BlueprintPlugin.class, PluginLoader.class.getClassLoader())
+                .forEach(services::add);
+        return merge(Platform.mods().plugins(), services,
+                refusal -> BlueprintMod.LOGGER.error("Plugin Blueprint refusé — {}", refusal));
     }
 
-    /** Lit la clé {@code blueprint:node_holders} de chaque mod présent. */
-    private static List<NodeHolders> holdersFromFabric() {
-        List<NodeHolders> out = new ArrayList<>();
-        for (var mod : FabricLoader.getInstance().getAllMods()) {
-            var value = mod.getMetadata().getCustomValue(HOLDERS_KEY);
-            if (value == null
-                    || value.getType() != net.fabricmc.loader.api.metadata.CustomValue.CvType.ARRAY) {
-                continue;
-            }
-            List<String> classNames = new ArrayList<>();
-            for (var entry : value.getAsArray()) {
-                if (entry.getType() == net.fabricmc.loader.api.metadata.CustomValue.CvType.STRING) {
-                    classNames.add(entry.getAsString());
-                }
-            }
-            if (!classNames.isEmpty()) {
-                out.add(new NodeHolders(mod.getMetadata().getId(), classNames));
+    /** Les classes annotées déclarées dans les métadonnées des mods (story 8.1). */
+    public static List<NodeHolders> discoverHolders() {
+        List<NodeHolders> holders = new ArrayList<>();
+        for (var holder : Platform.mods().nodeHolders()) {
+            holders.add(new NodeHolders(holder.modId(), holder.classNames()));
+        }
+        return holders;
+    }
+
+    /**
+     * La fusion des deux voies — <b>pure</b>, donc vérifiable sans jeu ni chargeur.
+     *
+     * <p>Le dédoublonnage se fait sur la <b>classe</b> et non sur l'instance : les deux
+     * voies construisent chacune la leur, et un mod qui se déclare des deux côtés — ce
+     * qui est le cas normal d'un mod qui veut marcher partout — verrait sinon ses nœuds
+     * enregistrés deux fois, donc refusés la seconde fois, donc son plugin isolé pour un
+     * conflit avec lui-même.
+     *
+     * @param onRefusal reçoit une phrase par plugin écarté, à journaliser
+     */
+    static List<PluginEntry> merge(List<PlatformMods.ModPlugin> fromLoader,
+                                   List<BlueprintPlugin> fromServices,
+                                   java.util.function.Consumer<String> onRefusal) {
+        List<PluginEntry> entries = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (var plugin : fromLoader) {
+            if (seen.add(plugin.plugin().getClass().getName())) {
+                entries.add(new PluginEntry(plugin.modId(), plugin.plugin()));
             }
         }
-        return out;
+        for (BlueprintPlugin plugin : fromServices) {
+            if (!seen.add(plugin.getClass().getName())) {
+                continue;   // déjà vu par le chargeur, qui sait mieux d'où il vient
+            }
+            String modId = plugin.modId();
+            if (modId == null || modId.isBlank()) {
+                onRefusal.accept(plugin.getClass().getName() + " : déclaré par service mais "
+                        + "sans modId() — cet identifiant est montré au joueur dans la "
+                        + "palette, il ne peut pas être deviné (voir BlueprintPlugin#modId)");
+                continue;
+            }
+            entries.add(new PluginEntry(modId, plugin));
+        }
+        return List.copyOf(entries);
     }
-
-    public static final String HOLDERS_KEY = "blueprint:node_holders";
 
     /** Chargement nu (tests) : sans la bibliothèque standard. */
     public static LoadedRegistries load(List<PluginEntry> plugins) {
@@ -134,7 +171,7 @@ public final class PluginLoader {
             }
         }
 
-        // Phase 2 bis : les classes annotées déclarées dans fabric.mod.json (8.1). Un
+        // Phase 2 bis : les classes annotées déclarées dans les métadonnées du mod (8.1). Un
         // mod peut n'avoir QUE ça — aucun plugin, aucun processeur d'annotations.
         for (NodeHolders holder : holders) {
             if (failed.contains(holder.modId())) {

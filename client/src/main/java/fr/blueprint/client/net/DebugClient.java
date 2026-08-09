@@ -2,8 +2,7 @@ package fr.blueprint.client.net;
 
 import fr.blueprint.client.editor.BlueprintEditorScreen;
 import fr.blueprint.core.net.BlueprintPayloads;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import fr.blueprint.platform.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 
@@ -23,24 +22,27 @@ public final class DebugClient {
     }
 
     public static void register() {
-        ClientPlayNetworking.registerGlobalReceiver(BlueprintPayloads.DebugSnapshot.TYPE,
+        var network = Platform.clientNetwork();
+        network.receive(BlueprintPayloads.DebugSnapshot.TYPE,
                 (payload, context) -> {
                     if (Minecraft.getInstance().screen instanceof BlueprintEditorScreen editor) {
                         editor.debug().accept(payload);
                     }
                 });
         // Déconnexion : plus de serveur, donc plus de vérité à afficher.
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            if (Minecraft.getInstance().screen instanceof BlueprintEditorScreen editor) {
-                editor.debug().clear();
-            }
-        });
+    }
+
+    /** Déconnexion : le débogueur affiché ne parle plus de rien. */
+    public static void onDisconnect() {
+        if (Minecraft.getInstance().screen instanceof BlueprintEditorScreen editor) {
+            editor.debug().clear();
+        }
     }
 
     private static void send(Identifier blueprint, BlueprintPayloads.DebugAction action,
                              Optional<UUID> node) {
-        if (ClientPlayNetworking.canSend(BlueprintPayloads.DebugCommand.TYPE)) {
-            ClientPlayNetworking.send(new BlueprintPayloads.DebugCommand(blueprint, action, node));
+        if (Platform.clientNetwork().canSend(BlueprintPayloads.DebugCommand.TYPE)) {
+            Platform.clientNetwork().send(new BlueprintPayloads.DebugCommand(blueprint, action, node));
         }
     }
 
