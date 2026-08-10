@@ -27,9 +27,28 @@ import java.util.function.Function;
  */
 public final class VariablePanelState {
 
-    /** Types proposés au cycle (MVP panneau ; les autres via 5.10). */
-    public static final List<PinType> TYPE_CYCLE = List.of(PinTypes.DOUBLE, PinTypes.INT,
-            PinTypes.LONG, PinTypes.BOOL, PinTypes.STRING);
+    /**
+     * Les types qu'une variable peut prendre, dans l'ordre où on les propose.
+     *
+     * <p><b>Le critère est la persistance</b>, pas la disponibilité. Un type de pin
+     * existe pour bien d'autres choses — {@code itemstack}, {@code text},
+     * {@code blockstate} — mais leur codec réclame les registres du jeu, que le format
+     * plat de {@code VarStorage} n'a pas. Les proposer donnerait des variables dont la
+     * valeur disparaît à chaque sauvegarde du monde : une case à cocher qui promet ce
+     * qu'elle ne tient pas est pire que son absence.
+     *
+     * <p>Les types de <b>référence vivante</b> ({@code player}, {@code entity}) sont
+     * exclus pour une autre raison : ils n'ont pas de littéral, donc pas de valeur par
+     * défaut à donner à la variable, et une entité rangée dans une portée monde
+     * désignerait un objet détruit dès la déconnexion.
+     *
+     * <p>BScript, lui, accepte déjà n'importe quel type enregistré — {@code var vec3 p},
+     * {@code var list<vec3> chemin}. Cette liste ne borne que ce que l'éditeur propose
+     * au clic.
+     */
+    public static final List<PinType> TYPES = List.of(
+            PinTypes.DOUBLE, PinTypes.INT, PinTypes.LONG, PinTypes.BOOL, PinTypes.STRING,
+            PinTypes.VEC3, PinTypes.BLOCKPOS, PinTypes.DIRECTION);
 
     /**
      * L'ordre du cycle va du <b>plus étroit au plus large</b> : graphe, joueur, joueur
@@ -183,26 +202,45 @@ public final class VariablePanelState {
     // ------------------------------------------------------- type, portée (cycles)
 
     /**
-     * Passe au type suivant du cycle. Si des liens seraient invalidés, le premier
-     * appel arme l'avertissement ({@link #pendingBreaks}) ; le second applique.
+     * Passe au type suivant de la liste. Reste le geste au clavier et le repli si le
+     * menu ne s'ouvre pas ; le clic sur [T], lui, ouvre {@link TypeMenuState}.
      */
     public boolean cycleType(String name) {
         Variable variable = bp.variables().get(name);
         if (variable == null) {
             return false;
         }
-        int index = TYPE_CYCLE.indexOf(variable.type());
-        PinType next = TYPE_CYCLE.get((index + 1 + TYPE_CYCLE.size()) % TYPE_CYCLE.size());
-        int breaks = breakingLinks(name, next);
-        if (breaks > 0 && !(name.equals(pendingRetypeName) && next == pendingRetypeType)) {
+        int index = TYPES.indexOf(variable.type());
+        // Un type absent de la liste — posé par BScript, qui accepte tout le registre —
+        // donne index = −1, donc le suivant est le premier. C'est le bon comportement :
+        // on n'a pas de position dans un cycle dont on ne fait pas partie.
+        return retypeTo(name, TYPES.get((index + 1 + TYPES.size()) % TYPES.size()));
+    }
+
+    /**
+     * Donne à {@code name} le type demandé.
+     *
+     * <p>Si des liens en deviendraient incompatibles, le premier appel arme
+     * l'avertissement ({@link #pendingBreaks}) et n'applique <b>rien</b> ; le second, avec
+     * le même couple nom/type, applique (FR10, U2). Choisir dans un menu ne dispense pas
+     * de cette confirmation — c'est le nombre de liens cassés qui la justifie, pas la
+     * façon dont le type a été désigné.
+     */
+    public boolean retypeTo(String name, PinType target) {
+        Variable variable = bp.variables().get(name);
+        if (variable == null || target.equals(variable.type())) {
+            return false;   // reposer le type courant n'est pas une modification
+        }
+        int breaks = breakingLinks(name, target);
+        if (breaks > 0 && !(name.equals(pendingRetypeName) && target == pendingRetypeType)) {
             pendingRetypeName = name;
-            pendingRetypeType = next;
+            pendingRetypeType = target;
             pendingBreaks = breaks;
             return false; // avertissement affiché, rien d'appliqué (U2)
         }
         clearPending();
         // Le défaut de l'ancien type ne survit pas : on repart du défaut du nouveau.
-        return applier.apply(new EditOperation.RetypeVariable(name, next, next.defaultValue()));
+        return applier.apply(new EditOperation.RetypeVariable(name, target, target.defaultValue()));
     }
 
     public boolean cycleScope(String name) {

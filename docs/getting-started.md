@@ -32,7 +32,7 @@ commande est tapée…) et s'exécute **côté serveur**.
 
 | Ce que vous voulez | Ce que vous tapez |
 |---|---|
-| Lancer le banc de performance | `/blueprint bench` puis `/bpc bench` |
+| Lancer le banc de performance | `/blueprint bench` puis `/bench` |
 | Créer le vôtre | `/blueprint create mon_premier` |
 | Ouvrir le navigateur | Touche **F6** — double-clic pour ouvrir, Ctrl+N pour créer |
 | Voir ce qui existe | **F6**, ou `/blueprint edit` — dossiers, création, import |
@@ -114,6 +114,37 @@ exécutions : un compteur, un état, un nom. Chaque variable a une **portée** :
 > `player_shared` est le canal entre vos scripts — le prénom d'un personnage, écrit par
 > celui qui le crée et lu par tous les autres. Dans le doute, `player` : on ouvre quand on
 > en a besoin, on ne referme jamais sans casser quelque chose.
+
+### Choisir le type
+
+Sélectionnez la variable, cliquez sur **[T]** : un menu s'ouvre avec les types
+disponibles, chacun avec sa pastille de couleur, et un point marque celui en place.
+
+| Type | Ce qu'il garde |
+|---|---|
+| Nombre, Entier, Entier long | des valeurs numériques — `Nombre` dans le doute |
+| Booléen | vrai ou faux |
+| Chaîne | du texte |
+| **Vecteur** | une position exacte, décimales comprises — un point de retour, une cible |
+| **Position de bloc** | une case de la grille du monde |
+| **Direction** | nord, sud, haut, bas… |
+
+Les trois derniers sont récents : ils évitent de découper une position en trois variables
+`Nombre` et de la recomposer à chaque usage.
+
+> **Changer le type d'une variable déjà câblée** peut rendre des liens incompatibles.
+> L'éditeur ne les casse pas en silence : le premier clic affiche le nombre de liens
+> concernés en bas du panneau, le second applique. La valeur par défaut repart à celle du
+> nouveau type.
+
+Tous les types ci-dessus **survivent au redémarrage** dans les portées qui le promettent.
+Ce n'est pas vrai de tout : un item ou un texte formaté rangé dans une variable garde sa
+valeur en jeu mais n'est pas écrit dans la sauvegarde — leur encodage réclame les
+registres du jeu, que le format des variables n'a pas. Le journal du serveur le dit en
+nommant la variable, et l'éditeur ne les propose pas au clic pour cette raison.
+
+En BScript, l'écriture est plus large que le menu : `var vec3 point @player` fonctionne,
+et `var list<vec3> chemin @graph` aussi.
 
 Glissez une variable sur le canevas pour obtenir un nœud **lire** ou **écrire**.
 
@@ -269,13 +300,13 @@ boutons et `Entrée` active : un joueur qui ne vise pas bien à la souris doit p
 servir.
 
 Pour voir tous les widgets d'un coup plutôt que ces deux boutons, la **vitrine** est
-livrée : `/blueprint showcase` puis `/bpc vitrine` — les douze types, tous câblés, et
+livrée : `/blueprint showcase` puis `/vitrine` — les douze types, tous câblés, et
 décrits dans [Les blueprints livrés](examples/README.md).
 
 !!! note "📷 Capture à faire — `images/menu-en-jeu.png`"
 
     La **vitrine ouverte en jeu**, par-dessus le monde : `/blueprint showcase` puis
-    `/bpc vitrine`. Le concepteur montre ce qu'on dessine, celle-ci ce qu'on obtient —
+    `/vitrine`. Le concepteur montre ce qu'on dessine, celle-ci ce qu'on obtient —
     c'est la deuxième moitié de la promesse, et c'est la seule capture qui manque.
 
     Remplacez ce bloc par :
@@ -454,7 +485,37 @@ Un item déclaré ne *fait* rien par lui-même. C'est le graphe qui lui donne un
 
 ---
 
-## 11. Pour aller plus loin
+## 11. Déclarer votre propre commande
+
+Un blueprint peut avoir sa commande à lui. Le nœud **« Sur commande »** porte le nom voulu
+dans son entrée `name` : mettez-y `home`, activez le blueprint, et `/home` existe. Pas de
+préfixe, pas de rechargement — le serveur pose la commande à l'activation et l'annonce aux
+joueurs connectés, autocomplétion comprise.
+
+Le nœud rend trois choses : le `player` qui a tapé, le `name` (utile quand plusieurs
+commandes entrent dans le même graphe) et `arg`, le texte qui suit. `/home rapide` donne
+donc `arg = "rapide"`.
+
+### Ce qu'un nom ne peut pas être
+
+**Un nom déjà pris est refusé, pas volé.** Déclarer `kill` n'écrase pas le `/kill` de
+Minecraft : le serveur le journalise et laisse vanilla tranquille. Le blueprint reste
+déclenchable par `/blueprint run kill` — c'est le repli, il marche pour n'importe quel nom.
+
+Testez d'abord dans le chat : si `/monnom` existe déjà, choisissez-en un autre. Les
+collisions les plus fréquentes ne viennent pas de Minecraft mais des autres mods et des
+plugins de permissions, qui posent parfois des noms courts et évidents.
+
+### Ce qui se retire mal
+
+Supprimer ou désactiver un blueprint **ne retire pas sa commande tout de suite** : le
+serveur ne sait pas défaire une racine posée. Elle reste jusqu'au prochain `/reload` ou au
+redémarrage, et répond entre-temps « aucun blueprint n'écoute ». C'est bruyant plutôt que
+trompeur, mais ne soyez pas surpris de voir le nom survivre au graphe.
+
+---
+
+## 12. Pour aller plus loin
 
 - [`node-reference.md`](node-reference.md) — tous les nœuds livrés, leurs pins et leur coût.
 - [`bscript-spec.md`](bscript-spec.md) — la grammaire du texte généré.

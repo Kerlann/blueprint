@@ -135,6 +135,38 @@ class VarStorageTest {
     }
 
     /**
+     * Les trois types de géométrie font le tour complet.
+     *
+     * <p>Ils sont devenus des types de variable proposés dans l'éditeur. Sans cet
+     * encodage, un point de retour rangé dans une variable {@code vec3} de portée monde
+     * serait journalisé comme non persisté à chaque sauvegarde, et le graphe repartirait
+     * du défaut au redémarrage — c'est-à-dire l'origine du monde.
+     *
+     * <p>La position se vérifie sur des coordonnées <b>négatives et asymétriques</b> : le
+     * long empaqueté de {@code BlockPos} encode trois champs de largeurs différentes, et
+     * un signe mal relu ne se voit pas sur (0, 0, 0).
+     */
+    @Test
+    void laGeometrieSurvitAuTour() {
+        VarStorage before = new VarStorage();
+        var alice = new VarOwner(RP, ALICE);
+        before.set(VarScope.PLAYER, alice, "point",
+                new net.minecraft.world.phys.Vec3(1.5, -64.25, 300.75));
+        before.set(VarScope.PLAYER, alice, "bloc",
+                new net.minecraft.core.BlockPos(-1200, -59, 4096));
+        before.set(VarScope.PLAYER, alice, "face", net.minecraft.core.Direction.WEST);
+
+        VarStorage after = roundTrip(before);
+
+        assertEquals(new net.minecraft.world.phys.Vec3(1.5, -64.25, 300.75),
+                after.get(VarScope.PLAYER, alice, "point"));
+        assertEquals(new net.minecraft.core.BlockPos(-1200, -59, 4096),
+                after.get(VarScope.PLAYER, alice, "bloc"));
+        assertEquals(net.minecraft.core.Direction.WEST,
+                after.get(VarScope.PLAYER, alice, "face"));
+    }
+
+    /**
      * Ce qui ne s'écrit pas ne fait pas tomber la sauvegarde.
      *
      * <p>Une pile d'objets dans une variable n'a pas de type à l'écriture. Elle est

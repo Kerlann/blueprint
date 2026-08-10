@@ -163,6 +163,71 @@ class VariablePanelStateTest {
     }
 
     /**
+     * Choisir dans le menu atteint un type <b>en un geste</b>.
+     *
+     * <p>C'est la raison d'être du menu : {@code vec3} est au sixième cran du cycle, donc
+     * six clics — et rien, avant, ne disait qu'il existait.
+     */
+    @Test
+    void leChoixDirectAtteintUnTypeEloigne() {
+        state.create(); // var1 double
+        assertTrue(state.retypeTo("var1", PinTypes.VEC3));
+        assertEquals(PinTypes.VEC3, bp.variables().get("var1").type());
+        assertEquals(0, state.pendingBreaks());
+    }
+
+    /**
+     * Le choix direct ne contourne pas la confirmation.
+     *
+     * <p>Ce serait la faille évidente d'un second chemin vers le retypage : la garde
+     * vivait dans {@code cycleType}, et un menu qui appellerait l'opération sans elle
+     * casserait des liens sans un mot. Les deux chemins passent maintenant par le même
+     * corps, et ce test le tient.
+     */
+    @Test
+    void leChoixDirectExigeAussiLaConfirmation() {
+        state.create(); // var1 double
+        UUID get = UUID.randomUUID();
+        UUID sink = UUID.randomUUID();
+        apply(new EditOperation.AddNode(get, VarNodes.GET, new Vec2d(0, 0)));
+        apply(new EditOperation.SetLiteral(get, "var",
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.STRING, "var1")));
+        apply(new EditOperation.AddNode(sink, SINK, new Vec2d(300, 0)));
+        apply(new EditOperation.AddLink(new Link(get, "value", sink, "in")));
+
+        assertFalse(state.retypeTo("var1", PinTypes.VEC3),
+                "un vecteur ne nourrit pas un pin double : il faut avertir avant");
+        assertEquals(1, state.pendingBreaks());
+        assertEquals(PinTypes.DOUBLE, bp.variables().get("var1").type());
+
+        assertTrue(state.retypeTo("var1", PinTypes.VEC3));
+        assertEquals(PinTypes.VEC3, bp.variables().get("var1").type());
+    }
+
+    /**
+     * Reposer le type courant n'applique <b>aucune</b> opération.
+     *
+     * <p>Un cycle ne pouvait pas produire ce cas ; un menu, si — on l'ouvre, on hésite, on
+     * reclique sur la ligne marquée. Laisser passer l'opération empilerait un pas
+     * d'annulation qui ne change rien, et l'utilisateur devrait annuler deux fois pour
+     * défaire une seule modification réelle.
+     */
+    @Test
+    void reposerLeMemeTypeNAppliqueRien() {
+        int[] appliquees = {0};
+        VariablePanelState compte = new VariablePanelState(bp, LOOKUP, op -> {
+            appliquees[0]++;
+            return op.apply(bp, LOOKUP).applied();
+        });
+        compte.create(); // var1 double
+        int apresCreation = appliquees[0];
+
+        assertFalse(compte.retypeTo("var1", PinTypes.DOUBLE));
+        assertEquals(apresCreation, appliquees[0],
+                "un aller-retour dans le menu ne doit rien empiler dans l'annulation");
+    }
+
+    /**
      * Le cycle va du plus étroit au plus large : graphe → joueur → joueur partagé →
      * monde. Cliquer élargit, ce qui est le sens dans lequel on hésite.
      */

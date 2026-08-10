@@ -36,7 +36,8 @@ import java.util.UUID;
  * <p>Une valeur de variable n'a pas de type à l'écriture : {@code StoreVar} porte une
  * portée, un nom et un slot, pas de {@code PinType}. L'encodage se fait donc sur le type
  * <b>Java</b> de la valeur, avec une étiquette pour le relire — chaînes, nombres,
- * booléens, listes et tables de ceux-là.
+ * booléens, listes et tables de ceux-là, plus les trois types de géométrie (vecteur,
+ * position de bloc, direction), qui s'écrivent sans rien demander aux registres du jeu.
  *
  * <p>Le reste — une pile d'objets, une entité, un état de bloc dans une variable — n'est
  * <b>pas</b> écrit, et le journal le dit en nommant la variable. Deviner le type déclaré
@@ -242,6 +243,29 @@ public final class VarStorage extends SavedData implements VarStore {
                 tag.putString("t", "f");
                 tag.put("v", DoubleTag.valueOf(f));
             }
+            // Les trois types de géométrie. Ils s'écrivent sans toucher aux registres du
+            // jeu, ce qui les distingue d'un ItemStack ou d'un Component : le codec de
+            // ceux-là exige un HolderLookup que ce format, volontairement plat, n'a pas.
+            case net.minecraft.world.phys.Vec3 vec -> {
+                ListTag coords = new ListTag();
+                coords.add(DoubleTag.valueOf(vec.x));
+                coords.add(DoubleTag.valueOf(vec.y));
+                coords.add(DoubleTag.valueOf(vec.z));
+                tag.putString("t", "v3");
+                tag.put("v", coords);
+            }
+            // En long empaqueté, comme Minecraft le fait partout ailleurs : trois entiers
+            // bornés dans une seule valeur, et la relecture est exacte.
+            case net.minecraft.core.BlockPos pos -> {
+                tag.putString("t", "bp");
+                tag.put("v", LongTag.valueOf(pos.asLong()));
+            }
+            // Par son NOM, pas son ordinal : un ordinal lierait la sauvegarde à l'ordre de
+            // déclaration d'une énumération de Minecraft, que rien ne nous promet stable.
+            case net.minecraft.core.Direction dir -> {
+                tag.putString("t", "dir");
+                tag.put("v", StringTag.valueOf(dir.getSerializedName()));
+            }
             case List<?> list -> {
                 ListTag items = new ListTag();
                 for (Object element : list) {
@@ -293,6 +317,22 @@ public final class VarStorage extends SavedData implements VarStore {
             case "l" -> value.asLong().orElse(null);
             case "d" -> value.asDouble().orElse(null);
             case "f" -> value.asFloat().orElse(null);
+            case "v3" -> {
+                if (!(value instanceof ListTag coords) || coords.size() != 3) {
+                    yield null;
+                }
+                Double x = coords.get(0).asDouble().orElse(null);
+                Double y = coords.get(1).asDouble().orElse(null);
+                Double z = coords.get(2).asDouble().orElse(null);
+                yield x == null || y == null || z == null
+                        ? null : new net.minecraft.world.phys.Vec3(x, y, z);
+            }
+            case "bp" -> value.asLong().map(net.minecraft.core.BlockPos::of).orElse(null);
+            // Un nom inconnu — sauvegarde d'une version où la direction s'appelait
+            // autrement — rend null, donc le défaut déclaré reprend la main. Mieux qu'un
+            // NORTH arbitraire, qui se ferait passer pour une valeur choisie.
+            case "dir" -> value.asString()
+                    .map(net.minecraft.core.Direction::byName).orElse(null);
             case "L" -> {
                 if (!(value instanceof ListTag items)) {
                     yield null;

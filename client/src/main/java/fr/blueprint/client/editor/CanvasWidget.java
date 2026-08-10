@@ -91,6 +91,7 @@ public final class CanvasWidget {
     // Défilement des trois panneaux (5.12) : au-delà d'une trentaine de lignes, le
     // contenu était purement inatteignable.
     private final ContextMenuState contextMenu = new ContextMenuState();
+    private final TypeMenuState typeMenu = new TypeMenuState();
     private final HoverTracker hover = new HoverTracker();
     private final PanelScroll varScroll = new PanelScroll();
     private final PanelScroll funcScroll = new PanelScroll();
@@ -299,6 +300,8 @@ public final class CanvasWidget {
         RegistryPickerPopup.render(g, font, picker, this::iconOf, width, height, mouseX, mouseY);
         contextMenu.hover(mouseX, mouseY, ContextMenuPopup.WIDTH);
         ContextMenuPopup.render(g, font, contextMenu);
+        typeMenu.hover(mouseX, mouseY, TypeMenuPopup.WIDTH);
+        TypeMenuPopup.render(g, font, typeMenu);
         // En dernier : une infobulle passe par-dessus tout, sinon elle disparaît sous
         // le nœud voisin dès qu'on survole le bord d'un nœud. Et seulement souris
         // posée : pendant un geste ou un déplacement, elle ne ferait que gêner.
@@ -353,7 +356,8 @@ public final class CanvasWidget {
      * une bulle par-dessus la palette gênerait plus qu'elle n'aiderait.
      */
     private List<String> tooltipAt(Font font, double mx, double my) {
-        if (palette.isOpen() || picker.isOpen() || gotoState.isOpen() || contextMenu.isOpen()) {
+        if (palette.isOpen() || picker.isOpen() || gotoState.isOpen() || contextMenu.isOpen()
+                || typeMenu.isOpen()) {
             return List.of();
         }
         if (my < ToolbarWidget.HEIGHT) {
@@ -746,6 +750,9 @@ public final class CanvasWidget {
         if (contextMenu.isOpen()) {
             return clickInContextMenu(e);
         }
+        if (typeMenu.isOpen()) {
+            return clickInTypeMenu(e);
+        }
         commitPendingEdits();
         if (palette.isOpen()) {
             return clickInPalette(e);
@@ -974,6 +981,35 @@ public final class CanvasWidget {
     }
 
     /** Exécute l'entrée choisie, puis referme. */
+    /** Ouvre le choix du type, collé au bord droit du panneau des variables. */
+    private void openTypeMenu(String name) {
+        var variable = controller.view().blueprint().variables().get(name);
+        typeMenu.open(name, variable == null ? null : variable.type(),
+                VariablePanelState.TYPES, VariablePanel.WIDTH, (int) lastMouseY);
+        typeMenu.clampToScreen(TypeMenuPopup.WIDTH, width, height);
+    }
+
+    /**
+     * Un clic dans le menu de type.
+     *
+     * <p>Le menu ne se referme <b>que</b> si le retypage a été appliqué. Un premier clic
+     * sur un type qui casserait des liens arme l'avertissement et rend faux : garder le
+     * menu ouvert laisse le second clic confirmer au même endroit, l'avertissement du
+     * panneau étant visible pendant ce temps. Le refermer obligerait à rouvrir, et
+     * rouvrir efface l'avertissement — la confirmation deviendrait inatteignable.
+     */
+    private boolean clickInTypeMenu(MouseButtonEvent e) {
+        var chosen = typeMenu.choose(e.x(), e.y(), TypeMenuPopup.WIDTH);
+        if (chosen == null) {
+            typeMenu.close();   // clic à côté : on referme sans rien changer
+            return true;
+        }
+        if (varPanel.retypeTo(typeMenu.variable(), chosen)) {
+            typeMenu.close();
+        }
+        return true;
+    }
+
     private boolean clickInContextMenu(MouseButtonEvent e) {
         ContextMenuState.Action action =
                 contextMenu.choose(e.x(), e.y(), ContextMenuPopup.WIDTH);
@@ -1499,7 +1535,7 @@ public final class CanvasWidget {
             VariablePanel.RowAction action = VariablePanel.actionAt(e.x());
             if (action != null) {
                 switch (action) {
-                    case TYPE -> varPanel.cycleType(name);
+                    case TYPE -> openTypeMenu(name);
                     case SCOPE -> varPanel.cycleScope(name);
                     case DELETE -> varPanel.delete(name);
                 }
@@ -1628,6 +1664,12 @@ public final class CanvasWidget {
         // reste devant sans qu'on comprenne ce qui l'y retient.
         if (contextMenu.isOpen()) {
             contextMenu.close();
+            if (e.key() == GLFW.GLFW_KEY_ESCAPE) {
+                return true;
+            }
+        }
+        if (typeMenu.isOpen()) {
+            typeMenu.close();
             if (e.key() == GLFW.GLFW_KEY_ESCAPE) {
                 return true;
             }
