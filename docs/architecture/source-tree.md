@@ -118,7 +118,7 @@ D:\Blueprint\
 │  ├─ PlatformPaths.java            gameDir / configDir
 │  ├─ PlatformMods.java             isLoaded / plugins / nodeHolders
 │  ├─ net/ ServerNetwork, ClientNetwork, + leurs contextes
-│  └─ client/ ClientPlatform (touches, HUD), ClientFeedback (commandes client)
+│  └─ client/ ClientPlatform (touches, HUD)
 │
 ├─ fabric/src/main/java/fr/blueprint/fabric/
 │  ├─ FabricBootstrap.java          ModInitializer — init() + FabricServerEvents

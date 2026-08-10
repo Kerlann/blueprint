@@ -108,8 +108,8 @@ public final class BlueprintVm {
                     } else if (!VarStore.owns(s.scope(), env.owner())) {
                         return new RunOutcome(ownerless(s.scope(), s.name(), s.source()),
                                 spent + 1);
-                    } else {
-                        env.vars().set(s.scope(), env.owner(), s.name(), value);
+                    } else if (!env.vars().set(s.scope(), env.owner(), s.name(), value)) {
+                        return new RunOutcome(overQuota(s.name(), s.source()), spent + 1);
                     }
                     state.setPc(pc + 1);
                     spent++;
@@ -139,18 +139,39 @@ public final class BlueprintVm {
      * panier commun d'avant — donnait un écran qui affiche l'identité de quelqu'un
      * d'autre, panne bien plus coûteuse à diagnostiquer qu'un refus nommé.
      *
-     * <p>La sortie de secours est {@code var/get_for} / {@code var/set_for}, qui prennent
-     * le joueur en entrée ; le message la nomme, parce qu'une faute qui ne dit pas quoi
-     * faire ne vaut guère mieux qu'un silence.
+     * <p>Le message nomme les deux sorties qui existent réellement — brancher le graphe sur
+     * un événement qui porte un joueur, ou donner à la variable une portée qui n'en demande
+     * pas. Il citait {@code var/get_for} / {@code var/set_for}, <b>qui n'ont jamais été
+     * enregistrés</b> : {@code StandardNodes} ne déclare que {@code var/get} et
+     * {@code var/set}. Une faute qui ne dit pas quoi faire ne vaut guère mieux qu'un
+     * silence, mais une faute qui envoie chercher un nœud inexistant est pire que les deux :
+     * l'auteur cherche dans la palette un mot qu'aucun nœud ne porte.
      */
     private static ExecResult ownerless(VarScope scope, String name,
                                         @org.jetbrains.annotations.Nullable
                                         java.util.UUID source) {
         return new ExecResult.Faulted(source, scope == VarScope.PLAYER
                 ? "la variable « " + name + " » est de portée joueur, et cet événement n'a "
-                        + "pas de joueur — utilisez var/get_for ou var/set_for"
+                        + "pas de joueur — déclenchez le graphe depuis un événement qui en "
+                        + "porte un, ou donnez-lui la portée graphe ou monde"
                 : "la variable « " + name + " » est de portée " + scope
                         + ", et cette exécution n'a pas de propriétaire");
+    }
+
+    /**
+     * La faute d'une écriture refusée par le plafond de 64 Ko par joueur (NFR14).
+     *
+     * <p>Une faute et non un silence, pour la même raison que {@code ownerless} : une
+     * écriture qui disparaît sans rien dire laisse le graphe croire qu'il a enregistré la
+     * progression du joueur. Le joueur, lui, l'apprend à la reconnexion suivante — et rien
+     * dans le journal ne relie les deux.
+     */
+    private static ExecResult overQuota(String name,
+                                        @org.jetbrains.annotations.Nullable
+                                        java.util.UUID source) {
+        return new ExecResult.Faulted(source, "écrire « " + name + " » ferait dépasser à ce "
+                + "joueur les " + (VarQuota.MAX_PLAYER_BYTES / 1024) + " Ko de données que "
+                + "le serveur lui accorde — effacez des variables joueur, ou stockez moins");
     }
 
     /**

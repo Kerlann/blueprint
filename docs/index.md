@@ -109,7 +109,7 @@ Puis, en jeu :
 
 | | |
 |---|---|
-| `/blueprint-edit create mon_premier` | créer son premier graphe |
+| `/blueprint create mon_premier` | créer son premier graphe |
 | **F6** | rouvrir le dernier édité |
 | `/blueprint showcase` puis `/vitrine` | voir les douze widgets, tous câblés |
 | `/blueprint bench` puis `/bench` | lancer le banc de performance |

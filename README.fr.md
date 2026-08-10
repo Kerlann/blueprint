@@ -37,7 +37,7 @@ Puis, en jeu :
 |---|---|
 | `/blueprint showcase` puis `/vitrine` | voir les douze types de widgets, tous câblés |
 | `/blueprint bench` puis `/bench` | lancer le banc de performance |
-| `/blueprint-edit create mon_premier` | créer le sien |
+| `/blueprint create mon_premier` | créer le sien |
 | `F6` | rouvrir le dernier édité |
 
 Le guide pas à pas est dans [`docs/getting-started.md`](docs/getting-started.md) — premier

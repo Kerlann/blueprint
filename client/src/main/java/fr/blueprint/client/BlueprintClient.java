@@ -1,15 +1,10 @@
 package fr.blueprint.client;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import fr.blueprint.client.editor.BlueprintEditorScreen;
 import fr.blueprint.client.editor.EditorSession;
 import fr.blueprint.core.BlueprintMod;
 import fr.blueprint.core.BenchBlueprint;
 import fr.blueprint.platform.Platform;
-import fr.blueprint.platform.client.ClientFeedback;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -23,9 +18,20 @@ import java.util.function.Consumer;
  *
  * <p>Comme {@code BlueprintMod} côté serveur, cette classe <b>était</b> un point d'entrée
  * Fabric ({@code implements ClientModInitializer}) et ne l'est plus : le module du
- * chargeur appelle {@link #init()}, lui pousse chaque fin de tick par
- * {@link #endClientTick}, et construit ses commandes à partir de {@link #editCommand} et
- * {@link #packsCommand}.
+ * chargeur appelle {@link #init()} et lui pousse chaque fin de tick par
+ * {@link #endClientTick}.
+ *
+ * <p>Elle <b>ne construit plus aucune commande</b>. Elle en portait deux racines,
+ * {@code /blueprint-edit} et {@code /blueprint-packs} : la première n'était qu'un alias qui
+ * réécrivait {@code /blueprint edit} et le renvoyait au serveur, la seconde est devenue
+ * {@code /blueprint packs} — une commande serveur qui transmet la demande par
+ * {@link #applyPacksAction}. Le mod n'a donc plus qu'une seule racine.
+ *
+ * <p>Les fondre dans une racine <i>cliente</i> nommée {@code blueprint} aurait été le geste
+ * évident et il aurait tout cassé : Fabric ne renvoie au serveur que les commandes
+ * <b>inconnues</b> ({@code dispatcherUnknownCommand}), pas celles dont seul le sous-chemin
+ * manque. Un {@code /blueprint list} aurait levé {@code dispatcherUnknownArgument} chez le
+ * client, qui aurait répondu « argument incorrect » sans jamais rien envoyer au serveur.
  */
 public class BlueprintClient {
 
@@ -147,89 +153,20 @@ public class BlueprintClient {
     }
 
     /**
-     * {@code /blueprint-edit} — un ALIAS de {@code /blueprint edit}. Il ne décide plus
-     * rien : il réécrit la commande et la renvoie au serveur, qui la traite comme celle
-     * qu'on aurait tapée à la main.
+     * Ce que demande {@code /blueprint packs} — la commande vit côté serveur, le travail
+     * ici (story 10.5, paquet {@code PacksAction}).
      *
-     * <p>Les deux commandes avaient beau viser les mêmes blueprints, elles n'avaient en
-     * commun ni leurs suggestions — l'une lisait le gestionnaire du serveur, l'autre une
-     * liste reçue au join — ni leurs vérifications. Une seule implémentation ferme la
-     * question plutôt que de la corriger sans cesse.
-     *
-     * <p>Générique sur {@code S} : voir {@link ClientFeedback}. C'est ce qui permet à
-     * Fabric de construire l'arbre avec son type de source et à un autre chargeur de le
-     * construire avec le sien, sans que rien ici ne connaisse ni l'un ni l'autre.
+     * <p>Le geste arrive par le réseau et non par une commande cliente pour que
+     * {@code /blueprint} reste la seule racine du mod : une racine cliente du même nom
+     * aurait avalé tout l'arbre serveur, Fabric ne renvoyant au serveur que les commandes
+     * inconnues — pas celles dont seul le sous-chemin manque.
      */
-    public static <S> LiteralArgumentBuilder<S> editCommand(ClientFeedback<S> feedback) {
-        return LiteralArgumentBuilder.<S>literal("blueprint-edit")
-                .executes(context -> forward(say(context.getSource(), feedback),
-                        "blueprint edit"))
-                // « demo » reste local : c'est le seul chemin qui fonctionne
-                // hors serveur, quand il n'y a rien à demander à personne.
-                .then(LiteralArgumentBuilder.<S>literal("demo").executes(context -> {
-                    Minecraft mc = Minecraft.getInstance();
-                    mc.schedule(() -> openDemoEditor(mc));
-                    return Command.SINGLE_SUCCESS;
-                }))
-                .then(LiteralArgumentBuilder.<S>literal("create")
-                        .then(RequiredArgumentBuilder.<S, String>argument("id",
-                                        StringArgumentType.greedyString())
-                                .executes(context -> forward(say(context.getSource(), feedback),
-                                        "blueprint create "
-                                                + StringArgumentType.getString(context, "id")))))
-                .then(RequiredArgumentBuilder.<S, String>argument("id",
-                                StringArgumentType.greedyString())
-                        .suggests((context, builder) -> {
-                            for (Identifier id : fr.blueprint.client.net.BlueprintNet.known()) {
-                                builder.suggest(id.toString());
-                            }
-                            builder.suggest("demo");
-                            return builder.buildFuture();
-                        })
-                        .executes(context -> forward(say(context.getSource(), feedback),
-                                "blueprint edit "
-                                        + StringArgumentType.getString(context, "id"))));
-    }
-
-    /**
-     * {@code /blueprint-packs} — les packs (10.5), le dossier qu'on s'échange.
-     * Rechargeable à chaud : c'est tout l'intérêt d'un format qui n'est pas un pack de
-     * ressources Minecraft.
-     */
-    public static <S> LiteralArgumentBuilder<S> packsCommand(ClientFeedback<S> feedback) {
-        return LiteralArgumentBuilder.<S>literal("blueprint-packs")
-                .executes(context -> listPacks(say(context.getSource(), feedback)))
-                .then(LiteralArgumentBuilder.<S>literal("list")
-                        .executes(context -> listPacks(say(context.getSource(), feedback))))
-                .then(LiteralArgumentBuilder.<S>literal("reload")
-                        .executes(context -> reloadPacks(say(context.getSource(), feedback))));
-    }
-
-    /**
-     * Lie la source à sa façon de répondre, et n'en garde que le verbe.
-     *
-     * <p>C'est ici que le type du chargeur s'arrête : au-delà, les méthodes ne reçoivent
-     * plus qu'un « comment parler au joueur ». Elles portaient auparavant
-     * {@code FabricClientCommandSource} dans leur signature — cinq fois.
-     */
-    private static <S> Consumer<Component> say(S source, ClientFeedback<S> feedback) {
-        return message -> feedback.send(source, message);
-    }
-
-    /**
-     * Renvoie la commande au serveur. C'est ce qui fait de {@code /blueprint-edit} un
-     * alias et non un second chemin : le serveur applique ses propres vérifications,
-     * ses permissions et ses quotas, exactement comme si le joueur avait tapé
-     * {@code /blueprint …}.
-     */
-    private static int forward(Consumer<Component> say, String command) {
-        var connection = Minecraft.getInstance().getConnection();
-        if (connection == null) {
-            say.accept(Component.translatable("blueprint.editor.cmd.multiplayer"));
-            return 0;
+    public static void applyPacksAction(boolean reload, Consumer<Component> say) {
+        if (reload) {
+            reloadPacks(say);
+        } else {
+            listPacks(say);
         }
-        connection.sendCommand(command);
-        return Command.SINGLE_SUCCESS;
     }
 
     /**
@@ -239,7 +176,7 @@ public class BlueprintClient {
      * l'image ne s'affiche pas ne pense pas à ouvrir {@code latest.log}, et c'est
      * exactement lui qui a besoin de la raison.
      */
-    private static int listPacks(Consumer<Component> say) {
+    private static void listPacks(Consumer<Component> say) {
         var packs = fr.blueprint.client.pack.PackTextures.packs();
         if (packs.isEmpty()) {
             say.accept(Component.translatable("blueprint.pack.none",
@@ -266,10 +203,9 @@ public class BlueprintClient {
         for (var notice : fr.blueprint.client.content.DeclaredPack.notices()) {
             say.accept(Component.translatable("blueprint.cmd.content_pack_notice", notice));
         }
-        return Command.SINGLE_SUCCESS;
     }
 
-    private static int reloadPacks(Consumer<Component> say) {
+    private static void reloadPacks(Consumer<Component> say) {
         var result = fr.blueprint.client.pack.PackTextures.reload(
                 fr.blueprint.core.BlueprintPaths.scripts());
         say.accept(Component.translatable("blueprint.pack.reloaded",
@@ -278,7 +214,6 @@ public class BlueprintClient {
             say.accept(Component.translatable("blueprint.pack.rejected",
                     rejection.pack(), rejection.detail()));
         }
-        return Command.SINGLE_SUCCESS;
     }
 
     private static void openDemoEditor(Minecraft mc) {

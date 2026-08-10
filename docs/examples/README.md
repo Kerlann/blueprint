@@ -370,7 +370,7 @@ Et les nœuds **abaissés** par le compilateur — les boucles — apparaissent 
 comme `blueprint:list/size +3` : une boucle n'existe pas à l'exécution, elle devient
 plusieurs sortes d'instructions qui gardent toutes l'identifiant du nœud posé.
 
-Pour le lire ou le modifier : `/blueprint-edit blueprint:bench`.
+Pour le lire ou le modifier : `/blueprint edit blueprint:bench`.
 
 ## Ce qu'il exerce
 
@@ -416,4 +416,4 @@ et l'infobulle d'un pin donne son type.
 | | |
 |---|---|
 | [`content/`](https://github.com/Kerlann/blueprint/tree/main/docs/examples/content) | contenu déclaré — blocs et items en JSON, à copier dans `blueprint/content/`, puis `/blueprint content` |
-| [`packs/`](https://github.com/Kerlann/blueprint/tree/main/docs/examples/packs) | pack d'images d'exemple, à copier dans `blueprint/scripts/`, puis `/blueprint-packs reload` |
+| [`packs/`](https://github.com/Kerlann/blueprint/tree/main/docs/examples/packs) | pack d'images d'exemple, à copier dans `blueprint/scripts/`, puis `/blueprint packs reload` |

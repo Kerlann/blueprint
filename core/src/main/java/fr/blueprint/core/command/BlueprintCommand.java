@@ -178,6 +178,30 @@ public final class BlueprintCommand {
                 .then(literal("content")
                         .requires(admin)
                         .executes(BlueprintCommand::content))
+                // Les packs d'images (10.5). Pas de `requires(admin)` : ce sont les fichiers
+                // du joueur, sur son disque, et il n'agit que sur les siens.
+                //
+                // Elle vit ici et non dans une commande cliente pour que `/blueprint` reste
+                // la SEULE racine du mod : une racine cliente du même nom aurait avalé tout
+                // cet arbre — Fabric ne renvoie au serveur que les commandes inconnues, pas
+                // celles dont seul le sous-chemin manque.
+                .then(literal("packs")
+                        .executes(ctx -> packs(ctx, false))
+                        .then(literal("list").executes(ctx -> packs(ctx, false)))
+                        .then(literal("reload").executes(ctx -> packs(ctx, true))))
+                // Les données d'un joueur (NFR14) : les voir, les effacer. Réservé aux
+                // administrateurs — le poids des variables d'un joueur en dit long sur ce
+                // que les graphes gardent de lui, et l'effacement est irréversible.
+                //
+                // Le joueur se désigne par NOM ou par UUID, et non par un sélecteur
+                // d'entité : celui qui demande l'effacement de ses données est en général
+                // parti, et un sélecteur ne résout que les joueurs connectés.
+                .then(literal("vars")
+                        .requires(admin)
+                        .then(literal("info")
+                                .then(playerArgument().executes(BlueprintCommand::varsInfo)))
+                        .then(literal("purge")
+                                .then(playerArgument().executes(BlueprintCommand::varsPurge))))
                 // Signal (batch 1) : émettre depuis l'extérieur — une autre commande,
                 // un bloc de commande, un mod. Sans permission d'admin : un signal ne
                 // peut rien faire que le blueprint qui l'écoute n'ait déjà le droit
@@ -689,6 +713,104 @@ public final class BlueprintCommand {
 
     private static RequiredArgumentBuilder<CommandSourceStack, Identifier> idArgument() {
         return RequiredArgumentBuilder.argument("id", IdentifierArgument.id());
+    }
+
+    /**
+     * Liste ou recharge les packs de l'appelant (10.5).
+     *
+     * <p>Le serveur ne fait que transmettre : il ne sait pas quels packs le joueur a, et
+     * n'a pas à le savoir. La réponse s'affiche donc chez le client, pas ici — d'où
+     * l'absence de {@code sendSuccess} en cas de succès.
+     */
+    private static int packs(CommandContext<CommandSourceStack> ctx, boolean reload) {
+        var player = ctx.getSource().getPlayer();
+        if (player == null) {
+            // La console n'a ni disque de packs ni chat où répondre. Le dire plutôt que de
+            // ne rien faire : une commande silencieuse passe pour une commande cassée.
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.packs.no_player"));
+            return 0;
+        }
+        if (!fr.blueprint.core.net.ServerBlueprintNet.sendPacksAction(player, reload)) {
+            ctx.getSource().sendFailure(Component.translatable("blueprint.cmd.packs.no_client"));
+            return 0;
+        }
+        return 1;
+    }
+
+    /**
+     * Un joueur désigné par son nom ou son UUID (NFR14).
+     *
+     * <p>Un mot et non un sélecteur d'entité : celui dont on efface les données est
+     * généralement déconnecté, et {@code @p} ou un nom résolu par le sélecteur ne trouve
+     * que les joueurs présents. Les suggestions listent les connectés, qui sont le cas
+     * courant ; taper un UUID reste possible pour les autres.
+     */
+    private static RequiredArgumentBuilder<CommandSourceStack, String> playerArgument() {
+        return RequiredArgumentBuilder.<CommandSourceStack, String>argument("player",
+                        com.mojang.brigadier.arguments.StringArgumentType.word())
+                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                        ctx.getSource().getServer().getPlayerList().getPlayers().stream()
+                                .map(p -> p.getGameProfile().name()),
+                        builder));
+    }
+
+    /**
+     * Le joueur nommé, ou {@code null} si rien ne le résout.
+     *
+     * <p>Trois chemins, du plus sûr au plus commode : un UUID écrit tel quel, un joueur
+     * connecté, puis le cache de profils du serveur. Le dernier est ce qui rend l'effacement
+     * possible pour quelqu'un qui a quitté le serveur — et c'est précisément le cas que
+     * NFR14 vise.
+     */
+    private static @org.jetbrains.annotations.Nullable java.util.UUID resolvePlayer(
+            net.minecraft.server.MinecraftServer server, String name) {
+        try {
+            return java.util.UUID.fromString(name);
+        } catch (IllegalArgumentException notAUuid) {
+            // Un nom, alors — le cas ordinaire.
+        }
+        var online = server.getPlayerList().getPlayerByName(name);
+        if (online != null) {
+            return online.getUUID();
+        }
+        return server.services().nameToIdCache().get(name)
+                .map(net.minecraft.server.players.NameAndId::id)
+                .orElse(null);
+    }
+
+    private static int varsInfo(CommandContext<CommandSourceStack> ctx) {
+        var server = ctx.getSource().getServer();
+        String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "player");
+        java.util.UUID uuid = resolvePlayer(server, name);
+        if (uuid == null) {
+            ctx.getSource().sendFailure(
+                    Component.translatable("blueprint.cmd.vars.unknown_player", name));
+            return 0;
+        }
+        int used = fr.blueprint.core.BlueprintMod.varsOf(server).playerBytes(uuid);
+        int max = fr.blueprint.core.vm.VarQuota.MAX_PLAYER_BYTES;
+        // En long : un monde écrit avant que le plafond n'existe peut porter un joueur bien
+        // au-delà de 21 Mo, et `used * 100` déborderait alors en un pourcentage NÉGATIF —
+        // un chiffre absurde là où l'on vient justement chercher un chiffre.
+        long percent = (long) used * 100 / max;
+        ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.vars.info",
+                name, used, max, percent), false);
+        return used;
+    }
+
+    private static int varsPurge(CommandContext<CommandSourceStack> ctx) {
+        var server = ctx.getSource().getServer();
+        String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "player");
+        java.util.UUID uuid = resolvePlayer(server, name);
+        if (uuid == null) {
+            ctx.getSource().sendFailure(
+                    Component.translatable("blueprint.cmd.vars.unknown_player", name));
+            return 0;
+        }
+        int freed = fr.blueprint.core.BlueprintMod.varsOf(server).forget(uuid);
+        ctx.getSource().sendSuccess(() -> Component.translatable("blueprint.cmd.vars.purged",
+                name, freed), true);
+        return freed;
     }
 
     private static int list(CommandContext<CommandSourceStack> ctx) {

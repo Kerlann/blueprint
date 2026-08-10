@@ -8,6 +8,104 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Modifié — une seule commande racine
+
+Le mod en posait **trois** : `/blueprint` côté serveur, `/blueprint-edit` et
+`/blueprint-packs` côté client. Il n'en pose plus qu'une.
+
+- **`/blueprint-edit` est supprimée.** Elle ne décidait plus rien depuis longtemps — son
+  propre javadoc la décrivait comme « un ALIAS de `/blueprint edit` » : elle réécrivait la
+  commande et la renvoyait au serveur. Elle obligeait en échange à maintenir deux jeux de
+  suggestions, dont l'un lisait une liste reçue à la connexion, périmée dès la première
+  création. `/blueprint edit` lit le gestionnaire vivant, et **F6** couvre le seul chemin qui
+  était réellement local (l'éditeur de démo, hors serveur).
+- **`/blueprint-packs` devient `/blueprint packs list|reload`**, une commande serveur qui
+  transmet la demande au client par un paquet (`PacksAction`). Le serveur ne sait pas quels
+  packs le joueur a et n'a pas à le savoir : tout le travail — le disque, les textures,
+  l'affichage — reste chez le client, où les packs vivent. Ouverte à tous, et elle n'agit que
+  sur les packs de l'appelant.
+- **Ce n'était pas qu'un rangement.** Le geste évident — une racine *cliente* nommée
+  `blueprint` — aurait intercepté tout l'arbre serveur : Fabric ne renvoie au serveur que les
+  commandes **inconnues** (`dispatcherUnknownCommand`), pas celles dont seul le sous-chemin
+  manque. Un `/blueprint list` aurait levé `dispatcherUnknownArgument` chez le client, qui
+  aurait répondu « argument incorrect » sans rien envoyer. C'est pourquoi les packs passent
+  par un paquet et non par un renommage.
+- **`ClientFeedback` est supprimée** avec elles. Cette interface de `platform` n'existait que
+  pour abstraire le type de source des commandes clientes, qui diverge entre Fabric et
+  NeoForge — le seul endroit du portage où les deux chargeurs se séparaient sur les commandes.
+  Sans commande cliente, le problème n'est plus contourné : il n'existe plus.
+
+Les racines **dynamiques** ne changent pas : un blueprint qui déclare `home` obtient toujours
+`/home`. Ce sont des commandes d'auteur, pas des commandes du mod.
+
+### Ajouté — NFR14, les données d'un joueur
+
+L'exigence était écrite depuis le PRD (`prd.md`, NFR14 : « les données d'un joueur sont
+supprimables et n'excèdent pas 64 Ko par joueur ») et **rien ne l'implémentait**. Tout vivait
+dans le `SavedData` du monde sans aucune borne, et aucun moyen n'existait d'effacer un joueur.
+Un graphe qui ajoute une ligne d'historique à chaque mort — cas parfaitement ordinaire —
+faisait grossir la sauvegarde du monde sans fin, sans qu'aucun symptôme ne le dise avant que
+le fichier ne devienne pénible à écrire.
+
+- **Plafond de 64 Ko par joueur**, portées `@player` et `@player_shared` **confondues**.
+  NFR14 ne nomme que la première, née avant la seconde ; les compter séparément aurait donné
+  un plafond qu'un changement de mot-clé suffit à contourner.
+- **Le poids est estimé, pas mesuré.** Le poids exact serait celui du NBT, donc un encodage
+  complet à chaque écriture, dans le chemin de la VM. L'estimation est volontairement
+  **majorante** — deux octets par caractère là où l'UTF-8 en écrit souvent un : se tromper
+  vers le haut refuse un peu tôt, se tromper vers le bas laisse passer ce que le plafond
+  existe pour interdire, et c'est la seule des deux erreurs qui ne se voit pas.
+- **Une écriture au-delà du plafond faute en le disant**, elle ne disparaît pas. Un graphe
+  qui croit avoir enregistré la progression du joueur est une panne que le joueur découvre à
+  sa reconnexion suivante, sans que rien ne relie les deux.
+- **Un joueur déjà au-delà peut encore réduire** : seule une écriture qui fait grossir est
+  refusée. Sans cela, un joueur au-delà du plafond ne pourrait plus rien écrire, pas même
+  pour faire le ménage.
+- **`/blueprint vars info <joueur|uuid>`** et **`/blueprint vars purge <joueur|uuid>`**,
+  réservées aux administrateurs, la seconde journalisée. Par nom ou UUID et non par sélecteur
+  d'entité : celui qui demande l'effacement de ses données a en général quitté le serveur, et
+  un sélecteur ne résout que les joueurs connectés. La purge n'emporte que les portées
+  joueur — jamais `@world` ni `@graph`, qui sont les données de la partie.
+
+### Corrigé — robustesse du fil
+
+Quatre défauts trouvés par un audit du partage client/serveur (`docs/plan-replication.md`).
+Les trois premiers touchaient **le même chemin** : les modifications d'écran d'un tick
+voyagent groupées, donc un seul échec ne coûtait pas une modification mais **toutes celles
+du joueur** — sans rien signaler, le graphe continuant comme si de rien n'était.
+
+- **Une nature de modification inconnue n'emporte plus la trame.** Le codec faisait
+  `Kind.values()[ordinal]` sans borne : un ordinal hors plage levait une
+  `ArrayIndexOutOfBoundsException` chez le client. Ce n'est pas une hypothèse — la liste des
+  natures a grandi deux fois (cinq en 10.4, douze en 10.13), donc un client plus ancien que
+  son serveur est un cas **attendu**. L'entrée illisible est maintenant lue jusqu'au bout
+  puis jetée ; les suivantes arrivent.
+- **Un texte ou une liste trop longs sont coupés au lieu de faire lever l'encodeur.** Rien
+  ne bornait la longueur avant le fil : `GraphGuard` plafonne les textes **du graphe** à
+  4 096 caractères, mais `string/concat` en fabrique de bien plus longs à l'exécution, et
+  `gui/set_text` les transmettait tels quels. Le plafond vit désormais dans le modèle
+  (`ScreenUpdate.MAX_TEXT`) et son constructeur le fait respecter. Les listes sont tronquées
+  **par lignes entières** : une dernière ligne coupée en plein mot se lit comme une donnée,
+  pas comme une limite atteinte.
+- **Une file de modifications trop longue se découpe en plusieurs trames.** Elle est indexée
+  par écran+élément+nature : 128 éléments et douze natures la portent bien au-delà du
+  plafond d'une trame sans qu'aucun abus soit en cause. Découper plutôt que tronquer, parce
+  qu'une modification jetée en silence laisse un élément sur une valeur périmée que le graphe
+  croit avoir changée.
+- **Les quotas de clics et d'ouvertures d'écran sont oubliés à la déconnexion.** Deux des
+  quatre seaux ne l'étaient pas : chaque joueur ayant jamais cliqué laissait une entrée
+  gardée jusqu'au redémarrage, alors que `RateLimiter` affirme que sa table est bornée par le
+  nombre de joueurs connectés. `forget` parcourt maintenant une liste unique — deux endroits
+  à tenir d'accord étaient la cause.
+
+### Corrigé — messages
+
+- **La faute d'une variable sans propriétaire ne renvoie plus vers des nœuds inexistants.**
+  Elle recommandait `var/get_for` / `var/set_for`, jamais enregistrés : `StandardNodes` ne
+  déclare que `var/get` et `var/set`. L'auteur cherchait dans la palette un mot qu'aucun
+  nœud ne porte. Le message nomme désormais les deux sorties réelles — brancher le graphe sur
+  un événement qui porte un joueur, ou donner à la variable une portée qui n'en demande pas.
+
 ### Modifié — comportement
 
 - **`world/get_block` et `world/is_block` ne génèrent plus de chunk.** Les deux nœuds

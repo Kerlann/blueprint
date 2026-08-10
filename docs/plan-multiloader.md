@@ -128,6 +128,13 @@ le construit avec son propre type, et fournit un seul verbe — `ClientFeedback`
 `ClientCommandManager` disparaît au passage : ce n'était qu'un `LiteralArgumentBuilder`
 déjà typé, et Brigadier brut est commun à tous les chargeurs.
 
+> **Depuis, le piège a disparu au lieu d'être contourné.** Le mod n'a plus de commande
+> cliente du tout : `/blueprint-edit` n'était qu'un alias qui réécrivait `/blueprint edit`,
+> et `/blueprint-packs` est devenu `/blueprint packs` — une commande serveur qui transmet la
+> demande par un paquet. `ClientFeedback` est donc supprimé, et avec lui le seul endroit où
+> les deux chargeurs divergeaient sur les commandes. La bonne solution d'un problème de
+> portage était de ne plus avoir le problème.
+
 Deux abonnements au tick client se rejoignent en un `endClientTick`, ce qui fait de leur
 ordre une propriété du code plutôt que de l'ordre d'enregistrement.
 

@@ -70,14 +70,27 @@ public final class VarStorage extends SavedData implements VarStore {
     }
 
     @Override
-    public void set(VarScope scope, VarOwner owner, String name, @Nullable Object value) {
-        if (!VarStore.owns(scope, owner)) {
-            return;
-        }
-        Map<String, Object> bucket = buckets.of(scope, owner, true);
-        if (bucket != null) {
-            bucket.put(name, value);
-        }
+    public boolean set(VarScope scope, VarOwner owner, String name, @Nullable Object value) {
+        // Un propriétaire manquant rend VRAI : la VM a déjà fauté avant d'arriver ici, et
+        // rendre faux ferait remonter le message du plafond à la place du bon.
+        return !VarStore.owns(scope, owner) || buckets.put(scope, owner, name, value);
+    }
+
+    /**
+     * Efface les données d'un joueur, et le <b>dit dans le journal</b>. Une suppression
+     * irréversible qui ne laisse aucune trace est indistinguable d'une perte de données :
+     * six mois plus tard, personne ne peut répondre à « qui a effacé ma progression ? ».
+     */
+    @Override
+    public int forget(UUID player) {
+        int freed = buckets.forget(player);
+        LOGGER.info("Variables joueur de {} effacées — {} octets libérés", player, freed);
+        return freed;
+    }
+
+    @Override
+    public int playerBytes(UUID player) {
+        return buckets.playerBytesOf(player);
     }
 
     @Override
@@ -144,6 +157,10 @@ public final class VarStorage extends SavedData implements VarStore {
                         .put(id, bucket);
             }
         }
+        // Les casiers ont été remplis directement, sans passer par le chemin qui tient les
+        // totaux : sans ce recompte, tous les joueurs repartiraient à zéro octet et le
+        // plafond ne s'appliquerait qu'aux données écrites depuis le dernier démarrage.
+        storage.buckets.recount();
         return storage;
     }
 

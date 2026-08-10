@@ -179,6 +179,23 @@ Pour regarder ce qui se passe vraiment, un administrateur dispose du **débogueu
 /blueprint profile <id> on        puis  show   (quels nœuds coûtent cher)
 ```
 
+Et pour les **données que les graphes gardent d'un joueur** — les variables de portée
+`@player` et `@player_shared` :
+
+```
+/blueprint vars info <joueur|uuid>     ce qu'il occupe, sur les 64 Ko accordés
+/blueprint vars purge <joueur|uuid>    tout effacer, définitivement
+```
+
+Le joueur se désigne par son **nom ou son UUID**, et non par un sélecteur `@p` : celui qui
+demande l'effacement de ses données a en général déjà quitté le serveur. L'effacement
+n'emporte que ses variables de joueur — jamais celles de portée `@world` ou `@graph`, qui
+sont les données de la partie et non les siennes. Il est irréversible, et journalisé.
+
+Un graphe qui essaie d'écrire au-delà des 64 Ko **faute en le disant**, plutôt que de perdre
+l'écriture en silence : un graphe qui croit avoir enregistré la progression du joueur est
+une panne que le joueur découvre à sa reconnexion suivante, sans que rien ne relie les deux.
+
 ---
 
 ## 7. Partager un blueprint
@@ -378,9 +395,9 @@ blueprint/scripts/
 Dans l'écran, une image se désigne par `<pack>/<fichier>` — `ma_boutique/fond`.
 
 - **Donner son menu** = donner le dossier.
-- **Le recevoir** = le déposer dans `blueprint/scripts/`, puis `/blueprint-packs reload`
+- **Le recevoir** = le déposer dans `blueprint/scripts/`, puis `/blueprint packs reload`
   — sans quitter la partie.
-- `/blueprint-packs` liste ce qui est installé, et **ce qui a été écarté avec la raison**.
+- `/blueprint packs` liste ce qui est installé, et **ce qui a été écarté avec la raison**.
 
 Un exemple complet, prêt à copier : [`examples/packs/ma_boutique/`](https://github.com/Kerlann/blueprint/tree/main/docs/examples/packs/ma_boutique).
 
@@ -469,7 +486,7 @@ de démarrer.
 Un item marqué **sans image** s'affichera en damier magenta : il lui manque son PNG voisin.
 Les textures passent par un pack de ressources que Blueprint génère tout seul dans
 `resourcepacks/blueprint_content/` et coche à sa création. Si vous le décochez, il **reste**
-décoché — c'est votre réglage, et `/blueprint-packs` vous le rappellera.
+décoché — c'est votre réglage, et `/blueprint packs` vous le rappellera.
 
 ### Les faire agir
 

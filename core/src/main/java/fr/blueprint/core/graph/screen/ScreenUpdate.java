@@ -68,6 +68,21 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
         SCROLL_X
     }
 
+    /**
+     * Longueur maximale du texte d'une modification, <b>sur le fil</b> (1 024 caractères) :
+     * un libellé d'élément peut être une phrase, pas une page.
+     *
+     * <p>Le nombre vit ICI et non dans le codec, et le constructeur le fait respecter, pour
+     * une raison précise : un texte trop long ne produisait pas un libellé coupé, il
+     * <b>faisait éclater l'encodeur côté serveur</b> — et comme les modifications d'un tick
+     * voyagent groupées (AC3b), l'exception emportait toute la trame du joueur, y compris
+     * les modifications parfaitement valides des autres écrans. Rien dans le chemin ne
+     * bornait la longueur : {@code GraphGuard} plafonne les textes <i>du graphe</i> à
+     * 4 096 caractères, mais un {@code string/concat} en fabrique de bien plus longs à
+     * l'exécution, et {@code gui/set_text} les transmettait tels quels.
+     */
+    public static final int MAX_TEXT = 1_024;
+
     public ScreenUpdate {
         if (screen == null) {
             screen = "";
@@ -86,6 +101,12 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
         // le serveur ne doit pas envoyer ce qu'il sait faux.
         if (kind == Kind.PROGRESS) {
             number = Double.isFinite(number) ? Math.clamp(number, 0, 1) : 0;
+        }
+        // Même règle, même raison : le serveur n'envoie pas ce qu'il sait inencodable.
+        // Un libellé coupé se VOIT ; une trame perdue ne se voit pas, et le graphe qui
+        // l'a provoquée continue comme si de rien n'était.
+        if (text.length() > MAX_TEXT) {
+            text = text.substring(0, MAX_TEXT);
         }
     }
 
@@ -139,11 +160,39 @@ public record ScreenUpdate(String screen, String element, Kind kind, String text
      * le champ texte : un second champ de type liste sur le fil aurait demandé son propre
      * encodage, alors qu'une ligne de liste ne contient jamais de saut de ligne — elle
      * ne s'afficherait pas sur une ligne si c'était le cas.
+     *
+     * <p>La troncature se fait <b>par lignes entières</b>, et non en laissant le
+     * constructeur couper le texte joint : une liste de cent lignes de vingt caractères
+     * dépasse {@link #MAX_TEXT} sans qu'aucune de ses lignes ne soit longue, et une coupe
+     * au caractère aurait rendu une dernière ligne tronquée que rien ne distingue d'une
+     * vraie — « Épée de diam » se lit comme une donnée, pas comme une limite atteinte.
+     * Le nombre transporté est celui des lignes <b>retenues</b>, pour que le client ne
+     * croie pas en avoir reçu davantage.
      */
     public static ScreenUpdate lines(String screen, String element,
                                      java.util.List<String> values) {
-        return new ScreenUpdate(screen, element, Kind.LINES,
-                String.join("\n", values), false, values.size());
+        StringBuilder joined = new StringBuilder();
+        int kept = 0;
+        for (String value : values) {
+            String line = value == null ? "" : value;
+            int added = (kept == 0 ? 0 : 1) + line.length();
+            if (joined.length() + added > MAX_TEXT) {
+                break;
+            }
+            if (kept > 0) {
+                joined.append('\n');
+            }
+            joined.append(line);
+            kept++;
+        }
+        // Une PREMIÈRE ligne à elle seule plus longue que le plafond est le seul cas où
+        // couper au caractère vaut mieux que jeter : rendre la liste vide ferait croire
+        // qu'il n'y a rien à lire. Le constructeur s'en charge.
+        if (kept == 0 && !values.isEmpty()) {
+            return new ScreenUpdate(screen, element, Kind.LINES,
+                    values.get(0) == null ? "" : values.get(0), false, 1);
+        }
+        return new ScreenUpdate(screen, element, Kind.LINES, joined.toString(), false, kept);
     }
 
     /** Les lignes portées par cette modification ; vide si ce n'en est pas une. */

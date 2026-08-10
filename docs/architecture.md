@@ -131,7 +131,7 @@ record Link(UUID fromNode, String fromPin, UUID toNode, String toPin) {}
 record Variable(String name, PinType type, LiteralValue defaultValue,
                 VarScope scope, boolean replicated) {}
 
-enum VarScope { LOCAL, GRAPH, WORLD, PLAYER }
+enum VarScope { LOCAL, GRAPH, PLAYER, PLAYER_SHARED, WORLD }
 ```
 
 Le `Node` **ne contient pas ses pins** : les pins viennent du `NodeType` résolu depuis
@@ -366,11 +366,22 @@ enregistrés via `PayloadTypeRegistry.playC2S()` / `playS2C()`.
 |---|---|---|
 | Blueprints du monde | `SavedData` de la sauvegarde (via `SavedDataType` + `Codec`) | NBT gzip |
 | Exécutions suspendues | idem | NBT |
-| Variables `WORLD` | idem | NBT |
-| Variables `PLAYER` | données persistantes du joueur, ≤ 64 Ko | NBT |
+| Variables, **toutes portées** sauf `LOCAL` | `SavedData` distinct `blueprint_vars` | NBT |
 | Bibliothèque partagée / exports | `blueprint/` | `.bp` (BScript) |
 | Nœuds datapack | `data/<modid>/blueprint/nodes/*.json` | JSON, rechargé à `/reload` |
 | Thème de l'éditeur | `assets/blueprint/theme/*.json` | JSON |
+
+Un `SavedData` à part pour les variables (`blueprint_vars`) et non le même que les graphes :
+les deux n'ont ni la même fréquence d'écriture ni la même durée de vie, et la même règle de
+rangement sert la mémoire et le disque (`VarBuckets`, réutilisé par `VarStorage` et par
+`VarStore.inMemory`).
+
+**NFR14** est tenu par `VarQuota` : 64 Ko par joueur, `PLAYER` et `PLAYER_SHARED`
+**confondues** — les deux portent les données d'un joueur, et compter la première sans la
+seconde donnerait un plafond qu'un changement de mot-clé suffit à contourner. Le total est
+tenu au fil des écritures par `VarBuckets` et recalé au chargement (`recount`) ; une écriture
+qui ferait dépasser **faute en le disant** plutôt que de disparaître. L'effacement est
+`/blueprint vars purge <joueur>`, journalisé, et n'emporte que les portées joueur.
 
 Écriture atomique (fichier temporaire + renommage). Une sauvegarde de l'ancienne version
 est conservée avant toute migration de schéma.

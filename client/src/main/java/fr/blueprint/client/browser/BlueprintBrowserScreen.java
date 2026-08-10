@@ -18,7 +18,7 @@ import java.util.List;
  * Le navigateur de blueprints — ce que F6 ouvre.
  *
  * <p>Avant, F6 ouvrait <b>une démo</b>, et travailler sur un vrai graphe demandait de
- * taper {@code /blueprint-edit <identifiant complet>} de mémoire. Le navigateur montre
+ * taper {@code /blueprint edit <identifiant complet>} de mémoire. Le navigateur montre
  * ce qui existe, sous forme de dossiers, et donne les trois gestes qui manquaient :
  * ouvrir, créer, importer.
  *

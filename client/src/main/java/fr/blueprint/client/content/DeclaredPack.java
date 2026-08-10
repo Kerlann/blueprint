@@ -96,7 +96,7 @@ public final class DeclaredPack {
      * décoché à chaque lancement rendrait la case du menu inopérante — le joueur cocherait
      * et décocherait sans que rien ne tienne, et ne comprendrait pas pourquoi. Un pack
      * présent mais désactivé n'est donc pas une panne à réparer : c'est une décision, et
-     * on la dit dans {@code /blueprint-packs} plutôt que de la défaire.
+     * on la dit dans {@code /blueprint packs} plutôt que de la défaire.
      */
     public static void activate(Minecraft client) {
         if (pack == null || pack.dressed() == 0) {

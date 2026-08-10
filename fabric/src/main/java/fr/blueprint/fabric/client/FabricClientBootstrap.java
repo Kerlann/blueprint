@@ -2,23 +2,21 @@ package fr.blueprint.fabric.client;
 
 import fr.blueprint.client.BlueprintClient;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 
 /**
  * Le point d'entrée client, et les trois fils que Fabric branche dessus.
  *
- * <p>Du câblage, rien d'autre. Le seul endroit qui demande un regard est
- * {@code FabricClientCommandSource} : c'est le type de source des commandes client chez
- * Fabric, il n'existe nulle part ailleurs, et c'est ici — et seulement ici — qu'il est
- * nommé. Le code commun construit son arbre Brigadier générique sur la source et ne
- * demande d'elle qu'un verbe, {@code sendFeedback}.
+ * <p>Du câblage, rien d'autre — et plus aucune commande. Ce fichier en enregistrait deux
+ * racines, {@code /blueprint-edit} et {@code /blueprint-packs}, seul endroit du dépôt où
+ * {@code FabricClientCommandSource} était nommé. Le mod n'expose plus qu'une racine,
+ * {@code /blueprint}, côté serveur : l'alias a disparu et les packs passent par un paquet
+ * ({@code BlueprintClient.applyPacksAction}).
  *
- * <p>{@code ClientCommandManager.literal(…)} n'apparaît plus nulle part : ce n'était
- * qu'un {@code LiteralArgumentBuilder} déjà typé sur la source de Fabric. Brigadier
- * suffit, et il est commun à tous les chargeurs.
+ * <p>Ce n'est pas qu'un rangement. Une racine <i>cliente</i> nommée {@code blueprint} aurait
+ * intercepté tout l'arbre serveur : Fabric ne renvoie au serveur que les commandes inconnues,
+ * pas celles dont seul le sous-chemin manque.
  */
 public final class FabricClientBootstrap implements ClientModInitializer {
 
@@ -32,12 +30,5 @@ public final class FabricClientBootstrap implements ClientModInitializer {
                 (handler, sender, client) -> BlueprintClient.onJoin());
         ClientPlayConnectionEvents.DISCONNECT.register(
                 (handler, client) -> BlueprintClient.onDisconnect());
-
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            dispatcher.register(BlueprintClient.<FabricClientCommandSource>editCommand(
-                    FabricClientCommandSource::sendFeedback));
-            dispatcher.register(BlueprintClient.<FabricClientCommandSource>packsCommand(
-                    FabricClientCommandSource::sendFeedback));
-        });
     }
 }

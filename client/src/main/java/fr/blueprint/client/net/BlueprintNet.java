@@ -29,7 +29,7 @@ public final class BlueprintNet {
     private BlueprintNet() {
     }
 
-    /** Derniers identifiants annoncés par le serveur (suggestions et /blueprint-edit). */
+    /** Derniers identifiants annoncés par le serveur (suggestions du navigateur). */
     private static volatile List<Identifier> known = List.of();
     private static volatile boolean writable;
     /** Session ouverte, pour lui remettre le verdict d'un enregistrement. */
@@ -72,6 +72,13 @@ public final class BlueprintNet {
         // découvrir au refus de l'enregistrement.
         network.receive(BlueprintPayloads.ServerLimits.TYPE,
                 (payload, context) -> limits = payload.toGraphLimits());
+
+        // Les packs (10.5) : le serveur n'en sait rien, il ne fait que transmettre la
+        // demande de l'appelant. Tout le travail — le disque, les textures, l'affichage —
+        // se fait ici, où les packs vivent réellement.
+        network.receive(BlueprintPayloads.PacksAction.TYPE,
+                (payload, context) -> fr.blueprint.client.BlueprintClient.applyPacksAction(
+                        payload.reload(), BlueprintNet::say));
 
         network.receive(BlueprintPayloads.ListData.TYPE,
                 (payload, context) -> {

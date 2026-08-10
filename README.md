@@ -42,7 +42,7 @@ Then, in game:
 |---|---|
 | `/blueprint showcase` then `/vitrine` | see the twelve widget kinds, all wired |
 | `/blueprint bench` then `/bench` | run the performance bench |
-| `/blueprint-edit create my_first` | create your own |
+| `/blueprint create my_first` | create your own |
 | `F6` | reopen the last one edited |
 
 The step-by-step guide is in [`docs/getting-started.md`](docs/getting-started.md) — first

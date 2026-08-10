@@ -39,11 +39,8 @@ public final class BlueprintNeoForgeClient {
                 BlueprintClient.endClientTick(net.minecraft.client.Minecraft.getInstance()));
         jeu.addListener((PlayerEvent.PlayerLoggedInEvent e) -> BlueprintClient.onJoin());
         jeu.addListener((PlayerEvent.PlayerLoggedOutEvent e) -> BlueprintClient.onDisconnect());
-        jeu.addListener((RegisterClientCommandsEvent e) -> {
-            e.getDispatcher().register(BlueprintClient.<CommandSourceStack>editCommand(
-                    (source, message) -> source.sendSuccess(() -> message, false)));
-            e.getDispatcher().register(BlueprintClient.<CommandSourceStack>packsCommand(
-                    (source, message) -> source.sendSuccess(() -> message, false)));
-        });
+        // Plus aucune commande cliente : le mod n'expose qu'une racine, /blueprint, côté
+        // serveur. /blueprint-edit n'était qu'un alias, et /blueprint-packs est devenu
+        // /blueprint packs — une commande serveur qui transmet la demande par paquet.
     }
 }

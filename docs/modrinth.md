@@ -201,7 +201,7 @@ their wiring and come back to life when the mod is reinstalled.
 2. [Fabric API](https://modrinth.com/mod/fabric-api) 0.139.4+
 3. Drop the jar in `mods/`
 
-Then `/blueprint-edit create my_first`, or press **F6**. A ten-minute guide is in
+Then `/blueprint create my_first`, or press **F6**. A ten-minute guide is in
 [`docs/getting-started.md`](https://github.com/Kerlann/blueprint/blob/main/docs/getting-started.md).
 
 Server-side only? The editor is client-side, so players need the mod to edit — but graphs

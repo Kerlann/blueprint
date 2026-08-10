@@ -43,6 +43,10 @@ public enum VarScope {
      * <p>Le partage se déclare des deux côtés : deux graphes qui se rencontrent ici l'ont
      * tous les deux voulu, et un type qui ne correspond pas est une erreur d'auteur, non
      * une collision subie.
+     *
+     * <p>Elle partage avec {@code PLAYER} le plafond de 64 Ko du joueur (NFR14, voir
+     * {@code VarQuota}) : les deux portent ses données, et deux budgets séparés se
+     * contourneraient en changeant un mot-clé.
      */
     PLAYER_SHARED,
     /** Globale au monde, et commune à tous les blueprints. */

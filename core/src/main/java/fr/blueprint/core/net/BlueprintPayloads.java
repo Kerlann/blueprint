@@ -43,7 +43,6 @@ public final class BlueprintPayloads {
         }
     }
 
-    /** C2S : la liste des blueprints du serveur (alimente /blueprint-edit en multi). */
     /**
      * S2C au join : les <b>bornes que ce serveur applique</b> (story 10.6, AC2).
      *
@@ -78,6 +77,7 @@ public final class BlueprintPayloads {
         }
     }
 
+    /** C2S : la liste des blueprints du serveur (alimente le navigateur et les suggestions). */
     public record ListRequest(int nonce) implements CustomPacketPayload {
         public static final Type<ListRequest> TYPE = new Type<>(id("bp_list_request"));
         public static final StreamCodec<ByteBuf, ListRequest> CODEC =
@@ -196,7 +196,7 @@ public final class BlueprintPayloads {
         }
     }
 
-    /** C2S : création puis ouverture immédiate (/blueprint-edit create). */
+    /** C2S : création puis ouverture immédiate (/blueprint create). */
     public record CreateRequest(Identifier blueprint) implements CustomPacketPayload {
         public static final Type<CreateRequest> TYPE = new Type<>(id("bp_create_request"));
         public static final StreamCodec<ByteBuf, CreateRequest> CODEC =
@@ -510,27 +510,86 @@ public final class BlueprintPayloads {
             implements CustomPacketPayload {
         public static final Type<ScreenUpdates> TYPE = new Type<>(id("screen_updates"));
 
-        /** Une modification sur le fil. L'ordinal voyage, jamais un nom de classe. */
-        public static final StreamCodec<ByteBuf, fr.blueprint.core.graph.screen.ScreenUpdate>
-                UPDATE_CODEC = StreamCodec.composite(
-                ByteBufCodecs.stringUtf8(MAX_NAME),
-                fr.blueprint.core.graph.screen.ScreenUpdate::screen,
-                ByteBufCodecs.stringUtf8(MAX_NAME),
-                fr.blueprint.core.graph.screen.ScreenUpdate::element,
-                ByteBufCodecs.idMapper(
-                        i -> fr.blueprint.core.graph.screen.ScreenUpdate.Kind.values()[i],
-                        fr.blueprint.core.graph.screen.ScreenUpdate.Kind::ordinal),
-                fr.blueprint.core.graph.screen.ScreenUpdate::kind,
-                ByteBufCodecs.stringUtf8(MAX_TEXT),
-                fr.blueprint.core.graph.screen.ScreenUpdate::text,
-                ByteBufCodecs.BOOL, fr.blueprint.core.graph.screen.ScreenUpdate::flag,
-                ByteBufCodecs.DOUBLE, fr.blueprint.core.graph.screen.ScreenUpdate::number,
-                fr.blueprint.core.graph.screen.ScreenUpdate::new);
+        public static final StreamCodec<ByteBuf, ScreenUpdates> CODEC =
+                StreamCodec.of(ScreenUpdates::write, ScreenUpdates::read);
 
-        public static final StreamCodec<ByteBuf, ScreenUpdates> CODEC = StreamCodec.composite(
-                ByteBufCodecs.VAR_INT, ScreenUpdates::instance,
-                UPDATE_CODEC.apply(ByteBufCodecs.list(MAX_UPDATES)), ScreenUpdates::updates,
-                ScreenUpdates::new);
+        /**
+         * Découpe des modifications en trames encodables. Le plafond n'est pas décoratif :
+         * la file d'un joueur est indexée par {@code écran+élément+nature}, donc bornée par
+         * 128 éléments × 12 natures × plusieurs HUD — très au-dessus de
+         * {@link #MAX_UPDATES}. Dépasser ne produisait pas un envoi partiel mais une
+         * <b>exception d'encodage</b>, qui emportait la trame entière du joueur.
+         *
+         * <p>Découper plutôt que tronquer : une modification jetée en silence laisse un
+         * élément affichant une valeur périmée, et le graphe n'a aucun moyen de l'apprendre.
+         */
+        public static java.util.List<ScreenUpdates> batches(int instance,
+                java.util.List<fr.blueprint.core.graph.screen.ScreenUpdate> updates) {
+            if (updates.size() <= MAX_UPDATES) {
+                return java.util.List.of(new ScreenUpdates(instance, updates));
+            }
+            java.util.List<ScreenUpdates> out = new java.util.ArrayList<>();
+            for (int from = 0; from < updates.size(); from += MAX_UPDATES) {
+                out.add(new ScreenUpdates(instance,
+                        updates.subList(from, Math.min(from + MAX_UPDATES, updates.size()))));
+            }
+            return out;
+        }
+
+        private static void write(ByteBuf buffer, ScreenUpdates value) {
+            ByteBufCodecs.VAR_INT.encode(buffer, value.instance());
+            ByteBufCodecs.VAR_INT.encode(buffer, value.updates().size());
+            for (var update : value.updates()) {
+                ByteBufCodecs.stringUtf8(MAX_NAME).encode(buffer, update.screen());
+                ByteBufCodecs.stringUtf8(MAX_NAME).encode(buffer, update.element());
+                // L'ordinal voyage, jamais un nom de classe.
+                ByteBufCodecs.VAR_INT.encode(buffer, update.kind().ordinal());
+                ByteBufCodecs.stringUtf8(MAX_TEXT).encode(buffer, update.text());
+                ByteBufCodecs.BOOL.encode(buffer, update.flag());
+                ByteBufCodecs.DOUBLE.encode(buffer, update.number());
+            }
+        }
+
+        /**
+         * À la main plutôt que par {@code composite} + {@code idMapper}, pour une raison
+         * qui n'est pas de style : {@code idMapper} faisait {@code Kind.values()[i]} sans
+         * borne. Un ordinal hors plage — serveur d'une version où la liste a grandi, ce
+         * qui est déjà arrivé deux fois (5 natures en 10.4, 12 en 10.13) — levait une
+         * {@code ArrayIndexOutOfBoundsException} qui emportait <b>toute la trame</b>, y
+         * compris les modifications que ce client comprenait parfaitement.
+         *
+         * <p>Une entrée illisible est donc <b>lue jusqu'au bout puis jetée</b> : lire est
+         * obligatoire pour retrouver le début de la suivante, jeter est ce qui permet aux
+         * autres d'arriver. C'est le seul point du protocole où un client plus ancien
+         * qu'un serveur reste utilisable.
+         */
+        private static ScreenUpdates read(ByteBuf buffer) {
+            int instance = ByteBufCodecs.VAR_INT.decode(buffer);
+            int count = ByteBufCodecs.VAR_INT.decode(buffer);
+            if (count < 0 || count > MAX_UPDATES) {
+                throw new io.netty.handler.codec.DecoderException(
+                        count + " modifications dans une trame, maximum " + MAX_UPDATES);
+            }
+            var updates =
+                    new java.util.ArrayList<fr.blueprint.core.graph.screen.ScreenUpdate>(count);
+            var kinds = fr.blueprint.core.graph.screen.ScreenUpdate.Kind.values();
+            for (int i = 0; i < count; i++) {
+                String screen = ByteBufCodecs.stringUtf8(MAX_NAME).decode(buffer);
+                String element = ByteBufCodecs.stringUtf8(MAX_NAME).decode(buffer);
+                int ordinal = ByteBufCodecs.VAR_INT.decode(buffer);
+                String text = ByteBufCodecs.stringUtf8(MAX_TEXT).decode(buffer);
+                boolean flag = ByteBufCodecs.BOOL.decode(buffer);
+                double number = ByteBufCodecs.DOUBLE.decode(buffer);
+                // Un élément sans nom ferait lever le constructeur du modèle : même
+                // traitement qu'une nature inconnue, l'entrée est jetée, pas la trame.
+                if (ordinal < 0 || ordinal >= kinds.length || element.isBlank()) {
+                    continue;
+                }
+                updates.add(new fr.blueprint.core.graph.screen.ScreenUpdate(
+                        screen, element, kinds[ordinal], text, flag, number));
+            }
+            return new ScreenUpdates(instance, java.util.List.copyOf(updates));
+        }
 
         @Override
         public Type<ScreenUpdates> type() {
@@ -539,13 +598,44 @@ public final class BlueprintPayloads {
     }
 
     /**
-     * Plafond de modifications par trame. Un écran plafonne à 128 éléments et cinq
-     * natures : au-delà, ce n'est plus un rafraîchissement, c'est une inondation.
+     * Plafond de modifications par trame. Au-delà, ce n'est plus un rafraîchissement,
+     * c'est une inondation — mais la file d'un joueur peut légitimement le dépasser, et
+     * l'envoi se découpe alors en plusieurs trames ({@link ScreenUpdates#batches}).
      */
     public static final int MAX_UPDATES = 256;
 
-    /** Un libellé d'élément peut être une phrase, pas une page. */
-    public static final int MAX_TEXT = 1_024;
+    /**
+     * Un libellé d'élément peut être une phrase, pas une page. Le nombre est celui du
+     * modèle : c'est lui qui garantit qu'aucune modification inencodable n'est produite,
+     * et le codec ne fait que le refléter.
+     */
+    public static final int MAX_TEXT = fr.blueprint.core.graph.screen.ScreenUpdate.MAX_TEXT;
+
+    /**
+     * S2C : le client liste ou recharge ses packs (10.5).
+     *
+     * <p>Un paquet plutôt qu'une commande cliente, parce que les packs vivent sur le
+     * <b>disque du joueur</b> et dans ses textures : le serveur n'a rien à en dire, il ne
+     * fait que transmettre la demande. C'est ce qui permet de n'avoir qu'une seule racine
+     * {@code /blueprint} — une racine cliente du même nom aurait avalé tout l'arbre serveur,
+     * puisque Fabric ne renvoie au serveur que les commandes <i>inconnues</i>, pas celles
+     * dont seul le sous-chemin manque.
+     *
+     * <p>Un booléen et non un ordinal d'énumération : il y a exactement deux gestes, et un
+     * ordinal aurait été la troisième occasion de décoder une valeur hors plage.
+     *
+     * @param reload vrai pour relire le disque, faux pour seulement énumérer
+     */
+    public record PacksAction(boolean reload) implements CustomPacketPayload {
+        public static final Type<PacksAction> TYPE = new Type<>(id("packs_action"));
+        public static final StreamCodec<ByteBuf, PacksAction> CODEC =
+                ByteBufCodecs.BOOL.map(PacksAction::new, PacksAction::reload);
+
+        @Override
+        public Type<PacksAction> type() {
+            return TYPE;
+        }
+    }
 
     /** S2C : un fragment du flux de descripteurs compressé. */
     public record DescriptorChunk(int index, int total, byte[] data)

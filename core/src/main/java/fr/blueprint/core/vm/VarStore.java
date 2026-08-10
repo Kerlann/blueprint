@@ -30,7 +30,24 @@ public interface VarStore {
 
     @Nullable Object get(VarScope scope, VarOwner owner, String name);
 
-    void set(VarScope scope, VarOwner owner, String name, @Nullable Object value);
+    /**
+     * Écrit une valeur.
+     *
+     * @return faux si le plafond de 64 Ko par joueur refuse l'écriture (NFR14, voir
+     *         {@link VarQuota}). La VM en fait une faute nommée : une écriture qui disparaît
+     *         en silence laisserait un graphe croire qu'il a enregistré la progression du
+     *         joueur, et le joueur découvrirait la perte bien plus tard.
+     */
+    boolean set(VarScope scope, VarOwner owner, String name, @Nullable Object value);
+
+    /**
+     * Efface toutes les données d'un joueur (NFR14 : « supprimables »). Rend le poids
+     * libéré, en octets estimés.
+     */
+    int forget(java.util.UUID player);
+
+    /** Le poids estimé des données d'un joueur, en octets (NFR14, diagnostic). */
+    int playerBytes(java.util.UUID player);
 
     /**
      * Le propriétaire porte-t-il ce qu'il faut pour cette portée ?
@@ -62,9 +79,9 @@ public interface VarStore {
      * variables du graphe, borné à 256 par les plafonds réseau.
      *
      * <p>Les variables dont le propriétaire manque sont <b>sautées</b>, pas fautées : un
-     * graphe de tick qui déclare une variable joueur est parfaitement légitime tant qu'il
-     * ne la lit qu'à travers {@code var/get_for}. Semer sa valeur par défaut n'aurait de
-     * toute façon eu aucun sens sans savoir chez qui.
+     * graphe qui déclare une variable joueur est parfaitement légitime tant qu'il ne la lit
+     * que depuis un événement qui porte un joueur — et c'est alors ce lancement-là qui sème
+     * son défaut. Le faire ici sans savoir chez qui n'aurait aucun sens.
      */
     default void seedDefaults(fr.blueprint.core.graph.Blueprint blueprint, VarOwner owner) {
         for (var variable : blueprint.variables().values()) {
@@ -73,6 +90,10 @@ public interface VarStore {
                 continue;
             }
             if (get(variable.scope(), owner, variable.name()) == null) {
+                // Le refus de plafond n'est pas traité ici : un joueur à 64 Ko dont on ne
+                // peut même plus semer un défaut est un état exceptionnel, et le nœud qui
+                // lira la variable fautera de lui-même. Fauter au lancement empêcherait le
+                // graphe de démarrer, donc d'exécuter la branche qui aurait fait le ménage.
                 set(variable.scope(), owner, variable.name(), variable.defaultValue().value());
             }
         }
@@ -92,15 +113,22 @@ public interface VarStore {
             }
 
             @Override
-            public void set(VarScope scope, VarOwner owner, String name,
-                            @Nullable Object value) {
-                if (!owns(scope, owner)) {
-                    return;
-                }
-                Map<String, Object> bucket = buckets.of(scope, owner, true);
-                if (bucket != null) {
-                    bucket.put(name, value);
-                }
+            public boolean set(VarScope scope, VarOwner owner, String name,
+                               @Nullable Object value) {
+                // Un propriétaire manquant rend VRAI : ce n'est pas un refus de plafond, et
+                // la VM a déjà fauté avant d'arriver ici (voir owns). Rendre faux ferait
+                // remonter le mauvais message.
+                return !owns(scope, owner) || buckets.put(scope, owner, name, value);
+            }
+
+            @Override
+            public int forget(java.util.UUID player) {
+                return buckets.forget(player);
+            }
+
+            @Override
+            public int playerBytes(java.util.UUID player) {
+                return buckets.playerBytesOf(player);
             }
         };
     }

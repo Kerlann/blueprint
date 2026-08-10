@@ -221,6 +221,9 @@ public final class ServerBlueprintNet {
                             .setEnabled(payload.blueprint(), payload.enabled());
                 });
 
+        network.registerS2C(BlueprintPayloads.PacksAction.TYPE,
+                BlueprintPayloads.PacksAction.CODEC);
+
         network.registerS2C(BlueprintPayloads.ScreenOpen.TYPE, BlueprintPayloads.ScreenOpen.CODEC);
         network.registerS2C(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
         network.registerC2S(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
@@ -260,11 +263,53 @@ public final class ServerBlueprintNet {
 
     }
 
-    /** Un joueur parti ne garde ni quota ni écran fantôme (10.3, AC5). */
+    /**
+     * Un joueur parti ne garde ni quota ni écran fantôme (10.3, AC5).
+     *
+     * <p>Les <b>quatre</b> seaux, pas deux : {@code RateLimiter} affirme dans son javadoc
+     * que sa table est bornée par le nombre de joueurs connectés, et c'était faux pour
+     * {@code CLICKS} et {@code OPENS} — une entrée par joueur ayant jamais cliqué ou reçu
+     * un écran, gardée jusqu'au redémarrage du serveur. Sur un serveur public, c'est une
+     * table qui ne fait que croître, et le genre de fuite qu'aucun symptôme ne dénonce
+     * avant plusieurs mois.
+     */
     public static void forget(java.util.UUID player) {
-        SAVES.forget(player);
-        REQUESTS.forget(player);
+        for (RateLimiter bucket : quotaBuckets()) {
+            bucket.forget(player);
+        }
         SCREENS.forget(player);   // HUD compris (10.9)
+    }
+
+    /**
+     * Tous les seaux de quotas, et la <b>seule</b> liste qui les énumère : {@link #forget}
+     * la parcourt, le test la vérifie. Deux endroits à tenir d'accord — la déclaration et
+     * l'oubli — sont exactement ce qui a laissé {@code CLICKS} et {@code OPENS} fuir.
+     *
+     * <p>Une liste allouée à chaque déconnexion et non gardée : les seaux sont
+     * <b>remplacés</b> par {@code register} quand la configuration les redimensionne, et
+     * une liste mémorisée pointerait alors sur les anciens. Une déconnexion n'est pas un
+     * chemin par tick.
+     */
+    static java.util.List<RateLimiter> quotaBuckets() {
+        return java.util.List.of(SAVES, REQUESTS, CLICKS, OPENS);
+    }
+
+    /**
+     * Demande à un client de lister ou recharger ses packs (10.5).
+     *
+     * <p>Ne s'adresse qu'à <b>l'appelant</b> : les packs d'un joueur sont ses fichiers, et
+     * recharger ceux d'un autre serait agir sur son disque sans qu'il l'ait demandé.
+     *
+     * @return faux si ce client ne connaît pas le canal — un client vanilla, ou une version
+     *         antérieure du mod
+     */
+    public static boolean sendPacksAction(ServerPlayer player, boolean reload) {
+        var network = Platform.serverNetwork();
+        if (!network.canSend(player, BlueprintPayloads.PacksAction.TYPE)) {
+            return false;
+        }
+        network.send(player, new BlueprintPayloads.PacksAction(reload));
+        return true;
     }
 
     /** Les écrans ouverts, par joueur (story 10.3) — un seul chacun. */
@@ -723,8 +768,14 @@ public final class ServerBlueprintNet {
             var open = SCREENS.of(uuid);
             var updates = SCREENS.drain(uuid);
             if (!updates.isEmpty()) {
-                network.send(player, new BlueprintPayloads.ScreenUpdates(
-                        open == null ? 0 : open.instance(), updates));
+                // Découpé, jamais tronqué : la file est indexée par écran+élément+nature et
+                // peut dépasser le plafond d'une trame sans que rien n'abuse — 128 éléments
+                // et douze natures suffisent. La dépasser levait à l'ENCODAGE, ici, et
+                // faisait perdre au joueur toutes ses modifications du tick.
+                for (var batch : BlueprintPayloads.ScreenUpdates.batches(
+                        open == null ? 0 : open.instance(), updates)) {
+                    network.send(player, batch);
+                }
             }
         }
     }

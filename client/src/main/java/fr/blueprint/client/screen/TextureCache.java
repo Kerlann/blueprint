@@ -19,7 +19,7 @@ import java.util.Map;
  *
  * <p>Une exception : le rechargement des packs. Là, la réponse change exprès — c'est tout
  * l'intérêt du geste. Le cache suit donc la génération de {@link PackTextures} et se vide
- * de lui-même : sans cela, {@code /blueprint-packs reload} n'aurait aucun effet visible
+ * de lui-même : sans cela, {@code /blueprint packs reload} n'aurait aucun effet visible
  * tant qu'un menu reste ouvert, ce qui est précisément le moment où on l'utilise.
  */
 public final class TextureCache {
