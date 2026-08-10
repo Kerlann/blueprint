@@ -60,6 +60,20 @@ public final class GraphGuard {
             return Verdict.no(bp.variables().size() + " variables (max "
                     + limits.maxVariables() + ")");
         }
+        // Les répliquées à part, et bien plus bas : une variable ordinaire coûte de la
+        // mémoire serveur une fois, une répliquée coûte un envoi par joueur qui la regarde,
+        // à chaque fois qu'elle change. Sans ce compte, un graphe accepté par le plafond
+        // général pouvait déclarer 256 valeurs à pousser vingt fois par seconde.
+        int repliquees = 0;
+        for (fr.blueprint.core.graph.Variable variable : bp.variables().values()) {
+            if (variable.replicated()) {
+                repliquees++;
+            }
+        }
+        if (repliquees > limits.maxReplicatedVariables()) {
+            return Verdict.no(repliquees + " variables répliquées (max "
+                    + limits.maxReplicatedVariables() + ")");
+        }
         if (bp.comments().size() > limits.maxComments()) {
             return Verdict.no(bp.comments().size() + " commentaires (max "
                     + limits.maxComments() + ")");

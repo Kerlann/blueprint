@@ -3,9 +3,10 @@
 **État : plan écrit, aucune story livrée.** Établi par une lecture complète du dépôt (cinq
 audits parallèles, 2026-08-10), dont chaque constat portant a été revérifié ligne à ligne.
 
-**Avancement : 21.1 livrée**, le drapeau se pose et se refuse là où l'auteur le voit. Rien
-ne circule encore — c'est délibéré : construire le réseau au-dessus d'un drapeau que personne
-ne peut mettre aurait été construire à l'envers.
+**Avancement : 21.1 et 21.2 livrées.** Le drapeau se pose et se refuse là où l'auteur le
+voit ; le canal existe, borné et testé. Rien ne circule encore — le payload n'a pas
+d'émetteur, et c'est 21.4 qui le lui donnera. L'ordre est délibéré : construire le transport
+au-dessus d'un drapeau que personne ne peut poser aurait été construire à l'envers.
 
 | Sujet | Décision | Nature |
 |---|---|---|
@@ -193,13 +194,18 @@ Seuls ceux qui ont un `streamCodec` : `PinType.hasStreamCodec()` (`BasePinType.j
 sautés — une variable `@replicated entity` est une erreur d'auteur, et l'éditeur doit le
 dire à l'édition.
 
-`itemstack`, `text` et `blockstate` ont un `streamCodec` **paresseux** qui exige un
-`RegistryFriendlyByteBuf`, alors que tous les payloads actuels sont sur `ByteBuf` nu
-(`BlueprintPayloads.java:5`). Deux options, à trancher en 21.2 : les exclure du premier
-lot, ou faire de ce payload le premier sur `RegistryFriendlyByteBuf`. Le premier lot les
-exclut ; la raison est qu'ils ne sont pas non plus persistables par `VarStorage`
-(`:297`, journalisé `:197-200`), donc une variable de ce type ne survit déjà pas à un
-redémarrage — répliquer avant de persister serait construire à l'envers.
+**Tranché en 21.2, et autrement que prévu.** La question posée était : exclure
+`itemstack`/`text`/`blockstate` du premier lot, ou faire de ce payload le premier sur
+`RegistryFriendlyByteBuf` ? Aucune des deux. Le transport réutilise le **format étiqueté de
+la sauvegarde du monde**, extrait de `VarStorage` dans `core/vm/VarValueNbt`, et le refus se
+juge par `VarValueNbt.carries(PinType)` et non par `PinType.hasStreamCodec()`.
+
+Conséquence, qui est la vraie raison de ce choix : **ce qui se réplique est exactement ce qui
+survit à un redémarrage.** Une variable ne peut pas arriver chez un client sans pouvoir être
+sauvegardée. S'appuyer sur `hasStreamCodec` aurait accepté ces trois types — ils *ont* un
+codec réseau — pour les laisser tomber en silence à l'encodage, soit précisément la panne que
+cet épic répare. Et une seule liste de types, dans un seul fichier, sert les deux usages :
+`VarBuckets` existe pour avoir fermé la même question sur le rangement.
 
 ---
 
@@ -221,18 +227,29 @@ redémarrage — répliquer avant de persister serait construire à l'envers.
 | Story | Objet | Dépend de |
 |---|---|---|
 | ~~**21.1**~~ **livrée** | `EditOperation.SetReplicated` + pastille `»` dans `VariablePanel` + deux diagnostics (`REPLICATED_SCOPE_LOCAL`, `REPLICATED_TYPE_NOT_SENDABLE`). La règle vit dans **un seul** endroit, `GraphValidator.checkReplicable`, que l'opération et la validation appellent tous les deux | — |
-| **21.2** | Payload `VarValues` (S2C), codec borné, quota `maxReplicatedVariables` dans `NetLimits` | 21.1 |
+| ~~**21.2**~~ **livrée** | Payload `VarValues` (S2C, portée + nom + tag étiqueté), codec borné à 32 valeurs et 8 Kio par valeur, `NetLimits.maxReplicatedVariables = 32` appliqué par `GraphGuard`. Format extrait dans `VarValueNbt` : le fil et le disque portent le même. **Aucun émetteur** — c'est 21.4 | 21.1 |
 | **21.3** | Ensemble résolu au lancement (§3a, §3b) + marque à l'écriture dans `VarStore` | 21.2 |
 | **21.4** | `VarSessions` : diff par joueur, clé `(scope, owner, name)`, une trame par tick dans `endServerTick` — calqué sur `ScreenSessions`, pas réinventé | 21.3 |
 | **21.5** | Cache client en lecture seule + `ScreenBindings.updates(..., Source.VARIABLE)` appelé **côté client** avec ce cache. C'est ici que le même code de rendu sert des deux côtés | 21.4 |
 | **21.6** | Interpolation des barres liées à une variable répliquée. Le gain visible : une barre de mana devient aussi fluide qu'une barre de vie | 21.5 |
 | **21.7** | Mise à jour de `bscript-spec.md`, `architecture.md:131-134` (l'énumération `VarScope` y est **incomplète** : `PLAYER_SHARED` manque) et `node-reference.md` | 21.6 |
 
-Bornes à poser en 21.2 : le plafond actuel est de **256 variables par graphe reçu du
-réseau** (`NetLimits.java:24-27`, appliqué `GraphGuard.java:59-62`). Un plafond distinct
-sur les **répliquées** est nécessaire : 256 variables × N joueurs × 20 Hz est un budget que
-personne n'a chiffré, et `NetLimits` n'a aujourd'hui aucune borne de latence ni de
-fréquence — seulement des tailles et des quotas de débit.
+**Bornes posées en 21.2.** Le plafond général reste de 256 variables par graphe reçu ; les
+**répliquées** ont le leur, **32**, appliqué par `GraphGuard`. Un ordre de grandeur d'écart,
+et non un ajustement : une variable ordinaire coûte de la mémoire serveur une fois, une
+répliquée coûte un envoi par joueur qui la regarde, à chaque changement — 256 × N joueurs ×
+20 Hz était un budget que personne n'avait chiffré. Trente-deux couvrent tous les usages
+qu'on sait nommer (une barre, un solde, un compteur, un état) et laissent le pire cas
+explicable.
+
+Le plafond de la **trame** est le même nombre, exprès : un tick qui change toutes les valeurs
+répliquées d'un graphe tient dans un seul envoi. Les laisser diverger aurait demandé un
+découpage en trames, c'est-à-dire du code pour un cas que le garde réseau refuse déjà. Une
+valeur est bornée à part, à 8 Kio décompressés, et c'est ce plafond-là qui protège le
+décodeur — le plafond de 64 Ko par joueur (NFR14) borne le total, pas une valeur.
+
+Reste non chiffré, et il faudra le faire en 21.4 : **aucune cible de latence** n'existe dans
+le PRD. `NetLimits` ne connaît que des tailles et des débits, jamais un délai.
 
 ---
 
@@ -298,5 +315,6 @@ d'« un petit calcul côté client » apparaît.
 | Date | Version | Description |
 |---|---|---|
 | 2026-08-10 | 0.1 | Plan initial. Cinq audits parallèles du dépôt ; `@replicated` identifié comme surface déclarative morte ; les trois défauts de la trame d'écran corrigés au passage. |
+| 2026-08-10 | 0.4 | Story 21.2 livrée : payload `VarValues`, bornes, quota. La question du buffer est tranchée autrement que proposé — le fil réutilise le format étiqueté du disque, si bien que ce qui se réplique est exactement ce qui se persiste. |
 | 2026-08-10 | 0.3 | Story 21.1 livrée : le drapeau devient éditable et validé. `@replicated` cesse d'être une surface morte, sans qu'un octet ne circule encore. |
 | 2026-08-10 | 0.2 | NFR14 livré (`VarQuota`, `VarBuckets.put/forget/recount`, `/blueprint vars`) : le prérequis de la story 21.4 est levé, et `VarQuota` donne à 21.2 la mesure de poids dont son plafond réseau aura besoin. |

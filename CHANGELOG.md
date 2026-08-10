@@ -8,6 +8,38 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Ajouté — le canal des valeurs répliquées (story 21.2)
+
+Le paquet `VarValues` (S2C) et ses bornes. **Il n'a pas encore d'émetteur** : la story 21.4
+le lui donnera. Ce qui est livré est le contrat du fil, vérifié par ses tests.
+
+- **Le fil réutilise le format étiqueté de la sauvegarde du monde**, extrait de `VarStorage`
+  vers `core/vm/VarValueNbt`. La question posée par le plan était : exclure `itemstack`,
+  `text` et `blockstate` du premier lot, ou faire de ce payload le premier sur
+  `RegistryFriendlyByteBuf` ? Ni l'un ni l'autre. Le refus se juge désormais par
+  `VarValueNbt.carries(PinType)` et non par `PinType.hasStreamCodec()`, ce qui donne la
+  propriété qui compte : **ce qui se réplique est exactement ce qui survit à un
+  redémarrage**. S'appuyer sur `hasStreamCodec` aurait accepté ces trois types — ils *ont* un
+  codec réseau, mais il exige un `RegistryFriendlyByteBuf` — pour les laisser tomber en
+  silence à l'encodage, soit précisément la panne que cet épic répare. Une seule liste de
+  types, dans un seul fichier, sert la sauvegarde et le fil ; `VarBuckets` existe pour avoir
+  fermé la même question sur le rangement.
+- **La portée voyage par son nom, jamais par son ordinal**, et une portée inconnue se replie
+  sur `LOCAL`, qui ne se réplique jamais — le client la rangera donc nulle part. C'est la
+  leçon de `ScreenUpdate.Kind`, dont l'ordinal non borné faisait éclater tout le décodeur.
+- **`NetLimits.maxReplicatedVariables = 32`**, appliqué par `GraphGuard`, contre 256 pour les
+  variables ordinaires. Un ordre de grandeur d'écart et non un ajustement : une variable
+  ordinaire coûte de la mémoire serveur une fois, une répliquée coûte un envoi par joueur qui
+  la regarde, à chaque changement. Le plafond général ne borne que de la mémoire ; celui-ci
+  borne un débit. Les variables non répliquées gardent le leur — un serveur qui se met à jour
+  ne refuse pas les graphes qu'il acceptait hier, et un test le fige.
+- **Le plafond de la trame est le même nombre**, exprès : un tick qui change toutes les
+  valeurs répliquées d'un graphe tient dans un seul envoi. Les laisser diverger aurait
+  demandé un découpage en trames, c'est-à-dire du code pour un cas que le garde refuse déjà.
+  Une valeur est bornée à part, à 8 Kio décompressés.
+- **Descendant seulement.** Il n'existe pas de paquet montant équivalent et il n'en existera
+  pas (FR52) : la réplication donne au client de quoi afficher, jamais de quoi décider.
+
 ### Ajouté — `@replicated` cesse d'être une surface morte (story 21.1)
 
 Le drapeau était modélisé, persisté en NBT, dans la grammaire BScript, spécifié

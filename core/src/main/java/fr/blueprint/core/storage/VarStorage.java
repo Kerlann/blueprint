@@ -4,20 +4,13 @@ import com.mojang.serialization.Codec;
 import fr.blueprint.core.graph.VarScope;
 import fr.blueprint.core.vm.VarOwner;
 import fr.blueprint.core.vm.VarStore;
-import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.DoubleTag;
-import net.minecraft.nbt.IntTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.LongTag;
-import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -220,169 +213,23 @@ public final class VarStorage extends SavedData implements VarStore {
     }
 
     /**
-     * Une valeur, étiquetée par son type Java.
+     * Le format étiqueté vit dans {@link fr.blueprint.core.vm.VarValueNbt} et non ici.
      *
-     * <p>Le type est porté par un {@code CompoundTag} à deux champs plutôt que déduit du
-     * {@code TagType} : un {@code DoubleTag} ne distingue pas un {@code double} d'un
-     * {@code float}, et une liste vide ne dit rien de ce qu'elle contient. Relire une
-     * variable {@code int} comme un {@code double} suffit à faire fauter un nœud qui
-     * attend l'un ou l'autre.
+     * <p>Il y est parti quand la réplication (épic 21) en a eu besoin : les valeurs qui
+     * voyagent vers un client sont exactement celles qui survivent à un redémarrage, et deux
+     * exemplaires de cette règle auraient fini par diverger. La divergence se serait vue
+     * comme une variable {@code @replicated} que le validateur accepte et que la sauvegarde
+     * laisse tomber en silence.
+     *
+     * <p>Ces deux méthodes restent pour que les appelants d'ici lisent court.
      *
      * @return null si le type ne se persiste pas.
      */
     private static @Nullable Tag encode(@Nullable Object value) {
-        CompoundTag tag = new CompoundTag();
-        switch (value) {
-            case null -> {
-                return null;
-            }
-            case String s -> {
-                tag.putString("t", "s");
-                tag.put("v", StringTag.valueOf(s));
-            }
-            case Boolean b -> {
-                tag.putString("t", "z");
-                tag.put("v", ByteTag.valueOf(b));
-            }
-            case Integer i -> {
-                tag.putString("t", "i");
-                tag.put("v", IntTag.valueOf(i));
-            }
-            case Long l -> {
-                tag.putString("t", "l");
-                tag.put("v", LongTag.valueOf(l));
-            }
-            case Double d -> {
-                tag.putString("t", "d");
-                tag.put("v", DoubleTag.valueOf(d));
-            }
-            case Float f -> {
-                tag.putString("t", "f");
-                tag.put("v", DoubleTag.valueOf(f));
-            }
-            // Les trois types de géométrie. Ils s'écrivent sans toucher aux registres du
-            // jeu, ce qui les distingue d'un ItemStack ou d'un Component : le codec de
-            // ceux-là exige un HolderLookup que ce format, volontairement plat, n'a pas.
-            case net.minecraft.world.phys.Vec3 vec -> {
-                ListTag coords = new ListTag();
-                coords.add(DoubleTag.valueOf(vec.x));
-                coords.add(DoubleTag.valueOf(vec.y));
-                coords.add(DoubleTag.valueOf(vec.z));
-                tag.putString("t", "v3");
-                tag.put("v", coords);
-            }
-            // En long empaqueté, comme Minecraft le fait partout ailleurs : trois entiers
-            // bornés dans une seule valeur, et la relecture est exacte.
-            case net.minecraft.core.BlockPos pos -> {
-                tag.putString("t", "bp");
-                tag.put("v", LongTag.valueOf(pos.asLong()));
-            }
-            // Par son NOM, pas son ordinal : un ordinal lierait la sauvegarde à l'ordre de
-            // déclaration d'une énumération de Minecraft, que rien ne nous promet stable.
-            case net.minecraft.core.Direction dir -> {
-                tag.putString("t", "dir");
-                tag.put("v", StringTag.valueOf(dir.getSerializedName()));
-            }
-            case List<?> list -> {
-                ListTag items = new ListTag();
-                for (Object element : list) {
-                    Tag encoded = encode(element);
-                    if (encoded == null) {
-                        return null;   // une liste à moitié écrite serait un mensonge
-                    }
-                    items.add(encoded);
-                }
-                tag.putString("t", "L");
-                tag.put("v", items);
-            }
-            case Map<?, ?> map -> {
-                ListTag entries = new ListTag();
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
-                    Tag key = encode(entry.getKey());
-                    Tag val = encode(entry.getValue());
-                    if (key == null || val == null) {
-                        return null;
-                    }
-                    CompoundTag pair = new CompoundTag();
-                    pair.put("k", key);
-                    pair.put("v", val);
-                    entries.add(pair);
-                }
-                tag.putString("t", "M");
-                tag.put("v", entries);
-            }
-            default -> {
-                return null;
-            }
-        }
-        return tag;
+        return fr.blueprint.core.vm.VarValueNbt.encode(value);
     }
 
     private static @Nullable Object decode(@Nullable Tag tag) {
-        if (!(tag instanceof CompoundTag compound)) {
-            return null;
-        }
-        String type = compound.getStringOr("t", "");
-        Tag value = compound.get("v");
-        if (value == null) {
-            return null;
-        }
-        return switch (type) {
-            case "s" -> value.asString().orElse(null);
-            case "z" -> value.asBoolean().orElse(null);
-            case "i" -> value.asInt().orElse(null);
-            case "l" -> value.asLong().orElse(null);
-            case "d" -> value.asDouble().orElse(null);
-            case "f" -> value.asFloat().orElse(null);
-            case "v3" -> {
-                if (!(value instanceof ListTag coords) || coords.size() != 3) {
-                    yield null;
-                }
-                Double x = coords.get(0).asDouble().orElse(null);
-                Double y = coords.get(1).asDouble().orElse(null);
-                Double z = coords.get(2).asDouble().orElse(null);
-                yield x == null || y == null || z == null
-                        ? null : new net.minecraft.world.phys.Vec3(x, y, z);
-            }
-            case "bp" -> value.asLong().map(net.minecraft.core.BlockPos::of).orElse(null);
-            // Un nom inconnu — sauvegarde d'une version où la direction s'appelait
-            // autrement — rend null, donc le défaut déclaré reprend la main. Mieux qu'un
-            // NORTH arbitraire, qui se ferait passer pour une valeur choisie.
-            case "dir" -> value.asString()
-                    .map(net.minecraft.core.Direction::byName).orElse(null);
-            case "L" -> {
-                if (!(value instanceof ListTag items)) {
-                    yield null;
-                }
-                List<Object> list = new ArrayList<>(items.size());
-                for (Tag item : items) {
-                    Object element = decode(item);
-                    if (element == null) {
-                        yield null;
-                    }
-                    list.add(element);
-                }
-                yield List.copyOf(list);
-            }
-            case "M" -> {
-                if (!(value instanceof ListTag entries)) {
-                    yield null;
-                }
-                Map<Object, Object> map = new HashMap<>();
-                for (Tag entry : entries) {
-                    if (!(entry instanceof CompoundTag pair)) {
-                        yield null;
-                    }
-                    Object key = decode(pair.get("k"));
-                    Object val = decode(pair.get("v"));
-                    if (key == null || val == null) {
-                        yield null;
-                    }
-                    map.put(key, val);
-                }
-                yield Map.copyOf(map);
-            }
-            default -> null;
-        };
+        return fr.blueprint.core.vm.VarValueNbt.decode(tag);
     }
 }

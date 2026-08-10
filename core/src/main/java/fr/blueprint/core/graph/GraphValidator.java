@@ -407,16 +407,27 @@ public final class GraphValidator {
      * comme un drapeau que l'éditeur refuse de poser mais accepte d'afficher.
      *
      * <p>{@code LOCAL} d'abord, parce que c'est le refus le plus explicable : la portée ne
-     * survit pas à l'exécution qui l'écrit, donc il n'y a rien à répliquer. Le type ensuite :
-     * une référence vivante ({@code player}, {@code entity}) ou un joker n'a pas de codec
-     * réseau, et {@code list<T>}/{@code map<K,V>} n'en ont un que si leurs arguments en ont.
+     * survit pas à l'exécution qui l'écrit, donc il n'y a rien à répliquer. Le type ensuite.
+     *
+     * <p>Le type se juge par {@link fr.blueprint.core.vm.VarValueNbt#carries} et <b>non</b>
+     * par {@code PinType.hasStreamCodec}, parce que c'est ce format-là qui transporte
+     * réellement la valeur. La nuance n'est pas théorique : {@code itemstack},
+     * {@code text} et {@code blockstate} <i>ont</i> un codec réseau, mais il exige un
+     * {@code RegistryFriendlyByteBuf} que ce format plat n'a pas — et ils ne se persistent
+     * pas non plus. Les accepter aurait produit un {@code @replicated} que le validateur
+     * approuve et que l'encodeur laisse tomber en silence, c'est-à-dire exactement la panne
+     * que l'épic 21 répare.
+     *
+     * <p>Conséquence heureuse : ce qui se réplique est <b>exactement</b> ce qui survit à un
+     * redémarrage. Une variable ne peut pas arriver chez un client sans pouvoir être
+     * sauvegardée.
      */
     public static @Nullable Diagnostic checkReplicable(Variable variable) {
         if (variable.scope() == VarScope.LOCAL) {
             return Diagnostic.error(DiagnosticCode.REPLICATED_SCOPE_LOCAL,
                     Diagnostic.variable(variable.name()), variable.name());
         }
-        if (!variable.type().hasStreamCodec()) {
+        if (!fr.blueprint.core.vm.VarValueNbt.carries(variable.type())) {
             return Diagnostic.error(DiagnosticCode.REPLICATED_TYPE_NOT_SENDABLE,
                     Diagnostic.variable(variable.name()), variable.name(),
                     variable.type().toString());

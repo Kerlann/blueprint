@@ -63,6 +63,25 @@ class NetSecurityTest {
         return GraphGuard.inspect(bp.id(), bp, LOADED.nodes(), NetLimits.DEFAULT);
     }
 
+    /**
+     * Par les opérations d'édition et non forgée au niveau NBT, contrairement au reste de ce
+     * fichier : rien ici n'est abusif au sens des opérations, qui ne bornent pas le nombre de
+     * variables — pas plus qu'elles ne bornent les ordinaires. C'est le garde réseau qui
+     * porte cette limite, et c'est donc lui qu'on veut voir refuser un graphe que l'éditeur
+     * aurait laissé construire.
+     */
+    private static void addVariable(Blueprint bp, String name, boolean replicated) {
+        assertTrue(new EditOperation.AddVariable(new fr.blueprint.core.graph.Variable(
+                name, PinTypes.DOUBLE,
+                fr.blueprint.api.pin.LiteralValue.of(PinTypes.DOUBLE, 0.0),
+                fr.blueprint.core.graph.VarScope.WORLD, false))
+                .apply(bp, LOADED.nodes(), GraphLimits.DEFAULT).applied());
+        if (replicated) {
+            assertTrue(new EditOperation.SetReplicated(name, true)
+                    .apply(bp, LOADED.nodes(), GraphLimits.DEFAULT).applied());
+        }
+    }
+
     // ------------------------------------------------------------------ témoin
 
     @Test
@@ -340,6 +359,52 @@ class NetSecurityTest {
                                         fr.blueprint.core.graph.screen.ElementKind.LABEL, 0, 0, 40, 10)
                                 .withParent("inexistant")))))
                 .accepted(), "parent qui n'existe pas");
+    }
+
+    /**
+     * Les variables répliquées ont leur propre plafond, bien plus bas que le général (épic 21).
+     *
+     * <p>Sans lui, un graphe accepté par les 256 variables ordinaires pouvait en déclarer
+     * 256 <b>répliquées</b>, soit 256 valeurs à pousser à chaque joueur qui les regarde,
+     * potentiellement vingt fois par seconde. Le plafond général ne borne que de la mémoire
+     * serveur ; celui-ci borne un débit, et c'est une autre grandeur.
+     */
+    @Test
+    void unDelugeDeVariablesRepliqueesEstRefuse() {
+        Blueprint bp = demo();
+        int max = NetLimits.DEFAULT.maxReplicatedVariables();
+        for (int i = 0; i <= max; i++) {
+            addVariable(bp, "repl" + i, true);
+        }
+
+        assertFalse(inspect(bp).accepted(), max + 1 + " répliquées doivent être refusées");
+    }
+
+    /** Au plafond exactement, elles passent : la borne est un maximum, pas un interdit. */
+    @Test
+    void leplafondDeVariablesRepliqueesEstUnMaximumAtteignable() {
+        Blueprint bp = demo();
+        for (int i = 0; i < NetLimits.DEFAULT.maxReplicatedVariables(); i++) {
+            addVariable(bp, "repl" + i, true);
+        }
+
+        assertTrue(inspect(bp).accepted());
+    }
+
+    /**
+     * Les variables NON répliquées gardent le plafond général : le nouveau compte ne doit pas
+     * resserrer ce qui passait déjà. Un serveur qui se met à jour ne refuse pas les graphes
+     * qu'il acceptait hier.
+     */
+    @Test
+    void lesVariablesOrdinairesGardentLeurPlafondGeneral() {
+        Blueprint bp = demo();
+        for (int i = 0; i < NetLimits.DEFAULT.maxReplicatedVariables() * 3; i++) {
+            addVariable(bp, "ord" + i, false);
+        }
+
+        assertTrue(inspect(bp).accepted(),
+                "bien au-delà du plafond des répliquées, mais aucune ne l'est");
     }
 
     @Test

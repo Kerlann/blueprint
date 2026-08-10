@@ -612,6 +612,111 @@ public final class BlueprintPayloads {
     public static final int MAX_TEXT = fr.blueprint.core.graph.screen.ScreenUpdate.MAX_TEXT;
 
     /**
+     * S2C : les valeurs des variables {@code @replicated} qui ont changé (épic 21).
+     *
+     * <p><b>Descendant seulement.</b> Il n'existe pas de paquet montant équivalent, et il
+     * n'en existera pas : FR52 — « le serveur ne fait jamais confiance à ce qu'un client
+     * déclare ». La réplication donne au client de quoi <i>afficher</i>, jamais de quoi
+     * décider.
+     *
+     * <p>Les valeurs voyagent dans le <b>même format étiqueté</b> que la sauvegarde du monde
+     * ({@link fr.blueprint.core.vm.VarValueNbt}), sur un {@code ByteBuf} nu. Ce n'est pas un
+     * raccourci : l'ensemble des types qui voyagent est ainsi <b>exactement</b> celui des
+     * types qui survivent à un redémarrage. Un {@code StreamCodec} par type aurait été plus
+     * direct et aurait ouvert la porte à une variable qui arrive chez un client sans pouvoir
+     * être sauvegardée — un état que rien n'aurait rattrapé.
+     *
+     * <p>La portée voyage, parce que le nom seul ne suffit pas : {@code or} de portée monde
+     * et {@code or} de portée joueur sont deux variables, et le client doit les ranger dans
+     * deux cases. Le blueprint, en revanche, ne voyage <b>pas</b> — une valeur répliquée est
+     * identifiée par ce qu'elle est pour le joueur qui la regarde, pas par le graphe qui l'a
+     * écrite, et deux graphes qui partagent une variable {@code WORLD} partagent la valeur.
+     *
+     * @param values les changements, jamais plus de {@link #MAX_VALUES}
+     */
+    public record VarValues(java.util.List<VarValue> values) implements CustomPacketPayload {
+        public static final Type<VarValues> TYPE = new Type<>(id("var_values"));
+
+        public static final StreamCodec<ByteBuf, VarValues> CODEC =
+                VarValue.CODEC.apply(ByteBufCodecs.list(MAX_VALUES))
+                        .map(VarValues::new, VarValues::values);
+
+        @Override
+        public Type<VarValues> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * Une valeur répliquée sur le fil : sa portée, son nom, et sa valeur encodée.
+     *
+     * <p>{@code value} vide signifie <b>effacée</b> — la variable n'a plus de valeur chez le
+     * serveur. Un tag vide plutôt qu'un {@code Optional} : le format étiqueté rend déjà
+     * {@code null} sur tout ce qu'il ne comprend pas, donc le client a un seul cas à traiter
+     * au lieu de deux qui se ressemblent.
+     */
+    public record VarValue(fr.blueprint.core.graph.VarScope scope, String name,
+                           net.minecraft.nbt.CompoundTag value) {
+
+        /** Les portées, par leur NOM et jamais par leur ordinal (leçon de {@code Kind}). */
+        private static final java.util.Map<String, fr.blueprint.core.graph.VarScope> BY_NAME =
+                scopesByName();
+
+        private static java.util.Map<String, fr.blueprint.core.graph.VarScope> scopesByName() {
+            var out = new java.util.HashMap<String, fr.blueprint.core.graph.VarScope>();
+            for (var scope : fr.blueprint.core.graph.VarScope.values()) {
+                out.put(scope.name(), scope);
+            }
+            return java.util.Map.copyOf(out);
+        }
+
+        public static final StreamCodec<ByteBuf, VarValue> CODEC =
+                StreamCodec.of(VarValue::write, VarValue::read);
+
+        private static void write(ByteBuf buffer, VarValue value) {
+            ByteBufCodecs.stringUtf8(MAX_NAME).encode(buffer, value.scope().name());
+            ByteBufCodecs.stringUtf8(MAX_NAME).encode(buffer, value.name());
+            VALUE_CODEC.encode(buffer, value.value());
+        }
+
+        /**
+         * Une portée inconnue devient {@code LOCAL}, qui ne se réplique jamais : le client
+         * la rangera donc nulle part. C'est le repli le plus sûr — un serveur d'une version
+         * où une portée aurait été ajoutée ne fait pas tomber un client ancien, il lui envoie
+         * simplement une valeur qu'il ignore.
+         */
+        private static VarValue read(ByteBuf buffer) {
+            String scope = ByteBufCodecs.stringUtf8(MAX_NAME).decode(buffer);
+            String name = ByteBufCodecs.stringUtf8(MAX_NAME).decode(buffer);
+            net.minecraft.nbt.CompoundTag value = VALUE_CODEC.decode(buffer);
+            return new VarValue(BY_NAME.getOrDefault(scope,
+                    fr.blueprint.core.graph.VarScope.LOCAL), name, value);
+        }
+    }
+
+    /**
+     * Plafond de valeurs par trame, et de valeurs répliquées par graphe.
+     *
+     * <p>Aligné sur {@code NetLimits.maxReplicatedVariables} : un graphe ne peut pas déclarer
+     * plus de valeurs répliquées qu'une trame ne peut en porter, donc un tick qui les change
+     * toutes tient dans un seul envoi. Laisser les deux nombres diverger aurait demandé un
+     * découpage en trames, c'est-à-dire du code pour un cas que le garde réseau refuse déjà.
+     */
+    public static final int MAX_VALUES = NetLimits.DEFAULT.maxReplicatedVariables();
+
+    /**
+     * Le tag d'une valeur, borné à 8 Kio décompressés.
+     *
+     * <p>Une valeur de variable est une chaîne, un nombre, un vecteur, ou une collection de
+     * ceux-là. Huit kibioctets laissent passer une liste de plusieurs centaines d'entrées et
+     * refusent ce qui n'a rien à faire sur un canal poussé à chaque changement. Le plafond
+     * de 64 Ko par joueur (NFR14) borne le total ; celui-ci borne une valeur, et c'est lui
+     * qui protège le décodeur.
+     */
+    private static final StreamCodec<ByteBuf, net.minecraft.nbt.CompoundTag> VALUE_CODEC =
+            ByteBufCodecs.compoundTagCodec(() -> net.minecraft.nbt.NbtAccounter.create(8 * 1024));
+
+    /**
      * S2C : le client liste ou recharge ses packs (10.5).
      *
      * <p>Un paquet plutôt qu'une commande cliente, parce que les packs vivent sur le

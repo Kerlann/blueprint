@@ -78,7 +78,8 @@ public record BlueprintConfig(int commandPermissionLevel, int fuelPerTick, int m
         return new fr.blueprint.core.net.NetLimits(
                 Math.max(16, maxGraphKilobytes) * 1024,
                 Math.max(1, maxNodes),
-                defaults.maxLinks(), defaults.maxVariables(), defaults.maxComments(),
+                defaults.maxLinks(), defaults.maxVariables(),
+                defaults.maxReplicatedVariables(), defaults.maxComments(),
                 defaults.maxTextLength(), defaults.maxGhosts(),
                 // Les MÊMES plafonds que le modèle : ce qu'un auteur ne peut pas
                 // construire localement, un client ne doit pas pouvoir l'envoyer. Les

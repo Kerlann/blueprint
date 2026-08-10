@@ -7,6 +7,7 @@ package fr.blueprint.core.net;
  * rediffuser.
  */
 public record NetLimits(int maxGraphBytes, int maxNodes, int maxLinks, int maxVariables,
+                        int maxReplicatedVariables,
                         int maxComments, int maxTextLength, int maxGhosts,
                         int maxScreens, int maxElementsPerScreen,
                         int savesPerWindow, int requestsPerWindow, int clicksPerWindow,
@@ -20,9 +21,17 @@ public record NetLimits(int maxGraphBytes, int maxNodes, int maxLinks, int maxVa
      * <p>Les plafonds d'écrans reprennent ceux du modèle ({@code GraphLimits.DEFAULT}) :
      * ce qu'un auteur ne peut pas construire localement, un client ne doit pas pouvoir
      * l'envoyer.
+     *
+     * <p>{@code maxReplicatedVariables} est <b>bien plus bas</b> que {@code maxVariables},
+     * et c'est le point : une variable ordinaire coûte de la mémoire serveur une fois, une
+     * variable répliquée coûte un envoi par joueur qui la regarde, à chaque fois qu'elle
+     * change. 256 × le nombre de joueurs × vingt fois par seconde est un budget que
+     * personne n'a chiffré ; trente-deux valeurs par graphe suffisent à tous les usages
+     * qu'on sait nommer — une barre, un solde, un compteur, un état — et laissent le coût
+     * du pire cas explicable.
      */
     public static final NetLimits DEFAULT = new NetLimits(
-            256 * 1024, 1_000, 4_000, 256, 256, 4_096, 256,
+            256 * 1024, 1_000, 4_000, 256, 32, 256, 4_096, 256,
             16, 128,
             10, 60, 40, 8, 10_000L);
 }

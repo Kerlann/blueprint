@@ -371,6 +371,11 @@ enregistrés via `PayloadTypeRegistry.playC2S()` / `playS2C()`.
 | Nœuds datapack | `data/<modid>/blueprint/nodes/*.json` | JSON, rechargé à `/reload` |
 | Thème de l'éditeur | `assets/blueprint/theme/*.json` | JSON |
 
+Le format d'une **valeur** de variable vit dans `VarValueNbt` : une étiquette de type Java
+plus la valeur, parce qu'un `StoreVar` ne porte pas de `PinType` et qu'un `DoubleTag` ne
+distingue pas un `double` d'un `float`. Il sert le disque **et** le fil (réplication, épic 21),
+d'où la propriété : ce qui se réplique est exactement ce qui survit à un redémarrage.
+
 Un `SavedData` à part pour les variables (`blueprint_vars`) et non le même que les graphes :
 les deux n'ont ni la même fréquence d'écriture ni la même durée de vie, et la même règle de
 rangement sert la mémoire et le disque (`VarBuckets`, réutilisé par `VarStorage` et par
