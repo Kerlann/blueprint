@@ -38,7 +38,7 @@ import java.util.UUID;
  * comme la barre de progression <b>suivent</b> la variable sans qu'un seul nœud ne les
  * touche — c'est le travail des liaisons.
  *
- * <p>Lancement en jeu : <code>/blueprint showcase</code> puis <code>/bpc vitrine</code>.
+ * <p>Lancement en jeu : <code>/blueprint showcase</code> puis <code>/vitrine</code>.
  *
  * <h2>Les onze types, et ce que chacun démontre</h2>
  *
@@ -69,7 +69,7 @@ public final class ShowcaseBlueprint {
 
     public static final Identifier ID = Identifier.fromNamespaceAndPath("blueprint", "vitrine");
 
-    /** Nom à taper : {@code /bpc vitrine}. */
+    /** Nom à taper : {@code /vitrine}. */
     public static final String COMMAND = "vitrine";
 
     /** Le nom de l'écran, tel que les nœuds gui le désignent. */
@@ -237,7 +237,7 @@ public final class ShowcaseBlueprint {
         return bp;
     }
 
-    /** {@code /bpc vitrine} : ouvrir l'écran, puis remplir la liste. */
+    /** {@code /vitrine} : ouvrir l'écran, puis remplir la liste. */
     private static void openOnCommand(Blueprint bp, NodeTypeLookup lookup) {
         UUID command = add(bp, lookup, "cmd", StandardEvents.COMMAND.id(), -600, -400);
         literal(bp, lookup, command, "name", LiteralValue.of(PinTypes.STRING, COMMAND));

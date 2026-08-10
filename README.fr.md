@@ -35,8 +35,8 @@ Puis, en jeu :
 
 | | |
 |---|---|
-| `/blueprint showcase` puis `/bpc vitrine` | voir les douze types de widgets, tous câblés |
-| `/blueprint bench` puis `/bpc bench` | lancer le banc de performance |
+| `/blueprint showcase` puis `/vitrine` | voir les douze types de widgets, tous câblés |
+| `/blueprint bench` puis `/bench` | lancer le banc de performance |
 | `/blueprint-edit create mon_premier` | créer le sien |
 | `F6` | rouvrir le dernier édité |
 
@@ -52,8 +52,8 @@ blueprint en dix minutes, raccourcis, dépannage.
   survit à un redémarrage, blueprint glouton ou en faute désactivé automatiquement.
 - **239 types de nœuds** livrés — interfaces (34), événements (26), monde (20), maths (20),
   joueur (19), chaînes (12), entité (12), flux (12), vecteurs (11), logique (10), listes,
-  tables, texte, items, positions, scores — plus `/bpc <nom>` pour déclencher un graphe à
-  la commande.
+  tables, texte, items, positions, scores — et un graphe qui déclare une commande en
+  obtient une vraie : déclarez `home`, vous tapez `/home`.
 - **Multijoueur** : synchronisation du registre au login, ouverture et enregistrement par
   paquets avec verrou optimiste, garde de graphe et quotas côté serveur.
 - **Extensible** de trois façons : builder Java, annotation `@BlueprintNode`, ou simple
@@ -92,9 +92,9 @@ lire et modifier dans l'éditeur.
 ```
 /blueprint bench                            # l'installe et l'active
 /blueprint profile blueprint:bench on
-/bpc bench                                  # trois fois, pour chauffer le JIT
+/bench                                  # trois fois, pour chauffer le JIT
 /blueprint profile blueprint:bench reset    # on jette les tours d'échauffement
-/bpc bench                                  # le tour qu'on mesure
+/bench                                  # le tour qu'on mesure
 /blueprint profile blueprint:bench
 ```
 

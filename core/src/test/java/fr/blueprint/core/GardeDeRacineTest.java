@@ -42,7 +42,7 @@ class GardeDeRacineTest {
         String refus = BlueprintMod.refusDeRacine(racineAvec("kill"), "kill", Set.of());
 
         assertNotNull(refus, "écraser /kill doit être refusé, pas accepté en silence");
-        assertTrue(refus.contains("/bpc kill"),
+        assertTrue(refus.contains("/blueprint run kill"),
                 "le refus doit indiquer la voie qui marche encore, pas seulement refuser : " + refus);
     }
 

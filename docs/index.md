@@ -76,7 +76,7 @@ peut ouvrir et modifier :
 
 ```
 /blueprint bench
-/bpc bench
+/bench
 /blueprint profile blueprint:bench
 ```
 
@@ -111,8 +111,8 @@ Puis, en jeu :
 |---|---|
 | `/blueprint-edit create mon_premier` | créer son premier graphe |
 | **F6** | rouvrir le dernier édité |
-| `/blueprint showcase` puis `/bpc vitrine` | voir les douze widgets, tous câblés |
-| `/blueprint bench` puis `/bpc bench` | lancer le banc de performance |
+| `/blueprint showcase` puis `/vitrine` | voir les douze widgets, tous câblés |
+| `/blueprint bench` puis `/bench` | lancer le banc de performance |
 
 L'éditeur est côté client : pour éditer, il faut le mod. Mais les graphes s'exécutent sur
 le serveur, et un client vanilla peut jouer sur un serveur qui en fait tourner.

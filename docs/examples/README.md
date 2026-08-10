@@ -1,13 +1,26 @@
 # Les blueprints livrés
 
-Quatre, et chacun a un travail précis.
+Six, et chacun a un travail précis. Quatre s'installent par une commande :
 
 | | |
 |---|---|
-| [`fonctions.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/fonctions.bp) | **définir une fois, appeler partout** — `/blueprint fonctions` puis `/bpc fonctions` |
+| [`fonctions.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/fonctions.bp) | **définir une fois, appeler partout** — `/blueprint fonctions` puis `/fonctions` |
 | [`rp.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/rp.bp) | **un serveur de jeu de rôle** — `/blueprint rp`, puis reconnecte-toi |
-| [`vitrine.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/vitrine.bp) | **les douze types d'éléments d'écran, tous câblés** — `/blueprint showcase` puis `/bpc vitrine` |
-| [`bench.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/bench.bp) | **un banc de performance** — `/blueprint bench` puis `/bpc bench` |
+| [`vitrine.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/vitrine.bp) | **les douze types d'éléments d'écran, tous câblés** — `/blueprint showcase` puis `/vitrine` |
+| [`bench.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/bench.bp) | **un banc de performance** — `/blueprint bench` puis `/bench` |
+
+Deux autres sont livrés en **fichiers**, pas en commande d'installation : ils sont écrits à
+la main, et servent aussi à vérifier que du BScript tapé au clavier reste lisible par le
+parseur. Déposez-les dans `blueprint/exports/`, puis `/blueprint import <nom>`.
+
+| | |
+|---|---|
+| [`home.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/home.bp) | **un point de retour** — `/sethome` enregistre, `/home` ramène après trois secondes |
+| [`parkour.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/parkour.bp) | **un parkour chronométré** — départ, arrivée, meilleur temps par joueur |
+
+Les deux montrent la même chose : **un blueprint qui déclare une commande en obtient une
+vraie.** Déclarez `home` dans un nœud `event/command`, activez le blueprint, et `/home`
+existe — sans préfixe, avec l'autocomplétion, comme n'importe quelle commande du serveur.
 
 ---
 
@@ -17,7 +30,7 @@ Une suite de nœuds définie **une fois** et appelée depuis plusieurs endroits.
 
 ```
 /blueprint fonctions      # l'installe et l'active
-/bpc fonctions            # il répond « 3x3 + 4x4 = 25 »
+/fonctions            # il répond « 3x3 + 4x4 = 25 »
 ```
 
 Deux fonctions, dont l'une appelle l'autre :
@@ -68,7 +81,7 @@ fiche. Tout est enregistré **chez le joueur** et survit au redémarrage du serv
 ```
 /blueprint rp        # l'installe et l'active
                      # puis reconnecte-toi
-/bpc rp              # rouvrir le formulaire pour se corriger
+/rp              # rouvrir le formulaire pour se corriger
 ```
 
 ## Ce qu'il montre et qu'aucun autre exemple ne montrait
@@ -300,14 +313,14 @@ En jeu, deux commandes :
 
 ```
 /blueprint bench      # crée le banc, l'active, et l'exporte dans blueprint/exports/
-/bpc bench            # le lance ; il répond par un message
+/bench            # le lance ; il répond par un message
 ```
 
 Puis, pour voir où le temps est passé :
 
 ```
 /blueprint profile blueprint:bench on
-/bpc bench
+/bench
 /blueprint profile blueprint:bench
 ```
 
@@ -317,14 +330,14 @@ Puis, pour voir où le temps est passé :
 > affiche le rapport.
 
 Le profilage n'enregistre que ce qui tourne **après** l'avoir activé : il faut donc
-relancer `/bpc bench` entre les deux, sinon le rapport annonce zéro appel sur zéro nœud.
+relancer `/bench` entre les deux, sinon le rapport annonce zéro appel sur zéro nœud.
 
 Et pour un chiffre qui veut dire quelque chose, chauffer puis remettre à zéro :
 
 ```
-/bpc bench                                  # trois fois
+/bench                                  # trois fois
 /blueprint profile blueprint:bench reset
-/bpc bench                                  # le tour mesuré
+/bench                                  # le tour mesuré
 /blueprint profile blueprint:bench
 ```
 

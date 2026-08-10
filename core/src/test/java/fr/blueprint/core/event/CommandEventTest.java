@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Story 7.7 : un blueprint déclare une commande par le littéral « name » de son
- * nœud event/command ; /bpc la déclenche via {@code launchCommand}, la
+ * nœud event/command ; la racine posée pour ce nom la déclenche via {@code launchCommand}, la
  * désactivation la retire des noms vivants, et l'argument texte traverse la charge
  * utile jusqu'au graphe.
  */

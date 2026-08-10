@@ -40,8 +40,8 @@ Then, in game:
 
 | | |
 |---|---|
-| `/blueprint showcase` then `/bpc vitrine` | see the twelve widget kinds, all wired |
-| `/blueprint bench` then `/bpc bench` | run the performance bench |
+| `/blueprint showcase` then `/vitrine` | see the twelve widget kinds, all wired |
+| `/blueprint bench` then `/bench` | run the performance bench |
 | `/blueprint-edit create my_first` | create your own |
 | `F6` | reopen the last one edited |
 
@@ -57,7 +57,8 @@ blueprint in ten minutes, shortcuts, troubleshooting.
   survives a restart, and a greedy or faulting blueprint disabled automatically.
 - **239 node types** shipped — screens (34), events (26), world (20), maths (20), player
   (19), strings (12), entities (12), flow (12), vectors (11), logic (10), lists, maps,
-  text, items, positions, scoreboards — plus `/bpc <name>` to fire a graph from a command.
+  text, items, positions, scoreboards — and a graph that declares a command gets a real
+  one: declare `home`, get `/home`.
 - **Multiplayer**: registry sync on login, packet-based open and save with optimistic
   locking, graph guards and server-side quotas.
 - **Extensible three ways**: a Java builder, a `@BlueprintNode` annotation, or plain
@@ -96,9 +97,9 @@ edit in the editor.
 ```
 /blueprint bench                            # installs and enables it
 /blueprint profile blueprint:bench on
-/bpc bench                                  # three times, to warm the JIT
+/bench                                  # three times, to warm the JIT
 /blueprint profile blueprint:bench reset    # discard the warm-up rounds
-/bpc bench                                  # the round we measure
+/bench                                  # the round we measure
 /blueprint profile blueprint:bench
 ```
 

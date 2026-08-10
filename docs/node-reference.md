@@ -379,7 +379,7 @@ permission `SAFE` · fuel 1 · E
 
 ## event/server
 
-### `blueprint:event/command` — On command (/bpc)
+### `blueprint:event/command` — On command
 
 permission `SAFE` · fuel 1 · E
 

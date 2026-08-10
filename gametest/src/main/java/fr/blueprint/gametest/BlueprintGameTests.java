@@ -118,9 +118,17 @@ public final class BlueprintGameTests {
         });
     }
 
-    /** VERIFY-7.7 automatisé : {@code /bpc <nom>} déclenche le blueprint qui le déclare. */
+    /**
+     * VERIFY-7.7 automatisé : la racine posée pour un nom déclaré déclenche son blueprint.
+     *
+     * <p>Le test tape {@code /gametest …} et non un préfixe : c'est tout l'intérêt de la
+     * pose à chaud, et c'est la partie qui peut casser sans bruit. Trois pièces doivent
+     * s'enchaîner — activer le blueprint signale le changement, le signal repose les
+     * racines, la racine appelle le même corps que le repli. Qu'une seule lâche, et le
+     * joueur tape une commande que le serveur dit ne pas connaître.
+     */
     @GameTest(maxTicks = 200)
-    public void theBpcCommandTriggersItsBlueprint(GameTestHelper helper) {
+    public void theDeclaredRootCommandTriggersItsBlueprint(GameTestHelper helper) {
         Identifier blueprintId = id("command_places_block");
         BlockPos target = helper.absolutePos(new BlockPos(2, 1, 1));
         var server = helper.getLevel().getServer();
@@ -130,7 +138,7 @@ public final class BlueprintGameTests {
         manager.setEnabled(blueprintId, true);
 
         server.getCommands().performPrefixedCommand(
-                server.createCommandSourceStack(), "bpc gametest depuis-le-test");
+                server.createCommandSourceStack(), "gametest depuis-le-test");
 
         helper.succeedWhen(() -> {
             // Position ABSOLUE : relativePos ne rend pas exactement ce qu'absolutePos a

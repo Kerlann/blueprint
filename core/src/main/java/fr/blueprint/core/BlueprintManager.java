@@ -83,12 +83,44 @@ public final class BlueprintManager {
      * client, et les deux commandes avaient l'air de parler de deux mondes différents.
      */
     private void announceList() {
+        // Sous un lot, on note et on se tait : chaque annonce diffuse la liste à tous les
+        // joueurs et repose les racines de commandes. Sur « /blueprint enable all » et
+        // cinquante blueprints, cinquante annonces feraient cinquante fois le travail de
+        // la dernière.
+        if (muet > 0) {
+            enAttente = true;
+            return;
+        }
         if (server != null) {
             fr.blueprint.core.net.ServerBlueprintNet.announceList(server);
             // Le même signal sert aux commandes : un blueprint adopté, activé ou désactivé
             // change la liste des noms déclarés. Se brancher ici évite d'avoir à penser
             // aux racines dynamiques à chaque endroit qui modifie un blueprint.
             fr.blueprint.core.BlueprintMod.refreshDynamicCommands(server);
+        }
+    }
+
+    /** Profondeur de silence, et une annonce demandée pendant celui-ci. */
+    private int muet;
+    private boolean enAttente;
+
+    /**
+     * Groupe plusieurs changements en <b>une seule</b> annonce.
+     *
+     * <p>Réentrant : un lot dans un lot ne parle qu'à la sortie du plus extérieur. Si le
+     * travail lève, l'annonce part quand même — les changements déjà faits sont réels, et
+     * des clients qui les ignorent seraient pires qu'une exception remontée seule.
+     */
+    public void enLot(Runnable travail) {
+        muet++;
+        try {
+            travail.run();
+        } finally {
+            muet--;
+            if (muet == 0 && enAttente) {
+                enAttente = false;
+                announceList();
+            }
         }
     }
 
@@ -177,6 +209,11 @@ public final class BlueprintManager {
         if (!enabled) {
             closeItsScreens(id);
         }
+        // Activer change la liste des commandes déclarées — elle ne compte que les
+        // blueprints ACTIFS. Sans ce signal, un blueprint importé puis activé n'obtenait
+        // sa racine qu'au prochain événement qui touchait le gestionnaire, ou jamais :
+        // /home restait inconnu alors que le graphe, lui, écoutait bien.
+        announceList();
         return true;
     }
 

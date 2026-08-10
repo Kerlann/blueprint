@@ -159,7 +159,7 @@ et l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | V14 | Défilement des panneaux (5.12) | un nœud à douze pins et un blueprint à vingt variables : molette dans chaque panneau, curseur visible, rien d'inatteignable |
 | V15 | Boucles et listes (7.1b/7.8) | **Automatisé** — gametest aForEachLoopVisitsEveryItemAndStops : plus rien à voir en jeu |
 | V16 | Bibliothèque en monde réel (7.3/7.4/7.5) | poser un bloc, jouer un son, faire apparaître une entité, lire l'heure : les nœuds monde/entité/temps agissent vraiment |
-| V17 | Commande de blueprint (7.7) | **Automatisé** — gametest theBpcCommandTriggersItsBlueprint : plus rien à voir en jeu |
+| V17 | Commande de blueprint (7.7) | **Automatisé** — gametest theDeclaredRootCommandTriggersItsBlueprint : plus rien à voir en jeu |
 | V18 | Quotas et audit (9.3) | `maxNodes: 5` dans la config puis redémarrage → l'éditeur refuse le sixième nœud ; exécuter un nœud ADMIN → ligne `blueprint-audit` avec le nom du joueur |
 | V19 | Nœud annoté et compat (8.1/8.4) | **Automatisé** — gametest theAnnotatedNodeOfTheTestModIsRegisteredWithItsDefaults : plus rien à voir en jeu |
 | V20 | Gestes d'Unreal (5.13) | clic droit sur un nœud, un pin, un fil, le vide : quatre menus différents ; promouvoir un pin en variable ; **lâcher un nœud sur un fil** → halo vert puis insertion, `Ctrl+Z` défait tout d'un coup |

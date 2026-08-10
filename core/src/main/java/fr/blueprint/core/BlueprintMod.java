@@ -172,41 +172,22 @@ public class BlueprintMod {
     /**
      * Les commandes du mod, posées dans le dispatcher que le chargeur fournit.
      *
-     * <p>Les deux arbres ensemble : {@code /blueprint} et {@code /bpc} s'enregistraient à
-     * deux endroits différents parce que deux abonnements Fabric distincts les portaient.
-     * Le chargeur n'a plus qu'un fil à brancher, et l'ordre entre elles cesse de dépendre
-     * de l'ordre des abonnements.
+     * <p>Un seul arbre, {@code /blueprint}. Il y en avait deux : {@code /bpc <nom>} portait
+     * les commandes déclarées par les blueprints, parce que Brigadier ne sait pas retirer
+     * une racine et qu'un préfixe fixe évitait la question. Les racines dynamiques la
+     * tranchent autrement — un blueprint qui déclare « home » obtient {@code /home}, ce que
+     * le joueur tape naturellement. Le repli pour un nom en collision est
+     * {@code /blueprint run}, dans cet arbre-ci.
      */
     public static void registerCommands(
             com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher) {
         dispatcher.register(BlueprintCommand.build(config));
-        dispatcher.register(bpcCommand());
     }
 
-    /**
-     * {@code /bpc <nom> [texte]} : déclenche les blueprints déclarant la commande (7.7).
-     *
-     * <p>Un préfixe fixe plutôt que des racines dynamiques : Brigadier ne sait pas retirer
-     * proprement un nœud racine, {@code /bpc} suggère les noms VIVANTS.
-     */
-    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<
-            net.minecraft.commands.CommandSourceStack> bpcCommand() {
-        return net.minecraft.commands.Commands.literal("bpc")
-                .then(net.minecraft.commands.Commands.argument("name",
-                                com.mojang.brigadier.arguments.StringArgumentType.word())
-                        .suggests((context, builder) -> {
-                            var bridge = BRIDGES.get(context.getSource().getServer());
-                            if (bridge != null) {
-                                bridge.commandNames().forEach(builder::suggest);
-                            }
-                            return builder.buildFuture();
-                        })
-                        .executes(context -> runBpc(context, ""))
-                        .then(net.minecraft.commands.Commands.argument("arg",
-                                        com.mojang.brigadier.arguments.StringArgumentType.greedyString())
-                                .executes(context -> runBpc(context,
-                                        com.mojang.brigadier.arguments.StringArgumentType
-                                                .getString(context, "arg")))));
+    /** Les noms de commande déclarés par les blueprints actifs — pour les suggestions. */
+    public static java.util.List<String> commandNames(net.minecraft.server.MinecraftServer server) {
+        var bridge = BRIDGES.get(server);
+        return bridge == null ? java.util.List.of() : java.util.List.copyOf(bridge.commandNames());
     }
 
     /**
@@ -469,7 +450,7 @@ public class BlueprintMod {
             return null;   // déjà posée par nous, ou à reposer après un /reload
         }
         return racine.getChild(nom) == null ? null
-                : "« /" + nom + " » existe déjà — le blueprint garde /bpc " + nom;
+                : "« /" + nom + " » existe déjà — lancez-le par /blueprint run " + nom;
     }
 
     /**
@@ -482,8 +463,8 @@ public class BlueprintMod {
      * <p><b>Le retrait, lui, est différé.</b> Brigadier n'expose aucun moyen d'enlever une
      * racine. Un blueprint supprimé laisse donc sa commande jusqu'au prochain
      * {@code /reload} — qui reconstruit tout le dispatcher — ou au redémarrage. D'ici là
-     * elle répond « aucun blueprint n'écoute », exactement comme {@code /bpc} pour un nom
-     * inconnu : l'échec est bénin et il se lit.
+     * elle répond « aucun blueprint n'écoute », exactement comme {@code /blueprint run} pour
+     * un nom inconnu : l'échec est bénin et il se lit.
      */
     public static void refreshDynamicCommands(net.minecraft.server.MinecraftServer server) {
         var bridge = BRIDGES.get(server);
@@ -588,7 +569,7 @@ public class BlueprintMod {
         }
     }
 
-    /** Pont événements par serveur — consulté par /bpc (7.7). */
+    /** Pont événements par serveur — consulté par les commandes déclarées (7.7). */
     private static final java.util.Map<net.minecraft.server.MinecraftServer,
             fr.blueprint.core.event.BlueprintEventBridge> BRIDGES =
             java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
@@ -712,24 +693,16 @@ public class BlueprintMod {
         return bridge == null ? 0 : bridge.signalListeners(name);
     }
 
-    /** Exécute /bpc <nom> [texte] : lance les blueprints déclarant la commande. */
-    private static int runBpc(
-            com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> context,
-            String arg) {
-        return lancerCommande(context.getSource(),
-                com.mojang.brigadier.arguments.StringArgumentType.getString(context, "name"), arg);
-    }
-
     /**
      * Déclenche les blueprints qui écoutent ce nom de commande.
      *
-     * <p>Le nom arrive en paramètre plutôt que d'être lu dans le contexte : sur
-     * {@code /bpc <nom>} il vient d'un argument, sur une racine dynamique il EST le
-     * littéral de la commande. Un seul corps pour les deux chemins — sinon la correction
-     * d'un défaut n'atteindrait qu'une moitié des joueurs.
+     * <p>Le nom arrive en paramètre plutôt que d'être lu dans le contexte : sur une racine
+     * dynamique il EST le littéral de la commande, sur {@code /blueprint run <nom>} il vient
+     * d'un argument. Un seul corps pour les deux chemins — sinon la correction d'un défaut
+     * n'atteindrait qu'une moitié des joueurs.
      */
-    private static int lancerCommande(net.minecraft.commands.CommandSourceStack source,
-                                      String name, String arg) {
+    public static int lancerCommande(net.minecraft.commands.CommandSourceStack source,
+                                     String name, String arg) {
         var bridge = BRIDGES.get(source.getServer());
         if (bridge == null) {
             return 0;
@@ -744,11 +717,11 @@ public class BlueprintMod {
                 fr.blueprint.core.event.StandardEvents.COMMAND, values));
         if (launched == 0) {
             source.sendFailure(net.minecraft.network.chat.Component.translatable(
-                    "blueprint.cmd.bpc_unknown", name));
+                    "blueprint.cmd.command_unknown", name));
         } else {
             final int count = launched;
             source.sendSuccess(() -> net.minecraft.network.chat.Component.translatable(
-                    "blueprint.cmd.bpc_launched", name, count), false);
+                    "blueprint.cmd.command_launched", name, count), false);
         }
         return launched;
     }

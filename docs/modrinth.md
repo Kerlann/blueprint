@@ -161,7 +161,7 @@ And you can check it yourself, in-game, in three commands:
 
 ```
 /blueprint bench
-/bpc bench
+/bench
 /blueprint profile blueprint:bench
 ```
 
@@ -175,7 +175,8 @@ editor. Nothing is hidden behind a benchmark harness you cannot see.
   a reloadable JSON theme, keyboard navigation.
 - **239 node types** — screens (34), maths (20), world (20), player (19), strings (12),
   flow (12), entities (12), vectors (11), logic (10), lists, maps, text, items,
-  scoreboards — **including 26 events**, plus `/bpc <name>` to fire a graph from a command.
+  scoreboards — **including 26 events**, and a graph that declares a command gets a real
+  one: declare `home`, get `/home`.
 - **A screen designer** — 12 widget kinds (labels, buttons, lists, dropdowns, sliders,
   toggles, inputs, progress bars, item slots, images, entity previews, panels), with
   **bindings**: a label can *follow* a variable instead of being written by a node.

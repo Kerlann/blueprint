@@ -136,7 +136,7 @@ public final class BlueprintEventBridge {
 
     // ------------------------------------------------ événement command (7.7)
 
-    /** Les noms de commandes déclarés par les blueprints ACTIFS (suggestions /bpc). */
+    /** Les noms de commandes déclarés par les blueprints ACTIFS (suggestions de /blueprint run). */
     public java.util.Set<String> commandNames() {
         // Un blueprint désactivé rend une liste vide : commande retirée (AC 7.7).
         java.util.Set<String> names = new java.util.LinkedHashSet<>();

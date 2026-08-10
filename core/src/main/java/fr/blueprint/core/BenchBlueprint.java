@@ -23,7 +23,7 @@ import java.util.UUID;
  * faire là où les bancs headless ne vont pas — dans une partie, sur un serveur, avec un
  * joueur qui tape une commande et lit le résultat.
  *
- * <p>Lancement en jeu : <code>/bpc bench</code>. Le graphe répond par un message donnant
+ * <p>Lancement en jeu : <code>/bench</code>. Le graphe répond par un message donnant
  * ce qu'il a calculé, le fuel dépensé étant lisible juste après par
  * <code>/blueprint profile show</code>.
  *
@@ -63,7 +63,7 @@ public final class BenchBlueprint {
 
     public static final Identifier ID = Identifier.fromNamespaceAndPath("blueprint", "bench");
 
-    /** Nom à taper : {@code /bpc bench}. */
+    /** Nom à taper : {@code /bench}. */
     public static final String COMMAND = "bench";
 
     /**

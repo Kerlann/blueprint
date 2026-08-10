@@ -51,6 +51,20 @@ public final class BlueprintCommand {
         return builder.buildFuture();
     };
 
+    /**
+     * Suggestions de {@code /blueprint run} : les noms de commande VIVANTS.
+     *
+     * <p>Ceux que les blueprints actifs déclarent en ce moment — pas ceux qui ont une
+     * racine posée. Les deux ensembles diffèrent : une racine survit à la suppression de
+     * son blueprint jusqu'au prochain {@code /reload}, et un nom en collision n'en a
+     * jamais eu.
+     */
+    private static final SuggestionProvider<CommandSourceStack> DECLARED_COMMANDS = (ctx, builder) -> {
+        fr.blueprint.core.BlueprintMod.commandNames(ctx.getSource().getServer())
+                .forEach(builder::suggest);
+        return builder.buildFuture();
+    };
+
     /** Suggestions : les identifiants des blueprints existants du serveur (AC1). */
     private static final SuggestionProvider<CommandSourceStack> EXISTING_IDS = (ctx, builder) ->
             SharedSuggestionProvider.suggestResource(
@@ -78,6 +92,23 @@ public final class BlueprintCommand {
                         .then(idArgument()
                                 .suggests(EXISTING_IDS)
                                 .executes(BlueprintCommand::info)))
+                // Le repli des commandes déclarées. La voie normale est la racine directe :
+                // un blueprint qui déclare « home » obtient /home. Mais un nom déjà pris —
+                // « kill », « give » — est refusé plutôt que d'écraser vanilla en silence,
+                // et sans ce repli il serait déclarable sans jamais pouvoir se déclencher.
+                //
+                // Ouvert comme la racine directe qu'il remplace : c'est le blueprint qui
+                // décide qui peut faire quoi, pas le chemin par lequel on l'a appelé.
+                .then(literal("run")
+                        .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("name",
+                                        com.mojang.brigadier.arguments.StringArgumentType.word())
+                                .suggests(DECLARED_COMMANDS)
+                                .executes(ctx -> run(ctx, ""))
+                                .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument("arg",
+                                                com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                                        .executes(ctx -> run(ctx,
+                                                com.mojang.brigadier.arguments.StringArgumentType
+                                                        .getString(ctx, "arg"))))))
                 // « edit » vit dans le MÊME arbre que le reste (AC : relier les deux
                 // commandes). Il partage donc les suggestions de `EXISTING_IDS`, qui
                 // lisent le gestionnaire du serveur — là où /blueprint-edit affichait
@@ -125,7 +156,7 @@ public final class BlueprintCommand {
                                 .suggests(EXPORT_FILES)
                                 .executes(BlueprintCommand::importFile)))
                 // Le banc de performance : le seul blueprint livré. Il ne s'active pas
-                // tout seul — il se déclenche à la commande /bpc bench.
+                // tout seul — il se déclenche à la commande /bench.
                 .then(literal("bench")
                         .requires(admin)
                         .executes(BlueprintCommand::bench))
@@ -612,7 +643,7 @@ public final class BlueprintCommand {
     }
 
     /**
-     * Installe le banc de performance et l'ACTIVE — sans quoi {@code /bpc bench} ne
+     * Installe le banc de performance et l'ACTIVE — sans quoi {@code /bench} ne
      * trouverait rien à déclencher, et l'on chercherait longtemps pourquoi.
      */
     private static int bench(CommandContext<CommandSourceStack> ctx) {
@@ -638,6 +669,18 @@ public final class BlueprintCommand {
         ctx.getSource().sendSuccess(() -> Component.translatable(
                 file != null ? okKey : noFileKey, bp.id().toString()), true);
         return 1;
+    }
+
+    /**
+     * {@code /blueprint run <nom> [texte]} — le corps est celui des racines directes.
+     *
+     * <p>Déléguer plutôt que réimplémenter : les deux chemins doivent monter exactement le
+     * même contexte d'événement, sinon un blueprint se comporterait différemment selon la
+     * manière dont on l'a lancé, ce qui est le genre d'écart qu'on ne diagnostique pas.
+     */
+    private static int run(CommandContext<CommandSourceStack> ctx, String arg) {
+        return fr.blueprint.core.BlueprintMod.lancerCommande(ctx.getSource(),
+                com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name"), arg);
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> literal(String name) {
@@ -730,12 +773,16 @@ public final class BlueprintCommand {
         List<Identifier> changed = new ArrayList<>();
         // Copie de la liste : setEnabled(false) referme des écrans, ce qui touche
         // d'autres tables — on ne parcourt pas une collection qu'on fait bouger.
-        for (Blueprint bp : List.copyOf(manager.all())) {
-            if (bp.enabled() != enabled) {
-                manager.setEnabled(bp.id(), enabled);
-                changed.add(bp.id());
+        // En lot : chaque activation change la liste des commandes déclarées, donc
+        // diffuserait la liste et reposerait les racines. Une fois à la fin suffit.
+        manager.enLot(() -> {
+            for (Blueprint bp : List.copyOf(manager.all())) {
+                if (bp.enabled() != enabled) {
+                    manager.setEnabled(bp.id(), enabled);
+                    changed.add(bp.id());
+                }
             }
-        }
+        });
         ctx.getSource().sendSuccess(() -> Component.translatable(
                 enabled ? "blueprint.cmd.enabled_all" : "blueprint.cmd.disabled_all",
                 changed.size()), true);

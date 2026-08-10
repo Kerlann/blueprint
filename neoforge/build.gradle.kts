@@ -114,7 +114,7 @@ tasks.matching { it.name == "runServer" }.configureEach {
         // Monde NEUF à chaque scénario, comme runGametest le fait déjà côté Fabric.
         //
         // Sans cela le scénario n'est pas reproductible, et il l'a prouvé : au second
-        // passage, `/blueprint bench` répondait « already exists », et `/bpc bench`
+        // passage, `/blueprint bench` répondait « already exists », et `bench`
         // « no enabled blueprint declares the command » — parce que le graphe du passage
         // précédent avait été sauvegardé, faute comprise, donc désactivé. Un scénario
         // dont le résultat dépend du run d'avant ne vérifie plus rien.

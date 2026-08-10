@@ -26,7 +26,7 @@ import java.util.UUID;
 /**
  * <b>Les fonctions</b> : définir une fois, appeler partout (story 20.1).
  *
- * <p>Lancement en jeu : <code>/blueprint fonctions</code> puis <code>/bpc fonctions</code>.
+ * <p>Lancement en jeu : <code>/blueprint fonctions</code> puis <code>/fonctions</code>.
  *
  * <p>Deux fonctions, dont l'une appelle l'autre :
  *
@@ -53,7 +53,7 @@ public final class FunctionBlueprint {
 
     public static final Identifier ID = Identifier.fromNamespaceAndPath("blueprint", "fonctions");
 
-    /** Nom à taper : {@code /bpc fonctions}. */
+    /** Nom à taper : {@code /fonctions}. */
     public static final String COMMAND = "fonctions";
 
     private FunctionBlueprint() {

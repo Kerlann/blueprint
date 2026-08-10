@@ -158,7 +158,8 @@ public final class StandardEvents {
 
     /**
      * Commande déclarée par un blueprint (story 7.7) : le nœud d'événement porte le
-     * nom en littéral, /bpc &lt;nom&gt; [texte] la déclenche. Le nœud n'est PAS
+     * nom en littéral, et le serveur lui pose une racine : déclarer « home » donne
+     * /home &lt;texte&gt;. Un nom déjà pris garde /blueprint run &lt;nom&gt;. Le nœud n'est PAS
      * synthétisé (enregistré à la main avec son entrée « name »).
      */
     public static final EventType COMMAND = EventType.builder(id("command"))

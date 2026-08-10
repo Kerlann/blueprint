@@ -39,7 +39,7 @@ import java.util.UUID;
  * serveur.
  *
  * <p>Lancement en jeu : <code>/blueprint rp</code>. Le blueprint s'active et travaille à la
- * connexion suivante. <code>/bpc rp</code> rouvre le formulaire pour se corriger.
+ * connexion suivante. <code>/rp</code> rouvre le formulaire pour se corriger.
  *
  * <h2>Ce que cet exemple montre, et qu'aucun autre ne montrait</h2>
  *
@@ -70,7 +70,7 @@ public final class RoleplayBlueprint {
 
     public static final Identifier ID = Identifier.fromNamespaceAndPath("blueprint", "rp");
 
-    /** Nom à taper : {@code /bpc rp} — rouvre le formulaire. */
+    /** Nom à taper : {@code /rp} — rouvre le formulaire. */
     public static final String COMMAND = "rp";
 
     /** Le formulaire modal, ouvert à la connexion d'un joueur sans personnage. */
@@ -270,7 +270,7 @@ public final class RoleplayBlueprint {
         ouvrirFormulaire(bp, lookup, "join", test, "false", join, -380, 160);
     }
 
-    /** {@code /bpc rp} : rouvrir le formulaire pour se corriger. */
+    /** {@code /rp} : rouvrir le formulaire pour se corriger. */
     private static void reouvrir(Blueprint bp, NodeTypeLookup lookup) {
         UUID commande = add(bp, lookup, "cmd", StandardEvents.COMMAND.id(), -900, 700);
         literal(bp, lookup, commande, "name", LiteralValue.of(PinTypes.STRING, COMMAND));
