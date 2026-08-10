@@ -27,7 +27,46 @@ public final class HudView {
     /** Les HUD affichés, dans l'ordre d'apparition — c'est l'ordre de dessin. */
     private final Map<String, Screen> shown = new LinkedHashMap<>();
     /** Le remplissage des barres, par écran puis par élément (valeur d'exécution). */
-    private final Map<String, Map<String, Double>> progress = new LinkedHashMap<>();
+    private final Map<String, Map<String, Bar>> progress = new LinkedHashMap<>();
+
+    /**
+     * Une barre en mouvement : d'où elle vient, où elle va, et quand elle est partie.
+     *
+     * <p>Trois champs dans un seul objet plutôt que trois tables parallèles : la lecture se fait
+     * <b>par élément et par image</b>, et trois recherches là où une suffit se paieraient à
+     * chaque barre de chaque HUD, soixante fois par seconde.
+     *
+     * @param since horodatage en millisecondes de l'instant où la cible a changé
+     */
+    private record Bar(double from, double to, long since) {
+
+        /**
+         * Où en est la barre maintenant.
+         *
+         * <p>Un lissage sur le temps réel et non sur les ticks : une valeur répliquée arrive au
+         * mieux vingt fois par seconde, l'écran se dessine soixante fois, et interpoler sur les
+         * ticks aurait produit trois images identiques puis un saut — soit exactement le défaut
+         * qu'on répare, à une échelle plus fine.
+         */
+        double at(long now) {
+            long elapsed = now - since;
+            if (elapsed >= SLIDE_MILLIS || elapsed < 0) {
+                return to;
+            }
+            double t = (double) elapsed / SLIDE_MILLIS;
+            return from + (to - from) * t;
+        }
+    }
+
+    /**
+     * Durée du glissement d'une barre, en millisecondes.
+     *
+     * <p>Cent, soit deux ticks. Assez pour qu'une valeur qui change à chaque tick soit
+     * <b>toujours</b> en mouvement, donc continue ; assez court pour qu'un changement brusque —
+     * un coup reçu, un achat — reste lu comme immédiat. Au-delà, la barre mentirait sur l'état du
+     * serveur pendant un temps qui se remarque.
+     */
+    private static final long SLIDE_MILLIS = 100;
     /** Ce que les liaisons client ont produit la dernière fois — pour ne pas le refaire. */
     private final Map<String, ScreenUpdate> lastClient = new LinkedHashMap<>();
     private static final String SEP = " ";
@@ -109,11 +148,6 @@ public final class HudView {
      * @param values ce que vaut une valeur client, par son nom
      * @return le nombre de modifications réellement appliquées
      */
-    /** La clé d'une modification : écran, élément, nature. Le séparateur est explicite. */
-    private static String key(ScreenUpdate update) {
-        return update.screen() + SEP + update.element() + SEP + update.kind();
-    }
-
     public int refreshClientBindings(java.util.function.Function<String, Object> values) {
         return refresh(screen -> values,
                 fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT);
@@ -145,6 +179,11 @@ public final class HudView {
      * <b>partagée</b> par les deux, et c'est correct : elle est indexée par
      * {@code écran+élément+nature}, et un élément n'a qu'une liaison, donc qu'une source.
      */
+    /** La clé d'une modification : écran, élément, nature. Le séparateur est explicite. */
+    private static String key(ScreenUpdate update) {
+        return update.screen() + SEP + update.element() + SEP + update.kind();
+    }
+
     private int refresh(java.util.function.Function<String,
                                 java.util.function.Function<String, Object>> lookups,
                         fr.blueprint.core.graph.screen.ElementBinding.Source source) {
@@ -211,16 +250,60 @@ public final class HudView {
                         case LINES, ITEM, VALUE, SCROLL, SCROLL_X -> element;
                     }));
             if (update.kind() == ScreenUpdate.Kind.PROGRESS) {
-                progress.computeIfAbsent(update.screen(), s -> new LinkedHashMap<>())
-                        .put(update.element(), update.number());
+                setProgress(update.screen(), update.element(), update.number());
             }
             applied++;
         }
         return applied;
     }
 
+    /**
+     * Pose une nouvelle cible, en partant de <b>là où la barre est</b> et non de sa cible
+     * précédente.
+     *
+     * <p>La nuance compte quand les valeurs arrivent plus vite que le glissement : partir de
+     * l'ancienne cible ferait reculer la barre à chaque nouvelle valeur, et le mouvement
+     * saccaderait au lieu de couler. Partir de la position réelle rend le glissement continu quoi
+     * qu'il arrive.
+     */
+    private void setProgress(String screen, String element, double target) {
+        Map<String, Bar> bars = progress.computeIfAbsent(screen, s -> new LinkedHashMap<>());
+        long now = clock.getAsLong();
+        Bar current = bars.get(element);
+        double from = current == null ? target : current.at(now);
+        bars.put(element, new Bar(from, target, now));
+    }
+
+    /**
+     * L'horloge, injectée pour que le lissage se teste sans attendre.
+     *
+     * <p>Même geste que {@code RateLimiter}, et pour la même raison : un test qui dépend du temps
+     * réel est un test qui rougit un jour sur une machine chargée.
+     */
+    private java.util.function.LongSupplier clock = System::currentTimeMillis;
+
+    void clock(java.util.function.LongSupplier clock) {
+        this.clock = clock;
+    }
+
+    /** La cible d'une barre — sa valeur d'arrivée, sans lissage. */
     public double progressOf(String screen, String element) {
-        return progress.getOrDefault(screen, Map.of()).getOrDefault(element, 0.0);
+        Bar bar = progress.getOrDefault(screen, Map.of()).get(element);
+        return bar == null ? 0.0 : bar.to();
+    }
+
+    /**
+     * Où la barre en est <b>maintenant</b> : ce que le peintre demande (épic 21, story 21.6).
+     *
+     * <p>Avant cette story, une barre sautait d'une valeur à l'autre au rythme des paquets. Sur
+     * une valeur répliquée qui change à chaque tick, cela donnait vingt sauts par seconde sur un
+     * écran dessiné soixante fois — visible, et d'autant plus que la valeur bougeait régulièrement.
+     *
+     * @param now l'horodatage de l'image, résolu UNE fois par image et non par élément
+     */
+    public double progressAt(String screen, String element, long now) {
+        Bar bar = progress.getOrDefault(screen, Map.of()).get(element);
+        return bar == null ? 0.0 : bar.at(now);
     }
 
     /** Une déconnexion ne laisse pas un HUD du serveur précédent à l'écran. */

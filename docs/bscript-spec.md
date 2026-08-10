@@ -185,13 +185,37 @@ courte** (`player_join`) — les deux sont acceptés, la seconde est plus lisibl
 | `@out("pin")` | Appel imbriqué | **Quelle sortie** est reliée, quand le nœud en a plusieurs |
 | `@with(pin: valeur)` | Événement | Ne déclenche que si le pin vaut cela (`@with(name: "home")`) |
 | `@local` `@graph` `@world` `@player` `@player_shared` | Variable | Portée |
-| `@replicated` | Variable | Synchronisée vers les clients (lecture seule) |
+| `@replicated` | Variable | Envoyée aux clients en **lecture seule** — voir ci-dessous |
 | `@collapsed` | Nœud | Replié dans l'éditeur |
 | `@hud` | Écran | Bandeau permanent au lieu d'un menu modal |
 | `@at` `@size` `@in` `@text` `@bind` `@opts` `@style` `@tip` `@layout` | Élément d'écran | Voir `ux-ui-spec.md` |
 
 Les annotations de mise en page sont **ignorées à l'exécution** : un BScript écrit à la
 main sans `@pos` ni `@id` reste valide, l'auto-layout s'en charge.
+
+### `@replicated` (épic 21)
+
+La valeur est envoyée aux clients qui la regardent, et un écran ou un HUD lié à cette variable
+s'affiche **sans aller-retour** : la mise à jour ne dépend plus d'un `gui/refresh`, et une barre
+liée **glisse** au lieu de sauter.
+
+Deux formes sont **refusées**, à l'édition comme au parsing :
+
+| Refusé | Pourquoi |
+|---|---|
+| `@local @replicated` | une variable locale ne survit pas à l'exécution qui l'écrit ; il n'y a rien à répliquer |
+| un type qui ne voyage pas | `player`, `entity`, un joker, `itemstack`, `text`, `blockstate`, `resourcelocation`, ou une collection qui en contient |
+
+La seconde liste est exactement celle des types qui **ne se persistent pas** non plus, et ce n'est
+pas une coïncidence : le fil et la sauvegarde du monde portent le **même** format étiqueté. Une
+variable ne peut donc pas arriver chez un client sans pouvoir être sauvegardée.
+
+Le sens est **descendant seulement**. Aucun paquet ne permet à un client d'écrire une valeur, et il
+n'en existera pas : « le serveur ne fait jamais confiance à ce qu'un client déclare » (FR52).
+
+Bornes : **32 variables répliquées par blueprint**, contre 256 variables au total. L'écart est
+voulu — une variable ordinaire coûte de la mémoire serveur une fois, une répliquée coûte un envoi
+par joueur qui la regarde à chaque changement. Un graphe qui dépasse est refusé à l'enregistrement.
 
 ---
 

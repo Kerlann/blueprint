@@ -33,7 +33,7 @@ nom, vérifier dans le JAR mergé de Loom (`javap`) — voir `tech-stack.md`.
 
 | # | Principe | Conséquence concrète |
 |---|---|---|
-| P1 | **L'exécution est serveur, l'édition est client** | Le client ne compile ni n'exécute jamais un graphe reçu ; il n'affiche que des descripteurs |
+| P1 | **L'exécution est serveur, l'édition est client** | Le client ne compile ni n'exécute jamais un graphe reçu ; il n'affiche que des descripteurs. Depuis l'épic 21 il peut *afficher* une valeur sans aller-retour (`@replicated`), ce qui ne l'autorise ni à la calculer ni à l'écrire |
 | P2 | **Le graphe est une donnée, pas du code** | Aucun chargement de classe à l'exécution, aucune réflexion dans la boucle chaude |
 | P3 | **Rien n'est illimité** | Fuel, profondeur, taille de paquet, nombre de nœuds, quota d'allocation |
 | P4 | **Un identifiant inconnu se conserve, ne se supprime pas** | Nœuds fantômes ; retirer un mod ne détruit pas le travail du joueur |
@@ -351,12 +351,17 @@ enregistrés via `PayloadTypeRegistry.playC2S()` / `playS2C()`.
 | `PatchC2S` / `PatchS2C` | ↔ | Opérations d'édition incrémentales |
 | `CompileResultS2C` | S→C | Diagnostics |
 | `DebugTraceS2C` | S→C | Trace d'exécution pour le débogueur (souscription explicite) |
+| `VarValues` | S→C | Valeurs des variables `@replicated` (épic 21) — **descendant seulement** |
 
 **Règles :**
 - Taille maximale par paquet et par blueprint ; limitation de débit par joueur.
 - Verrouillage optimiste : un patch porte le numéro de révision attendu ; en cas de
   divergence, le serveur renvoie une resynchronisation ciblée plutôt que de rejeter le travail.
 - Le débogage n'émet que si un client est abonné : coût nul quand il est éteint.
+- **La réplication n'émet que ce qui change**, et son coût est nul pour un serveur qui ne réplique
+  rien : le magasin teste un ensemble vide avant tout le reste. La clé du fil est
+  `(blueprint, nom)` et non la portée — une liaison d'écran ne nomme qu'une variable, et le client
+  n'a pas les déclarations qui diraient sa portée. Les valeurs d'un joueur ne partent **qu'à lui**.
 
 ---
 

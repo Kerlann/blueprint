@@ -159,9 +159,27 @@ Deux cas sont refusés, et le panneau ne prend pas le drapeau :
 - un type qui ne voyage pas — un joueur, une entité, un joker, ou une liste qui en
   contient — n'a rien à mettre sur le fil.
 
-> **Rien ne circule encore.** Le drapeau se pose, se persiste et se relit ; l'envoi vers les
-> clients arrive avec la suite de l'épic 21. Il était jusqu'ici écrit dans la spec et dans
-> quatre exemples livrés sans que personne puisse le poser depuis l'éditeur.
+### À quoi ça sert
+
+Une variable répliquée est **envoyée au client**, ce qui change une chose très concrète : un
+écran ou un HUD qui s'y lie l'affiche **sans rien demander au serveur**.
+
+| | Variable ordinaire | Variable `@replicated` |
+|---|---|---|
+| Mise à jour de l'affichage | seulement quand le graphe appelle `gui/refresh` | dès que la valeur change |
+| Fluidité d'une barre | saute d'une valeur à l'autre | **glisse** |
+| Coût | un paquet par rafraîchissement demandé | un paquet quand la valeur change, et rien sinon |
+
+Concrètement : une barre de mana répliquée se rafraîchit comme la barre de vie du jeu. Une barre
+de mana non répliquée saute par paliers, et seulement si le graphe pense à demander.
+
+**Quoi répliquer, alors ?** Ce qui s'affiche et qui change souvent — un solde, un score, une
+jauge, un état. Pas ce que le joueur ne voit pas : chaque valeur répliquée est un envoi par joueur
+qui la regarde, et le serveur en accepte **32 par blueprint** pour cette raison.
+
+> **Lecture seule, toujours.** Le client reçoit la valeur, il ne peut pas la changer — aucun
+> chemin ne le permet, et c'est délibéré. Un joueur qui modifie son client ne trompe que son
+> propre écran.
 
 Glissez une variable sur le canevas pour obtenir un nœud **lire** ou **écrire**.
 

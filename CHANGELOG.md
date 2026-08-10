@@ -8,6 +8,35 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Ajouté — les barres glissent (stories 21.6 et 21.7, épic 21 terminé)
+
+Une barre de progression **glisse** vers sa nouvelle valeur au lieu d'y sauter. C'est le gain
+visible de tout l'épic : la recherche de `partialTick|lerp|interpolat|smooth` dans `ScreenPainter`
+ne rendait rien — il n'y avait aucun lissage nulle part, et une valeur qui change à chaque tick
+donnait vingt sauts par seconde sur un écran dessiné soixante fois.
+
+- **Cent millisecondes de temps réel**, pas deux ticks. Une valeur arrive au mieux 20 fois par
+  seconde et l'écran se dessine 60 fois : interpoler sur les ticks aurait donné trois images
+  identiques puis un saut, soit le défaut qu'on répare à une échelle plus fine.
+- **Une nouvelle valeur repart de là où la barre est**, pas de sa cible précédente. Sur un flux à
+  20 Hz — plus rapide que le glissement — partir de l'ancienne cible ferait reculer la barre à
+  chaque fois, et le mouvement saccaderait au lieu de couler. Un test vérifie qu'un flux au rythme
+  du tick ne recule jamais.
+- **La première valeur ne glisse pas**, elle s'affiche : partir de zéro aurait fait se remplir
+  toutes les barres à l'ouverture d'un écran, une animation que personne n'a demandée et qui mentit
+  sur l'état pendant qu'elle dure.
+- **Appliqué à toutes les barres**, et non aux seules liées à une variable répliquée comme le plan
+  le prévoyait. Distinguer aurait demandé de savoir *pourquoi* une valeur a changé, donc de tracer
+  la source jusqu'au rendu ; et le besoin est le même, une barre pilotée par `gui/set_progress`
+  sautait tout autant.
+- **L'horloge est lue une fois par image**, pas par barre : la règle sur les chemins par image
+  n'admet pas d'exception au motif que c'est petit, et une seule lecture donne à toutes les barres
+  d'une image la même position — la seule cohérente. Les bancs de rendu du HUD et des écrans
+  passent inchangés.
+- **Documentation** : `bscript-spec.md` gagne une section `@replicated` (à quoi ça sert, les deux
+  formes refusées et pourquoi, les bornes), `architecture.md` nuance le principe P1 et documente le
+  paquet, `getting-started.md` explique au joueur la différence qu'il verra et quoi répliquer.
+
 ### Ajouté — le client peint une variable sans aller-retour (story 21.5)
 
 `ReplicatedVars`, un cache client en lecture seule, et les liaisons de source `VARIABLE`

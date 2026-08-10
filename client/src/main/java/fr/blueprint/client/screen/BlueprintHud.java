@@ -65,6 +65,15 @@ public final class BlueprintHud {
      */
     private static final class HudVisuals implements ScreenPainter.Visuals {
         private Screen current;
+        /**
+         * L'horodatage de l'image, posé une fois par image (épic 21, story 21.6).
+         *
+         * <p>Et non lu par élément : l'horloge est bon marché mais le peintre l'appellerait pour
+         * chaque barre de chaque HUD, et la règle sur les chemins par image n'admet pas
+         * d'exception au motif que c'est petit. Une seule lecture donne en plus la <b>même</b>
+         * position à toutes les barres d'une image, ce qui est la seule cohérente.
+         */
+        private long now;
 
         @Override
         public boolean textureMissing(Identifier texture) {
@@ -78,7 +87,7 @@ public final class BlueprintHud {
 
         @Override
         public double progress(String element) {
-            return VIEW.progressOf(current.name(), element);
+            return VIEW.progressAt(current.name(), element, now);
         }
     }
 
@@ -114,6 +123,7 @@ public final class BlueprintHud {
         int width = graphics.guiWidth();
         int height = graphics.guiHeight();
         syncCache(visible, width, height);
+        VISUALS.now = System.currentTimeMillis();
         for (Screen screen : visible) {
             var rects = LAYOUTS.computeIfAbsent(screen,
                     s -> fr.blueprint.core.graph.screen.ScreenLayout.solve(s, width, height));

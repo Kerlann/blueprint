@@ -139,7 +139,16 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
                 case LINES, ITEM, VALUE, SCROLL, SCROLL_X -> element;
             });
             switch (update.kind()) {
-                case PROGRESS -> progress.put(update.element(), update.number());
+                // Depuis LÀ OÙ la barre est, et non depuis sa cible précédente : sur des valeurs
+                // qui arrivent plus vite que le glissement, partir de l'ancienne cible ferait
+                // reculer la barre à chaque fois et le mouvement saccaderait.
+                case PROGRESS -> {
+                    long now = System.currentTimeMillis();
+                    Bar current = progress.get(update.element());
+                    progress.put(update.element(), new Bar(
+                            current == null ? update.number() : current.at(now),
+                            update.number(), now));
+                }
                 case LINES -> {
                     lines.put(update.element(), update.linesValue());
                     // Les lignes ont changé : un décalage gardé pointerait dans le vide,
@@ -171,7 +180,29 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      * blueprint. La mettre dans {@code ScreenElement} la ferait voyager dans la
      * sauvegarde et l'export texte, où elle n'a rien à faire.
      */
-    private final java.util.Map<String, Double> progress = new java.util.HashMap<>();
+    private final java.util.Map<String, Bar> progress = new java.util.HashMap<>();
+
+    /**
+     * Une barre en mouvement (épic 21, story 21.6) : d'où elle vient, où elle va, et quand elle
+     * est partie. Même mécanique que dans {@code HudView}, et même durée.
+     *
+     * <p>Un modal en profite autant qu'un HUD : une fiche de personnage dont la barre de mana
+     * saute à chaque tick saute sous les yeux du joueur, qui la regarde de près.
+     */
+    private record Bar(double from, double to, long since) {
+        private static final long SLIDE_MILLIS = 100;
+
+        double at(long now) {
+            long elapsed = now - since;
+            if (elapsed >= SLIDE_MILLIS || elapsed < 0) {
+                return to;
+            }
+            return from + (to - from) * ((double) elapsed / SLIDE_MILLIS);
+        }
+    }
+
+    /** L'horodatage de l'image, posé une fois par image et non lu par barre. */
+    private long frameMillis;
 
     // Les valeurs des éléments riches (10.8), hors du modèle pour la même raison que le
     // remplissage des barres : ce sont des données d'exécution, propres à ce joueur et à
@@ -268,7 +299,8 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
 
             @Override
             public double progress(String element) {
-                return progress.getOrDefault(element, 0.0);
+                Bar bar = progress.get(element);
+                return bar == null ? 0.0 : bar.at(frameMillis);
             }
 
             @Override
@@ -1070,6 +1102,9 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
+        // L'instant de CETTE image, lu une fois : le lissage des barres (21.6) s'y adosse, et
+        // toutes celles de l'écran doivent en être au même point.
+        frameMillis = System.currentTimeMillis();
         // width/height sont déjà en unités d'interface : c'est la place réelle, et
         // c'est contre elle que se résolvent les pourcentages et les ancres.
         ScreenPainter.paint(graphics, font, model, layout(), 0, 0, 1,

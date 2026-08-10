@@ -1,13 +1,32 @@
 # Plan de réplication — épic 21
 
-**État : plan écrit, aucune story livrée.** Établi par une lecture complète du dépôt (cinq
-audits parallèles, 2026-08-10), dont chaque constat portant a été revérifié ligne à ligne.
+**État : terminé, sept stories livrées.** Établi par une lecture complète du dépôt (cinq audits
+parallèles, 2026-08-10), dont chaque constat portant a été revérifié ligne à ligne.
 
-**Avancement : 21.1 à 21.5 livrées — la boucle est fermée.** Une variable `@replicated` se
-déclare dans l'éditeur, se marque à l'écriture, part en fin de tick, et le client la peint sans
-aller-retour. Une barre de mana se rafraîchit désormais comme une barre de vie.
+Deux choses que ce plan avait mal vues, et que la livraison a corrigées — elles sont détaillées
+plus bas parce qu'elles valent plus que le plan lui-même : l'**emplacement de la marque** (au
+magasin et non dans l'environnement, sans quoi les valeurs par défaut n'étaient pas répliquées) et
+la **clé du protocole** (le blueprint et non la portée, que le client ne sait pas interpréter).
 
-**Reste 21.6 (interpolation) et 21.7 (documentation).**
+**État : épic 21 terminé — les sept stories sont livrées.** Une variable `@replicated` se déclare
+dans l'éditeur, se refuse si elle ne peut pas voyager, se marque à l'écriture, part en fin de tick
+chez les seuls destinataires légitimes, et le client la peint sans aller-retour — en glissant.
+
+`@replicated` n'est plus une surface morte : c'était le point de départ de ce plan.
+
+### Le lissage, appliqué plus largement que prévu
+
+Le plan scopait l'interpolation aux barres liées à une variable répliquée. Elle s'applique à
+**toutes** les barres, pour deux raisons. Distinguer aurait demandé de savoir *pourquoi* une valeur
+a changé — donc de tracer la source jusqu'au rendu, alors qu'une barre est déjà une valeur
+d'exécution hors du modèle. Et le besoin est le même : une barre pilotée par `gui/set_progress`
+sautait tout autant.
+
+Cent millisecondes de **temps réel** et non deux ticks : une valeur arrive au mieux 20 fois par
+seconde, l'écran se dessine 60 fois, et interpoler sur les ticks aurait donné trois images
+identiques puis un saut — le défaut qu'on répare, à une échelle plus fine. Une nouvelle valeur
+reprend depuis **là où la barre est** et non depuis sa cible précédente, sans quoi un flux à 20 Hz
+— plus rapide que le glissement — ferait reculer la barre à chaque fois.
 
 <details><summary>Avancement détaillé des stories précédentes</summary>
 
@@ -48,9 +67,9 @@ qui a coûté un aller-retour.
 | Exécution partagée client/serveur | **refusée** | reconduit P1 / AD2 / FR17 |
 | `ExecSide.CLIENT` | **refusée** | l'énumération reste à une valeur |
 | Prédiction client, réconciliation, rollback | **refusées** | rien ne les soutient dans le dépôt |
-| `@replicated` | **à livrer** | surface déclarative morte depuis son écriture |
-| Réplication descendante en lecture seule | **à livrer** | 21.1 → 21.5 |
-| Interpolation des barres | **à livrer** | 21.6, et c'est le gain visible |
+| `@replicated` | **livrée** | 21.1 : le drapeau se pose et se refuse |
+| Réplication descendante en lecture seule | **livrée** | 21.2 → 21.5 |
+| Lissage des barres | **livré** | 21.6, et c'est le gain visible |
 | Élargir le catalogue `ClientValue` | **refusée** | la réplication le rend inutile |
 
 ---
@@ -281,8 +300,8 @@ cet épic répare. Et une seule liste de types, dans un seul fichier, sert les d
 | ~~**21.3**~~ **livrée** | `ReplicatedNames` (résolu à la mutation du gestionnaire, pas au lancement — voir ci-dessous) + `VarDirty` + marque dans `VarStorage.set`. Coût nul quand rien n'est répliqué : une lecture de champ | 21.2 |
 | ~~**21.4**~~ **livrée** | `VarReplication` : envoi en fin de tick, instantané à l'arrivée, canal enregistré. **Pas** de `VarSessions` — voir ci-dessous : le carnet des marques *est* le diff | 21.3 |
 | ~~**21.5**~~ **livrée** | `ReplicatedVars` (cache client) + `ScreenBindings.updates(..., Source.VARIABLE)` appelé **côté client** avec lui, pour les HUD et les modaux. A imposé une **révision du protocole** : la clé passe de la portée au blueprint | 21.4 |
-| **21.6** | Interpolation des barres liées à une variable répliquée. Le gain visible : une barre de mana devient aussi fluide qu'une barre de vie | 21.5 |
-| **21.7** | Mise à jour de `bscript-spec.md`, `architecture.md:131-134` (l'énumération `VarScope` y est **incomplète** : `PLAYER_SHARED` manque) et `node-reference.md` | 21.6 |
+| ~~**21.6**~~ **livrée** | Lissage des barres sur **100 ms de temps réel**, HUD et modaux. Appliqué à toutes les barres et non aux seules liées à une variable — voir ci-dessous | 21.5 |
+| ~~**21.7**~~ **livrée** | `bscript-spec.md` (section `@replicated`), `architecture.md` (P1 nuancé, paquet, règles), `getting-started.md` (à quoi ça sert, quoi répliquer) | 21.6 |
 
 **Bornes posées en 21.2.** Le plafond général reste de 256 variables par graphe reçu ; les
 **répliquées** ont le leur, **32**, appliqué par `GraphGuard`. Un ordre de grandeur d'écart,
@@ -365,6 +384,7 @@ d'« un petit calcul côté client » apparaît.
 | Date | Version | Description |
 |---|---|---|
 | 2026-08-10 | 0.1 | Plan initial. Cinq audits parallèles du dépôt ; `@replicated` identifié comme surface déclarative morte ; les trois défauts de la trame d'écran corrigés au passage. |
+| 2026-08-10 | 1.0 | **Épic terminé.** 21.6 (lissage des barres, 100 ms de temps réel, appliqué à toutes les barres et non aux seules répliquées) et 21.7 (spec BScript, architecture, guide joueur). |
 | 2026-08-10 | 0.7 | Story 21.5 livrée : `ReplicatedVars`, liaisons de variable résolues côté client. **Révision du protocole** : la clé du fil passe de la portée au blueprint, la portée étant inutilisable par le client. |
 | 2026-08-10 | 0.6 | Story 21.4 livrée : `VarReplication`, envoi en fin de tick, instantané à l'arrivée, canal enregistré. `VarSessions` **abandonné** — le carnet des marques est le diff, et une seconde table aurait reproduit ce que 10.7 a rejeté. |
 | 2026-08-10 | 0.5 | Story 21.3 livrée : `ReplicatedNames` + `VarDirty` + marque dans `VarStorage.set`. L'ensemble vit au magasin et non dans l'environnement — §3a corrigé en conséquence, avec la raison. |
