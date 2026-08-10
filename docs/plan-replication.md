@@ -3,11 +3,14 @@
 **État : plan écrit, aucune story livrée.** Établi par une lecture complète du dépôt (cinq
 audits parallèles, 2026-08-10), dont chaque constat portant a été revérifié ligne à ligne.
 
-**Avancement : 21.1, 21.2 et 21.3 livrées.** Le drapeau se pose et se refuse là où l'auteur le
-voit ; le canal existe, borné et testé ; les changements se marquent, au coût d'une lecture de
-champ pour qui ne réplique pas. Rien ne circule encore : il manque l'envoi de fin de tick et le
-choix des destinataires, qui sont 21.4. L'ordre est délibéré — construire le transport
-au-dessus d'un drapeau que personne ne peut poser aurait été construire à l'envers.
+**Avancement : 21.1 à 21.4 livrées — le serveur réplique.** Le drapeau se pose et se refuse là
+où l'auteur le voit ; le canal est borné ; les changements se marquent au coût d'une lecture de
+champ pour qui ne réplique pas ; et les valeurs partent, une trame par joueur et par tick, avec
+un instantané à l'arrivée. Il n'y a plus de point d'entrée inerte.
+
+**Reste 21.5 à 21.7 :** le client ne fait encore rien de ce qu'il reçoit. Le cache en lecture
+seule, `ScreenBindings` appelé côté client avec lui, puis l'interpolation des barres — qui est le
+gain visible.
 
 | Sujet | Décision | Nature |
 |---|---|---|
@@ -234,6 +237,7 @@ cet épic répare. Et une seule liste de types, dans un seul fichier, sert les d
 | Sondage par tick des variables répliquées | c'est l'option 1 de 10.7, écartée pour la bonne raison |
 | Élargir `ClientValue` en langage d'expressions | refusé à dessein (`ClientValue.java:13-16` : *« aurait donné un langage de plus à apprendre »*), et la réplication le rend inutile |
 | Une seconde table de signatures par spectateur | `10.7:135-147` : c'était la première version de `ScreenBindings`, retirée — *« Deux tables à garder d'accord, et la première divergence se serait vue comme un écran figé sur une vieille valeur, sans que rien ne l'explique »*. Le diff de `ScreenSessions` est la seule mémoire, et le reste ainsi |
+| **Un `VarSessions` par joueur** (le plan le prévoyait pourtant) | Même raison, et c'est 21.4 qui l'a compris : **le carnet des marques EST le diff**. `VarStorage` ne marque que les écritures qui changent réellement la valeur — comparaison exacte, à la source — le carnet dédoublonne, et il se vide à chaque tick. Une table par joueur de ce que son client affiche aurait été exactement la structure que 10.7 a rejetée, reproduite en connaissance de cause. Le coût de son absence est **un cas nommé** et non une table à tenir : un joueur qui arrive reçoit l'état complet une fois (`VarReplication.greet`), parce que le carnet répond à « qu'est-ce qui a changé » et jamais à « qu'est-ce qui existe » |
 
 ---
 
@@ -244,7 +248,7 @@ cet épic répare. Et une seule liste de types, dans un seul fichier, sert les d
 | ~~**21.1**~~ **livrée** | `EditOperation.SetReplicated` + pastille `»` dans `VariablePanel` + deux diagnostics (`REPLICATED_SCOPE_LOCAL`, `REPLICATED_TYPE_NOT_SENDABLE`). La règle vit dans **un seul** endroit, `GraphValidator.checkReplicable`, que l'opération et la validation appellent tous les deux | — |
 | ~~**21.2**~~ **livrée** | Payload `VarValues` (S2C, portée + nom + tag étiqueté), codec borné à 32 valeurs et 8 Kio par valeur, `NetLimits.maxReplicatedVariables = 32` appliqué par `GraphGuard`. Format extrait dans `VarValueNbt` : le fil et le disque portent le même. **Aucun émetteur** — c'est 21.4 | 21.1 |
 | ~~**21.3**~~ **livrée** | `ReplicatedNames` (résolu à la mutation du gestionnaire, pas au lancement — voir ci-dessous) + `VarDirty` + marque dans `VarStorage.set`. Coût nul quand rien n'est répliqué : une lecture de champ | 21.2 |
-| **21.4** | `VarSessions` : diff par joueur, clé `(scope, owner, name)`, une trame par tick dans `endServerTick` — calqué sur `ScreenSessions`, pas réinventé | 21.3 |
+| ~~**21.4**~~ **livrée** | `VarReplication` : envoi en fin de tick, instantané à l'arrivée, canal enregistré. **Pas** de `VarSessions` — voir ci-dessous : le carnet des marques *est* le diff | 21.3 |
 | **21.5** | Cache client en lecture seule + `ScreenBindings.updates(..., Source.VARIABLE)` appelé **côté client** avec ce cache. C'est ici que le même code de rendu sert des deux côtés | 21.4 |
 | **21.6** | Interpolation des barres liées à une variable répliquée. Le gain visible : une barre de mana devient aussi fluide qu'une barre de vie | 21.5 |
 | **21.7** | Mise à jour de `bscript-spec.md`, `architecture.md:131-134` (l'énumération `VarScope` y est **incomplète** : `PLAYER_SHARED` manque) et `node-reference.md` | 21.6 |
@@ -330,6 +334,7 @@ d'« un petit calcul côté client » apparaît.
 | Date | Version | Description |
 |---|---|---|
 | 2026-08-10 | 0.1 | Plan initial. Cinq audits parallèles du dépôt ; `@replicated` identifié comme surface déclarative morte ; les trois défauts de la trame d'écran corrigés au passage. |
+| 2026-08-10 | 0.6 | Story 21.4 livrée : `VarReplication`, envoi en fin de tick, instantané à l'arrivée, canal enregistré. `VarSessions` **abandonné** — le carnet des marques est le diff, et une seconde table aurait reproduit ce que 10.7 a rejeté. |
 | 2026-08-10 | 0.5 | Story 21.3 livrée : `ReplicatedNames` + `VarDirty` + marque dans `VarStorage.set`. L'ensemble vit au magasin et non dans l'environnement — §3a corrigé en conséquence, avec la raison. |
 | 2026-08-10 | 0.4 | Story 21.2 livrée : payload `VarValues`, bornes, quota. La question du buffer est tranchée autrement que proposé — le fil réutilise le format étiqueté du disque, si bien que ce qui se réplique est exactement ce qui se persiste. |
 | 2026-08-10 | 0.3 | Story 21.1 livrée : le drapeau devient éditable et validé. `@replicated` cesse d'être une surface morte, sans qu'un octet ne circule encore. |

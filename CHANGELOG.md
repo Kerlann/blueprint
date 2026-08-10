@@ -8,6 +8,34 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Ajouté — le serveur réplique (story 21.4)
+
+`VarReplication` : les valeurs répliquées partent, une trame par joueur et par tick, dans le
+même `endServerTick` que les modifications d'écran. Le canal `VarValues` est enregistré depuis
+ce commit et plus jamais avant — un canal ouvert sans émetteur ressemble à quelque chose qui
+fonctionne, ce qui est le motif de panne que cet épic répare.
+
+- **Qui reçoit quoi.** `WORLD` et `GRAPH` vont à tous les connectés ; `PLAYER` et
+  `PLAYER_SHARED` vont **au propriétaire seul**. La seconde ligne est la frontière de sécurité
+  de tout l'épic, d'où une méthode nommée et testée plutôt qu'un `if` au milieu de l'envoi :
+  envoyer à tous la réputation, le solde ou le prénom de chacun serait une divulgation que rien
+  dans le modèle actuel ne produit, et qu'une réplication naïve introduirait d'un trait.
+- **Pas de `VarSessions`**, contrairement au plan. Le carnet des marques **est** le diff :
+  `VarStorage` ne marque désormais que les écritures qui changent réellement la valeur —
+  comparaison exacte, à la source — le carnet dédoublonne, et il se vide à chaque tick. Une
+  table par joueur de ce que son client affiche aurait été exactement la « signature par
+  liaison, mémorisée par spectateur » que la story 10.7 a écrite puis retirée : « deux tables à
+  garder d'accord, et la première divergence se serait vue comme un écran figé sur une vieille
+  valeur ». La reproduire ici aurait été refaire l'erreur en connaissance de cause.
+- **Un instantané à l'arrivée**, parce que le carnet répond à « qu'est-ce qui a changé » et
+  jamais à « qu'est-ce qui existe ». Sans lui, un écran lié à un prénom choisi la semaine
+  dernière n'afficherait rien jusqu'à ce que quelqu'un le change.
+- **« À chaque tick, écris l'or » n'envoie plus rien** si l'or ne bouge pas. Vingt écritures de
+  la même valeur produisent zéro marque, et un test le fige.
+- **La valeur est relue au moment de l'envoi**, pas gardée dans la marque : un graphe qui écrit
+  trois fois dans le tick doit envoyer la dernière, et la relecture la donne sans avoir à
+  choisir laquelle conserver.
+
 ### Ajouté — les changements se marquent, au coût d'une lecture de champ (story 21.3)
 
 `ReplicatedNames` et `VarDirty`. Le magasin note quelles valeurs répliquées ont changé ;

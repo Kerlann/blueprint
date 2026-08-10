@@ -224,6 +224,12 @@ public final class ServerBlueprintNet {
         network.registerS2C(BlueprintPayloads.PacksAction.TYPE,
                 BlueprintPayloads.PacksAction.CODEC);
 
+        // Les valeurs répliquées (épic 21). Enregistré ici et pas plus tôt : un canal ouvert
+        // sans émetteur ressemble à quelque chose qui fonctionne, et c'est exactement le
+        // motif de panne que cet épic répare. VarReplication l'alimente depuis ce commit.
+        network.registerS2C(BlueprintPayloads.VarValues.TYPE,
+                BlueprintPayloads.VarValues.CODEC);
+
         network.registerS2C(BlueprintPayloads.ScreenOpen.TYPE, BlueprintPayloads.ScreenOpen.CODEC);
         network.registerS2C(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);
         network.registerC2S(BlueprintPayloads.ScreenClose.TYPE, BlueprintPayloads.ScreenClose.CODEC);

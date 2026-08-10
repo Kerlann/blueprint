@@ -69,16 +69,26 @@ public final class VarStorage extends SavedData implements VarStore {
         if (!VarStore.owns(scope, owner)) {
             return true;
         }
-        if (!buckets.put(scope, owner, name, value)) {
-            return false;
-        }
         // La réplication (épic 21). Le test d'ensemble vide passe AVANT tout le reste : sur un
         // serveur sans variable répliquée — l'immense majorité — cette ligne coûte une lecture
         // de champ et une branche, et rien d'autre. C'est ce qui répond à l'objection de la
         // story 10.7 contre l'instrumentation du magasin, plutôt que de la contourner : le
         // coût n'est pas imposé à toute exécution, il est payé par qui réplique.
-        if (!replicated.isEmpty() && replicated.covers(scope, owner.blueprint(), name)
-                && !dirty.mark(scope, owner, name)) {
+        if (replicated.isEmpty() || !replicated.covers(scope, owner.blueprint(), name)) {
+            return buckets.put(scope, owner, name, value);
+        }
+        // Relire l'ancienne valeur AVANT d'écrire, pour ne marquer que ce qui change
+        // réellement. C'est la leçon de ScreenSessions appliquée à la source : « à chaque
+        // tick, écris l'or » ne doit rien envoyer si l'or ne bouge pas, et comparer ici est
+        // le seul endroit où la comparaison est exacte plutôt qu'approchée par une empreinte.
+        Object before = get(scope, owner, name);
+        if (!buckets.put(scope, owner, name, value)) {
+            return false;
+        }
+        if (java.util.Objects.equals(before, value)) {
+            return true;
+        }
+        if (!dirty.mark(scope, owner, name)) {
             LOGGER.warn("Carnet des valeurs répliquées plein : « {} » attendra le prochain "
                     + "changement. Un graphe écrit probablement plus de valeurs répliquées "
                     + "par tick que le protocole n'en porte.", name);
@@ -110,6 +120,48 @@ public final class VarStorage extends SavedData implements VarStore {
     /** Le carnet des changements, pour l'envoi de fin de tick (story 21.4). */
     public fr.blueprint.core.vm.VarDirty dirty() {
         return dirty;
+    }
+
+    /**
+     * Tout ce qui est répliqué et qui concerne ce joueur, pour son arrivée (story 21.4).
+     *
+     * <p>Rend des <b>désignations</b> et non des valeurs encodées : le magasin ne connaît pas
+     * le protocole, et l'y faire dépendre aurait inversé le sens de la dépendance —
+     * {@code core/net} lit {@code core/storage}, jamais l'inverse. C'est aussi ce qui permet à
+     * l'envoi d'arrivée et à l'envoi de fin de tick de partager le même encodage.
+     *
+     * <p>Un parcours de tous les casiers, mais seulement à la connexion d'un joueur : c'est le
+     * moment où le client ne sait rien, et le seul où le carnet des marques — qui répond à
+     * « qu'est-ce qui a changé » — ne peut rien dire.
+     */
+    public List<fr.blueprint.core.vm.VarDirty.Mark> replicatedMarks(UUID player) {
+        if (replicated.isEmpty()) {
+            return List.of();
+        }
+        List<fr.blueprint.core.vm.VarDirty.Mark> out = new java.util.ArrayList<>();
+        collect(out, VarScope.WORLD, null, null, buckets.world());
+        buckets.graph().forEach((id, bucket) ->
+                collect(out, VarScope.GRAPH, null, id, bucket));
+        Map<String, Object> shared = buckets.sharedPlayer().get(player);
+        if (shared != null) {
+            collect(out, VarScope.PLAYER_SHARED, player, null, shared);
+        }
+        Map<Identifier, Map<String, Object>> byBlueprint = buckets.player().get(player);
+        if (byBlueprint != null) {
+            byBlueprint.forEach((id, bucket) ->
+                    collect(out, VarScope.PLAYER, player, id, bucket));
+        }
+        return List.copyOf(out);
+    }
+
+    private void collect(List<fr.blueprint.core.vm.VarDirty.Mark> out, VarScope scope,
+                         @Nullable UUID player, @Nullable Identifier blueprint,
+                         Map<String, Object> bucket) {
+        for (String name : bucket.keySet()) {
+            if (replicated.covers(scope, blueprint, name)) {
+                out.add(new fr.blueprint.core.vm.VarDirty.Mark(scope, player, blueprint, name));
+            }
+        }
     }
 
     /**

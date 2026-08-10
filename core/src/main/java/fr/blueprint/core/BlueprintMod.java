@@ -273,6 +273,10 @@ public class BlueprintMod {
         // ensemble (10.4, AC3b). Les envoyer plus tôt en laisserait passer une
         // partie dans la trame suivante, et l'écran se rafraîchirait en deux fois.
         fr.blueprint.core.net.ServerBlueprintNet.flushScreenUpdates(server);
+        // Les valeurs répliquées (épic 21) partent au même moment, et pour la même raison :
+        // ce qu'un graphe a écrit pendant ce tick doit arriver dans ce tick. Coût nul quand
+        // rien n'est répliqué — le carnet est vide et l'appel se termine sur ce test.
+        fr.blueprint.core.net.VarReplication.flush(server);
         // Le débogueur pousse ses instantanés au même moment, et non plus depuis son
         // propre abonnement : un seul fil de tick à brancher côté chargeur.
         fr.blueprint.core.net.DebugNet.endServerTick(server);
@@ -430,6 +434,11 @@ public class BlueprintMod {
                     .ServerLimits(limits.maxNodes(), limits.maxScreens(),
                             limits.maxElementsPerScreen()));
         }
+        // L'état complet des valeurs répliquées qui le concernent (épic 21). Le carnet des
+        // marques répond à « qu'est-ce qui a changé » et jamais à « qu'est-ce qui existe » :
+        // sans cet envoi, un écran lié à un prénom choisi la semaine dernière n'afficherait
+        // rien jusqu'à ce que quelqu'un le change.
+        fr.blueprint.core.net.VarReplication.greet(player);
     }
 
     /** Les racines que NOUS avons posées, par serveur — voir {@link #refreshDynamicCommands}. */
