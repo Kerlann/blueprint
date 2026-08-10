@@ -80,6 +80,19 @@ public final class BlueprintNet {
                 (payload, context) -> fr.blueprint.client.BlueprintClient.applyPacksAction(
                         payload.reload(), BlueprintNet::say));
 
+        // Les valeurs répliquées (épic 21). Rangées et rien d'autre : c'est le tick client qui
+        // recalcule les liaisons, une fois, pour tous les écrans — le faire ici referait le
+        // travail autant de fois que le serveur envoie de trames dans le même tick.
+        network.receive(BlueprintPayloads.VarValues.TYPE,
+                (payload, context) -> {
+                    for (var value : payload.values()) {
+                        fr.blueprint.client.screen.ReplicatedVars.put(value.blueprint(),
+                                value.name(),
+                                fr.blueprint.core.vm.VarValueNbt.decode(
+                                        value.value().get("v")));
+                    }
+                });
+
         network.receive(BlueprintPayloads.ListData.TYPE,
                 (payload, context) -> {
                     known = List.copyOf(payload.ids());
@@ -170,6 +183,9 @@ public final class BlueprintNet {
      * s'exécutaient.
      */
     public static void onDisconnect() {
+        // Ces valeurs étaient celles de CE serveur : les garder les ferait apparaître sur le
+        // suivant, où elles ne veulent plus rien dire.
+        fr.blueprint.client.screen.ReplicatedVars.clear();
         limits = fr.blueprint.core.graph.GraphLimits.DEFAULT;
         known = List.of();
         files = List.of();

@@ -8,6 +8,42 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Ajouté — le client peint une variable sans aller-retour (story 21.5)
+
+`ReplicatedVars`, un cache client en lecture seule, et les liaisons de source `VARIABLE`
+résolues **chez le client** — pour les HUD comme pour les écrans modaux. La boucle de l'épic 21
+est fermée : une barre de mana se rafraîchit désormais comme une barre de vie, au tick client,
+depuis une valeur déjà là. C'est ce que le catalogue fermé de `ClientValue` — quatorze valeurs
+vanilla — ne pouvait pas donner.
+
+- **Le même code de rendu des deux côtés.** Le client appelle `ScreenBindings.updates` avec
+  `Source.VARIABLE` et une fonction adossée à son cache. Le format, les décimales et les bornes
+  d'une barre viennent donc du code du serveur ; un test vérifie que les deux côtés produisent
+  des modifications **égales** sur les mêmes valeurs.
+- Le javadoc de `ScreenBindings` disait « le client ne calcule jamais les liaisons de variables :
+  il ne connaît pas les variables, et ne doit pas ». La phrase reste vraie au sens où elle a été
+  écrite : le client ne connaît ni portée, ni type déclaré, ni valeur par défaut. Il connaît des
+  valeurs nommées que le serveur lui a **envoyées**.
+- **En lecture seule, et pas par convention** : aucun paquet montant n'existe pour écrire une
+  valeur, et il n'en existera pas (FR52). Un client modifié qui écrirait dans ce cache ne
+  tromperait que son propre écran.
+- **Un HUD sait maintenant de quel blueprint il vient.** Il n'en avait aucune raison avant ; une
+  liaison de variable se résout par `(blueprint, nom)`, et sans le propriétaire un HUD aurait
+  pioché dans n'importe quel casier portant le bon nom.
+
+#### Corrigé au passage — la clé du fil était la mauvaise
+
+Le paquet `VarValues` de la story 21.2 portait la **portée** et non le blueprint. 21.5 l'a
+montré en essayant de s'en servir : une liaison d'écran ne nomme qu'une variable, et c'est la
+déclaration du blueprint qui dit sa portée — déclaration que le client ne reçoit jamais,
+`ScreenOpen` envoyant l'écran et pas les variables. La portée sur le fil était donc une donnée
+que le destinataire ne savait pas interpréter, et deux graphes déclarant chacun un `score` de
+portée graphe se seraient écrasés l'un l'autre chez le client.
+
+La clé est désormais `(blueprint, nom)`, qui désigne exactement une valeur. Une variable `WORLD`
+déclarée répliquée par deux blueprints part en conséquence **deux fois**, une par blueprint,
+parce que les écrans de chacun doivent la trouver — un peu de redondance contre une garantie.
+
 ### Ajouté — le serveur réplique (story 21.4)
 
 `VarReplication` : les valeurs répliquées partent, une trame par joueur et par tick, dans le

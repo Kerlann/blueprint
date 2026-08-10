@@ -46,15 +46,25 @@ public final class ReplicatedNames {
 
     /** Aucune variable répliquée — le cas de l'immense majorité des serveurs. */
     public static final ReplicatedNames NONE =
-            new ReplicatedNames(Set.of(), Map.of());
+            new ReplicatedNames(Map.of(), Map.of());
 
-    /** Noms répliqués de portée {@code WORLD} ou {@code PLAYER_SHARED}, tous graphes confondus. */
-    private final Set<String> shared;
+    /**
+     * Noms répliqués de portée {@code WORLD} ou {@code PLAYER_SHARED}, et <b>quels blueprints
+     * les déclarent</b>.
+     *
+     * <p>La liste des déclarants n'est pas décorative : le client range les valeurs par
+     * blueprint, parce qu'une liaison d'écran ne nomme qu'une variable et que c'est la
+     * déclaration du blueprint qui dit sa portée — déclaration que le client n'a pas. Une
+     * valeur partagée doit donc partir <b>une fois par blueprint qui la déclare</b>, sinon les
+     * écrans du second n'y trouvent rien.
+     */
+    private final Map<String, Set<Identifier>> shared;
 
     /** Noms répliqués de portée {@code GRAPH} ou {@code PLAYER}, par blueprint déclarant. */
     private final Map<Identifier, Set<String>> isolated;
 
-    private ReplicatedNames(Set<String> shared, Map<Identifier, Set<String>> isolated) {
+    private ReplicatedNames(Map<String, Set<Identifier>> shared,
+                            Map<Identifier, Set<String>> isolated) {
         this.shared = shared;
         this.isolated = isolated;
     }
@@ -67,7 +77,7 @@ public final class ReplicatedNames {
      * <b>remplacé</b> plutôt que modifié, pour que la lecture n'ait pas à se synchroniser.
      */
     public static ReplicatedNames of(Collection<Blueprint> all) {
-        Set<String> shared = new HashSet<>();
+        Map<String, Set<Identifier>> shared = new HashMap<>();
         Map<Identifier, Set<String>> isolated = new HashMap<>();
         for (Blueprint bp : all) {
             for (Variable variable : bp.variables().values()) {
@@ -75,7 +85,7 @@ public final class ReplicatedNames {
                     continue;
                 }
                 if (isShared(variable.scope())) {
-                    shared.add(variable.name());
+                    shared.computeIfAbsent(variable.name(), k -> new HashSet<>()).add(bp.id());
                 } else {
                     isolated.computeIfAbsent(bp.id(), k -> new HashSet<>())
                             .add(variable.name());
@@ -85,9 +95,11 @@ public final class ReplicatedNames {
         if (shared.isEmpty() && isolated.isEmpty()) {
             return NONE;   // la même instance : le cas courant ne coûte pas une allocation
         }
+        Map<String, Set<Identifier>> frozenShared = new HashMap<>();
+        shared.forEach((name, ids) -> frozenShared.put(name, Set.copyOf(ids)));
         Map<Identifier, Set<String>> frozen = new HashMap<>();
         isolated.forEach((id, names) -> frozen.put(id, Set.copyOf(names)));
-        return new ReplicatedNames(Set.copyOf(shared), Map.copyOf(frozen));
+        return new ReplicatedNames(Map.copyOf(frozenShared), Map.copyOf(frozen));
     }
 
     private static boolean isShared(VarScope scope) {
@@ -116,9 +128,26 @@ public final class ReplicatedNames {
             return false;
         }
         if (isShared(scope)) {
-            return shared.contains(name);
+            return shared.containsKey(name);
         }
         Set<String> names = blueprint == null ? null : isolated.get(blueprint);
         return names != null && names.contains(name);
+    }
+
+    /**
+     * Sous <b>quels blueprints</b> le client doit ranger cette valeur.
+     *
+     * <p>Une valeur de portée isolée n'appartient qu'au blueprint qui l'écrit. Une valeur
+     * partagée appartient à tous ceux qui la <i>déclarent</i> — et il faut la leur envoyer à
+     * chacun, parce que le client la retrouve par {@code (blueprint, nom)} et non par sa portée,
+     * qu'il ne connaît pas. Un blueprint qui écrit une variable {@code WORLD} sans l'avoir
+     * déclarée répliquée ne figure donc pas dans cette liste : ses écrans ne s'y lient pas.
+     */
+    public Set<Identifier> declaringBlueprints(VarScope scope, @Nullable Identifier writer,
+                                               String name) {
+        if (isShared(scope)) {
+            return shared.getOrDefault(name, Set.of());
+        }
+        return writer != null && covers(scope, writer, name) ? Set.of(writer) : Set.of();
     }
 }

@@ -30,6 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ClientBindingsTest {
 
+    /** Le blueprint dont viennent les HUD de ce test — il en faut un depuis l'épic 21. */
+    private static final net.minecraft.resources.Identifier BP =
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("test", "hud");
+
     private static Screen hud() {
         return new Screen("fiche", true, List.of(
                 ScreenElement.of("cadre", ElementKind.PANEL, 0, 0, 120, 40),
@@ -90,7 +94,7 @@ class ClientBindingsTest {
     @Test
     void uneValeurInchangeeNeReappliqueRien() {
         HudView view = new HudView();
-        view.show(hud());
+        view.show(BP, hud());
 
         assertEquals(2, view.refreshClientBindings(name -> 20.0),
                 "le premier tour applique les deux liaisons client");
@@ -104,11 +108,11 @@ class ClientBindingsTest {
     @Test
     void retirerUnHudOublieCeQuIlAffichait() {
         HudView view = new HudView();
-        view.show(hud());
+        view.show(BP, hud());
         view.refreshClientBindings(name -> 20.0);
 
         view.hide("fiche");
-        view.show(hud());
+        view.show(BP, hud());
 
         assertEquals(2, view.refreshClientBindings(name -> 20.0),
                 "après un retrait, la même valeur doit se réappliquer sur l'écran neuf");

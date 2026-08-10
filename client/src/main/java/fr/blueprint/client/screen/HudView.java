@@ -33,19 +33,32 @@ public final class HudView {
     private static final String SEP = " ";
     private boolean hidden;
 
+    /**
+     * De quel blueprint vient chaque HUD affiché.
+     *
+     * <p>Nécessaire depuis la réplication (épic 21) et pas avant : une liaison de source
+     * {@code VARIABLE} se résout par {@code (blueprint, nom)}, parce que le nom seul ne dit pas
+     * de quelle variable il s'agit quand deux graphes en déclarent une du même nom. Le HUD
+     * n'avait jusqu'ici aucune raison de savoir d'où il venait.
+     */
+    private final Map<String, net.minecraft.resources.Identifier> owners = new LinkedHashMap<>();
+
     /** Affiche un HUD, ou remplace sa description si elle a changé. */
-    public void show(Screen screen) {
+    public void show(net.minecraft.resources.Identifier blueprint, Screen screen) {
         shown.put(screen.name(), screen);
+        owners.put(screen.name(), blueprint);
     }
 
     public void hide(String screen) {
         shown.remove(screen);
+        owners.remove(screen);
         progress.remove(screen);
         lastClient.keySet().removeIf(k -> k.startsWith(screen + SEP));
     }
 
     public void hideAll() {
         shown.clear();
+        owners.clear();
         progress.clear();
         lastClient.clear();
     }
@@ -102,14 +115,50 @@ public final class HudView {
     }
 
     public int refreshClientBindings(java.util.function.Function<String, Object> values) {
+        return refresh(screen -> values,
+                fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT);
+    }
+
+    /**
+     * Recalcule les liaisons de source {@code VARIABLE} depuis les valeurs répliquées
+     * (épic 21, story 21.5).
+     *
+     * <p>Le client résout donc lui-même des liaisons de variables, ce que le javadoc de
+     * {@code ScreenBindings} déclarait impossible — « il ne connaît pas les variables, et ne
+     * doit pas ». La phrase reste vraie au sens où elle a été écrite : le client ne connaît
+     * toujours ni portée, ni type déclaré, ni valeur par défaut. Il connaît des valeurs nommées
+     * que le serveur lui a <b>envoyées</b>, et il appelle le <b>même</b> code de rendu pour en
+     * tirer les mêmes pixels.
+     *
+     * <p>Ce que cela supprime : un aller-retour par changement. Une barre de mana se rafraîchit
+     * désormais comme une barre de vie.
+     */
+    public int refreshVariableBindings() {
+        return refresh(screen -> {
+            var blueprint = owners.get(screen);
+            return blueprint == null ? null : ReplicatedVars.lookup(blueprint);
+        }, fr.blueprint.core.graph.screen.ElementBinding.Source.VARIABLE);
+    }
+
+    /**
+     * Le tronc commun des deux sources. La table des modifications déjà appliquées est
+     * <b>partagée</b> par les deux, et c'est correct : elle est indexée par
+     * {@code écran+élément+nature}, et un élément n'a qu'une liaison, donc qu'une source.
+     */
+    private int refresh(java.util.function.Function<String,
+                                java.util.function.Function<String, Object>> lookups,
+                        fr.blueprint.core.graph.screen.ElementBinding.Source source) {
         if (shown.isEmpty()) {
             return 0;
         }
         java.util.List<ScreenUpdate> fresh = new java.util.ArrayList<>();
         for (Screen screen : shown.values()) {
-            for (ScreenUpdate update : fr.blueprint.core.net.ScreenBindings.updates(
-                    screen, values,
-                    fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT)) {
+            var values = lookups.apply(screen.name());
+            if (values == null) {
+                continue;   // un HUD sans propriétaire connu : rien à résoudre
+            }
+            for (ScreenUpdate update
+                    : fr.blueprint.core.net.ScreenBindings.updates(screen, values, source)) {
                 String key = key(update);
                 if (!update.equals(lastClient.get(key))) {
                     lastClient.put(key, update);

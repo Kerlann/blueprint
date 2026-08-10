@@ -3,14 +3,45 @@
 **État : plan écrit, aucune story livrée.** Établi par une lecture complète du dépôt (cinq
 audits parallèles, 2026-08-10), dont chaque constat portant a été revérifié ligne à ligne.
 
-**Avancement : 21.1 à 21.4 livrées — le serveur réplique.** Le drapeau se pose et se refuse là
+**Avancement : 21.1 à 21.5 livrées — la boucle est fermée.** Une variable `@replicated` se
+déclare dans l'éditeur, se marque à l'écriture, part en fin de tick, et le client la peint sans
+aller-retour. Une barre de mana se rafraîchit désormais comme une barre de vie.
+
+**Reste 21.6 (interpolation) et 21.7 (documentation).**
+
+<details><summary>Avancement détaillé des stories précédentes</summary>
+
+**21.1 à 21.4 — le serveur réplique.** Le drapeau se pose et se refuse là
 où l'auteur le voit ; le canal est borné ; les changements se marquent au coût d'une lecture de
 champ pour qui ne réplique pas ; et les valeurs partent, une trame par joueur et par tick, avec
 un instantané à l'arrivée. Il n'y a plus de point d'entrée inerte.
 
-**Reste 21.5 à 21.7 :** le client ne fait encore rien de ce qu'il reçoit. Le cache en lecture
-seule, `ScreenBindings` appelé côté client avec lui, puis l'interpolation des barres — qui est le
-gain visible.
+Le drapeau se pose et se refuse là où l'auteur le voit ; le canal est borné ; les changements se
+marquent au coût d'une lecture de champ pour qui ne réplique pas ; et les valeurs partent, une
+trame par joueur et par tick, avec un instantané à l'arrivée.
+
+</details>
+
+### La révision de protocole qu'a imposée 21.5
+
+Le payload de 21.2 portait la **portée** et non le blueprint, avec ce raisonnement : « une valeur
+répliquée est identifiée par ce qu'elle est pour le joueur qui la regarde, pas par le graphe qui
+l'a écrite ». **C'était faux**, et 21.5 l'a montré en essayant de s'en servir.
+
+Une liaison d'écran ne nomme qu'une **variable** (`ElementBinding.variable()`). C'est la
+déclaration du blueprint qui dit sa portée — et cette déclaration n'arrive jamais chez le client :
+`ScreenOpen` envoie l'écran, pas les variables. Le client ne pouvait donc pas savoir quelle portée
+une liaison visait, et la portée sur le fil était une donnée que le destinataire ne savait pas
+interpréter.
+
+La clé est désormais `(blueprint, nom)`, qui désigne exactement une valeur — un nom est unique
+dans un blueprint. Conséquence assumée : une variable `WORLD` déclarée répliquée par deux
+blueprints part **deux fois**, une par blueprint, parce que les écrans de chacun doivent la
+trouver. `ReplicatedNames.declaringBlueprints` fait cette expansion.
+
+C'est le genre d'erreur qu'on ne voit qu'en branchant le consommateur. Elle plaide pour livrer le
+producteur et le consommateur plus près l'un de l'autre — ce que 21.2 et 21.3 n'ont pas fait, et
+qui a coûté un aller-retour.
 
 | Sujet | Décision | Nature |
 |---|---|---|
@@ -249,7 +280,7 @@ cet épic répare. Et une seule liste de types, dans un seul fichier, sert les d
 | ~~**21.2**~~ **livrée** | Payload `VarValues` (S2C, portée + nom + tag étiqueté), codec borné à 32 valeurs et 8 Kio par valeur, `NetLimits.maxReplicatedVariables = 32` appliqué par `GraphGuard`. Format extrait dans `VarValueNbt` : le fil et le disque portent le même. **Aucun émetteur** — c'est 21.4 | 21.1 |
 | ~~**21.3**~~ **livrée** | `ReplicatedNames` (résolu à la mutation du gestionnaire, pas au lancement — voir ci-dessous) + `VarDirty` + marque dans `VarStorage.set`. Coût nul quand rien n'est répliqué : une lecture de champ | 21.2 |
 | ~~**21.4**~~ **livrée** | `VarReplication` : envoi en fin de tick, instantané à l'arrivée, canal enregistré. **Pas** de `VarSessions` — voir ci-dessous : le carnet des marques *est* le diff | 21.3 |
-| **21.5** | Cache client en lecture seule + `ScreenBindings.updates(..., Source.VARIABLE)` appelé **côté client** avec ce cache. C'est ici que le même code de rendu sert des deux côtés | 21.4 |
+| ~~**21.5**~~ **livrée** | `ReplicatedVars` (cache client) + `ScreenBindings.updates(..., Source.VARIABLE)` appelé **côté client** avec lui, pour les HUD et les modaux. A imposé une **révision du protocole** : la clé passe de la portée au blueprint | 21.4 |
 | **21.6** | Interpolation des barres liées à une variable répliquée. Le gain visible : une barre de mana devient aussi fluide qu'une barre de vie | 21.5 |
 | **21.7** | Mise à jour de `bscript-spec.md`, `architecture.md:131-134` (l'énumération `VarScope` y est **incomplète** : `PLAYER_SHARED` manque) et `node-reference.md` | 21.6 |
 
@@ -334,6 +365,7 @@ d'« un petit calcul côté client » apparaît.
 | Date | Version | Description |
 |---|---|---|
 | 2026-08-10 | 0.1 | Plan initial. Cinq audits parallèles du dépôt ; `@replicated` identifié comme surface déclarative morte ; les trois défauts de la trame d'écran corrigés au passage. |
+| 2026-08-10 | 0.7 | Story 21.5 livrée : `ReplicatedVars`, liaisons de variable résolues côté client. **Révision du protocole** : la clé du fil passe de la portée au blueprint, la portée étant inutilisable par le client. |
 | 2026-08-10 | 0.6 | Story 21.4 livrée : `VarReplication`, envoi en fin de tick, instantané à l'arrivée, canal enregistré. `VarSessions` **abandonné** — le carnet des marques est le diff, et une seconde table aurait reproduit ce que 10.7 a rejeté. |
 | 2026-08-10 | 0.5 | Story 21.3 livrée : `ReplicatedNames` + `VarDirty` + marque dans `VarStorage.set`. L'ensemble vit au magasin et non dans l'environnement — §3a corrigé en conséquence, avec la raison. |
 | 2026-08-10 | 0.4 | Story 21.2 livrée : payload `VarValues`, bornes, quota. La question du buffer est tranchée autrement que proposé — le fil réutilise le format étiqueté du disque, si bien que ce qui se réplique est exactement ce qui se persiste. |

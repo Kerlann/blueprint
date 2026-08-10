@@ -117,6 +117,11 @@ public final class VarStorage extends SavedData implements VarStore {
         this.replicated = names;
     }
 
+    /** Les déclarations courantes — l'envoi en a besoin pour savoir sous quel graphe ranger. */
+    public fr.blueprint.core.vm.ReplicatedNames replicating() {
+        return replicated;
+    }
+
     /** Le carnet des changements, pour l'envoi de fin de tick (story 21.4). */
     public fr.blueprint.core.vm.VarDirty dirty() {
         return dirty;

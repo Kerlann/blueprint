@@ -75,21 +75,35 @@ public class BlueprintScreen extends net.minecraft.client.gui.screens.Screen {
      */
     public void refreshClientBindings(@Nullable net.minecraft.client.player.LocalPlayer player) {
         java.util.List<fr.blueprint.core.graph.screen.ScreenUpdate> fresh = null;
-        for (var update : fr.blueprint.core.net.ScreenBindings.updates(model,
-                name -> ClientValues.of(player, name),
-                fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT)) {
-            String key = update.element() + ' ' + update.kind();
-            if (!update.equals(lastClient.get(key))) {
-                lastClient.put(key, update);
-                if (fresh == null) {
-                    fresh = new java.util.ArrayList<>();
-                }
-                fresh.add(update);
-            }
-        }
+        fresh = collect(fresh, name -> ClientValues.of(player, name),
+                fr.blueprint.core.graph.screen.ElementBinding.Source.CLIENT);
+        // Les valeurs répliquées (épic 21, story 21.5), par le MÊME chemin : un menu modal en
+        // profite autant qu'un HUD, et une fiche de personnage qui montre un solde n'a pas plus
+        // de raison de le faire venir du serveur à chaque changement qu'elle n'en avait de
+        // faire venir la vie.
+        fresh = collect(fresh, ReplicatedVars.lookup(blueprint),
+                fr.blueprint.core.graph.screen.ElementBinding.Source.VARIABLE);
         if (fresh != null) {
             apply(instance, fresh);
         }
+    }
+
+    private @Nullable java.util.List<fr.blueprint.core.graph.screen.ScreenUpdate> collect(
+            @Nullable java.util.List<fr.blueprint.core.graph.screen.ScreenUpdate> into,
+            java.util.function.Function<String, Object> values,
+            fr.blueprint.core.graph.screen.ElementBinding.Source source) {
+        for (var update
+                : fr.blueprint.core.net.ScreenBindings.updates(model, values, source)) {
+            String key = update.element() + ' ' + update.kind();
+            if (!update.equals(lastClient.get(key))) {
+                lastClient.put(key, update);
+                if (into == null) {
+                    into = new java.util.ArrayList<>();
+                }
+                into.add(update);
+            }
+        }
+        return into;
     }
 
     /**

@@ -35,7 +35,11 @@ public final class ScreenClient {
                     // Le router ici plutôt qu'au rendu est ce qui empêche un menu
                     // permanent de voler le jeu au joueur (10.9).
                     if (model.hud()) {
-                        fr.blueprint.client.screen.BlueprintHud.view().show(model);
+                        // Le blueprint voyage avec le HUD depuis l'épic 21 : une liaison de
+                        // variable se résout par (blueprint, nom), le nom seul ne suffisant pas
+                        // quand deux graphes déclarent une variable du même nom.
+                        fr.blueprint.client.screen.BlueprintHud.view()
+                                .show(payload.blueprint(), model);
                         return;
                     }
                     // Un seul écran modal à la fois : setScreen remplace celui d'avant,

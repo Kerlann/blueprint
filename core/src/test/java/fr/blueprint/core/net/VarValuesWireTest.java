@@ -3,6 +3,7 @@ package fr.blueprint.core.net;
 import fr.blueprint.api.pin.PinType;
 import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.core.graph.VarScope;
+import net.minecraft.resources.Identifier;
 import fr.blueprint.core.vm.VarValueNbt;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -27,11 +28,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Le canal des valeurs répliquées (épic 21, story 21.2) : ce qui voyage, ce qui est refusé,
  * et ce qui arrive intact.
  *
- * <p>Le paquet <b>n'a pas encore d'émetteur</b> : la story 21.4 le lui donnera. Ce qui se
- * vérifie ici est donc le contrat du fil, pas le flux — mais le vérifier maintenant est ce
- * qui permet aux stories suivantes de s'appuyer dessus au lieu de le découvrir.
+ * <p>Écrit en 21.2, révisé en 21.5 : la clé est passée de la PORTÉE au BLUEPRINT, parce que le
+ * client ne peut rien faire d'une portée — une liaison d'écran ne nomme qu'une variable, et
+ * c'est la déclaration du blueprint qui dit sa portée. Ce que ce fichier vérifie est le contrat
+ * du fil : ce qui voyage, ce qui est refusé, et ce qui arrive intact.
  */
 class VarValuesWireTest {
+
+    private static final Identifier BOUTIQUE =
+            Identifier.fromNamespaceAndPath("test", "boutique");
+    private static final Identifier BANQUE = Identifier.fromNamespaceAndPath("test", "banque");
 
     private static BlueprintPayloads.VarValues roundTrip(BlueprintPayloads.VarValues sent) {
         ByteBuf buffer = Unpooled.buffer();
@@ -41,12 +47,12 @@ class VarValuesWireTest {
         return received;
     }
 
-    private static BlueprintPayloads.VarValue value(VarScope scope, String name, Object raw) {
+    private static BlueprintPayloads.VarValue value(Identifier blueprint, String name, Object raw) {
         var tag = VarValueNbt.encode(raw);
         assertNotNull(tag, "ce test ne parle que de valeurs que le format porte : " + raw);
         var wrapper = new CompoundTag();
         wrapper.put("v", tag);
-        return new BlueprintPayloads.VarValue(scope, name, wrapper);
+        return new BlueprintPayloads.VarValue(blueprint, name, wrapper);
     }
 
     private static Object unwrap(BlueprintPayloads.VarValue value) {
@@ -108,14 +114,14 @@ class VarValuesWireTest {
     @Test
     void chaqueTypeTraverseLeFilIntact() {
         var sent = new BlueprintPayloads.VarValues(List.of(
-                value(VarScope.PLAYER, "or", 100.0),
-                value(VarScope.PLAYER, "niveau", 7),
-                value(VarScope.WORLD, "graine", 42L),
-                value(VarScope.PLAYER_SHARED, "prenom", "Aliénor"),
-                value(VarScope.GRAPH, "actif", true),
-                value(VarScope.WORLD, "depart", new Vec3(1.5, 64.0, -3.25)),
-                value(VarScope.WORLD, "coffre", new BlockPos(10, 70, -4)),
-                value(VarScope.WORLD, "sens", Direction.NORTH)));
+                value(BOUTIQUE, "or", 100.0),
+                value(BOUTIQUE, "niveau", 7),
+                value(BOUTIQUE, "graine", 42L),
+                value(BANQUE, "prenom", "Aliénor"),
+                value(BANQUE, "actif", true),
+                value(BOUTIQUE, "depart", new Vec3(1.5, 64.0, -3.25)),
+                value(BOUTIQUE, "coffre", new BlockPos(10, 70, -4)),
+                value(BOUTIQUE, "sens", Direction.NORTH)));
 
         var received = roundTrip(sent);
 
@@ -131,26 +137,28 @@ class VarValuesWireTest {
     }
 
     @Test
-    void laPorteeEtLeNomTraversent() {
+    void leBlueprintEtLeNomTraversent() {
         var received = roundTrip(new BlueprintPayloads.VarValues(
-                List.of(value(VarScope.PLAYER_SHARED, "prenom", "Aliénor"))));
+                List.of(value(BANQUE, "prenom", "Aliénor"))));
 
-        assertEquals(VarScope.PLAYER_SHARED, received.values().get(0).scope());
+        assertEquals(BANQUE, received.values().get(0).blueprint());
         assertEquals("prenom", received.values().get(0).name());
     }
 
     /**
-     * Le nom seul ne suffirait pas : {@code or} de portée monde et {@code or} de portée
-     * joueur sont deux variables, et le client doit les ranger dans deux cases.
+     * Le nom seul ne suffirait pas, et la <b>portée</b> non plus : c'est le blueprint qui
+     * désigne. Une liaison d'écran ne nomme qu'une variable, et c'est la déclaration du
+     * blueprint qui dit sa portée — déclaration que le client n'a pas. Deux graphes déclarant
+     * chacun un {@code score} doivent donc arriver dans deux cases distinctes.
      */
     @Test
-    void deuxPorteesDuMemeNomRestentDistinctes() {
+    void deuxBlueprintsDuMemeNomRestentDistincts() {
         var received = roundTrip(new BlueprintPayloads.VarValues(List.of(
-                value(VarScope.WORLD, "or", 1.0),
-                value(VarScope.PLAYER, "or", 2.0))));
+                value(BOUTIQUE, "score", 1.0),
+                value(BANQUE, "score", 2.0))));
 
-        assertEquals(VarScope.WORLD, received.values().get(0).scope());
-        assertEquals(VarScope.PLAYER, received.values().get(1).scope());
+        assertEquals(BOUTIQUE, received.values().get(0).blueprint());
+        assertEquals(BANQUE, received.values().get(1).blueprint());
         assertEquals(1.0, unwrap(received.values().get(0)));
         assertEquals(2.0, unwrap(received.values().get(1)));
     }
@@ -158,8 +166,8 @@ class VarValuesWireTest {
     @Test
     void uneCollectionTraverseLeFil() {
         var received = roundTrip(new BlueprintPayloads.VarValues(List.of(
-                value(VarScope.WORLD, "chemin", List.of(new Vec3(0, 0, 0), new Vec3(1, 2, 3))),
-                value(VarScope.WORLD, "soldes", Map.of("aliénor", 10.0, "bob", 20.0)))));
+                value(BOUTIQUE, "chemin", List.of(new Vec3(0, 0, 0), new Vec3(1, 2, 3))),
+                value(BOUTIQUE, "soldes", Map.of("aliénor", 10.0, "bob", 20.0)))));
 
         assertEquals(List.of(new Vec3(0, 0, 0), new Vec3(1, 2, 3)),
                 unwrap(received.values().get(0)));
@@ -170,7 +178,7 @@ class VarValuesWireTest {
     @Test
     void uneValeurEffaceeTraverseCommeUnTagVide() {
         var received = roundTrip(new BlueprintPayloads.VarValues(List.of(
-                new BlueprintPayloads.VarValue(VarScope.PLAYER, "or", new CompoundTag()))));
+                new BlueprintPayloads.VarValue(BOUTIQUE, "or", new CompoundTag()))));
 
         assertEquals("or", received.values().get(0).name());
         assertTrue(received.values().get(0).value().isEmpty());
@@ -179,36 +187,33 @@ class VarValuesWireTest {
     // ----------------------------------------------------------------------- les refus
 
     /**
-     * Une portée inconnue devient {@code LOCAL}, qui ne se réplique jamais : le client la
-     * rangera donc nulle part. Un serveur d'une version où une portée aurait été ajoutée
-     * n'emporte pas un client ancien — c'est la leçon de {@code ScreenUpdate.Kind}, dont
-     * l'ordinal non borné faisait éclater tout le décodeur.
+     * <b>La portée ne voyage plus.</b> Elle voyageait en 21.2, et la story 21.5 a montré que le
+     * client ne pouvait rien en faire : une liaison d'écran ne nomme qu'une variable, et c'est
+     * la déclaration du blueprint qui dit sa portée. Ce test fige l'absence, parce que la
+     * remettre reviendrait à envoyer une donnée que le destinataire ne sait pas interpréter.
      */
     @Test
-    void unePorteeInconnueNeFaitPasTomberLeClient() {
-        ByteBuf buffer = Unpooled.buffer();
-        ByteBufCodecs.VAR_INT.encode(buffer, 1);
-        ByteBufCodecs.stringUtf8(BlueprintPayloads.MAX_NAME)
-                .encode(buffer, "PORTEE_DUNE_VERSION_ULTERIEURE");
-        ByteBufCodecs.stringUtf8(BlueprintPayloads.MAX_NAME).encode(buffer, "or");
-        ByteBufCodecs.COMPOUND_TAG.encode(buffer, new CompoundTag());
-
-        var received = BlueprintPayloads.VarValues.CODEC.decode(buffer);
-
-        assertEquals(1, received.values().size());
-        assertEquals(VarScope.LOCAL, received.values().get(0).scope(),
-                "repliée sur une portée qui ne se réplique jamais");
-    }
-
-    /** Le nom voyage, jamais l'ordinal : la portée doit survivre à une réorganisation. */
-    @Test
-    void laPorteeVoyageParSonNom() {
+    void laPorteeNeVoyagePas() {
         ByteBuf buffer = Unpooled.buffer();
         BlueprintPayloads.VarValue.CODEC.encode(buffer,
-                new BlueprintPayloads.VarValue(VarScope.WORLD, "or", new CompoundTag()));
+                new BlueprintPayloads.VarValue(BOUTIQUE, "or", new CompoundTag()));
+        String written = buffer.toString(java.nio.charset.StandardCharsets.UTF_8);
 
-        assertTrue(buffer.toString(java.nio.charset.StandardCharsets.UTF_8).contains("WORLD"),
-                "un ordinal se décalerait à la première portée insérée");
+        for (VarScope scope : VarScope.values()) {
+            assertFalse(written.contains(scope.name()),
+                    "la portée " + scope + " n'a rien à faire sur le fil");
+        }
+    }
+
+    /** L'identifiant du blueprint, en revanche, est la clé : il doit traverser tel quel. */
+    @Test
+    void leBlueprintVoyageParSonIdentifiant() {
+        ByteBuf buffer = Unpooled.buffer();
+        BlueprintPayloads.VarValue.CODEC.encode(buffer,
+                new BlueprintPayloads.VarValue(BOUTIQUE, "or", new CompoundTag()));
+
+        assertEquals(BOUTIQUE,
+                BlueprintPayloads.VarValue.CODEC.decode(buffer).blueprint());
     }
 
     @Test
@@ -224,7 +229,7 @@ class VarValuesWireTest {
     void uneTrameAuPlafondPasseEncore() {
         List<BlueprintPayloads.VarValue> pleine = new ArrayList<>();
         for (int i = 0; i < BlueprintPayloads.MAX_VALUES; i++) {
-            pleine.add(value(VarScope.WORLD, "v" + i, (double) i));
+            pleine.add(value(BOUTIQUE, "v" + i, (double) i));
         }
 
         assertEquals(BlueprintPayloads.MAX_VALUES,

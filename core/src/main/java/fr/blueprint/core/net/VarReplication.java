@@ -83,12 +83,13 @@ public final class VarReplication {
         // la liste est courte — c'est ainsi qu'on en accumule vingt.
         List<UUID> connected = connected(server.getPlayerList().getPlayers());
         for (VarDirty.Mark mark : marks) {
-            BlueprintPayloads.VarValue wire = encode(storage, mark);
-            if (wire == null) {
-                continue;
-            }
-            for (UUID recipient : recipientsOf(mark, connected)) {
-                perPlayer.computeIfAbsent(recipient, p -> new ArrayList<>()).add(wire);
+            // Une marque devient UNE entrée par blueprint qui déclare le nom : le client range
+            // par (blueprint, nom), et une variable de portée monde déclarée par deux graphes
+            // doit se trouver sous les deux, sinon les écrans du second n'y lisent rien.
+            for (BlueprintPayloads.VarValue wire : encode(storage, mark)) {
+                for (UUID recipient : recipientsOf(mark, connected)) {
+                    perPlayer.computeIfAbsent(recipient, p -> new ArrayList<>()).add(wire);
+                }
             }
         }
         return send(server, perPlayer);
@@ -110,10 +111,7 @@ public final class VarReplication {
         }
         List<BlueprintPayloads.VarValue> values = new ArrayList<>();
         for (VarDirty.Mark mark : storage.replicatedMarks(player.getUUID())) {
-            BlueprintPayloads.VarValue wire = encode(storage, mark);
-            if (wire != null) {
-                values.add(wire);
-            }
+            values.addAll(encode(storage, mark));
         }
         if (values.isEmpty()) {
             return 0;
@@ -129,21 +127,32 @@ public final class VarReplication {
      * @return null si la valeur ne s'encode pas — ce que le validateur interdit déjà, donc un
      *         cas qui ne devrait pas arriver et qu'on ne fait pas tomber pour autant
      */
-    private static @Nullable BlueprintPayloads.VarValue encode(VarStorage storage,
-                                                               VarDirty.Mark mark) {
+    private static List<BlueprintPayloads.VarValue> encode(VarStorage storage,
+                                                           VarDirty.Mark mark) {
+        var declaring = storage.replicating()
+                .declaringBlueprints(mark.scope(), mark.blueprint(), mark.name());
+        if (declaring.isEmpty()) {
+            return List.of();
+        }
         VarOwner owner = new VarOwner(mark.blueprint(), mark.player());
         Object value = storage.get(mark.scope(), owner, mark.name());
         CompoundTag wrapper = new CompoundTag();
         if (value != null) {
             Tag encoded = VarValueNbt.encode(value);
             if (encoded == null) {
-                return null;
+                // Interdit par le validateur, donc un cas qui ne devrait pas arriver — et
+                // qu'on ne fait pas tomber pour autant.
+                return List.of();
             }
             wrapper.put("v", encoded);
         }
         // Un compound VIDE dit « effacée » : c'est le seul cas où la variable n'a plus de
         // valeur, et le client n'a donc qu'une forme à reconnaître au lieu de deux.
-        return new BlueprintPayloads.VarValue(mark.scope(), mark.name(), wrapper);
+        List<BlueprintPayloads.VarValue> out = new ArrayList<>(declaring.size());
+        for (var blueprint : declaring) {
+            out.add(new BlueprintPayloads.VarValue(blueprint, mark.name(), wrapper));
+        }
+        return out;
     }
 
     /** Découpe et envoie. Un client qui ne connaît pas le canal est simplement sauté. */

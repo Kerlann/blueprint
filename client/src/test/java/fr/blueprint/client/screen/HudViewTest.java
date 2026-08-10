@@ -26,6 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class HudViewTest {
 
+    /** Le blueprint dont viennent les HUD de ce test — il en faut un depuis l'épic 21. */
+    private static final net.minecraft.resources.Identifier BP =
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("test", "hud");
+
     private static Screen hud(String name, String element, String text) {
         return new Screen(name, true, List.of(
                 ScreenElement.of(element, ElementKind.LABEL, 0, 0, 80, 10)
@@ -46,8 +50,8 @@ class HudViewTest {
      */
     @Test
     void plusieursHudCoexistent() {
-        view.show(hud("mana", "valeur", "40"));
-        view.show(hud("quete", "titre", "Trouver la clé"));
+        view.show(BP, hud("mana", "valeur", "40"));
+        view.show(BP, hud("quete", "titre", "Trouver la clé"));
 
         assertEquals(2, view.size());
         assertEquals(List.of("mana", "quete"),
@@ -57,8 +61,8 @@ class HudViewTest {
 
     @Test
     void reafficherUnHudRemplaceSaDescription() {
-        view.show(hud("mana", "valeur", "40"));
-        view.show(hud("mana", "valeur", "80"));
+        view.show(BP, hud("mana", "valeur", "40"));
+        view.show(BP, hud("mana", "valeur", "80"));
 
         assertEquals(1, view.size(), "pas un doublon");
         assertEquals("80", view.get("mana").element("valeur").text().value());
@@ -66,8 +70,8 @@ class HudViewTest {
 
     @Test
     void masquerUnHudNeTouchePasLesAutres() {
-        view.show(hud("mana", "valeur", "40"));
-        view.show(hud("quete", "titre", "Trouver la clé"));
+        view.show(BP, hud("mana", "valeur", "40"));
+        view.show(BP, hud("quete", "titre", "Trouver la clé"));
 
         view.hide("mana");
         assertNull(view.get("mana"));
@@ -81,8 +85,8 @@ class HudViewTest {
      */
     @Test
     void laBasculeMasqueToutSansRienPerdre() {
-        view.show(hud("mana", "valeur", "40"));
-        view.show(hud("quete", "titre", "Trouver la clé"));
+        view.show(BP, hud("mana", "valeur", "40"));
+        view.show(BP, hud("quete", "titre", "Trouver la clé"));
 
         view.toggleHidden();
         assertTrue(view.hidden());
@@ -95,8 +99,8 @@ class HudViewTest {
 
     @Test
     void uneModificationVaAuHudQuElleNomme() {
-        view.show(hud("mana", "valeur", "40"));
-        view.show(hud("quete", "titre", "Trouver la clé"));
+        view.show(BP, hud("mana", "valeur", "40"));
+        view.show(BP, hud("quete", "titre", "Trouver la clé"));
 
         assertEquals(1, view.apply(List.of(
                 ScreenUpdate.text("mana", "valeur", ScreenText.literal("10")))));
@@ -108,7 +112,7 @@ class HudViewTest {
     /** Ce qui vise un écran non affiché est ignoré : le client n'invente pas de cible. */
     @Test
     void uneModificationSansDestinataireEstIgnoree() {
-        view.show(hud("mana", "valeur", "40"));
+        view.show(BP, hud("mana", "valeur", "40"));
 
         assertEquals(0, view.apply(List.of(
                 ScreenUpdate.text("boutique", "or", ScreenText.literal("100")),
@@ -118,9 +122,9 @@ class HudViewTest {
 
     @Test
     void laValeurDUneBarreVitParEcran() {
-        view.show(new Screen("mana", true, List.of(
+        view.show(BP, new Screen("mana", true, List.of(
                 ScreenElement.of("barre", ElementKind.PROGRESS, 0, 0, 80, 6))));
-        view.show(new Screen("vie", true, List.of(
+        view.show(BP, new Screen("vie", true, List.of(
                 ScreenElement.of("barre", ElementKind.PROGRESS, 0, 0, 80, 6))));
 
         view.apply(List.of(ScreenUpdate.progress("mana", "barre", 0.25)));
@@ -131,7 +135,7 @@ class HudViewTest {
 
     @Test
     void masquerUnHudOublieSesBarres() {
-        view.show(new Screen("mana", true, List.of(
+        view.show(BP, new Screen("mana", true, List.of(
                 ScreenElement.of("barre", ElementKind.PROGRESS, 0, 0, 80, 6))));
         view.apply(List.of(ScreenUpdate.progress("mana", "barre", 0.5)));
 
@@ -142,7 +146,7 @@ class HudViewTest {
     /** Une déconnexion ne laisse pas les HUD du serveur précédent à l'écran. */
     @Test
     void seDeconnecterRemetToutAZero() {
-        view.show(hud("mana", "valeur", "40"));
+        view.show(BP, hud("mana", "valeur", "40"));
         view.toggleHidden();
 
         view.clear();

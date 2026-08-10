@@ -129,6 +129,13 @@ public class BlueprintClient {
         // depuis toujours dans les cœurs du joueur.
         fr.blueprint.client.screen.BlueprintHud.view().refreshClientBindings(
                 name -> fr.blueprint.client.screen.ClientValues.of(mc.player, name));
+        // Et les liaisons de VARIABLE depuis les valeurs répliquées (épic 21) — ici et pas au
+        // moment où le paquet arrive : le serveur peut envoyer plusieurs trames dans le même
+        // tick, et recalculer à chacune referait le travail autant de fois.
+        //
+        // Ce que le catalogue fermé de ClientValues ne pouvait pas donner : une barre de mana
+        // aussi fluide qu'une barre de vie. C'était le manque que cet épic existe pour combler.
+        fr.blueprint.client.screen.BlueprintHud.view().refreshVariableBindings();
         if (mc.screen instanceof fr.blueprint.client.screen.BlueprintScreen bp) {
             bp.refreshClientBindings(mc.player);
         }
