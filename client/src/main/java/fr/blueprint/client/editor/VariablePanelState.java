@@ -243,6 +243,25 @@ public final class VariablePanelState {
         return applier.apply(new EditOperation.RetypeVariable(name, target, target.defaultValue()));
     }
 
+    /**
+     * Pose ou retire {@code @replicated} (épic 21) : la valeur est envoyée aux clients en
+     * lecture seule.
+     *
+     * <p>Une bascule et non un cycle, contrairement à la portée : il n'y a que deux états,
+     * et l'opération <b>refuse</b> ce qui ne pourrait pas voyager — une portée locale, un
+     * type sans codec réseau. Le refus remonte donc tel quel, et le panneau ne se retrouve
+     * jamais à afficher un drapeau que le modèle n'a pas pris.
+     */
+    public boolean toggleReplicated(String name) {
+        Variable variable = bp.variables().get(name);
+        if (variable == null) {
+            return false;
+        }
+        clearPending();
+        return applier.apply(
+                new EditOperation.SetReplicated(name, !variable.replicated()));
+    }
+
     public boolean cycleScope(String name) {
         Variable variable = bp.variables().get(name);
         if (variable == null) {

@@ -20,7 +20,17 @@ public final class VariablePanel {
     public static final int HEADER_HEIGHT = 14;
     public static final int ROW_HEIGHT = 12;
 
-    public enum RowAction { TYPE, SCOPE, DELETE }
+    public enum RowAction { TYPE, SCOPE, REPLICATE, DELETE }
+
+    /**
+     * Le signe de la réplication : une valeur qui <b>sort</b> vers les clients.
+     *
+     * <p>Un chevron et non un « R », pour la raison qui a déjà coûté une correction à
+     * {@link #scopeTag} : le panneau fait trois pixels de large, les pastilles se lisent
+     * collées, et « R » à côté d'un « G » se lit « GR ». Un glyphe qui n'est pas une lettre
+     * ne peut pas se confondre avec la portée qu'il côtoie.
+     */
+    private static final String REPLICATED_TAG = "»";
 
     private static final int BACKGROUND = 0xF0141519;
     private static final int BORDER = 0xFF3A3D42;
@@ -74,14 +84,25 @@ public final class VariablePanel {
             String label = v.name().equals(state.renamingVar())
                     ? state.renameBuffer() + "_"
                     : v.name();
-            int nameWidth = isSelected ? WIDTH - 48 : WIDTH - 24;
+            int nameWidth = isSelected ? WIDTH - 58 : WIDTH - 32;
             g.drawString(font, font.plainSubstrByWidth(label, nameWidth), 10, y + 2,
                     NAME_COLOR, false);
             if (isSelected) {
-                g.drawString(font, "T", WIDTH - 34, y + 2, ACTION_COLOR, false);
-                g.drawString(font, "S", WIDTH - 24, y + 2, ACTION_COLOR, false);
+                g.drawString(font, "T", WIDTH - 44, y + 2, ACTION_COLOR, false);
+                g.drawString(font, "S", WIDTH - 34, y + 2, ACTION_COLOR, false);
+                // La réplication porte son ÉTAT dans sa couleur : vif quand elle est
+                // posée, éteint sinon. Un bouton qui a l'air pareil dans les deux cas
+                // demande de cliquer pour savoir où l'on en est.
+                g.drawString(font, REPLICATED_TAG, WIDTH - 24, y + 2,
+                        v.replicated() ? ACTION_COLOR : TITLE_COLOR, false);
                 g.drawString(font, "×", WIDTH - 14, y + 2, ACTION_COLOR, false);
             } else {
+                // Hors sélection, la marque reste visible : la réplication décide de ce
+                // que le client voit, et une propriété qu'il faut sélectionner pour lire
+                // se découvre au moment où elle manque.
+                if (v.replicated()) {
+                    g.drawString(font, REPLICATED_TAG, WIDTH - 22, y + 2, ACTION_COLOR, false);
+                }
                 g.drawString(font, scopeTag(v), WIDTH - 12, y + 2, TITLE_COLOR, false);
             }
         }
@@ -179,13 +200,22 @@ public final class VariablePanel {
         return row < state.rows().size() ? row : -1;
     }
 
-    /** Action de la ligne SÉLECTIONNÉE sous la souris, ou null. */
+    /**
+     * Action de la ligne SÉLECTIONNÉE sous la souris, ou null.
+     *
+     * <p>Quatre zones de dix pixels, dans l'ordre où elles se dessinent. La suppression
+     * reste la <b>dernière</b>, et rien ne s'est glissé à sa droite : un geste irréversible
+     * gagne à ne pas changer de place quand un voisin apparaît.
+     */
     public static @Nullable RowAction actionAt(double mx) {
-        if (mx >= WIDTH - 34 && mx < WIDTH - 24) {
+        if (mx >= WIDTH - 44 && mx < WIDTH - 34) {
             return RowAction.TYPE;
         }
-        if (mx >= WIDTH - 24 && mx < WIDTH - 14) {
+        if (mx >= WIDTH - 34 && mx < WIDTH - 24) {
             return RowAction.SCOPE;
+        }
+        if (mx >= WIDTH - 24 && mx < WIDTH - 14) {
+            return RowAction.REPLICATE;
         }
         if (mx >= WIDTH - 14 && mx < WIDTH - 4) {
             return RowAction.DELETE;

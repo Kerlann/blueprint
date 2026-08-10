@@ -1537,6 +1537,7 @@ public final class CanvasWidget {
                 switch (action) {
                     case TYPE -> openTypeMenu(name);
                     case SCOPE -> varPanel.cycleScope(name);
+                    case REPLICATE -> varPanel.toggleReplicated(name);
                     case DELETE -> varPanel.delete(name);
                 }
                 return;

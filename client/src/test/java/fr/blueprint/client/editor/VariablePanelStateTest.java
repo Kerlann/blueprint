@@ -251,6 +251,45 @@ class VariablePanelStateTest {
         assertNull(state.selected());
     }
 
+    /**
+     * La réplication est une <b>bascule</b> et non un cycle : deux états, et la portée par
+     * défaut d'une variable créée — {@code GRAPH} — les accepte tous les deux.
+     */
+    @Test
+    void basculeDeReplication() {
+        state.create();
+        assertFalse(bp.variables().get("var1").replicated(), "une variable naît non répliquée");
+
+        assertTrue(state.toggleReplicated("var1"));
+        assertTrue(bp.variables().get("var1").replicated());
+
+        assertTrue(state.toggleReplicated("var1"));
+        assertFalse(bp.variables().get("var1").replicated());
+    }
+
+    /**
+     * Le refus de l'opération remonte tel quel : le panneau ne doit jamais afficher un
+     * drapeau que le modèle n'a pas pris. {@code LOCAL} ne survit pas à l'exécution qui
+     * l'écrit, il n'y a donc rien à répliquer.
+     */
+    @Test
+    void laBasculeRefuseCeQuiNePeutPasVoyager() {
+        state.create();
+        // GRAPH → PLAYER → PLAYER_SHARED → WORLD → LOCAL : quatre clics.
+        for (int i = 0; i < 4; i++) {
+            assertTrue(state.cycleScope("var1"));
+        }
+        assertEquals(VarScope.LOCAL, bp.variables().get("var1").scope());
+
+        assertFalse(state.toggleReplicated("var1"));
+        assertFalse(bp.variables().get("var1").replicated());
+    }
+
+    @Test
+    void basculerUneVariableInconnueNeFaitRien() {
+        assertFalse(state.toggleReplicated("fantome"));
+    }
+
     private void apply(EditOperation op) {
         assertTrue(op.apply(bp, LOOKUP).applied());
     }

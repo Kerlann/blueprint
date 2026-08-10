@@ -146,6 +146,23 @@ nommant la variable, et l'éditeur ne les propose pas au clic pour cette raison.
 En BScript, l'écriture est plus large que le menu : `var vec3 point @player` fonctionne,
 et `var list<vec3> chemin @graph` aussi.
 
+### La marquer répliquée
+
+Sélectionnez-la, cliquez sur **[»]** : la variable est **envoyée aux clients en lecture
+seule**. La marque reste visible sur la ligne même quand la variable n'est plus
+sélectionnée, parce qu'elle décide de ce que le joueur voit.
+
+Deux cas sont refusés, et le panneau ne prend pas le drapeau :
+
+- une variable **locale** ne survit pas à l'exécution qui l'écrit, il n'y a rien à
+  répliquer ;
+- un type qui ne voyage pas — un joueur, une entité, un joker, ou une liste qui en
+  contient — n'a rien à mettre sur le fil.
+
+> **Rien ne circule encore.** Le drapeau se pose, se persiste et se relit ; l'envoi vers les
+> clients arrive avec la suite de l'épic 21. Il était jusqu'ici écrit dans la spec et dans
+> quatre exemples livrés sans que personne puisse le poser depuis l'éditeur.
+
 Glissez une variable sur le canevas pour obtenir un nœud **lire** ou **écrire**.
 
 ![Un nœud de lecture de la variable « compte »](images/noeud-variable.png)

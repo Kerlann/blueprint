@@ -29,6 +29,16 @@ public enum DiagnosticCode {
     // Variables
     VARIABLE_NOT_FOUND,
     DUPLICATE_VARIABLE,
+    /**
+     * {@code @replicated} sur une portée {@code LOCAL} : elle ne survit pas à l'exécution
+     * qui l'écrit, donc il n'y a rien à répliquer.
+     */
+    REPLICATED_SCOPE_LOCAL,
+    /**
+     * {@code @replicated} sur un type qui ne voyage pas — une référence vivante
+     * ({@code player}, {@code entity}) ou un joker, qui n'ont pas de codec réseau.
+     */
+    REPLICATED_TYPE_NOT_SENDABLE,
     // Écrans (épic 10)
     SCREEN_NOT_FOUND,
     DUPLICATE_SCREEN,

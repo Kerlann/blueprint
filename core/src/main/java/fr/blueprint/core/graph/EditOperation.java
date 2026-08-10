@@ -27,7 +27,7 @@ public sealed interface EditOperation permits
         EditOperation.AddLink, EditOperation.RemoveLink, EditOperation.RestoreLink,
         EditOperation.AddVariable, EditOperation.RemoveVariable,
         EditOperation.RenameVariable, EditOperation.RetypeVariable,
-        EditOperation.SetScope, EditOperation.SetMeta,
+        EditOperation.SetScope, EditOperation.SetReplicated, EditOperation.SetMeta,
         EditOperation.AddComment, EditOperation.RemoveComment, EditOperation.EditComment,
         // Écrans (épic 10) : rangés dans ScreenOps, ce fichier en porte déjà dix-huit.
         ScreenOps.AddScreen, ScreenOps.RemoveScreen, ScreenOps.SetScreen,
@@ -301,6 +301,43 @@ public sealed interface EditOperation permits
             bp.putVariable(new Variable(name, before.type(), before.defaultValue(), scope, before.replicated()));
             bp.bumpRevision();
             return Result.ok(new SetScope(name, before.scope()));
+        }
+    }
+
+    /**
+     * Pose ou retire {@code @replicated} : la valeur est envoyée aux clients en lecture
+     * seule (épic 21).
+     *
+     * <p>L'opération <b>refuse</b> ce qui ne pourrait pas voyager, plutôt que de le poser
+     * et de laisser la réplication échouer en silence. Deux cas, avec chacun sa correction :
+     * une portée {@code LOCAL} n'existe pas au-delà de l'exécution qui l'écrit, et un type
+     * sans codec réseau — une référence vivante, un joker — n'a rien à mettre sur le fil.
+     *
+     * <p>Le validateur refait les deux contrôles, et ce n'est pas une redondance : un
+     * retypage postérieur peut rendre invalide un drapeau posé légitimement, et un graphe
+     * écrit en BScript n'est jamais passé par cette opération.
+     */
+    record SetReplicated(String name, boolean replicated) implements EditOperation {
+        @Override
+        public Result apply(Blueprint bp, NodeTypeLookup lookup, GraphLimits limits) {
+            Variable before = bp.variables().get(name);
+            if (before == null) {
+                return Result.refused(Diagnostic.error(DiagnosticCode.VARIABLE_NOT_FOUND,
+                        Diagnostic.variable(name), name));
+            }
+            // Retirer le drapeau est toujours permis — y compris sur une variable que les
+            // contrôles ci-dessous refuseraient, sans quoi un graphe venu de BScript ne
+            // pourrait pas être réparé depuis l'éditeur.
+            if (replicated) {
+                Diagnostic refus = GraphValidator.checkReplicable(before);
+                if (refus != null) {
+                    return Result.refused(refus);
+                }
+            }
+            bp.putVariable(new Variable(name, before.type(), before.defaultValue(),
+                    before.scope(), replicated));
+            bp.bumpRevision();
+            return Result.ok(new SetReplicated(name, before.replicated()));
         }
     }
 

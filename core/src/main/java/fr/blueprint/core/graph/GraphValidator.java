@@ -89,6 +89,20 @@ public final class GraphValidator {
             out.add(Diagnostic.warning(DiagnosticCode.NO_ENTRY_POINT, Diagnostic.graph()));
         }
 
+        // Variables répliquées (épic 21) : le drapeau doit pouvoir tenir sa promesse.
+        // Contrôlé ici et pas seulement dans l'opération d'édition, parce qu'un retypage
+        // postérieur peut invalider un drapeau posé légitimement, et parce qu'un graphe
+        // écrit en BScript n'est jamais passé par une opération d'édition.
+        for (Variable variable : bp.variables().values()) {
+            if (!variable.replicated()) {
+                continue;
+            }
+            Diagnostic refus = checkReplicable(variable);
+            if (refus != null) {
+                out.add(refus);
+            }
+        }
+
         // Nœuds de variables (5.5) : le pin « var » doit être un littéral (pas câblé —
         // le compilateur résout le nom À LA COMPILATION) nommant une variable existante.
         for (Node node : bp.nodes().values()) {
@@ -381,6 +395,35 @@ public final class GraphValidator {
      * en mesurant sur la mauvaise échelle : c'est exactement la panne qu'un diagnostic
      * existe pour empêcher.
      */
+    /**
+     * Ce qui empêche une variable de porter {@code @replicated}, ou {@code null} si rien
+     * ne l'empêche (épic 21).
+     *
+     * <p>Exposé plutôt que privé parce que <b>deux</b> chemins doivent poser la même
+     * question, et poser exactement la même : {@code EditOperation.SetReplicated} refuse
+     * avant d'écrire, et cette validation-ci rattrape ce qui n'est pas passé par elle — un
+     * retypage postérieur, un graphe écrit en BScript, un graphe reçu du réseau. Deux
+     * exemplaires de cette règle auraient fini par diverger, et la divergence se serait vue
+     * comme un drapeau que l'éditeur refuse de poser mais accepte d'afficher.
+     *
+     * <p>{@code LOCAL} d'abord, parce que c'est le refus le plus explicable : la portée ne
+     * survit pas à l'exécution qui l'écrit, donc il n'y a rien à répliquer. Le type ensuite :
+     * une référence vivante ({@code player}, {@code entity}) ou un joker n'a pas de codec
+     * réseau, et {@code list<T>}/{@code map<K,V>} n'en ont un que si leurs arguments en ont.
+     */
+    public static @Nullable Diagnostic checkReplicable(Variable variable) {
+        if (variable.scope() == VarScope.LOCAL) {
+            return Diagnostic.error(DiagnosticCode.REPLICATED_SCOPE_LOCAL,
+                    Diagnostic.variable(variable.name()), variable.name());
+        }
+        if (!variable.type().hasStreamCodec()) {
+            return Diagnostic.error(DiagnosticCode.REPLICATED_TYPE_NOT_SENDABLE,
+                    Diagnostic.variable(variable.name()), variable.name(),
+                    variable.type().toString());
+        }
+        return null;
+    }
+
     private static boolean bindingResolves(Blueprint bp,
                                            fr.blueprint.core.graph.screen.ElementBinding b) {
         return resolves(bp, b, b.variable())

@@ -3,6 +3,10 @@
 **État : plan écrit, aucune story livrée.** Établi par une lecture complète du dépôt (cinq
 audits parallèles, 2026-08-10), dont chaque constat portant a été revérifié ligne à ligne.
 
+**Avancement : 21.1 livrée**, le drapeau se pose et se refuse là où l'auteur le voit. Rien
+ne circule encore — c'est délibéré : construire le réseau au-dessus d'un drapeau que personne
+ne peut mettre aurait été construire à l'envers.
+
 | Sujet | Décision | Nature |
 |---|---|---|
 | Exécution partagée client/serveur | **refusée** | reconduit P1 / AD2 / FR17 |
@@ -216,7 +220,7 @@ redémarrage — répliquer avant de persister serait construire à l'envers.
 
 | Story | Objet | Dépend de |
 |---|---|---|
-| **21.1** | `EditOperation.SetReplicated` + pastille dans `VariablePanel` + diagnostics du validateur (portée `LOCAL` refusée, type sans `streamCodec` refusé) | — |
+| ~~**21.1**~~ **livrée** | `EditOperation.SetReplicated` + pastille `»` dans `VariablePanel` + deux diagnostics (`REPLICATED_SCOPE_LOCAL`, `REPLICATED_TYPE_NOT_SENDABLE`). La règle vit dans **un seul** endroit, `GraphValidator.checkReplicable`, que l'opération et la validation appellent tous les deux | — |
 | **21.2** | Payload `VarValues` (S2C), codec borné, quota `maxReplicatedVariables` dans `NetLimits` | 21.1 |
 | **21.3** | Ensemble résolu au lancement (§3a, §3b) + marque à l'écriture dans `VarStore` | 21.2 |
 | **21.4** | `VarSessions` : diff par joueur, clé `(scope, owner, name)`, une trame par tick dans `endServerTick` — calqué sur `ScreenSessions`, pas réinventé | 21.3 |
@@ -294,4 +298,5 @@ d'« un petit calcul côté client » apparaît.
 | Date | Version | Description |
 |---|---|---|
 | 2026-08-10 | 0.1 | Plan initial. Cinq audits parallèles du dépôt ; `@replicated` identifié comme surface déclarative morte ; les trois défauts de la trame d'écran corrigés au passage. |
+| 2026-08-10 | 0.3 | Story 21.1 livrée : le drapeau devient éditable et validé. `@replicated` cesse d'être une surface morte, sans qu'un octet ne circule encore. |
 | 2026-08-10 | 0.2 | NFR14 livré (`VarQuota`, `VarBuckets.put/forget/recount`, `/blueprint vars`) : le prérequis de la story 21.4 est levé, et `VarQuota` donne à 21.2 la mesure de poids dont son plafond réseau aura besoin. |

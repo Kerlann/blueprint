@@ -36,6 +36,8 @@
   "blueprint.diag.permission_exceeded": "This node requires %s but the blueprint is capped at %s",
   "blueprint.diag.variable_not_found": "Variable \"%s\" does not exist",
   "blueprint.diag.duplicate_variable": "A variable named \"%s\" already exists",
+  "blueprint.diag.replicated_scope_local": "\"%s\" is replicated but local: it does not outlive the run that writes it, so there is nothing to replicate",
+  "blueprint.diag.replicated_type_not_sendable": "\"%s\" is replicated but holds a %s, which cannot travel — pick a type the network can carry",
   "blueprint.diag.screen_not_found": "Screen \"%s\" does not exist",
   "blueprint.diag.duplicate_screen": "A screen named \"%s\" already exists",
   "blueprint.diag.element_not_found": "Element \"%s\" does not exist on this screen",

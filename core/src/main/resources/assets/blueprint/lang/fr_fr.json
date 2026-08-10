@@ -36,6 +36,8 @@
   "blueprint.diag.permission_exceeded": "Ce nœud exige %s mais le blueprint est plafonné à %s",
   "blueprint.diag.variable_not_found": "La variable « %s » n'existe pas",
   "blueprint.diag.duplicate_variable": "Une variable nommée « %s » existe déjà",
+  "blueprint.diag.replicated_scope_local": "« %s » est répliquée mais locale : elle ne survit pas à l'exécution qui l'écrit, il n'y a donc rien à répliquer",
+  "blueprint.diag.replicated_type_not_sendable": "« %s » est répliquée mais contient un %s, qui ne voyage pas — choisissez un type que le réseau sait porter",
   "blueprint.diag.screen_not_found": "L'écran « %s » n'existe pas",
   "blueprint.diag.duplicate_screen": "Un écran nommé « %s » existe déjà",
   "blueprint.diag.element_not_found": "L'élément « %s » n'existe pas dans cet écran",

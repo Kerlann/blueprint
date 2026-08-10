@@ -8,6 +8,39 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Ajouté — `@replicated` cesse d'être une surface morte (story 21.1)
+
+Le drapeau était modélisé, persisté en NBT, dans la grammaire BScript, spécifié
+(`bscript-spec.md` : « Synchronisée vers les clients (lecture seule) ») et utilisé dans
+**quatre `.bp` livrés** — sans qu'aucun code ne le lise. Le panneau de variables le forçait
+même à faux en dur, si bien qu'un auteur lisant `rp.bp` ou la spec croyait disposer d'une
+fonctionnalité qu'il n'avait aucun moyen de poser. C'est le motif de panne que ce projet a
+déjà payé avec `event/signal` : une surface qui se déclare, se persiste, et ne fait rien.
+
+- **`EditOperation.SetReplicated`**, réversible et faisant avancer la révision comme les
+  autres opérations.
+- **Une pastille `»` dans le panneau de variables** : un clic la pose, un autre la retire.
+  Un chevron et non un « R », pour la raison qui avait déjà coûté une correction aux
+  pastilles de portée — le panneau est étroit, et « R » collé à un « G » se lit « GR ». Sa
+  couleur porte son état, vif quand le drapeau est posé : un bouton identique dans les deux
+  cas demande de cliquer pour savoir où l'on en est. La marque reste visible hors sélection,
+  parce que la réplication décide de ce que le client voit.
+- **Deux diagnostics**, `REPLICATED_SCOPE_LOCAL` et `REPLICATED_TYPE_NOT_SENDABLE`. Une
+  portée locale ne survit pas à l'exécution qui l'écrit ; un type sans codec réseau — une
+  référence vivante, un joker, une liste qui en contient — n'a rien à mettre sur le fil.
+- **Une seule règle, deux appelants.** `GraphValidator.checkReplicable` est la seule
+  définition : l'opération refuse avant d'écrire, la validation rattrape ce qui n'est pas
+  passé par elle — un retypage postérieur, un graphe écrit en BScript, un graphe reçu du
+  réseau. Deux exemplaires auraient fini par diverger, et la divergence se serait vue comme
+  un drapeau que l'éditeur refuse de poser mais accepte d'afficher.
+- **Retirer le drapeau reste toujours permis**, y compris sur une variable que les contrôles
+  refuseraient. Sans cela, un graphe venu de BScript portant un `@replicated` illégal aurait
+  été impossible à réparer depuis l'éditeur : le bouton aurait refusé dans les deux sens.
+
+**Rien ne circule encore**, et c'est délibéré : construire le transport au-dessus d'un
+drapeau que personne ne peut poser aurait été construire à l'envers. La suite est le
+découpage de `docs/plan-replication.md` (21.2 → 21.7).
+
 ### Modifié — une seule commande racine
 
 Le mod en posait **trois** : `/blueprint` côté serveur, `/blueprint-edit` et
