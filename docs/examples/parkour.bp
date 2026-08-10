@@ -1,0 +1,61 @@
+blueprint blueprint:parkour {
+  meta {
+    author "Kerlann"
+    description "Parkour chronométré : /pk pour lancer, /pkfin pour arrêter"
+    version "1.0.0"
+    permission GAMEPLAY
+  }
+
+  var double tick = 0.0 @graph
+
+  var double depart = 0.0 @player
+  var bool en_cours = false @player
+  var double record = 0.0 @player @replicated
+
+  screen "chrono" @hud {
+    panel "cadre" @at(top_left, 4, 4) @size(110, 26) @layout(column, gap: 2, cross: stretch)
+    label "titre" @in("cadre") @at(top_left, 0, 0) @size(fill, 10) @text("Parkour")
+    label "record" @in("cadre") @at(top_left, 0, 0) @size(fill, 10) @bind("record", text, format: "Record : %s s")
+  }
+
+  on blueprint:event/server_tick() {
+    blueprint:var/set(var: "tick", value: blueprint:math/add(a: blueprint:var/get(var: "tick"), b: 1))
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "pk") {
+    blueprint:hud/show(player: $player, screen: "chrono")
+    blueprint:var/set(var: "depart", value: blueprint:var/get(var: "tick"))
+    blueprint:var/set(var: "en_cours", value: true)
+    blueprint:player/title(player: $player, text: "Partez !")
+    blueprint:player/play_sound(player: $player, sound: "minecraft:block.note_block.pling", volume: 1.0, pitch: 2.0)
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "pkfin") {
+    blueprint:flow/branch(condition: blueprint:var/get(var: "en_cours")) {
+      true: {
+        blueprint:var/set(var: "en_cours", value: false)
+        blueprint:var/set(var: "depart", value: blueprint:math/div(
+            a: blueprint:math/round(value: blueprint:math/div(
+                a: blueprint:math/sub(a: blueprint:var/get(var: "tick"), b: blueprint:var/get(var: "depart")),
+                b: 2.0)),
+            b: 10.0))
+        blueprint:player/send_message(player: $player, text: blueprint:string/concat(
+            a: "Temps : ",
+            b: blueprint:string/concat(a: blueprint:convert/to_string(value: blueprint:var/get(var: "depart")), b: " s")))
+        blueprint:flow/branch(condition: blueprint:logic/or(
+            a: blueprint:logic/equals(a: blueprint:var/get(var: "record"), b: 0.0),
+            b: blueprint:logic/less(a: blueprint:var/get(var: "depart"), b: blueprint:var/get(var: "record")))) {
+          true: {
+            blueprint:var/set(var: "record", value: blueprint:var/get(var: "depart"))
+            blueprint:player/title(player: $player, text: "Nouveau record !")
+            blueprint:player/play_sound(player: $player, sound: "minecraft:entity.player.levelup", volume: 1.0, pitch: 1.0)
+            blueprint:gui/refresh(player: $player, screen: "chrono")
+          }
+        }
+      }
+      false: {
+        blueprint:player/send_message(player: $player, text: "Aucune course en cours — lancez /pk")
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+blueprint blueprint:home {
+  meta {
+    author "Kerlann"
+    description "Point de retour : /sethome enregistre, /home ramène"
+    version "1.0.0"
+    permission WORLD
+  }
+
+  var double tick = 0.0 @graph
+
+  var double x = 0.0 @player
+  var double y = 0.0 @player
+  var double z = 0.0 @player
+  var bool defini = false @player
+
+  var double dernier = 0.0 @player
+
+  on blueprint:event/server_tick() {
+    blueprint:var/set(var: "tick", value: blueprint:math/add(a: blueprint:var/get(var: "tick"), b: 1))
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "sethome") {
+    blueprint:var/set(var: "x", value: blueprint:vec/split(vec: blueprint:entity/position(entity: $player)) @out("x"))
+    blueprint:var/set(var: "y", value: blueprint:vec/split(vec: blueprint:entity/position(entity: $player)) @out("y"))
+    blueprint:var/set(var: "z", value: blueprint:vec/split(vec: blueprint:entity/position(entity: $player)) @out("z"))
+    blueprint:var/set(var: "defini", value: true)
+    blueprint:player/send_message(player: $player, text: "Point de retour enregistré.")
+    blueprint:player/play_sound(player: $player, sound: "minecraft:block.amethyst_block.chime", volume: 1.0, pitch: 1.0)
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "home") {
+    blueprint:flow/branch(condition: blueprint:var/get(var: "defini")) {
+      true: {
+        blueprint:flow/branch(condition: blueprint:logic/or(
+            a: blueprint:logic/equals(a: blueprint:var/get(var: "dernier"), b: 0.0),
+            b: blueprint:logic/greater(
+                a: blueprint:math/sub(a: blueprint:var/get(var: "tick"), b: blueprint:var/get(var: "dernier")),
+                b: 600.0))) {
+          true: {
+            blueprint:var/set(var: "dernier", value: blueprint:var/get(var: "tick"))
+            blueprint:player/send_message(player: $player, text: "Retour dans 3 secondes — ne bougez pas.")
+            blueprint:flow/wait(ticks: 60)
+            blueprint:entity/teleport(entity: $player, pos: blueprint:vec/make(
+                x: blueprint:var/get(var: "x"),
+                y: blueprint:var/get(var: "y"),
+                z: blueprint:var/get(var: "z")))
+            blueprint:player/play_sound(player: $player, sound: "minecraft:entity.enderman.teleport", volume: 1.0, pitch: 1.0)
+          }
+          false: {
+            blueprint:player/send_message(player: $player, text: "Encore un instant avant le prochain retour.")
+          }
+        }
+      }
+      false: {
+        blueprint:player/send_message(player: $player, text: "Aucun point de retour — utilisez /sethome")
+      }
+    }
+  }
+}
