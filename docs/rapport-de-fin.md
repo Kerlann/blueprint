@@ -1,15 +1,23 @@
 # Rapport de fin — Blueprint 0.1.0
 
 Relecture finale, tenue à jour à chaque fin d'épic — dernière mise à jour le
-2026-08-04, après l'épic 11.
+2026-08-10, après l'épic 21.
 Ce document répond à trois questions : **qu'est-ce qui est fait**, **qu'est-ce qui
 reste**, et **qu'est-ce que je ne peux pas garantir**.
 
 ## 1. État
 
-**Les neuf épics du PRD sont livrés, plus trois nés de l'usage.** 85 stories en statut
-*Done*, 84 gates QA (certaines couvrent des stories groupées) toutes en verdict *PASS*
-— aucune en *CONCERNS* ni en *FAIL*.
+**Les neuf épics du PRD sont livrés, plus douze nés de l'usage.** 85 stories en statut
+*Done* et 85 gates QA (certaines couvrent des stories groupées) toutes en verdict *PASS*
+— aucune en *CONCERNS* ni en *FAIL* — pour les épics 1 à 12.
+
+Les épics **13 à 21 n'ont pas de gate QA**, et il faut le dire plutôt que de le laisser
+deviner : ils sont nés de plans (`plan-optimisation.md`, `plan-replication.md`) et non du
+cycle SM → Dev → QA. Ils sont couverts par des tests et des bancs commités, pas par une
+relecture formelle. Ce trou de méthode est le même que celui que la story 11.7 avait
+déjà relevé — « deux épics livrés n'existaient dans aucun document de planification, et
+le rapport de fin retardait de deux épics » — et il s'est reproduit à plus grande
+échelle : ce document retardait de **neuf** épics avant cette mise à jour.
 
 | Épic | Titre | Stories | Verdict |
 |---|---|---|---|
@@ -24,9 +32,12 @@ reste**, et **qu'est-ce que je ne peux pas garantir**.
 | 9 | Débogage, performance, finition | 9.1a → 9.5 | 6 PASS |
 | 10 | **Interfaces graphiques** | 10.1 → 10.16 | 16 PASS |
 | 11 | **Contenu déclaré** | 11.1 → 11.10 | 10 PASS |
-| 12 | **L'éditeur à l'usage** | 12.1 → 12.4 | 4 PASS |
+| 12 | **L'éditeur à l'usage** | 12.1 → 12.5 | 5 PASS |
+| 13-19 | **Optimisation et sûreté** | plan `plan-optimisation.md` | sans gate — complet **sauf 15b**, retiré à dessein |
+| 20 | **Les fonctions** | 20.1 → 20.2 | sans gate — vérification manuelle en attente |
+| 21 | **Réplication des variables** | 21.1 → 21.7 | sans gate — `@replicated` livré de bout en bout |
 
-**Vérification automatique** : `./gradlew build` (1 188 tests headless, couverture
+**Vérification automatique** : `./gradlew build` (1 562 tests headless, couverture
 bloquante ≥ 80 % sur le cœur et ≥ 82 % sur la partie testable du client, référence
 des nœuds et surface d'API régénérées et comparées) et `./gradlew runGametest`
 (20 tests dans un serveur Minecraft réel). Les deux tournent en CI sur chaque push.
