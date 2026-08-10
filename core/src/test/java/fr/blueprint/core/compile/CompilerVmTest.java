@@ -41,6 +41,7 @@ class CompilerVmTest {
 
     private static final List<String> RECORDS = new ArrayList<>();
     private static final AtomicInteger CONCATS = new AtomicInteger();
+    private static final AtomicInteger PROBES = new AtomicInteger();
 
     /** Nœuds espions : ils tracent l'exécution pour que les tests l'observent. */
     private static final BlueprintPlugin SPY = registry -> {
@@ -60,6 +61,14 @@ class CompilerVmTest {
                 }).build());
         registry.register(NodeType.builder(id("wait"))
                 .exec().action(ctx -> ctx.suspend(20)).build());
+        // Un nœud À EXÉCUTION qui porte une sortie de donnée — la forme de
+        // « entity/position ». C'est le cas que home.bp câblait sans le savoir.
+        registry.register(NodeType.builder(id("probe"))
+                .exec().out("value", PinTypes.STRING)
+                .action(ctx -> {
+                    PROBES.incrementAndGet();
+                    ctx.out("value", "sonde");
+                }).build());
     };
 
     private static Identifier id(String path) {
@@ -97,6 +106,47 @@ class CompilerVmTest {
     void reset() {
         RECORDS.clear();
         CONCATS.set(0);
+        PROBES.set(0);
+    }
+
+    /**
+     * <b>Un nœud à exécution utilisé comme valeur ne s'exécute pas.</b>
+     *
+     * <p>C'est ce qui cassait {@code home.bp} : il écrivait
+     * {@code var/set(value: entity/position(entity: $player))}, ce qui donne un lien de
+     * donnée depuis un nœud à exécution que rien ne place dans la chaîne. Le compilateur
+     * n'émet un producteur que s'il est <b>pur</b> ({@code Compiler.prepareInput}) ; celui-ci
+     * ne l'est pas, donc sa case de sortie n'est jamais écrite, et le consommateur lit ce
+     * qui traîne. Le joueur atterrissait à une position qui n'était celle de personne.
+     *
+     * <p>Le test fige la règle telle qu'elle est <b>aujourd'hui</b> : la sonde ne tourne pas
+     * et rien n'arrive au consommateur. Il ne dit pas que c'est bien — il dit que tant que
+     * ça reste ainsi, l'éditeur et BScript doivent refuser ce câblage plutôt que produire
+     * un graphe qui ment. Le jour où le compilateur hissera ces nœuds, ce test tombera, et
+     * c'est exactement le moment où il faut relire les deux refus.
+     */
+    @Test
+    void unNoeudAExecutionUtiliseCommeValeurNeSExecutePas() {
+        var bp = graph();
+        UUID start = node(bp, "s", id("start"));
+        UUID probe = node(bp, "p", id("probe"));
+        UUID rec = node(bp, "r", id("record"));
+        apply(bp, new EditOperation.AddLink(new Link(start, "exec_out", rec, "exec_in")));
+        // La sonde alimente « tag » SANS être dans la chaîne d'exécution.
+        apply(bp, new EditOperation.AddLink(new Link(probe, "value", rec, "tag")));
+
+        Ir ir = compileOk(bp, start);
+        assertInstanceOf(ExecResult.Done.class,
+                BlueprintVm.run(ir, ExecutionState.fresh(ir), env(), 1000));
+
+        assertEquals(0, PROBES.get(),
+                "la sonde n'est pas dans la chaîne : le compilateur ne l'émet pas");
+        // « ? » est le défaut déclaré du pin « tag ». C'est le pire des cas : la valeur
+        // n'est ni juste ni absente, elle est plausible. Rien dans le jeu ne distingue un
+        // défaut d'une vraie lecture — d'où un point de retour qui n'était celui de
+        // personne, sans une ligne dans le journal.
+        assertEquals(List.of("?"), RECORDS,
+                "le consommateur retombe sur le défaut du pin, silencieusement");
     }
 
     private static ExecutionEnvironment env() {

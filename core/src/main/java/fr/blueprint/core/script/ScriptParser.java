@@ -1029,6 +1029,33 @@ public final class ScriptParser {
         return args;
     }
 
+    /**
+     * Refuse d'imbriquer un nœud <b>à exécution</b> dans un argument.
+     *
+     * <p>Ça se parsait, ça se validait sans un diagnostic, et ça ne marchait pas :
+     * {@code Compiler.prepareInput} n'émet un producteur de valeur que s'il est pur. Un
+     * nœud à exécution câblé en argument n'est donc jamais exécuté, sa case de sortie
+     * reste vide, et le consommateur retombe sur le <b>défaut du pin</b> — une valeur
+     * plausible, que rien ne distingue d'une vraie lecture.
+     *
+     * <p>C'est exactement ce qui cassait {@code home.bp} :
+     * {@code var/set(value: entity/position(entity: $player))} enregistrait l'origine du
+     * monde au lieu de la position du joueur, sans une ligne dans le journal.
+     *
+     * <p>Refuser au parsing plutôt que de hisser le nœud : hisser voudrait dire choisir à
+     * la place de l'auteur <i>où</i> l'exécution passe, et l'ordre des effets de bord
+     * n'est pas devinable. Le message nomme la seule écriture qui marche.
+     */
+    private void refuseNoeudAExecutionEnValeur(Identifier typeId, int line) {
+        var type = registries.nodes().get(typeId).orElse(null);
+        if (type == null || type.pure()) {
+            return;   // inconnu : le nœud fantôme s'en charge plus loin
+        }
+        throw new ParseError(line, "« " + typeId + " » est un nœud à exécution : il ne peut"
+                + " pas servir de valeur dans un argument. Posez-le comme instruction avec"
+                + " @id(\"…\"), puis lisez sa sortie par $node(\"…\").<pin>");
+    }
+
     private Expr parseExpr() {
         Token token = peek();
         if (token.kind().equals("number") || token.kind().equals("string")
@@ -1059,6 +1086,7 @@ public final class ScriptParser {
         }
         // Appel imbriqué (pur) : type(args) @id(...)
         Identifier typeId = qualifiedId();
+        refuseNoeudAExecutionEnValeur(typeId, token.line());
         List<Arg> args = parseArgs();
         Annotations anns = parseAnnotations();
         UUID uuid = anns.idOr(UUID.randomUUID());

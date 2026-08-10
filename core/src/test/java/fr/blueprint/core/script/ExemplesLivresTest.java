@@ -75,6 +75,53 @@ class ExemplesLivresTest {
         }
     }
 
+    /**
+     * Les blocs {@code bscript} de la spécification se parsent, eux aussi.
+     *
+     * <p>Ce test existe parce que le contraire a duré longtemps : {@code bscript-spec.md}
+     * décrivait un langage à opérateurs infixes, {@code if}, {@code wait 20t} et
+     * commentaires {@code //}, dont <b>rien</b> n'était implémenté. Un moddeur qui suivait
+     * la spec écrivait du BScript refusé dès sa troisième ligne, et la documentation était
+     * la dernière chose qu'il aurait songé à soupçonner.
+     *
+     * <p>Une spécification n'est pas vérifiable en entier — mais ses exemples le sont, et
+     * ce sont eux qu'on recopie. Les faire passer par le parseur ferme la voie par laquelle
+     * l'écart s'était installé.
+     */
+    @Test
+    void lesExemplesDeLaSpecSeParsent() {
+        String spec;
+        try {
+            spec = Files.readString(racine().resolve("docs/bscript-spec.md"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        List<String> fautifs = new ArrayList<>();
+        int trouves = 0;
+        int depuis = 0;
+        while (true) {
+            int debut = spec.indexOf("```bscript", depuis);
+            if (debut < 0) {
+                break;
+            }
+            int corps = debut + "```bscript".length();
+            int fin = spec.indexOf("```", corps);
+            if (fin < 0) {
+                break;
+            }
+            depuis = fin + 3;
+            trouves++;
+            var parsed = ScriptParser.parse(spec.substring(corps, fin), LOADED);
+            if (!parsed.success()) {
+                fautifs.add("bloc n°" + trouves + " → " + parsed.error());
+            }
+        }
+        assertTrue(trouves > 0, "aucun bloc bscript dans la spec : le test passerait à vide");
+        assertTrue(fautifs.isEmpty(), "la spec montre du BScript que le parseur refuse :\n  "
+                + String.join("\n  ", fautifs));
+    }
+
     @Test
     void chaqueExempleSeRelit() {
         List<String> fautifs = new ArrayList<>();
