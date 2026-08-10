@@ -97,6 +97,17 @@ public final class BlueprintManager {
             // change la liste des noms déclarés. Se brancher ici évite d'avoir à penser
             // aux racines dynamiques à chaque endroit qui modifie un blueprint.
             fr.blueprint.core.BlueprintMod.refreshDynamicCommands(server);
+            // Troisième consommateur du même signal (épic 21) : les variables déclarées
+            // @replicated ne changent qu'ici — un enregistrement, une création, une
+            // suppression. Les relire à chaque écriture aurait mis un parcours de tous les
+            // graphes dans le chemin le plus chaud de la VM ; les relire ici les relit
+            // quelques fois par heure.
+            //
+            // Sous un lot, le retour anticipé plus haut nous fait sauter ce rafraîchissement,
+            // et c'est sans danger : un lot est une suite synchrone de commandes, aucun tick
+            // ne s'exécute entre ses éléments, donc aucune écriture ne peut se produire avec
+            // un ensemble périmé.
+            fr.blueprint.core.BlueprintMod.refreshReplicatedNames(server);
         }
     }
 

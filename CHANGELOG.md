@@ -8,6 +8,39 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Ajouté — les changements se marquent, au coût d'une lecture de champ (story 21.3)
+
+`ReplicatedNames` et `VarDirty`. Le magasin note quelles valeurs répliquées ont changé ;
+l'envoi de fin de tick est la story 21.4.
+
+- **La story 10.7 avait écarté l'instrumentation de `VarStore`** — « ça touche le chemin chaud
+  de **toute** exécution, y compris des blueprints qui n'ont jamais ouvert d'écran ». Son
+  objection portait sur un coût *imposé à tous* ; elle tombe si le coût est nul pour qui ne
+  réplique pas. `ReplicatedNames.isEmpty()` est testé avant tout le reste, et c'est une lecture
+  de champ. L'AC2 de 10.7 reste vrai au mot près : il n'y a pas de balayage par tick, il y a
+  une marque à l'écriture. L'ensemble est recalculé quand le gestionnaire mute — quelques fois
+  par heure — et jamais par lancement.
+- **`WORLD` et `PLAYER_SHARED` se jugent globalement, `GRAPH` et `PLAYER` par blueprint.** Le
+  premier cas est celui que le plan appelait « la subtilité à ne pas manquer » : A déclare
+  `or @world @replicated` et B écrit `or @world` sans le drapeau — B ne sait pas qu'il faut
+  marquer, et pourtant c'est la valeur que les clients regardent qu'il vient de changer.
+  L'inverse compte autant : traiter `GRAPH` globalement aurait fait répliquer le `score` de A
+  parce que B en déclare un du même nom.
+- **La désignation d'une marque est normalisée par portée.** Une variable `WORLD` écrite par un
+  graphe que dix joueurs viennent de déclencher est **une** valeur : garder le joueur
+  déclencheur dans la désignation aurait produit dix marques, donc dix fois le même envoi. La
+  normalisation suit la règle de possession de `VarStore.owns`, pour ne pas en faire un
+  quatrième exemplaire.
+- **Un carnet plein refuse la nouvelle marque au lieu d'évincer l'ancienne.** Perdre la plus
+  ancienne ferait disparaître un changement pour toujours ; refuser la plus récente la laisse
+  revenir au prochain tick où la variable change, et en attendant l'écran montre une valeur
+  périmée d'un tick plutôt qu'une valeur fausse indéfiniment.
+- **La marque vit au magasin et non dans la boucle de la VM**, contrairement à ce que le plan
+  décrivait. `VarBuckets.put` est l'entonnoir unique de toutes les écritures depuis NFR14, donc
+  les valeurs par défaut semées au lancement sont marquées elles aussi — sans quoi un joueur
+  qui se connecte ne verrait pas sa valeur de départ. Le placement prévu aurait manqué ce cas
+  en silence ; un test le fige.
+
 ### Ajouté — le canal des valeurs répliquées (story 21.2)
 
 Le paquet `VarValues` (S2C) et ses bornes. **Il n'a pas encore d'émetteur** : la story 21.4

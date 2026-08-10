@@ -3,9 +3,10 @@
 **État : plan écrit, aucune story livrée.** Établi par une lecture complète du dépôt (cinq
 audits parallèles, 2026-08-10), dont chaque constat portant a été revérifié ligne à ligne.
 
-**Avancement : 21.1 et 21.2 livrées.** Le drapeau se pose et se refuse là où l'auteur le
-voit ; le canal existe, borné et testé. Rien ne circule encore — le payload n'a pas
-d'émetteur, et c'est 21.4 qui le lui donnera. L'ordre est délibéré : construire le transport
+**Avancement : 21.1, 21.2 et 21.3 livrées.** Le drapeau se pose et se refuse là où l'auteur le
+voit ; le canal existe, borné et testé ; les changements se marquent, au coût d'une lecture de
+champ pour qui ne réplique pas. Rien ne circule encore : il manque l'envoi de fin de tick et le
+choix des destinataires, qui sont 21.4. L'ordre est délibéré — construire le transport
 au-dessus d'un drapeau que personne ne peut poser aurait été construire à l'envers.
 
 | Sujet | Décision | Nature |
@@ -145,9 +146,8 @@ garantie observable sous couvert d'optimisation, et la règle du plan d'optimisa
 citée telle quelle — *« une story qui oblige à modifier un test de comportement existant
 est abandonnée, pas discutée »* (`plan-optimisation.md:418-448`).
 
-**La sortie : résoudre l'ensemble des variables répliquées une fois par lancement**, dans
-la fabrique d'environnement, là où `VarOwner` est déjà construit une seule fois
-(`BlueprintMod.java:530`). Le chemin d'écriture devient :
+**La sortie : résoudre l'ensemble des variables répliquées une fois**, et le tester avant
+tout le reste dans le chemin d'écriture :
 
 ```java
 if (!replicated.isEmpty() && replicated.contains(name)) markDirty(scope, owner, name, value);
@@ -158,6 +158,21 @@ branche. Le coût reste nul pour qui ne réplique pas — *« ce qu'on ne fait p
 être lent »* (`10.7:90`) — et l'objection de 10.7, qui portait sur un coût imposé à **tous
 les graphes**, tombe littéralement. L'AC2 de 10.7 (« aucun balayage par tick ») reste vrai :
 il n'y a pas de balayage, il y a une marque à l'écriture.
+
+> **Livré autrement que décrit ci-dessus, et mieux.** Le plan plaçait l'ensemble dans
+> l'`ExecutionEnvironment`, « là où `VarOwner` est déjà construit une seule fois ». Deux
+> raisons l'ont déplacé dans `VarStorage`, et la seconde est celle qui compte :
+>
+> 1. `ExecutionEnvironment` est un record construit en **23 endroits**, dont 22 tests. Y
+>    ajouter un composant aurait fait porter la réplication par tous.
+> 2. Surtout, l'environnement n'aurait couvert que le chemin de la VM. `VarBuckets.put` est
+>    l'entonnoir unique de **toutes** les écritures depuis NFR14, `seedDefaults` compris — et
+>    les valeurs par défaut semées au lancement doivent être répliquées, sinon un joueur qui
+>    se connecte ne voit pas sa valeur de départ. Le placement du plan aurait manqué ce cas
+>    en silence ; un test le fige.
+>
+> L'ensemble est en outre recalculé **à la mutation du gestionnaire** et non par lancement,
+> ce qui est encore moins souvent : quelques fois par heure au lieu de vingt fois par seconde.
 
 ### 3b. La subtilité à ne pas manquer
 
@@ -228,7 +243,7 @@ cet épic répare. Et une seule liste de types, dans un seul fichier, sert les d
 |---|---|---|
 | ~~**21.1**~~ **livrée** | `EditOperation.SetReplicated` + pastille `»` dans `VariablePanel` + deux diagnostics (`REPLICATED_SCOPE_LOCAL`, `REPLICATED_TYPE_NOT_SENDABLE`). La règle vit dans **un seul** endroit, `GraphValidator.checkReplicable`, que l'opération et la validation appellent tous les deux | — |
 | ~~**21.2**~~ **livrée** | Payload `VarValues` (S2C, portée + nom + tag étiqueté), codec borné à 32 valeurs et 8 Kio par valeur, `NetLimits.maxReplicatedVariables = 32` appliqué par `GraphGuard`. Format extrait dans `VarValueNbt` : le fil et le disque portent le même. **Aucun émetteur** — c'est 21.4 | 21.1 |
-| **21.3** | Ensemble résolu au lancement (§3a, §3b) + marque à l'écriture dans `VarStore` | 21.2 |
+| ~~**21.3**~~ **livrée** | `ReplicatedNames` (résolu à la mutation du gestionnaire, pas au lancement — voir ci-dessous) + `VarDirty` + marque dans `VarStorage.set`. Coût nul quand rien n'est répliqué : une lecture de champ | 21.2 |
 | **21.4** | `VarSessions` : diff par joueur, clé `(scope, owner, name)`, une trame par tick dans `endServerTick` — calqué sur `ScreenSessions`, pas réinventé | 21.3 |
 | **21.5** | Cache client en lecture seule + `ScreenBindings.updates(..., Source.VARIABLE)` appelé **côté client** avec ce cache. C'est ici que le même code de rendu sert des deux côtés | 21.4 |
 | **21.6** | Interpolation des barres liées à une variable répliquée. Le gain visible : une barre de mana devient aussi fluide qu'une barre de vie | 21.5 |
@@ -315,6 +330,7 @@ d'« un petit calcul côté client » apparaît.
 | Date | Version | Description |
 |---|---|---|
 | 2026-08-10 | 0.1 | Plan initial. Cinq audits parallèles du dépôt ; `@replicated` identifié comme surface déclarative morte ; les trois défauts de la trame d'écran corrigés au passage. |
+| 2026-08-10 | 0.5 | Story 21.3 livrée : `ReplicatedNames` + `VarDirty` + marque dans `VarStorage.set`. L'ensemble vit au magasin et non dans l'environnement — §3a corrigé en conséquence, avec la raison. |
 | 2026-08-10 | 0.4 | Story 21.2 livrée : payload `VarValues`, bornes, quota. La question du buffer est tranchée autrement que proposé — le fil réutilise le format étiqueté du disque, si bien que ce qui se réplique est exactement ce qui se persiste. |
 | 2026-08-10 | 0.3 | Story 21.1 livrée : le drapeau devient éditable et validé. `@replicated` cesse d'être une surface morte, sans qu'un octet ne circule encore. |
 | 2026-08-10 | 0.2 | NFR14 livré (`VarQuota`, `VarBuckets.put/forget/recount`, `/blueprint vars`) : le prérequis de la story 21.4 est levé, et `VarQuota` donne à 21.2 la mesure de poids dont son plafond réseau aura besoin. |

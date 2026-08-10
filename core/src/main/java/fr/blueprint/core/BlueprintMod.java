@@ -184,6 +184,20 @@ public class BlueprintMod {
         dispatcher.register(BlueprintCommand.build(config));
     }
 
+    /**
+     * Relit quelles variables sont {@code @replicated} et le dit au magasin (épic 21).
+     *
+     * <p>Appelée par le gestionnaire quand il mute, jamais par tick. Le magasin ne va pas
+     * chercher les déclarations lui-même : il ne connaît pas les graphes, et l'en faire
+     * dépendre aurait inversé le sens de la dépendance.
+     */
+    public static void refreshReplicatedNames(net.minecraft.server.MinecraftServer server) {
+        if (varsOf(server) instanceof fr.blueprint.core.storage.VarStorage storage) {
+            storage.replicating(fr.blueprint.core.vm.ReplicatedNames.of(
+                    BlueprintManager.of(server).all()));
+        }
+    }
+
     /** Les noms de commande déclarés par les blueprints actifs — pour les suggestions. */
     public static java.util.List<String> commandNames(net.minecraft.server.MinecraftServer server) {
         var bridge = BRIDGES.get(server);

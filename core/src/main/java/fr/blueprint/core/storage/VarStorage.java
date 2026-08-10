@@ -66,7 +66,50 @@ public final class VarStorage extends SavedData implements VarStore {
     public boolean set(VarScope scope, VarOwner owner, String name, @Nullable Object value) {
         // Un propriétaire manquant rend VRAI : la VM a déjà fauté avant d'arriver ici, et
         // rendre faux ferait remonter le message du plafond à la place du bon.
-        return !VarStore.owns(scope, owner) || buckets.put(scope, owner, name, value);
+        if (!VarStore.owns(scope, owner)) {
+            return true;
+        }
+        if (!buckets.put(scope, owner, name, value)) {
+            return false;
+        }
+        // La réplication (épic 21). Le test d'ensemble vide passe AVANT tout le reste : sur un
+        // serveur sans variable répliquée — l'immense majorité — cette ligne coûte une lecture
+        // de champ et une branche, et rien d'autre. C'est ce qui répond à l'objection de la
+        // story 10.7 contre l'instrumentation du magasin, plutôt que de la contourner : le
+        // coût n'est pas imposé à toute exécution, il est payé par qui réplique.
+        if (!replicated.isEmpty() && replicated.covers(scope, owner.blueprint(), name)
+                && !dirty.mark(scope, owner, name)) {
+            LOGGER.warn("Carnet des valeurs répliquées plein : « {} » attendra le prochain "
+                    + "changement. Un graphe écrit probablement plus de valeurs répliquées "
+                    + "par tick que le protocole n'en porte.", name);
+        }
+        return true;
+    }
+
+    /**
+     * Ce qui est {@code @replicated} sur ce serveur, relu quand le gestionnaire mute et jamais
+     * dans un chemin par tick. Remplacé et non modifié : la lecture n'a pas à se synchroniser.
+     */
+    private volatile fr.blueprint.core.vm.ReplicatedNames replicated =
+            fr.blueprint.core.vm.ReplicatedNames.NONE;
+
+    /** Les valeurs répliquées changées depuis le dernier envoi (vidé en fin de tick). */
+    private final fr.blueprint.core.vm.VarDirty dirty = new fr.blueprint.core.vm.VarDirty();
+
+    /**
+     * Prend acte des déclarations courantes.
+     *
+     * <p>Appelée quand le gestionnaire de blueprints mute. Ce n'est pas le magasin qui décide
+     * quand : il ne connaît pas les graphes, et aller les lire lui-même l'aurait fait dépendre
+     * du gestionnaire — dans le mauvais sens.
+     */
+    public void replicating(fr.blueprint.core.vm.ReplicatedNames names) {
+        this.replicated = names;
+    }
+
+    /** Le carnet des changements, pour l'envoi de fin de tick (story 21.4). */
+    public fr.blueprint.core.vm.VarDirty dirty() {
+        return dirty;
     }
 
     /**

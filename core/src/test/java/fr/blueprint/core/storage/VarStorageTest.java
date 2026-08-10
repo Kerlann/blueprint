@@ -187,4 +187,110 @@ class VarStorageTest {
         assertNull(after.get(VarScope.PLAYER, alice, "objet"),
                 "la valeur non persistable est sautée, pas devinée");
     }
+
+    // ----------------------------------------------------- réplication (épic 21, 21.3)
+
+    private static final Identifier BOUTIQUE =
+            Identifier.fromNamespaceAndPath("test", "boutique");
+
+    private static fr.blueprint.core.graph.Blueprint declaring(String name, VarScope scope,
+                                                              boolean replicated) {
+        var bp = new fr.blueprint.core.graph.Blueprint(BOUTIQUE);
+        var lookup = (fr.blueprint.core.graph.NodeTypeLookup) typeId -> null;
+        var limits = fr.blueprint.core.graph.GraphLimits.DEFAULT;
+        new fr.blueprint.core.graph.EditOperation.AddVariable(
+                new fr.blueprint.core.graph.Variable(name, fr.blueprint.api.pin.PinTypes.DOUBLE,
+                        fr.blueprint.api.pin.LiteralValue.of(
+                                fr.blueprint.api.pin.PinTypes.DOUBLE, 0.0),
+                        scope, false)).apply(bp, lookup, limits);
+        if (replicated) {
+            new fr.blueprint.core.graph.EditOperation.SetReplicated(name, true)
+                    .apply(bp, lookup, limits);
+        }
+        return bp;
+    }
+
+    /**
+     * Le point de la story : <b>sans aucune déclaration, écrire ne marque rien</b>.
+     *
+     * <p>C'est la réponse à l'objection de la story 10.7 contre l'instrumentation du magasin.
+     * L'objection portait sur un coût imposé à toute exécution ; il n'y en a pas, parce que le
+     * magasin teste un ensemble vide avant de faire quoi que ce soit d'autre.
+     */
+    @Test
+    void sansDeclarationAucuneEcritureNestMarquee() {
+        VarStorage storage = new VarStorage();
+        VarOwner alice = new VarOwner(BOUTIQUE, UUID.randomUUID());
+
+        storage.set(VarScope.PLAYER, alice, "or", 100.0);
+
+        assertEquals(0, storage.dirty().size());
+    }
+
+    @Test
+    void uneVariableDeclareeEstMarqueeAChaqueChangement() {
+        VarStorage storage = new VarStorage();
+        storage.replicating(fr.blueprint.core.vm.ReplicatedNames.of(
+                List.of(declaring("or", VarScope.PLAYER, true))));
+        VarOwner alice = new VarOwner(BOUTIQUE, UUID.randomUUID());
+
+        storage.set(VarScope.PLAYER, alice, "or", 100.0);
+
+        assertEquals(1, storage.dirty().size());
+        assertEquals("or", storage.dirty().drain().get(0).name());
+    }
+
+    /** Une voisine non déclarée reste muette, même dans un magasin qui réplique. */
+    @Test
+    void uneVoisineNonDeclareeResteMuette() {
+        VarStorage storage = new VarStorage();
+        storage.replicating(fr.blueprint.core.vm.ReplicatedNames.of(
+                List.of(declaring("or", VarScope.PLAYER, true))));
+        VarOwner alice = new VarOwner(BOUTIQUE, UUID.randomUUID());
+
+        storage.set(VarScope.PLAYER, alice, "argent", 5.0);
+
+        assertEquals(0, storage.dirty().size());
+    }
+
+    /**
+     * Les valeurs par défaut semées au lancement sont marquées elles aussi. C'est ce que le
+     * placement de la marque <b>au magasin</b> plutôt qu'à la boucle de la VM apporte
+     * gratuitement : {@code seedDefaults} passe par {@code set}, donc par le même entonnoir.
+     */
+    @Test
+    void lesDefautsSemesAuLancementSontMarquesAussi() {
+        VarStorage storage = new VarStorage();
+        var bp = declaring("or", VarScope.PLAYER, true);
+        storage.replicating(fr.blueprint.core.vm.ReplicatedNames.of(List.of(bp)));
+        VarOwner alice = new VarOwner(BOUTIQUE, UUID.randomUUID());
+
+        storage.seedDefaults(bp, alice);
+
+        assertEquals(1, storage.dirty().size(),
+                "un joueur qui se connecte doit voir sa valeur de départ");
+    }
+
+    /** Une écriture refusée par le plafond de 64 Ko ne marque rien : rien n'a changé. */
+    @Test
+    void uneEcritureRefuseeParLePlafondNeMarqueRien() {
+        VarStorage storage = new VarStorage();
+        storage.replicating(fr.blueprint.core.vm.ReplicatedNames.of(
+                List.of(declaring("journal", VarScope.PLAYER, true))));
+        VarOwner alice = new VarOwner(BOUTIQUE, UUID.randomUUID());
+
+        int max = fr.blueprint.core.vm.VarQuota.MAX_PLAYER_BYTES;
+        assertEquals(true, storage.set(VarScope.PLAYER, alice, "journal",
+                "x".repeat(max / 2 - 500)));
+        assertEquals(1, storage.dirty().size(), "celle-ci a bien eu lieu");
+        storage.dirty().drain();
+
+        // La MÊME variable, répliquée elle aussi, mais dont la nouvelle valeur ferait
+        // dépasser : c'est le refus du plafond qui doit empêcher la marque, et non
+        // l'absence de déclaration.
+        assertEquals(false, storage.set(VarScope.PLAYER, alice, "journal",
+                "y".repeat(max)), "au-delà du plafond");
+        assertEquals(0, storage.dirty().size(),
+                "une écriture qui n'a pas eu lieu n'a rien changé");
+    }
 }
