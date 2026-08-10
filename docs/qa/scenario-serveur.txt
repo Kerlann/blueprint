@@ -3,4 +3,4 @@
 blueprint content
 blueprint bench
 blueprint list
-bpc bench
+bench

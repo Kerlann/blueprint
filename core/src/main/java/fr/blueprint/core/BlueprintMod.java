@@ -220,6 +220,10 @@ public class BlueprintMod {
                 storage, BlueprintManager.of(server), schedulerOf(server), registries,
                 new fr.blueprint.core.storage.ServerRefResolver(server), envFactory(server));
         storage.bindLive(BlueprintManager.of(server), schedulerOf(server));
+        // Les blueprints du monde viennent d'être restaurés : c'est le premier instant où
+        // leurs noms de commande sont connus. L'enregistrement des commandes, lui, est
+        // déjà passé — d'où la pose à chaud plutôt qu'une déclaration au bon moment.
+        refreshDynamicCommands(server);
         // Le dossier `blueprint/exports/` devient un REFLET de ce que le monde
         // contient, et non plus une photo du jour où l'on a pensé à exporter. Sans
         // cela il dérive dès l'enregistrement suivant — et l'on croit relire son
@@ -433,6 +437,98 @@ public class BlueprintMod {
         }
     }
 
+    /** Les racines que NOUS avons posées, par serveur — voir {@link #refreshDynamicCommands}. */
+    private static final java.util.Map<net.minecraft.server.MinecraftServer,
+            java.util.Set<String>> RACINES =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /** Les collisions déjà signalées, pour ne pas les répéter à chaque changement. */
+    private static final java.util.Map<net.minecraft.server.MinecraftServer,
+            java.util.Set<String>> COLLISIONS =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
+     * Pourquoi ce nom ne peut pas devenir une commande, ou {@code null} s'il le peut.
+     *
+     * <p>Extrait et <b>pur</b> pour être vérifiable sans serveur : c'est la garde qui
+     * empêche un blueprint nommé « kill » d'écraser le {@code /kill} de vanilla.
+     * {@code addChild} de Brigadier <b>remplace</b> silencieusement un enfant du même nom
+     * — sans ce test, un graphe pourrait voler une commande du jeu ou d'un autre mod, et
+     * personne ne saurait pourquoi elle a changé de comportement.
+     *
+     * @param deja les racines que ce mod a déjà posées ; l'une des nôtres n'est pas une
+     *             collision, c'est simplement du travail déjà fait
+     */
+    static @org.jetbrains.annotations.Nullable String refusDeRacine(
+            com.mojang.brigadier.tree.RootCommandNode<?> racine, String nom,
+            java.util.Set<String> deja) {
+        if (nom.isBlank()) {
+            return "nom vide";
+        }
+        if (deja.contains(nom)) {
+            return null;   // déjà posée par nous, ou à reposer après un /reload
+        }
+        return racine.getChild(nom) == null ? null
+                : "« /" + nom + " » existe déjà — le blueprint garde /bpc " + nom;
+    }
+
+    /**
+     * Pose une racine par nom de commande déclaré, et prévient les clients.
+     *
+     * <p>Les commandes ne peuvent pas être déclarées à l'enregistrement : celui-ci part
+     * <b>avant</b> {@code serverStarted}, donc avant que les blueprints du monde soient
+     * chargés. On les ajoute donc au dispatcher vivant, ce que Brigadier accepte.
+     *
+     * <p><b>Le retrait, lui, est différé.</b> Brigadier n'expose aucun moyen d'enlever une
+     * racine. Un blueprint supprimé laisse donc sa commande jusqu'au prochain
+     * {@code /reload} — qui reconstruit tout le dispatcher — ou au redémarrage. D'ici là
+     * elle répond « aucun blueprint n'écoute », exactement comme {@code /bpc} pour un nom
+     * inconnu : l'échec est bénin et il se lit.
+     */
+    public static void refreshDynamicCommands(net.minecraft.server.MinecraftServer server) {
+        var bridge = BRIDGES.get(server);
+        if (bridge == null) {
+            return;
+        }
+        var dispatcher = server.getCommands().getDispatcher();
+        var racine = dispatcher.getRoot();
+        var deja = RACINES.computeIfAbsent(server, s -> java.util.concurrent.ConcurrentHashMap.newKeySet());
+        var vues = COLLISIONS.computeIfAbsent(server, s -> java.util.concurrent.ConcurrentHashMap.newKeySet());
+        boolean pose = false;
+
+        for (String nom : bridge.commandNames()) {
+            if (deja.contains(nom) && racine.getChild(nom) != null) {
+                continue;   // en place ; après un /reload elle aura disparu et repassera ici
+            }
+            String refus = refusDeRacine(racine, nom, deja);
+            if (refus != null) {
+                if (vues.add(nom)) {
+                    LOGGER.warn("Commande « /{} » non posée : {}", nom, refus);
+                }
+                continue;
+            }
+            racine.addChild(net.minecraft.commands.Commands.literal(nom)
+                    .executes(context -> lancerCommande(context.getSource(), nom, ""))
+                    .then(net.minecraft.commands.Commands.argument("arg",
+                                    com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                            .executes(context -> lancerCommande(context.getSource(), nom,
+                                    com.mojang.brigadier.arguments.StringArgumentType
+                                            .getString(context, "arg"))))
+                    .build());
+            deja.add(nom);
+            pose = true;
+        }
+
+        if (pose) {
+            // Sans ce renvoi, la commande FONCTIONNE mais ne se complète pas au Tab —
+            // le client garde en cache l'arbre reçu à la connexion, et un joueur qui ne
+            // voit pas sa commande la croit absente.
+            for (net.minecraft.server.level.ServerPlayer joueur : server.getPlayerList().getPlayers()) {
+                server.getCommands().sendCommands(joueur);
+            }
+        }
+    }
+
     /** Joueurs déjà servis (par UUID) — remis à zéro à la déconnexion. */
     private static final java.util.Set<java.util.UUID> SYNCED =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
@@ -620,9 +716,21 @@ public class BlueprintMod {
     private static int runBpc(
             com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> context,
             String arg) {
-        var source = context.getSource();
+        return lancerCommande(context.getSource(),
+                com.mojang.brigadier.arguments.StringArgumentType.getString(context, "name"), arg);
+    }
+
+    /**
+     * Déclenche les blueprints qui écoutent ce nom de commande.
+     *
+     * <p>Le nom arrive en paramètre plutôt que d'être lu dans le contexte : sur
+     * {@code /bpc <nom>} il vient d'un argument, sur une racine dynamique il EST le
+     * littéral de la commande. Un seul corps pour les deux chemins — sinon la correction
+     * d'un défaut n'atteindrait qu'une moitié des joueurs.
+     */
+    private static int lancerCommande(net.minecraft.commands.CommandSourceStack source,
+                                      String name, String arg) {
         var bridge = BRIDGES.get(source.getServer());
-        String name = com.mojang.brigadier.arguments.StringArgumentType.getString(context, "name");
         if (bridge == null) {
             return 0;
         }

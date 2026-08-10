@@ -85,6 +85,10 @@ public final class BlueprintManager {
     private void announceList() {
         if (server != null) {
             fr.blueprint.core.net.ServerBlueprintNet.announceList(server);
+            // Le même signal sert aux commandes : un blueprint adopté, activé ou désactivé
+            // change la liste des noms déclarés. Se brancher ici évite d'avoir à penser
+            // aux racines dynamiques à chaque endroit qui modifie un blueprint.
+            fr.blueprint.core.BlueprintMod.refreshDynamicCommands(server);
         }
     }
 
