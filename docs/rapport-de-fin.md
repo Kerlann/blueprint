@@ -99,7 +99,7 @@ c'est ce que le lanceur affiche aux joueurs, il est corrigé.
 
 ### 3.2 La session en jeu
 
-**42 points à regarder**, listés dans [`README.md` §Prochaine action](README.md).
+**48 points à regarder**, listés dans [`README.md` §Prochaine action](README.md).
 Tout ce qui se vérifie sans yeux l'est déjà ; ce qui reste est le visuel, l'ergonomie
 et les comportements qui exigent un monde vivant (redémarrage, serveur dédié, retrait
 d'un mod du dossier `mods`).
@@ -122,7 +122,7 @@ Par honnêteté, les limites du harnais :
 
 1. **Le rendu n'est vérifié par aucun test.** L'état de l'éditeur est couvert
    headless ; le dessin ne l'est pas, et ne peut pas l'être ici. C'est la raison
-   d'être des 42 points de la session en jeu.
+   d'être des 48 points de la session en jeu.
 2. **Les 60 fps ne sont mesurés qu'en passe CPU** (banc `CanvasBenchTest`). Le coût
    GPU réel n'est pas borné en CI.
 3. **Le multijoueur n'est éprouvé qu'à un seul client.** Le verrou optimiste est

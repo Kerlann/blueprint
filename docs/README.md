@@ -23,7 +23,7 @@ produit, architecture, UX, puis story par story avec sa vérification.
 | [`plan-multiloader.md`](plan-multiloader.md) | Architect | Portage NeoForge par lots, et les trois écarts assumés |
 | [`plan-replication.md`](plan-replication.md) | Architect | Épic 21 : `@replicated` livré, frontière client/serveur des **données** |
 | [`stories/`](stories/) | SM | Stories prêtes pour l'agent Dev |
-| [`session-de-verification.md`](session-de-verification.md) | QA | **Ce qui reste à voir en jeu** : 42 points en quatre blocs, une heure |
+| [`session-de-verification.md`](session-de-verification.md) | QA | **Ce qui reste à voir en jeu** : 48 points en quatre blocs, ~2 h |
 
 ## Le produit en trois phrases
 
@@ -147,6 +147,11 @@ et l'ergonomie.** À regarder, dans l'ordre, en une seule session :
 | # | À vérifier | Comment |
 |---|---|---|
 | V1 | L'éditeur s'ouvre et se lit | `F6` — connecté il ouvre le navigateur, hors serveur l'éditeur de démo. Grille, nœuds, liens, minimap, 60 fps |
+| V53 | **La réplication à deux clients (épic 21)** | Ce qu'**aucun test headless ne couvre**, et la frontière de sécurité de l'épic. Serveur dédié, deux clients, un HUD lié à `or` en `@player @replicated` : Alice gagne 100 → **son** HUD monte, **celui de Bob ne bouge pas**, et jamais l'inverse. Une variable `@world @replicated` changée une fois → **les deux** HUD l'affichent sans que personne demande. Alice **reconnecte** → son HUD retrouve immédiatement son or et le taux, sans attendre qu'une valeur change (l'instantané d'arrivée). Un client **vanilla** se connecte sans être éjecté |
+| V52 | **Une seule commande racine** | `/blue` + `Tab` → **`/blueprint` seule** ; plus de `/blueprint-edit` ni `/blueprint-packs`. `/blueprint packs` liste les packs **et les refus avec leur raison**, `reload` recharge à chaud ; depuis la console, un refus lisible au lieu du silence. Les commandes **déclarées** (`/home`, `/warp`, `/back`) répondent toujours |
+| V51 | **Les données d'un joueur (NFR14)** | `/blueprint vars info <pseudo>` → octets, plafond 65 536, pourcentage ; le nombre **monte** quand un graphe écrit. Un graphe qui empile une longue chaîne en boucle **faute en le disant** au lieu de perdre l'écriture. `purge` dit les octets libérés, `info` retombe à zéro, un `@world` du même graphe **survit**, et le log garde une ligne. `purge` marche sur un joueur **déconnecté** depuis la console |
+| V50 | **La barre glisse (épic 21)** | Deux barres côte à côte, l'une liée à une variable **répliquée**, l'autre à une **ordinaire** rafraîchie par `gui/refresh` : la répliquée **coule**, la lente **avance par paliers**. Un saut de 0 à 1 glisse en **un dixième de seconde**. Après un redémarrage, la barre **s'affiche à sa valeur** au lieu de se remplir depuis zéro. Un écran **modal** glisse pareillement |
+| V49 | **Variable répliquée (épic 21)** | Une pastille **`»`** à côté de `T` et `S` ; elle **s'allume** au clic et **reste visible hors sélection**. Sur une portée **locale** → rien ne se pose, un diagnostic explique. `var itemstack sac @player @replicated` importé → **diagnostic rouge**, et seul le **retirer** est permis, pour qu'un `.bp` écrit à la main reste réparable. `Ctrl+Z` défait |
 | V2 | Éditer un vrai blueprint | `/blueprint create essai` → poser deux nœuds, câbler, littéral, `Ctrl+S` : « enregistré », ● part **et ne revient pas** |
 | V3 | Le confort | palette `Espace`, `Ctrl+Z/Y`, `Ctrl+C/V`, `Q`, `C`, `Ctrl+F`, vue script, panneau détails |
 | V4 | Clavier seul (U5) | flèches entre nœuds, `Entrée` sur un littéral |

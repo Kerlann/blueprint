@@ -1,6 +1,6 @@
 # Session de vérification en jeu
 
-Tout ce qui se vérifie sans yeux l'est déjà : **1188 tests headless** et **20 gametests**
+Tout ce qui se vérifie sans yeux l'est déjà : **1562 tests headless** et **20 gametests**
 dans un vrai serveur. Ce document couvre ce qui reste — **le visuel et l'ergonomie**, que
 seule une personne devant l'écran peut juger.
 
@@ -35,13 +35,14 @@ Puis en jeu : créer un monde en **créatif**, tricheurs activés.
 
 ---
 
-## Bloc 1 — L'éditeur de graphe (13 points, ~20 min)
+## Bloc 1 — L'éditeur de graphe (14 points, ~22 min)
 
 `/blueprint demo` puis `F6`.
 
 | | À vérifier | Ce qui doit se produire |
 |---|---|---|
 | ☐ V1 | L'éditeur s'ouvre et se lit | Grille, nœuds, liens courbes, minimap. Fluide au déplacement et au zoom. |
+| ☐ V49 | **Variable répliquée** (épic 21) | Dans le panneau Variables, sélectionner une variable `Nombre` de portée **joueur** → une pastille **`»`** apparaît à côté de `T` et `S`. Cliquer : elle **s'allume**. La marque **reste visible quand on désélectionne la ligne** — c'est le point, la réplication décide de ce que le joueur voit et ne doit pas demander un clic pour se lire. Recliquer l'éteint. Passer la portée à **locale** puis cliquer `»` → **rien ne se pose**, et un diagnostic dit qu'une variable locale ne survit pas à l'exécution qui l'écrit. Même refus sur un type qui ne voyage pas : écrire `var itemstack sac @player @replicated` dans la vue Script → l'import est accepté mais un **diagnostic rouge** nomme la variable, et cliquer `»` dessus ne la répare pas — seul le **retirer** est permis, pour qu'un `.bp` écrit à la main reste réparable. `Ctrl+Z` défait la pose comme n'importe quelle autre édition. |
 | ☐ V32 | **Nœuds élargis** | Les champs de valeur montrent une dizaine de caractères, pas cinq. Deux champs voisins sont **détachés** — on voit à quelle entrée appartient chacun. Aucun libellé ne mord sur un champ. Un pin booléen au nom long (`through_fluids` sur `world/raycast`) s'affiche **en entier**. |
 | ☐ V33 | **Onglets dans la barre** | « Graphe » et « Écrans » sont dans la barre du haut, entre le titre et les boutons. Ils **ne bougent pas** quand le titre gagne son ● de modification. Un identifiant long ne passe pas dessous. |
 | ☐ V21 | Aspect | Châssis arrondi, en-tête en dégradé par catégorie, ombre portée, pictogramme de catégorie, pastille de permission. |
@@ -57,7 +58,7 @@ Puis en jeu : créer un monde en **créatif**, tricheurs activés.
 
 ---
 
-## Bloc 2 — Les écrans (15 points, ~35 min)
+## Bloc 2 — Les écrans (16 points, ~38 min)
 
 Restez dans le même blueprint, onglet **Écrans**.
 
@@ -70,6 +71,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 | ☐ V29 | **Dispositions et styles** | Passer le panneau en **colonne** → les boutons se rangent seuls, sans qu'on touche une coordonnée. En insérer un **au milieu** → les suivants descendent. Le tirer ailleurs dans la colonne le **réordonne** (ses poignées de largeur ont disparu : elles ne feraient rien). Basculer 320×180 ↔ 960×540 → les proportions tiennent. Créer un style depuis un bouton, l'appliquer aux autres, changer sa couleur → tous changent. Un panneau en « ajuster » épouse ses enfants. |
 | ☐ V34 | **Quotas et clavier** | `Tab` parcourt les boutons, `Entrée` active — le bouton ciblé **se voit**. `Échap` ferme. Les bordures par défaut se distinguent bien du fond. |
 | ☐ V26 | Écran en jeu | Ouvrir un menu conçu : il s'affiche, suit le redimensionnement de la fenêtre **et** le GUI scale (essayer 1 puis 4). Nommer une texture absente → damier magenta portant son nom, le reste de l'écran intact. |
+| ☐ V50 | **La barre glisse** (épic 21) | Le point le plus visuel de l'épic, et il se juge en comparant. Un HUD avec **deux barres** : l'une liée à une variable `Nombre` **répliquée** (`mana`), l'autre à une variable **ordinaire** (`mana_lent`). Un graphe sur `server_tick` qui les fait monter de 0,02 chacune, et qui appelle `gui/refresh` pour la seconde uniquement. Regarder les deux : la répliquée **coule**, la lente **avance par paliers visibles**. Puis, sur la répliquée : la faire **sauter** d'un coup de 0 à 1 (un clic de bouton) → elle glisse en **un dixième de seconde**, assez pour que le geste se voie, assez peu pour qu'il paraisse immédiat. Ouvrir l'écran juste après un redémarrage du monde → la barre **s'affiche à sa valeur**, elle ne se remplit pas depuis zéro. Enfin : un écran **modal** avec la même liaison glisse pareillement — c'est le même mécanisme, pas deux. |
 | ☐ V27 | Boutons vivants | Cliquer « acheter » déclenche le graphe. Masquer un bouton depuis le graphe le rend **vraiment** incliquable. Désactiver le blueprint referme le menu ouvert. |
 | ☐ V31 | Liaison de données | Lier une étiquette à une variable (elle se **choisit** dans la liste, ne se tape pas), format `Or : %s`. À l'ouverture, l'étiquette montre déjà le **défaut** de la variable. Changer la variable puis `gui/refresh` → le texte suit. **Sans** `gui/refresh`, rien ne bouge — c'est voulu. Renommer la variable dans l'éditeur → **erreur** de diagnostic, pas un écran vide. |
 | ☐ V35 | **Éléments riches** | Alimenter une liste par `gui/set_lines` → les lignes s'affichent, la molette défile, ce qui dépasse est **découpé** (rien ne déborde). Cliquer la troisième ligne → le graphe reçoit l'**indice 2**, et toujours 2 **après avoir défilé**. Taper dans un champ → un caractère hors filtre est refusé à la frappe ; `Entrée` valide ; `Échap` relâche le champ **avant** de fermer l'écran. `gui/set_item` affiche un objet avec son nombre. Un **aperçu d'entité** (`minecraft:pig`) montre la créature qui tourne — ouvrir/fermer vingt fois ne fait pas saccader. |
@@ -81,7 +83,7 @@ Restez dans le même blueprint, onglet **Écrans**.
 
 ---
 
-## Bloc 3 — L'exécution (12 points, ~45 min)
+## Bloc 3 — L'exécution (14 points, ~50 min)
 
 | | À vérifier | Ce qui doit se produire |
 |---|---|---|
@@ -97,14 +99,17 @@ Restez dans le même blueprint, onglet **Écrans**.
 | ☐ V46 | **Le contenu qui sert (11.5)** | Un graphe avec **« Un joueur utilise un objet »** : câbler sa sortie **item** vers un message. Clic droit avec un `blueprint:rubis` → le message dit `blueprint:rubis` ; clic droit avec une pomme → `minecraft:apple`. Puis **« Un bloc déclaré est posé »** : poser `blueprint:granit_bleu` → le graphe part avec la bonne position ; poser de la pierre → **rien** (c'est voulu, le nom du nœud le dit). Puis **« Un joueur casse un bloc »** → la sortie **block** donne l'identifiant du bloc cassé, pas de l'air. Enfin : `item/create` → `item/with_name` → `player/give_item` : l'objet arrive **renommé**, et celui de la pile d'origine ne l'est pas. |
 | ☐ V47 | **La banque (11.9)** | Cliquer **Déposer sans rien taper** → un message « Rien à déposer », le solde ne bouge pas et **aucune pièce ne disparaît** (c'est le défaut de la 11.10, corrigé). Puis : Le contenu est **livré** dans `run/blueprint/content/` — `distributeur`, `piece`, `lingot`. Redémarrer, puis `/blueprint import banque`, `Ctrl+S`, `/blueprint enable blueprint:example/banque`. `/give @s blueprint:distributeur`, le poser, **clic droit** → l'écran s'ouvre ; clic droit sur un **autre** bloc → rien (c'est le point). `/give @s blueprint:piece 64`, taper **40**, **Déposer** → le solde monte de 40 et 40 pièces quittent l'inventaire. Taper **250**, **Retirer** avec un solde de 40 → **message de refus**, solde inchangé. Se donner de quoi monter à 250, **Retirer 250** → **2 lingots et 50 pièces** arrivent, solde à 0. Enfin, demander **1000** pièces qu'on n'a pas en dépôt → seules celles qu'on a partent, et le solde monte d'autant, jamais plus. |
 | ☐ V18 | Quotas et audit | Baisser `maxNodes` dans `blueprint/config.json`, redémarrer → le dépassement est **signalé pendant qu'on dessine**. Un nœud ADMIN laisse une trace au log. |
+| ☐ V51 | **Les données d'un joueur (NFR14)** | `/blueprint vars info <votre pseudo>` → un nombre d'octets, le plafond de 65 536 et un pourcentage. Faire écrire quelques variables `@player` par un graphe, relancer la commande → le nombre **monte**. Puis un graphe qui ajoute une longue chaîne à une variable joueur **en boucle** : au bout d'un moment il **faute en le disant** — le message parle des 64 Ko accordés — au lieu de perdre l'écriture en silence, et le serveur ne ralentit pas. `/blueprint vars purge <pseudo>` → un message dit les octets libérés, `info` retombe à zéro, et un `@world` écrit par le même graphe est **toujours là** (la purge n'emporte que le joueur). La purge laisse une **ligne dans le log serveur**. Enfin `/blueprint vars info <nom inexistant>` → un refus lisible, pas une erreur brute ; et depuis la **console** du serveur, `purge` sur un joueur déconnecté fonctionne (c'est le cas qu'un sélecteur `@p` ne couvrirait pas). |
+| ☐ V52 | **Une seule commande racine** | Taper `/blue` puis `Tab` : **`/blueprint` seule** est proposée — plus de `/blueprint-edit` ni `/blueprint-packs`. `/blueprint packs` liste les packs installés **et ce qui a été écarté avec la raison** ; `/blueprint packs reload` recharge sans quitter le jeu. Depuis la **console** du serveur, `/blueprint packs` répond que les packs vivent chez un joueur, au lieu de ne rien faire. Vérifier au passage que les commandes **déclarées par les blueprints** existent toujours : `/home`, `/warp`, `/back` répondent (elles ne sont pas concernées par le nettoyage). |
 
 ---
 
-## Bloc 4 — Ce qui demande une seconde fenêtre (3 points, ~5 min)
+## Bloc 4 — Ce qui demande une seconde fenêtre (4 points, ~10 min)
 
 | | À vérifier | Ce qui doit se produire |
 |---|---|---|
 | ☐ V12 | Multijoueur | Un serveur dédié + deux clients : l'éditeur s'ouvre chez les deux, l'enregistrement du premier est vu du second, un joueur sans permission voit « lecture seule ». |
+| ☐ V53 | **La réplication à deux clients** (épic 21) | Le point qu'**aucun test headless ne peut couvrir**, et la frontière de sécurité de l'épic. Un HUD lié à une variable `@player @replicated` (`or`), et un graphe qui donne 100 à celui qui tape `/gagner`. Alice tape la commande : **son** HUD passe à 100, **celui de Bob ne bouge pas**. Bob tape : le sien passe à 100, celui d'Alice reste à 100. À aucun moment l'un ne voit la valeur de l'autre — si c'est le cas, c'est une divulgation et il faut s'arrêter là. Puis une variable `@world @replicated` (`taux`) : la changer une fois → **les deux HUD** l'affichent, sans que personne n'ait rien demandé. Enfin, faire **reconnecter** Alice : son HUD retrouve **immédiatement** son or et le taux, sans attendre qu'une valeur change — c'est l'instantané d'arrivée, et sans lui un écran lié à une valeur stable resterait vide indéfiniment. Vérifier pour finir qu'un client **vanilla** peut jouer sur ce serveur sans être déconnecté. |
 | ☐ V10 | Datapack | `shout_twice` apparaît dans la palette. Modifier son JSON puis `/reload` → le changement est pris. |
 | ☐ V11 | Guide | Suivre `getting-started.md` §3 puis §8 **sans rien savoir d'autre** : le premier blueprint et le premier menu doivent tenir en dix minutes chacun. |
 
