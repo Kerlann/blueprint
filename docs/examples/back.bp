@@ -1,0 +1,58 @@
+blueprint blueprint:back {
+  meta {
+    author "Kerlann"
+    description "Revenir sur ses pas : /back ramène au dernier point de mort"
+    version "1.0.0"
+    permission WORLD
+  }
+
+  var map<string, vec3> morts @world
+  var bool pret = false @world
+
+  on blueprint:event/player_join(player) {
+    blueprint:flow/branch(condition: blueprint:logic/not(value: blueprint:var/get(var: "pret"))) {
+      true: {
+        blueprint:var/set(var: "morts", value: blueprint:map/empty())
+        blueprint:var/set(var: "pret", value: true)
+      }
+    }
+  }
+
+  on blueprint:event/entity_death(entity) {
+    blueprint:entity/as_player(entity: $entity) @id("ba000000-0000-4000-8000-000000000001")
+    blueprint:flow/branch(condition: $node("ba000000-0000-4000-8000-000000000001").is_player) {
+      true: {
+        blueprint:entity/name(entity: $entity) @id("ba000000-0000-4000-8000-000000000002")
+        blueprint:entity/position(entity: $entity) @id("ba000000-0000-4000-8000-000000000003")
+        blueprint:var/set(var: "morts", value: blueprint:map/put(
+            map: blueprint:var/get(var: "morts"),
+            key: $node("ba000000-0000-4000-8000-000000000002").name,
+            value: $node("ba000000-0000-4000-8000-000000000003").pos))
+        blueprint:player/send_message(
+            player: $node("ba000000-0000-4000-8000-000000000001").player,
+            text: "Tapez /back pour revenir à l'endroit de votre mort.")
+      }
+    }
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "back") {
+    blueprint:entity/name(entity: $player) @id("ba000000-0000-4000-8000-000000000004")
+    blueprint:flow/branch(condition: blueprint:map/has(
+        map: blueprint:var/get(var: "morts"),
+        key: $node("ba000000-0000-4000-8000-000000000004").name)) {
+      true: {
+        blueprint:entity/teleport(entity: $player, pos: blueprint:map/get(
+            map: blueprint:var/get(var: "morts"),
+            key: $node("ba000000-0000-4000-8000-000000000004").name,
+            fallback: blueprint:vec/make(x: 0.0, y: 0.0, z: 0.0)))
+        blueprint:player/play_sound(player: $player, sound: "minecraft:entity.enderman.teleport", volume: 1.0, pitch: 1.0)
+        blueprint:var/set(var: "morts", value: blueprint:map/remove(
+            map: blueprint:var/get(var: "morts"),
+            key: $node("ba000000-0000-4000-8000-000000000004").name))
+      }
+      false: {
+        blueprint:player/send_message(player: $player, text: "Aucun point de mort enregistré.")
+      }
+    }
+  }
+}

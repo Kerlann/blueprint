@@ -1,0 +1,114 @@
+blueprint blueprint:admin {
+  meta {
+    author "Kerlann"
+    description "Panneau d'administration : la liste des joueurs connectés, et quatre gestes"
+    version "1.0.0"
+    permission ADMIN
+  }
+
+  var list<string> noms @world
+  var string cible = "" @player
+
+  screen "admin" {
+    panel "racine" @at(center, 0, 0) @size(70%[220, 900], 70%[150, 700]) @layout(column, gap: 4, cross: stretch)
+    label "titre" @in("racine") @at(top_left, 0, 0) @size(fill, 12) @text("Administration")
+    label "choisi" @in("racine") @at(top_left, 0, 0) @size(fill, 12) @text("Personne de sélectionné") @bind("cible", text, format: "Sélection : %s")
+    list "joueurs" @in("racine") @at(top_left, 0, 0) @size(fill, fill) @tip("Cliquez un joueur pour le viser") @opts(rowHeight: 10)
+    panel "actions" @in("racine") @at(top_left, 0, 0) @size(fill, 16) @layout(row, gap: 4, cross: stretch)
+    button "soigner" @in("actions") @at(top_left, 0, 0) @size(fill, fill) @text("Soigner")
+    button "creatif" @in("actions") @at(top_left, 0, 0) @size(fill, fill) @text("Créatif")
+    button "survie" @in("actions") @at(top_left, 0, 0) @size(fill, fill) @text("Survie")
+    button "rejoindre" @in("actions") @at(top_left, 0, 0) @size(fill, fill) @text("Rejoindre")
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "admin") {
+    blueprint:var/set(var: "cible", value: "")
+    blueprint:var/set(var: "noms", value: blueprint:list/empty())
+    blueprint:query/players() @id("ad000000-0000-4000-8000-000000000001")
+    blueprint:flow/for_each(list: $node("ad000000-0000-4000-8000-000000000001").players) @id("ad000000-0000-4000-8000-000000000002") {
+      body: {
+        blueprint:entity/name(entity: $node("ad000000-0000-4000-8000-000000000002").element) @id("ad000000-0000-4000-8000-000000000003")
+        blueprint:var/set(var: "noms", value: blueprint:list/add(
+            list: blueprint:var/get(var: "noms"),
+            value: $node("ad000000-0000-4000-8000-000000000003").name))
+      }
+      completed: {
+        blueprint:gui/open(player: $player, screen: "admin")
+        blueprint:gui/set_lines(player: $player, screen: "admin", element: "joueurs",
+            lines: blueprint:var/get(var: "noms"))
+      }
+    }
+  }
+
+  on blueprint:event/gui_list_clicked(player, screen, element, index, line) @with(element: "joueurs") {
+    blueprint:var/set(var: "cible", value: $line)
+  }
+
+  on blueprint:event/gui_clicked(player, screen, element) @with(element: "soigner") {
+    blueprint:query/players() @id("ad000000-0000-4000-8000-000000000011")
+    blueprint:flow/for_each(list: $node("ad000000-0000-4000-8000-000000000011").players) @id("ad000000-0000-4000-8000-000000000012") {
+      body: {
+        blueprint:entity/name(entity: $node("ad000000-0000-4000-8000-000000000012").element) @id("ad000000-0000-4000-8000-000000000013")
+        blueprint:flow/branch(condition: blueprint:logic/equals(
+            a: $node("ad000000-0000-4000-8000-000000000013").name,
+            b: blueprint:var/get(var: "cible"))) {
+          true: {
+            blueprint:entity/heal(entity: $node("ad000000-0000-4000-8000-000000000012").element, amount: 20.0)
+            blueprint:player/send_message(player: $player, text: blueprint:string/concat(
+                a: "Soigné : ", b: blueprint:var/get(var: "cible")))
+          }
+        }
+      }
+    }
+  }
+
+  on blueprint:event/gui_clicked(player, screen, element) @with(element: "creatif") {
+    blueprint:query/players() @id("ad000000-0000-4000-8000-000000000021")
+    blueprint:flow/for_each(list: $node("ad000000-0000-4000-8000-000000000021").players) @id("ad000000-0000-4000-8000-000000000022") {
+      body: {
+        blueprint:entity/name(entity: $node("ad000000-0000-4000-8000-000000000022").element) @id("ad000000-0000-4000-8000-000000000023")
+        blueprint:flow/branch(condition: blueprint:logic/equals(
+            a: $node("ad000000-0000-4000-8000-000000000023").name,
+            b: blueprint:var/get(var: "cible"))) {
+          true: {
+            blueprint:player/set_gamemode(player: $node("ad000000-0000-4000-8000-000000000022").element, mode: "creative")
+          }
+        }
+      }
+    }
+  }
+
+  on blueprint:event/gui_clicked(player, screen, element) @with(element: "survie") {
+    blueprint:query/players() @id("ad000000-0000-4000-8000-000000000031")
+    blueprint:flow/for_each(list: $node("ad000000-0000-4000-8000-000000000031").players) @id("ad000000-0000-4000-8000-000000000032") {
+      body: {
+        blueprint:entity/name(entity: $node("ad000000-0000-4000-8000-000000000032").element) @id("ad000000-0000-4000-8000-000000000033")
+        blueprint:flow/branch(condition: blueprint:logic/equals(
+            a: $node("ad000000-0000-4000-8000-000000000033").name,
+            b: blueprint:var/get(var: "cible"))) {
+          true: {
+            blueprint:player/set_gamemode(player: $node("ad000000-0000-4000-8000-000000000032").element, mode: "survival")
+          }
+        }
+      }
+    }
+  }
+
+  on blueprint:event/gui_clicked(player, screen, element) @with(element: "rejoindre") {
+    blueprint:query/players() @id("ad000000-0000-4000-8000-000000000041")
+    blueprint:flow/for_each(list: $node("ad000000-0000-4000-8000-000000000041").players) @id("ad000000-0000-4000-8000-000000000042") {
+      body: {
+        blueprint:entity/name(entity: $node("ad000000-0000-4000-8000-000000000042").element) @id("ad000000-0000-4000-8000-000000000043")
+        blueprint:flow/branch(condition: blueprint:logic/equals(
+            a: $node("ad000000-0000-4000-8000-000000000043").name,
+            b: blueprint:var/get(var: "cible"))) {
+          true: {
+            blueprint:entity/position(entity: $node("ad000000-0000-4000-8000-000000000042").element) @id("ad000000-0000-4000-8000-000000000044")
+            blueprint:gui/close(player: $player)
+            blueprint:entity/teleport(entity: $player, pos: $node("ad000000-0000-4000-8000-000000000044").pos)
+          }
+        }
+      }
+    }
+  }
+}

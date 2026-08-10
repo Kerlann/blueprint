@@ -1,6 +1,6 @@
 # Les blueprints livrés
 
-Six, et chacun a un travail précis. Quatre s'installent par une commande :
+Neuf, et chacun a un travail précis. Quatre s'installent par une commande :
 
 | | |
 |---|---|
@@ -9,18 +9,35 @@ Six, et chacun a un travail précis. Quatre s'installent par une commande :
 | [`vitrine.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/vitrine.bp) | **les douze types d'éléments d'écran, tous câblés** — `/blueprint showcase` puis `/vitrine` |
 | [`bench.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/bench.bp) | **un banc de performance** — `/blueprint bench` puis `/bench` |
 
-Deux autres sont livrés en **fichiers**, pas en commande d'installation : ils sont écrits à
+Cinq autres sont livrés en **fichiers**, pas en commande d'installation : ils sont écrits à
 la main, et servent aussi à vérifier que du BScript tapé au clavier reste lisible par le
-parseur. Déposez-les dans `blueprint/exports/`, puis `/blueprint import <nom>`.
+parseur. Déposez-les dans `blueprint/exports/`, puis `/blueprint import <nom>` et
+`/blueprint enable blueprint:<nom>` — **l'import n'active pas**, et une commande déclarée
+ne se pose qu'à l'activation.
 
 | | |
 |---|---|
 | [`home.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/home.bp) | **un point de retour** — `/sethome` enregistre, `/home` ramène après trois secondes |
+| [`back.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/back.bp) | **revenir sur ses pas** — `/back` ramène à l'endroit de votre mort |
+| [`warp.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/warp.bp) | **des points nommés partagés** — `/setwarp` pose, `/warp` voyage, `/warps` liste |
+| [`admin.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/admin.bp) | **un panneau d'administration** — `/admin` liste les connectés : soigner, mode de jeu, rejoindre |
 | [`parkour.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/parkour.bp) | **un parkour chronométré** — départ, arrivée, meilleur temps par joueur |
 
-Les deux montrent la même chose : **un blueprint qui déclare une commande en obtient une
+Tous montrent la même chose : **un blueprint qui déclare une commande en obtient une
 vraie.** Déclarez `home` dans un nœud `event/command`, activez le blueprint, et `/home`
 existe — sans préfixe, avec l'autocomplétion, comme n'importe quelle commande du serveur.
+
+Trois d'entre eux se lisent aussi comme des leçons de BScript écrit à la main :
+
+- **`back.bp`** range une position par joueur dans une **table** `map<string, vec3>` de
+  portée monde, clef sur le nom. C'est le contournement d'une limite réelle :
+  `event/entity_death` ne déclare pas de `player`, donc les variables de portée joueur n'y
+  ont pas de propriétaire et ne peuvent rien enregistrer.
+- **`warp.bp`** montre le même rangement, mais partagé, et la lecture des clefs pour
+  répondre à `/warps`.
+- **`admin.bp`** parcourt `query/players`, lit chaque nom, et alimente une liste d'écran.
+  C'est le seul qui montre un écran nourri par des données du serveur plutôt que par des
+  valeurs posées à la main.
 
 ---
 

@@ -1,0 +1,70 @@
+blueprint blueprint:warp {
+  meta {
+    author "Kerlann"
+    description "Des points nommés partagés : /setwarp pose, /warp voyage, /warps liste"
+    version "1.0.0"
+    permission WORLD
+  }
+
+  var map<string, vec3> warps @world
+  var bool pret = false @world
+
+  on blueprint:event/player_join(player) {
+    blueprint:flow/branch(condition: blueprint:logic/not(value: blueprint:var/get(var: "pret"))) {
+      true: {
+        blueprint:var/set(var: "warps", value: blueprint:map/empty())
+        blueprint:var/set(var: "pret", value: true)
+      }
+    }
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "setwarp") {
+    blueprint:flow/branch(condition: blueprint:logic/equals(a: $arg, b: "")) {
+      true: {
+        blueprint:player/send_message(player: $player, text: "Donnez un nom : /setwarp <nom>")
+      }
+      false: {
+        blueprint:entity/position(entity: $player) @id("fa000000-0000-4000-8000-000000000001")
+        blueprint:var/set(var: "warps", value: blueprint:map/put(
+            map: blueprint:var/get(var: "warps"),
+            key: $arg,
+            value: $node("fa000000-0000-4000-8000-000000000001").pos))
+        blueprint:player/send_message(player: $player, text: blueprint:string/concat(
+            a: "Point posé : ", b: $arg))
+        blueprint:player/play_sound(player: $player, sound: "minecraft:block.amethyst_block.chime", volume: 1.0, pitch: 1.0)
+      }
+    }
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "warp") {
+    blueprint:flow/branch(condition: blueprint:map/has(
+        map: blueprint:var/get(var: "warps"), key: $arg)) {
+      true: {
+        blueprint:entity/teleport(entity: $player, pos: blueprint:map/get(
+            map: blueprint:var/get(var: "warps"),
+            key: $arg,
+            fallback: blueprint:vec/make(x: 0.0, y: 0.0, z: 0.0)))
+        blueprint:player/play_sound(player: $player, sound: "minecraft:entity.enderman.teleport", volume: 1.0, pitch: 1.0)
+      }
+      false: {
+        blueprint:player/send_message(player: $player, text: blueprint:string/concat(
+            a: "Point inconnu. Tapez /warps pour la liste. Demandé : ", b: $arg))
+      }
+    }
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "warps") {
+    blueprint:flow/branch(condition: blueprint:map/is_empty(map: blueprint:var/get(var: "warps"))) {
+      true: {
+        blueprint:player/send_message(player: $player, text: "Aucun point posé. /setwarp <nom> en crée un.")
+      }
+      false: {
+        blueprint:player/send_message(player: $player, text: blueprint:string/concat(
+            a: "Points : ",
+            b: blueprint:string/join(
+                parts: blueprint:map/keys(map: blueprint:var/get(var: "warps")),
+                separator: ", ")))
+      }
+    }
+  }
+}
