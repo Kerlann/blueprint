@@ -176,8 +176,22 @@ public final class VarStorage extends SavedData implements VarStore {
      */
     @Override
     public int forget(UUID player) {
+        // Ce qui était répliqué doit être MARQUÉ avant d'être effacé, sinon le client garde
+        // sa dernière valeur pour toujours : elle ne sera jamais réécrite — elle n'existe
+        // plus — donc rien ne viendra la corriger. Un joueur purgé continuait à voir son
+        // ancien solde jusqu'à sa reconnexion, et « les données d'un joueur sont
+        // supprimables » (NFR14) n'était tenu qu'à moitié : effacé au serveur, toujours à
+        // l'écran. Les marques partent en fin de tick avec une valeur vide, qui dit
+        // « effacée » au client.
+        List<fr.blueprint.core.vm.VarDirty.Mark> etaientRepliquees = replicatedMarks(player);
         int freed = buckets.forget(player);
-        LOGGER.info("Variables joueur de {} effacées — {} octets libérés", player, freed);
+        for (var mark : etaientRepliquees) {
+            dirty.mark(mark.scope(), new VarOwner(mark.blueprint(), mark.player()),
+                    mark.name());
+        }
+        LOGGER.info("Variables joueur de {} effacées — {} octets libérés, {} valeur(s) "
+                + "répliquée(s) retirées chez le client", player, freed,
+                etaientRepliquees.size());
         return freed;
     }
 

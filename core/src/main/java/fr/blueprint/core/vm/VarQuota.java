@@ -48,8 +48,15 @@ public final class VarQuota {
      * {@code StackOverflowError} — dans le chemin d'écriture de la VM, c'est-à-dire à
      * l'endroit exact que NFR4 interdit d'atteindre. La valeur profonde compte pour son
      * forfait ; ce qui ne se persiste pas ne se mesure pas plus finement.
+     *
+     * <p><b>Alignée sur celle de {@code VarValueNbt}</b>, et pas plus basse. Elle valait huit
+     * quand l'encodeur n'en avait aucune : tout ce qui était plus profond était donc facturé
+     * un forfait de {@link #UNKNOWN} octets alors qu'il se persistait entièrement — un graphe
+     * qui imbrique des listes passait le plafond de 64 Ko sans le voir. Les deux bornes
+     * doivent être la même : au-delà, l'encodeur refuse, donc le forfait ne facture plus rien
+     * qui existe.
      */
-    private static final int MAX_DEPTH = 8;
+    private static final int MAX_DEPTH = 16;
 
     /** Ce que coûte une valeur dont on ne sait rien : assez pour qu'elle pèse. */
     private static final int UNKNOWN = 64;

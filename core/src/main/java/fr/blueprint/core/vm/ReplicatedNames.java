@@ -57,13 +57,22 @@ public final class ReplicatedNames {
      * déclaration du blueprint qui dit sa portée — déclaration que le client n'a pas. Une
      * valeur partagée doit donc partir <b>une fois par blueprint qui la déclare</b>, sinon les
      * écrans du second n'y trouvent rien.
+     *
+     * <p><b>Une table par portée partagée, et non une seule.</b> {@code WORLD} et
+     * {@code PLAYER_SHARED} sont deux casiers distincts dans {@code VarBuckets} : le même nom
+     * dans les deux est <b>deux valeurs</b>. Les avoir fondues dans une table indexée par le
+     * seul nom faisait qu'un graphe déclarant {@code solde @world @replicated} et un autre
+     * déclarant {@code solde @player_shared @replicated} se voyaient mutuellement envoyer la
+     * valeur de l'autre — le solde du monde écrasant chez le client celui du joueur, sous la
+     * même clé. Trouvé en relecture, jamais en test : il faut deux graphes ET le même nom
+     * dans deux portées différentes.
      */
-    private final Map<String, Set<Identifier>> shared;
+    private final Map<VarScope, Map<String, Set<Identifier>>> shared;
 
     /** Noms répliqués de portée {@code GRAPH} ou {@code PLAYER}, par blueprint déclarant. */
     private final Map<Identifier, Set<String>> isolated;
 
-    private ReplicatedNames(Map<String, Set<Identifier>> shared,
+    private ReplicatedNames(Map<VarScope, Map<String, Set<Identifier>>> shared,
                             Map<Identifier, Set<String>> isolated) {
         this.shared = shared;
         this.isolated = isolated;
@@ -77,7 +86,7 @@ public final class ReplicatedNames {
      * <b>remplacé</b> plutôt que modifié, pour que la lecture n'ait pas à se synchroniser.
      */
     public static ReplicatedNames of(Collection<Blueprint> all) {
-        Map<String, Set<Identifier>> shared = new HashMap<>();
+        Map<VarScope, Map<String, Set<Identifier>>> shared = new HashMap<>();
         Map<Identifier, Set<String>> isolated = new HashMap<>();
         for (Blueprint bp : all) {
             for (Variable variable : bp.variables().values()) {
@@ -85,7 +94,8 @@ public final class ReplicatedNames {
                     continue;
                 }
                 if (isShared(variable.scope())) {
-                    shared.computeIfAbsent(variable.name(), k -> new HashSet<>()).add(bp.id());
+                    shared.computeIfAbsent(variable.scope(), s -> new HashMap<>())
+                            .computeIfAbsent(variable.name(), k -> new HashSet<>()).add(bp.id());
                 } else {
                     isolated.computeIfAbsent(bp.id(), k -> new HashSet<>())
                             .add(variable.name());
@@ -95,8 +105,12 @@ public final class ReplicatedNames {
         if (shared.isEmpty() && isolated.isEmpty()) {
             return NONE;   // la même instance : le cas courant ne coûte pas une allocation
         }
-        Map<String, Set<Identifier>> frozenShared = new HashMap<>();
-        shared.forEach((name, ids) -> frozenShared.put(name, Set.copyOf(ids)));
+        Map<VarScope, Map<String, Set<Identifier>>> frozenShared = new HashMap<>();
+        shared.forEach((scope, byName) -> {
+            Map<String, Set<Identifier>> inner = new HashMap<>();
+            byName.forEach((name, ids) -> inner.put(name, Set.copyOf(ids)));
+            frozenShared.put(scope, Map.copyOf(inner));
+        });
         Map<Identifier, Set<String>> frozen = new HashMap<>();
         isolated.forEach((id, names) -> frozen.put(id, Set.copyOf(names)));
         return new ReplicatedNames(Map.copyOf(frozenShared), Map.copyOf(frozen));
@@ -128,7 +142,9 @@ public final class ReplicatedNames {
             return false;
         }
         if (isShared(scope)) {
-            return shared.containsKey(name);
+            // La table de CETTE portée : le même nom en WORLD et en PLAYER_SHARED est deux
+            // valeurs, et les confondre envoyait l'une pour l'autre.
+            return shared.getOrDefault(scope, Map.of()).containsKey(name);
         }
         Set<String> names = blueprint == null ? null : isolated.get(blueprint);
         return names != null && names.contains(name);
@@ -146,7 +162,7 @@ public final class ReplicatedNames {
     public Set<Identifier> declaringBlueprints(VarScope scope, @Nullable Identifier writer,
                                                String name) {
         if (isShared(scope)) {
-            return shared.getOrDefault(name, Set.of());
+            return shared.getOrDefault(scope, Map.of()).getOrDefault(name, Set.of());
         }
         return writer != null && covers(scope, writer, name) ? Set.of(writer) : Set.of();
     }

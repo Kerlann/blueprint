@@ -86,6 +86,30 @@ public final class VarValueNbt {
      * @return null si le type ne s'écrit pas dans ce format.
      */
     public static @Nullable Tag encode(@Nullable Object value) {
+        return encode(value, 0);
+    }
+
+    /**
+     * Profondeur au-delà de laquelle une valeur est <b>refusée</b>.
+     *
+     * <p>Et refusée, non tronquée : une collection écrite à moitié serait un mensonge, et
+     * c'est déjà la règle du reste de cette classe.
+     *
+     * <p>Ce garde-fou manquait. {@code list/add} accepte d'ajouter une liste à une liste, donc
+     * un graphe peut faire croître la profondeur d'un cran par appel — mille appels, mille
+     * niveaux. La récursion tenait sur le disque, où elle ne s'exécute qu'à la sauvegarde du
+     * monde ; depuis l'épic 21 elle tourne <b>dans le tick</b>, appelée par
+     * {@code VarReplication.flush}, et un {@code StackOverflowError} y emporte le tick et la
+     * sauvegarde avec lui — exactement ce que NFR4 interdit d'atteindre. {@code VarQuota}
+     * bornait déjà sa propre récursion pour cette raison ; l'encodeur n'avait pas reçu le
+     * même soin.
+     */
+    private static final int MAX_DEPTH = 16;
+
+    private static @Nullable Tag encode(@Nullable Object value, int depth) {
+        if (depth > MAX_DEPTH) {
+            return null;
+        }
         CompoundTag tag = new CompoundTag();
         switch (value) {
             case null -> {
@@ -141,7 +165,7 @@ public final class VarValueNbt {
             case List<?> list -> {
                 ListTag items = new ListTag();
                 for (Object element : list) {
-                    Tag encoded = encode(element);
+                    Tag encoded = encode(element, depth + 1);
                     if (encoded == null) {
                         return null;   // une liste à moitié écrite serait un mensonge
                     }
@@ -153,8 +177,8 @@ public final class VarValueNbt {
             case Map<?, ?> map -> {
                 ListTag entries = new ListTag();
                 for (Map.Entry<?, ?> entry : map.entrySet()) {
-                    Tag key = encode(entry.getKey());
-                    Tag val = encode(entry.getValue());
+                    Tag key = encode(entry.getKey(), depth + 1);
+                    Tag val = encode(entry.getValue(), depth + 1);
                     if (key == null || val == null) {
                         return null;
                     }

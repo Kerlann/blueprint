@@ -1756,4 +1756,69 @@ public final class BlueprintGameTests {
             cleanup(helper, blueprintId);
         });
     }
+
+    /**
+     * <b>Poser la pastille dans l'éditeur et enregistrer suffit.</b>
+     *
+     * <p>Trouvé en relecture, et c'était la panne la plus grave de l'épic 21 : {@code save} était
+     * le seul chemin de mutation du gestionnaire qui n'annonçait pas, et {@code announceList} est
+     * le seul appelant de {@code refreshReplicatedNames}. Le flux normal d'un auteur — ouvrir
+     * l'éditeur, cliquer {@code »} sur une variable, {@code Ctrl+S} — laissait donc les
+     * déclarations à leur valeur précédente : sur un monde fraîchement lancé, l'ensemble restait
+     * vide, le magasin prenait son chemin rapide, et <b>rien ne se répliquait</b>. Le drapeau
+     * était persisté, visible dans le graphe, et sans effet — jusqu'à ce qu'une création ou une
+     * activation sans rapport passe par là.
+     *
+     * <p>Le gametest voisin n'exerçait qu'{@code adopt}, qui annonce. C'est cette combinaison
+     * qu'aucun test ne croisait : le drapeau posé APRÈS l'adoption, par un enregistrement.
+     */
+    @GameTest(maxTicks = 200)
+    public void togglingTheFlagAndSavingIsEnough(GameTestHelper helper) {
+        Identifier blueprintId = id("replication_save");
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        var limits = fr.blueprint.core.graph.GraphLimits.DEFAULT;
+        fr.blueprint.core.graph.NodeTypeLookup lookup = typeId -> null;
+
+        // Adopté SANS le drapeau : c'est l'état d'un blueprint qu'on vient d'ouvrir.
+        Blueprint bp = new Blueprint(blueprintId);
+        new EditOperation.AddVariable(new fr.blueprint.core.graph.Variable(
+                "argent", PinTypes.DOUBLE, LiteralValue.of(PinTypes.DOUBLE, 0.0),
+                fr.blueprint.core.graph.VarScope.WORLD, false)).apply(bp, lookup, limits);
+        manager.adopt(bp);
+
+        var storage = (fr.blueprint.core.storage.VarStorage) BlueprintMod.varsOf(server);
+        helper.assertTrue(!storage.replicating().covers(
+                        fr.blueprint.core.graph.VarScope.WORLD, blueprintId, "argent"),
+                Component.literal("rien ne devrait encore être répliqué"));
+
+        // Le geste de l'auteur : la pastille, puis Ctrl+S — donc un snapshot enregistré.
+        Blueprint snapshot = manager.get(blueprintId).orElseThrow().copy();
+        helper.assertTrue(new EditOperation.SetReplicated("argent", true)
+                        .apply(snapshot, lookup, limits).applied(),
+                Component.literal("le drapeau a été refusé sur le snapshot"));
+        var verdict = manager.save(snapshot, snapshot.revision() - 1);
+        helper.assertTrue(verdict.outcome() == BlueprintManager.SaveOutcome.SAVED,
+                Component.literal("l'enregistrement a été refusé : " + verdict.outcome()));
+
+        helper.assertTrue(storage.replicating().covers(
+                        fr.blueprint.core.graph.VarScope.WORLD, blueprintId, "argent"),
+                Component.literal("enregistrer n'a pas rafraîchi les déclarations — poser la "
+                        + "pastille puis Ctrl+S ne réplique donc RIEN"));
+
+        // Et l'écriture qui suit est bien marquée, ce qui est tout le point.
+        storage.dirty().drain();
+        storage.set(fr.blueprint.core.graph.VarScope.WORLD,
+                new fr.blueprint.core.vm.VarOwner(blueprintId, null), "argent", 42.0);
+        helper.assertTrue(storage.dirty().size() == 1, Component.literal(
+                "l'écriture n'a pas été marquée après un enregistrement"));
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(storage.dirty().isEmpty(),
+                    Component.literal("le carnet n'a pas été vidé en fin de tick"));
+            cleanup(helper, blueprintId);
+        });
+    }
 }

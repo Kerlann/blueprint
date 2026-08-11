@@ -8,6 +8,41 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Corrigé — quatre défauts de l'épic 21, trouvés en relecture
+
+Une relecture indépendante des 5 571 lignes de l'épic a rendu quatre constats, tous réels après
+vérification. Ils partagent une forme : chacun demande une **combinaison** que les tests écrits
+avec le code n'avaient pas assemblée.
+
+- **`save` n'annonçait pas, et l'épic ne marchait donc pas.** `BlueprintManager.save` était le
+  seul chemin de mutation qui n'appelait pas `announceList`, seul appelant de
+  `refreshReplicatedNames`. Le flux normal d'un auteur — cliquer `»` dans l'éditeur puis
+  `Ctrl+S` — laissait les déclarations à leur valeur précédente : sur un monde fraîchement
+  lancé, **rien ne se répliquait**, le drapeau étant persisté, visible, et sans effet jusqu'à ce
+  qu'une création sans rapport passe par là. Le commentaire au-dessus d'`announceList`
+  affirmait pourtant que l'enregistrement en faisait partie. Effet de bord bénéfique : les
+  **commandes déclarées** souffraient du même manque — ajouter un `event/command` et
+  enregistrer ne posait pas la racine.
+- **`WORLD` et `PLAYER_SHARED` se confondaient.** Les deux portées partagées vivaient dans une
+  table indexée par le seul nom, alors que ce sont deux casiers distincts : le même nom dans les
+  deux est deux valeurs. Un graphe déclarant `solde @world` et un autre `solde @player_shared`
+  se voyaient mutuellement envoyer la valeur de l'autre, sous la même clé, chez le client.
+- **La purge laissait la valeur à l'écran.** `forget` effaçait sans rien marquer, donc le client
+  gardait sa dernière valeur pour toujours — elle ne serait jamais réécrite, elle n'existe plus.
+  NFR14 n'était tenu qu'à moitié : effacé au serveur, toujours affiché.
+- **L'encodeur récursait sans borne, dans le tick.** `VarValueNbt.encode` n'avait aucune borne
+  de profondeur et `list/add` permet d'imbriquer d'un cran par appel. Sur le disque cela ne
+  s'exécutait qu'à la sauvegarde ; depuis 21.4 cela tourne dans `endServerTick`, où un
+  `StackOverflowError` emporte le tick et la sauvegarde. `VarQuota` bornait déjà sa propre
+  récursion pour cette raison exacte. Second volet : le quota bornait à **huit** niveaux quand
+  l'encodeur n'en avait aucun, donc tout ce qui était plus profond était facturé un forfait de
+  64 octets tout en se persistant en entier — le plafond de 64 Ko se contournait en imbriquant.
+  Les deux bornes valent maintenant 16 et coïncident par construction.
+
+Un second gametest tient le premier défaut, et il a été vu rougir — la première tentative de
+vérification négative était **vacante** : un `perl` avec des motifs `\n` sur un fichier à fins de
+ligne CRLF ne modifiait rien, et le test passait avec le correctif encore en place.
+
 ### Corrigé — le banc de calibration ne rougit plus pour un tarif correct
 
 `FuelCalibrationTest` échouait par intermittence sur `string/split`, ce qui a interrompu

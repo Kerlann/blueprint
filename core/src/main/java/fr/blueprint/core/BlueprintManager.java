@@ -210,6 +210,23 @@ public final class BlueprintManager {
         if (server != null) {
             fr.blueprint.core.net.ServerBlueprintNet.refreshScreensOf(server, snapshot);
         }
+        // Enregistrer ANNONCE, comme créer et supprimer. Ça n'était pas le cas, et deux
+        // fonctionnalités en dépendaient sans le savoir :
+        //
+        // — les variables @replicated (épic 21) ne sont relues qu'ici. Poser la pastille
+        //   dans l'éditeur puis Ctrl+S ne répliquait donc RIEN jusqu'à ce qu'une création
+        //   ou une activation sans rapport passe par là. Sur un monde fraîchement lancé,
+        //   l'ensemble restait vide et le magasin prenait son chemin rapide : le drapeau
+        //   était persisté, visible dans le graphe, et sans effet. Exactement la panne que
+        //   cet épic existe pour réparer.
+        // — les commandes déclarées de même : ajouter un event/command et enregistrer ne
+        //   posait pas la racine avant qu'autre chose ne l'annonce.
+        //
+        // La liste des identifiants ne change pas lors d'un enregistrement, donc la trame
+        // ListData rediffusée est un coût inutile — mais un enregistrement est un geste
+        // humain, pas un chemin par tick, et faire trois annonces différentes selon ce qui
+        // a changé serait trois occasions de se tromper.
+        announceList();
         return new SaveResult(SaveOutcome.SAVED, snapshot.revision());
     }
 

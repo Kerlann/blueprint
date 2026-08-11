@@ -1,18 +1,19 @@
 # Plan de réplication — épic 21
 
-**État : terminé, sept stories livrées.** Établi par une lecture complète du dépôt (cinq audits
-parallèles, 2026-08-10), dont chaque constat portant a été revérifié ligne à ligne.
+**État : les sept stories sont livrées, puis relues — quatre défauts corrigés (§8).** Une variable
+`@replicated` se déclare dans l'éditeur, se refuse si elle ne peut pas voyager, se marque à
+l'écriture, part en fin de tick chez les seuls destinataires légitimes, et le client la peint sans
+aller-retour — en glissant. `@replicated` n'est plus une surface morte : c'était le point de départ
+de ce plan.
 
-Deux choses que ce plan avait mal vues, et que la livraison a corrigées — elles sont détaillées
-plus bas parce qu'elles valent plus que le plan lui-même : l'**emplacement de la marque** (au
-magasin et non dans l'environnement, sans quoi les valeurs par défaut n'étaient pas répliquées) et
-la **clé du protocole** (le blueprint et non la portée, que le client ne sait pas interpréter).
+Établi par une lecture complète du dépôt (cinq audits parallèles, 2026-08-10), dont chaque constat
+portant a été revérifié ligne à ligne.
 
-**État : épic 21 terminé — les sept stories sont livrées.** Une variable `@replicated` se déclare
-dans l'éditeur, se refuse si elle ne peut pas voyager, se marque à l'écriture, part en fin de tick
-chez les seuls destinataires légitimes, et le client la peint sans aller-retour — en glissant.
-
-`@replicated` n'est plus une surface morte : c'était le point de départ de ce plan.
+**Trois choses que ce plan avait mal vues**, et qui valent plus que le plan lui-même : l'**emplacement
+de la marque** (au magasin et non dans l'environnement, sans quoi les valeurs par défaut n'étaient
+pas répliquées), la **clé du protocole** (le blueprint et non la portée, que le client ne sait pas
+interpréter) et, trouvé en relecture seulement, le fait qu'**enregistrer n'annonçait pas** — ce qui
+rendait tout l'épic inopérant dans le flux normal d'un auteur.
 
 ### Le lissage, appliqué plus largement que prévu
 
@@ -30,14 +31,10 @@ reprend depuis **là où la barre est** et non depuis sa cible précédente, san
 
 <details><summary>Avancement détaillé des stories précédentes</summary>
 
-**21.1 à 21.4 — le serveur réplique.** Le drapeau se pose et se refuse là
-où l'auteur le voit ; le canal est borné ; les changements se marquent au coût d'une lecture de
-champ pour qui ne réplique pas ; et les valeurs partent, une trame par joueur et par tick, avec
-un instantané à l'arrivée. Il n'y a plus de point d'entrée inerte.
-
-Le drapeau se pose et se refuse là où l'auteur le voit ; le canal est borné ; les changements se
-marquent au coût d'une lecture de champ pour qui ne réplique pas ; et les valeurs partent, une
-trame par joueur et par tick, avec un instantané à l'arrivée.
+**21.1 à 21.4 — le serveur réplique.** Le drapeau se pose et se refuse là où l'auteur le voit ; le
+canal est borné ; les changements se marquent au coût d'une lecture de champ pour qui ne réplique
+pas ; et les valeurs partent, une trame par joueur et par tick, avec un instantané à l'arrivée. Il
+n'y a plus de point d'entrée inerte.
 
 </details>
 
@@ -391,3 +388,71 @@ d'« un petit calcul côté client » apparaît.
 | 2026-08-10 | 0.4 | Story 21.2 livrée : payload `VarValues`, bornes, quota. La question du buffer est tranchée autrement que proposé — le fil réutilise le format étiqueté du disque, si bien que ce qui se réplique est exactement ce qui se persiste. |
 | 2026-08-10 | 0.3 | Story 21.1 livrée : le drapeau devient éditable et validé. `@replicated` cesse d'être une surface morte, sans qu'un octet ne circule encore. |
 | 2026-08-10 | 0.2 | NFR14 livré (`VarQuota`, `VarBuckets.put/forget/recount`, `/blueprint vars`) : le prérequis de la story 21.4 est levé, et `VarQuota` donne à 21.2 la mesure de poids dont son plafond réseau aura besoin. |
+
+---
+
+## 8. Ce que la relecture a trouvé
+
+L'épic livré, une relecture indépendante a passé les 5 571 lignes ajoutées. Elle a rendu
+quatre défauts, tous **réels** après vérification ligne à ligne. Ils partagent une forme : chacun
+demande une **combinaison** que mes tests n'avaient pas assemblée.
+
+### 8.1 `save` n'annonçait pas — l'épic ne marchait pas (grave)
+
+`BlueprintManager.save` était le **seul** chemin de mutation qui n'appelait pas `announceList`,
+et `announceList` est le seul appelant de `refreshReplicatedNames`.
+
+Le flux normal d'un auteur — ouvrir l'éditeur, cliquer `»`, `Ctrl+S` — laissait donc les
+déclarations à leur valeur précédente. Sur un monde fraîchement lancé, l'ensemble restait vide,
+`VarStorage.set` prenait son chemin rapide, et **rien ne se répliquait**. Le drapeau était
+persisté, visible dans le graphe, et sans effet — jusqu'à ce qu'une création ou une activation
+sans rapport passe par là. Symétriquement, *retirer* le drapeau continuait de répliquer.
+
+C'est exactement le motif de panne que cet épic existe pour réparer, reproduit dans l'épic qui
+le répare. Et le commentaire que j'avais écrit au-dessus d'`announceList` affirmait que
+l'enregistrement en faisait partie : une documentation qui décrit ce qu'on croyait avoir fait.
+
+Le gametest existant n'exerçait qu'`adopt`, qui annonce. La combinaison non couverte était
+« drapeau posé **après** l'adoption, par un enregistrement ». Un second gametest la tient, et il
+a été vu rougir.
+
+**Effet de bord bénéfique** : les commandes déclarées souffraient du même manque. Ajouter un
+`event/command` et enregistrer ne posait pas la racine avant qu'autre chose ne l'annonce.
+
+### 8.2 `WORLD` et `PLAYER_SHARED` se confondaient
+
+`ReplicatedNames` rangeait les deux portées partagées dans **une** table indexée par le seul nom.
+Or ce sont deux casiers distincts : le même nom dans les deux est **deux valeurs**.
+
+Un graphe déclarant `solde @player_shared @replicated` et un autre `solde @world @replicated` se
+voyaient donc mutuellement envoyer la valeur de l'autre — le solde du monde écrasant chez le
+client celui du joueur, sous la même clé. Une table par portée, désormais.
+
+### 8.3 La purge laissait la valeur à l'écran
+
+`forget` effaçait les casiers sans rien marquer. Le client gardait donc sa dernière valeur
+**pour toujours** : elle ne serait jamais réécrite — elle n'existe plus — donc rien ne viendrait
+la corriger. NFR14 (« les données d'un joueur sont supprimables ») n'était tenu qu'à moitié :
+effacé au serveur, toujours affiché. La purge marque maintenant ce qui était répliqué, et la
+valeur vide qui part dit « effacée » au client.
+
+### 8.4 L'encodeur récursait sans borne, dans le tick
+
+`VarValueNbt.encode` n'avait **aucune** borne de profondeur, et `list/add` permet d'imbriquer
+d'un cran par appel. Sur le disque, cette récursion ne s'exécutait qu'à la sauvegarde du monde ;
+depuis 21.4 elle tourne **dans `endServerTick`**, où un `StackOverflowError` emporte le tick et
+la sauvegarde — ce que NFR4 interdit d'atteindre. `VarQuota` bornait déjà sa propre récursion
+pour cette raison exacte ; l'encodeur n'avait pas reçu le même soin en sortant de `VarStorage`.
+
+Second volet : `VarQuota` bornait à **huit** niveaux quand l'encodeur n'en avait aucun. Tout ce
+qui était plus profond était facturé un forfait de 64 octets alors qu'il se persistait en
+entier — le plafond de 64 Ko se contournait donc en imbriquant. Les deux bornes valent
+maintenant 16, et coïncident par construction : au-delà, l'encodeur refuse.
+
+### Ce que j'en retire
+
+Les quatre défauts sont invisibles à la lecture d'un fichier et évidents à la lecture de deux.
+Écrire les tests en même temps que le code m'a fait vérifier **ce que j'avais pensé**, jamais les
+croisements que je n'avais pas imaginés. Une relecture indépendante sur un épic de cette taille
+n'est pas une formalité : elle a trouvé une panne totale que la construction verte, 90 tests
+neufs et un gametest ne voyaient pas.
