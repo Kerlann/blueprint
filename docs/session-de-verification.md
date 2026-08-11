@@ -127,3 +127,33 @@ Pour chaque défaut noté :
    un commit de finition.
 
 Le tableau des 48 points reste dans [`README.md`](README.md) : cochez-y ce qui est vu.
+
+---
+
+## Essais déjà faits
+
+### 2026-08-11 — la réplication, premier essai en jeu (V50 partiel)
+
+`jauges.bp` importé, activé, HUD affiché. **Ce qui a été vu** :
+
+- les deux jauges de portée monde avancent et rebouclent comme prévu ;
+- le mouvement est **fluide** — le lissage de la story 21.6 fait son travail ;
+- **`/gagner` crédite « Votre or »** et l'écran suit. C'est la chaîne complète sur une
+  variable `@player @replicated` : écriture depuis un événement qui porte un joueur, marque,
+  envoi au seul propriétaire, réception et peinture côté client.
+
+**Ce qui n'a pas été tranché**, et qu'il ne faut pas cocher pour autant :
+
+- le **contraste chiffré** entre les deux premières jauges. Un constat de l'essai vaut d'être
+  gardé : le lissage de 21.6 s'applique à **toutes** les barres, pas aux seules répliquées, si
+  bien que la jauge ordinaire *glisse* aussi vers chacun de ses paliers. Les deux paraissent donc
+  fluides, et le contraste ne se lit sûrement que sur les **nombres** — celui de la répliquée
+  défile en continu, celui de l'ordinaire se fige une seconde puis saute d'une vingtaine. Si un
+  prochain essai trouve le contraste mou, espacer le rafraîchissement à trois secondes donnerait
+  des paliers de 60 %, impossibles à confondre.
+- **V53** entièrement : il demande deux clients, et c'est la frontière de sécurité de l'épic.
+  Sa partie serveur est tenue par le gametest `replicatedValuesReachOnlyTheirOwner`.
+
+L'essai a par ailleurs été fait **après** le commit `96bac43`, ce qui compte : jusqu'à lui,
+enregistrer un blueprint ne rafraîchissait pas les déclarations, et la réplication ne s'activait
+pas du tout dans le flux normal d'un auteur.
