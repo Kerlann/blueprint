@@ -22,6 +22,7 @@ ne se pose qu'à l'activation.
 | [`warp.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/warp.bp) | **des points nommés partagés** — `/setwarp` pose, `/warp` voyage, `/warps` liste |
 | [`admin.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/admin.bp) | **un panneau d'administration** — `/admin` liste les connectés : soigner, mode de jeu, rejoindre |
 | [`parkour.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/parkour.bp) | **un parkour chronométré** — départ, arrivée, meilleur temps par joueur |
+| [`jauges.bp`](https://github.com/Kerlann/blueprint/blob/main/docs/examples/jauges.bp) | **la réplication, montrée** — deux jauges de la même valeur, l'une `@replicated` et l'autre pas |
 
 Tous montrent la même chose : **un blueprint qui déclare une commande en obtient une
 vraie.** Déclarez `home` dans un nœud `event/command`, activez le blueprint, et `/home`
@@ -38,6 +39,36 @@ Trois d'entre eux se lisent aussi comme des leçons de BScript écrit à la main
 - **`admin.bp`** parcourt `query/players`, lit chaque nom, et alimente une liste d'écran.
   C'est le seul qui montre un écran nourri par des données du serveur plutôt que par des
   valeurs posées à la main.
+
+### `jauges.bp` — voir la réplication
+
+`/blueprint import jauges`, `Ctrl+S`, `/blueprint enable blueprint:jauges`, puis se
+reconnecter. Un HUD apparaît en haut à gauche avec **trois** jauges.
+
+Les deux premières portent **la même valeur**, avancée d'un point par tick par le même
+graphe. Tout ce qui les distingue est un mot-clé :
+
+| | Déclaration | Ce que le client en fait |
+|---|---|---|
+| « Répliquée » | `var double jauge @world @replicated` | reçoit la valeur à chaque changement et la peint elle-même — elle **coule** |
+| « Ordinaire » | `var double jauge_lente @world` | n'apprend rien tant que le graphe n'appelle pas `gui/refresh`, ici **une fois par seconde** — elle avance par **paliers** |
+
+C'est le seul exemple du dossier qui se lit en regardant plutôt qu'en lisant : mettez les
+deux barres côte à côte et la différence est immédiate. Un lissage ne se voit que contre son
+absence.
+
+La troisième jauge, « Votre or », est de portée **joueur** et répliquée. `/gagner` crédite
+25 points à celui qui tape. **À deux clients, chacun ne doit voir bouger que la sienne** — si
+celle du voisin bouge aussi, c'est une divulgation, et il faut s'arrêter là. C'est le
+support du point V53 de la session de vérification.
+
+Deux limites du langage se lisent au passage, et elles ne sont pas des maladresses :
+
+- Le graphe écrit `jauge` depuis `server_tick`, mais **pas** `or`. Un tick serveur n'a pas
+  de joueur, donc une variable de portée joueur n'y a pas de propriétaire — elle ne peut
+  s'écrire que depuis un événement qui en porte un, ici `event/command`.
+- Pour la même raison, le rafraîchissement passe par `gui/refresh_all` et non
+  `gui/refresh` : le second demande un joueur.
 
 ---
 

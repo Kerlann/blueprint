@@ -1,0 +1,50 @@
+blueprint blueprint:jauges {
+  meta {
+    author "Kerlann"
+    description "Réplication (épic 21) : deux jauges côte à côte, l'une répliquée, l'autre non"
+    version "1.0.0"
+    permission GAMEPLAY
+  }
+
+  var double jauge = 0.0 @world @replicated
+  var double jauge_lente = 0.0 @world
+  var double tic = 0.0 @world
+  var double or = 0.0 @player @replicated
+
+  screen "jauges" @hud {
+    panel "cadre" @at(top_left, 4, 4) @size(150, 92) @layout(column, gap: 2, cross: stretch)
+    label "titre" @in("cadre") @at(top_left, 0, 0) @size(fill, 10) @text("Réplication")
+    label "t_vite" @in("cadre") @at(top_left, 0, 0) @size(fill, 10) @bind("jauge", text, format: "Répliquée : %s")
+    progress "vite" @in("cadre") @at(top_left, 0, 0) @size(fill, 6) @bind("jauge", progress, max: 100)
+    label "t_lent" @in("cadre") @at(top_left, 0, 0) @size(fill, 10) @bind("jauge_lente", text, format: "Ordinaire : %s")
+    progress "lent" @in("cadre") @at(top_left, 0, 0) @size(fill, 6) @bind("jauge_lente", progress, max: 100)
+    label "t_or" @in("cadre") @at(top_left, 0, 0) @size(fill, 10) @bind("or", text, format: "Votre or : %s")
+    progress "or_barre" @in("cadre") @at(top_left, 0, 0) @size(fill, 6) @bind("or", progress, max: 100)
+  }
+
+  on blueprint:event/player_join(player) {
+    blueprint:hud/show(player: $player, screen: "jauges")
+    blueprint:gui/refresh(player: $player, screen: "jauges")
+  }
+
+  on blueprint:event/server_tick() {
+    blueprint:var/set(var: "jauge", value: blueprint:math/mod(
+        a: blueprint:math/add(a: blueprint:var/get(var: "jauge"), b: 1), b: 101))
+    blueprint:var/set(var: "jauge_lente", value: blueprint:var/get(var: "jauge"))
+    blueprint:var/set(var: "tic", value: blueprint:math/mod(
+        a: blueprint:math/add(a: blueprint:var/get(var: "tic"), b: 1), b: 20))
+    blueprint:flow/branch(condition: blueprint:logic/equals(
+        a: blueprint:var/get(var: "tic"), b: 0.0)) {
+      true: {
+        blueprint:gui/refresh_all(screen: "jauges")
+      }
+    }
+  }
+
+  on blueprint:event/command(player, name, arg) @with(name: "gagner") {
+    blueprint:var/set(var: "or", value: blueprint:math/mod(
+        a: blueprint:math/add(a: blueprint:var/get(var: "or"), b: 25), b: 101))
+    blueprint:player/send_message(player: $player,
+        text: "Or crédité. Regardez votre jauge — et celle du voisin, qui ne doit pas bouger.")
+  }
+}
