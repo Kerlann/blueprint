@@ -1670,4 +1670,90 @@ public final class BlueprintGameTests {
 
         helper.succeed();
     }
+
+    /**
+     * VERIFY-21 automatisé : la <b>frontière de sécurité</b> de la réplication, dans un
+     * vrai serveur.
+     *
+     * <p>Le point V53 de la session en jeu demande deux clients réels pour juger ce qui
+     * s'<i>affiche</i>. Ce qu'il ne demande pas de voir, mais qu'il faut absolument
+     * garantir, se prouve ici : <b>la valeur d'un joueur ne part que chez lui</b>. Un test
+     * unitaire vérifie déjà la règle ; celui-ci vérifie le <b>câblage</b>, qui est ce qui
+     * peut silencieusement ne pas exister.
+     *
+     * <p>Trois choses qu'aucun test unitaire ne couvre :
+     * <ul>
+     *   <li>{@code refreshReplicatedNames} n'est appelé que par {@code announceList}. Si ce
+     *       fil n'était pas branché, <b>rien ne serait jamais répliqué</b> et tous les tests
+     *       unitaires resteraient verts — ils posent les déclarations à la main.</li>
+     *   <li>{@code varsOf} rend bien un {@code VarStorage} dans un vrai monde, et non le
+     *       magasin mémoire : la réplication n'existe que sur le premier.</li>
+     *   <li>Le carnet se vide en fin de tick, par le chemin réel du serveur.</li>
+     * </ul>
+     */
+    @GameTest(maxTicks = 200)
+    public void replicatedValuesReachOnlyTheirOwner(GameTestHelper helper) {
+        Identifier blueprintId = id("replication");
+        var server = helper.getLevel().getServer();
+        var manager = BlueprintManager.of(server);
+        manager.delete(blueprintId);
+
+        // Un blueprint qui DÉCLARE une variable joueur répliquée. C'est l'adoption par le
+        // gestionnaire — et elle seule — qui doit réveiller la réplication.
+        Blueprint bp = new Blueprint(blueprintId);
+        var limits = fr.blueprint.core.graph.GraphLimits.DEFAULT;
+        fr.blueprint.core.graph.NodeTypeLookup lookup = typeId -> null;
+        helper.assertTrue(new EditOperation.AddVariable(
+                        new fr.blueprint.core.graph.Variable("or", PinTypes.DOUBLE,
+                                LiteralValue.of(PinTypes.DOUBLE, 0.0),
+                                fr.blueprint.core.graph.VarScope.PLAYER, false))
+                        .apply(bp, lookup, limits).applied(),
+                Component.literal("la variable n'a pas pu être déclarée"));
+        helper.assertTrue(new EditOperation.SetReplicated("or", true)
+                        .apply(bp, lookup, limits).applied(),
+                Component.literal("le drapeau @replicated a été refusé"));
+        manager.adopt(bp);
+
+        var store = BlueprintMod.varsOf(server);
+        helper.assertTrue(store instanceof fr.blueprint.core.storage.VarStorage,
+                Component.literal("varsOf ne rend pas un VarStorage : rien ne peut répliquer"));
+        var storage = (fr.blueprint.core.storage.VarStorage) store;
+
+        // LE point : l'adoption a-t-elle réveillé la réplication ? Si ce fil n'existait
+        // pas, tout le reste marcherait en apparence et rien ne partirait jamais.
+        helper.assertTrue(!storage.replicating().isEmpty(), Component.literal(
+                "adopter un blueprint à variable répliquée n'a pas rafraîchi les "
+                        + "déclarations — refreshReplicatedNames n'est pas branché"));
+
+        var alice = helper.makeMockServerPlayerInLevel();
+        var bob = helper.makeMockServerPlayerInLevel();
+        helper.assertTrue(!alice.getUUID().equals(bob.getUUID()),
+                Component.literal("les deux joueurs simulés partagent un UUID"));
+
+        storage.dirty().drain();
+        storage.set(fr.blueprint.core.graph.VarScope.PLAYER,
+                new fr.blueprint.core.vm.VarOwner(blueprintId, alice.getUUID()), "or", 100.0);
+
+        helper.assertTrue(storage.dirty().size() == 1, Component.literal(
+                "l'écriture d'une variable répliquée n'a pas été marquée (carnet à "
+                        + storage.dirty().size() + ")"));
+
+        // La frontière. L'instantané d'Alice porte sa valeur ; celui de Bob ne porte rien.
+        var pourAlice = storage.replicatedMarks(alice.getUUID());
+        var pourBob = storage.replicatedMarks(bob.getUUID());
+        helper.assertTrue(pourAlice.size() == 1, Component.literal(
+                "Alice devrait avoir une valeur répliquée, elle en a " + pourAlice.size()));
+        helper.assertTrue(alice.getUUID().equals(pourAlice.get(0).player()), Component.literal(
+                "la valeur d'Alice n'est pas attribuée à Alice"));
+        helper.assertTrue(pourBob.isEmpty(), Component.literal(
+                "DIVULGATION : Bob reçoit " + pourBob.size() + " valeur(s) d'Alice"));
+
+        // Et le carnet se vide en fin de tick, par le chemin réel du serveur.
+        helper.succeedWhen(() -> {
+            helper.assertTrue(storage.dirty().isEmpty(), Component.literal(
+                    "le carnet n'a pas été vidé en fin de tick : VarReplication.flush "
+                            + "n'est pas appelé"));
+            cleanup(helper, blueprintId);
+        });
+    }
 }

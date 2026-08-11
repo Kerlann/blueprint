@@ -74,7 +74,10 @@ public final class BlueprintManager {
      * <p>Le laisser affiché donnerait un menu dont chaque clic serait refusé sans que
      * le joueur comprenne pourquoi — et il ne pourrait pas deviner que c'est un
      * administrateur qui vient de couper le graphe derrière lui.
+     *
+     * <p>La méthode elle-même est plus bas : {@link #closeItsScreens}.
      */
+
     /**
      * Prévient les clients que la liste a changé.
      *
