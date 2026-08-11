@@ -4,7 +4,7 @@ import fr.blueprint.api.pin.PinType;
 import fr.blueprint.api.pin.PinTypes;
 import fr.blueprint.core.graph.VarScope;
 import net.minecraft.resources.Identifier;
-import fr.blueprint.core.vm.VarValueNbt;
+import fr.blueprint.core.graph.VarValueNbt;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;

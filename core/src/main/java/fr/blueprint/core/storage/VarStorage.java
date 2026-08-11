@@ -313,7 +313,7 @@ public final class VarStorage extends SavedData implements VarStore {
     }
 
     /**
-     * Le format étiqueté vit dans {@link fr.blueprint.core.vm.VarValueNbt} et non ici.
+     * Le format étiqueté vit dans {@link fr.blueprint.core.graph.VarValueNbt} et non ici.
      *
      * <p>Il y est parti quand la réplication (épic 21) en a eu besoin : les valeurs qui
      * voyagent vers un client sont exactement celles qui survivent à un redémarrage, et deux
@@ -326,10 +326,10 @@ public final class VarStorage extends SavedData implements VarStore {
      * @return null si le type ne se persiste pas.
      */
     private static @Nullable Tag encode(@Nullable Object value) {
-        return fr.blueprint.core.vm.VarValueNbt.encode(value);
+        return fr.blueprint.core.graph.VarValueNbt.encode(value);
     }
 
     private static @Nullable Object decode(@Nullable Tag tag) {
-        return fr.blueprint.core.vm.VarValueNbt.decode(tag);
+        return fr.blueprint.core.graph.VarValueNbt.decode(tag);
     }
 }

@@ -91,6 +91,11 @@ aussi publié seul pour être consommé en `compileOnly` par les mods tiers.
 n'a ni fabric-api ni NeoForge) et par la tâche `checkLoaderIsolation`. La frontière se
 traverse dans deux sens :
 
+**Et le client ne touche ni au compilateur ni à la VM** — `checkClientIsolation`, qui refuse
+`fr.blueprint.core.vm` et `fr.blueprint.core.compile` dans ses sources. C'est le principe P1
+rendu mécanique : il était jusque-là le seul des quatre à ne tenir que par la revue, alors
+qu'il porte le modèle de sécurité entier.
+
 - le code commun **appelle** la plateforme (chemins, mods présents) via
   `Platform`, résolu par `ServiceLoader` ;
 - la plateforme **appelle** le code commun (initialisation, événements du monde,

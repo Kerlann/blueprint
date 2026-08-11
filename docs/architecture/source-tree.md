@@ -59,6 +59,10 @@ D:\Blueprint\
 │  │  ├─ GraphValidator.java  Diagnostic.java  DiagnosticCode.java  Literals.java
 │  │  ├─ NodeTypeLookup.java  NodeShape.java   raccord provisoire vers NodeRegistry (2.2)
 │  │  ├─ GhostNode.java             forme déduite d'un nœud au type absent
+│  ├─ VarValueNbt.java          format étiqueté d'une VALEUR de variable — le disque
+│  │                             ET le fil y puisent, d'où sa place ici plutôt que
+│  │                             dans vm/ : ce n'est pas de l'exécution, et le client
+│  │                             doit pouvoir le lire (checkClientIsolation)
 │  │  ├─ EditOperation.java         interface scellée + les 16 ops en records imbriqués
 │  │  └─ GraphNbt.java  PinTypeNbt.java  SchemaMigrations.java   sérialisation (1.4)
 │  ├─ registry/

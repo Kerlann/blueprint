@@ -620,7 +620,7 @@ public final class BlueprintPayloads {
      * décider.
      *
      * <p>Les valeurs voyagent dans le <b>même format étiqueté</b> que la sauvegarde du monde
-     * ({@link fr.blueprint.core.vm.VarValueNbt}), sur un {@code ByteBuf} nu. Ce n'est pas un
+     * ({@link fr.blueprint.core.graph.VarValueNbt}), sur un {@code ByteBuf} nu. Ce n'est pas un
      * raccourci : l'ensemble des types qui voyagent est ainsi <b>exactement</b> celui des
      * types qui survivent à un redémarrage. Un {@code StreamCodec} par type aurait été plus
      * direct et aurait ouvert la porte à une variable qui arrive chez un client sans pouvoir

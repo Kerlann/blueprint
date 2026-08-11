@@ -1,4 +1,4 @@
-package fr.blueprint.core.vm;
+package fr.blueprint.core.graph;
 
 import fr.blueprint.api.pin.ParameterizedPinType;
 import fr.blueprint.api.pin.PinType;

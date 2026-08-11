@@ -11,7 +11,11 @@
 2. **Le module `api` ne référence jamais `core`.** Il ne contient que des interfaces,
    des records, des enums et des builders. Aucune logique métier.
 3. **Aucune exécution de graphe côté client.** Le paquet `fr.blueprint.client` ne doit
-   contenir ni compilateur, ni VM, ni évaluation de nœud. Il n'affiche que des descripteurs.
+   contenir ni compilateur, ni VM, ni évaluation de nœud. Il n'affiche que des descripteurs
+   — et, depuis l'épic 21, des **valeurs qu'on lui envoie**, ce qui ne l'autorise ni à les
+   calculer ni à les écrire. Vérifié par la tâche **`checkClientIsolation`**, qui refuse
+   toute mention de `fr.blueprint.core.vm` ou `fr.blueprint.core.compile` dans les sources
+   du client. Elle a été vue échouer sur un fichier écrit exprès avant d'être crue.
 4. **Aucune réflexion, aucun chargement de classe, aucune allocation superflue dans la
    boucle de tick** (`BlueprintScheduler`, `BlueprintVm#step`). Réutiliser les tampons.
 5. **Aucune exception ne s'échappe vers la boucle de tick.** Tout `CALL` de nœud est

@@ -409,7 +409,7 @@ public final class GraphValidator {
      * <p>{@code LOCAL} d'abord, parce que c'est le refus le plus explicable : la portée ne
      * survit pas à l'exécution qui l'écrit, donc il n'y a rien à répliquer. Le type ensuite.
      *
-     * <p>Le type se juge par {@link fr.blueprint.core.vm.VarValueNbt#carries} et <b>non</b>
+     * <p>Le type se juge par {@link fr.blueprint.core.graph.VarValueNbt#carries} et <b>non</b>
      * par {@code PinType.hasStreamCodec}, parce que c'est ce format-là qui transporte
      * réellement la valeur. La nuance n'est pas théorique : {@code itemstack},
      * {@code text} et {@code blockstate} <i>ont</i> un codec réseau, mais il exige un
@@ -427,7 +427,7 @@ public final class GraphValidator {
             return Diagnostic.error(DiagnosticCode.REPLICATED_SCOPE_LOCAL,
                     Diagnostic.variable(variable.name()), variable.name());
         }
-        if (!fr.blueprint.core.vm.VarValueNbt.carries(variable.type())) {
+        if (!fr.blueprint.core.graph.VarValueNbt.carries(variable.type())) {
             return Diagnostic.error(DiagnosticCode.REPLICATED_TYPE_NOT_SENDABLE,
                     Diagnostic.variable(variable.name()), variable.name(),
                     variable.type().toString());

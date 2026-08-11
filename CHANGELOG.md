@@ -8,6 +8,30 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Ajouté — `checkClientIsolation`
+
+La règle absolue n°3 de `coding-standards.md` — « aucune exécution de graphe côté client :
+le paquet `fr.blueprint.client` ne doit contenir ni compilateur, ni VM, ni évaluation de
+nœud » — était la seule des quatre frontières du projet à ne tenir que par la **revue**.
+`checkApiIsolation`, `checkLoaderIsolation` et `checkPlatformIsolation` existaient depuis
+longtemps ; celle qui porte le modèle de sécurité entier (P1, AD2, FR17) n'existait pas.
+
+Le moment est venu parce que la tentation vient d'augmenter : l'épic 21 a appris au client à
+peindre des valeurs sans aller-retour, et le pas suivant — « et si le client calculait cette
+petite valeur lui-même ? » — est celui qu'aucune revue ne rattrape à tous les coups.
+
+- **Sur les paquets et non sur une liste de classes** : une liste se contourne en ajoutant
+  une classe, un paquet non. `fr.blueprint.core.vm` et `fr.blueprint.core.compile` sont
+  refusés dans les sources du client.
+- **`VarValueNbt` déménage de `core.vm` vers `core.graph`** en conséquence. C'était la seule
+  chose que le client empruntait à `core.vm`, et l'y laisser aurait obligé à écrire une
+  exception dans la règle dès son premier jour. Sa place est meilleure là : c'est un format
+  de sérialisation, pas de l'exécution, et il vit désormais à côté de `GraphNbt`,
+  `ScreenNbt` et `PinTypeNbt` — et de la `Variable` dont il sérialise les valeurs.
+- **Vue échouer avant d'être crue**, sur un `TempLeak.java` écrit exprès — même patron que
+  le test négatif de `checkApiIsolation` en story 1.1. Le message nomme le fichier, le
+  paquet fautif et la raison.
+
 ### Ajouté — les barres glissent (stories 21.6 et 21.7, épic 21 terminé)
 
 Une barre de progression **glisse** vers sa nouvelle valeur au lieu d'y sauter. C'est le gain

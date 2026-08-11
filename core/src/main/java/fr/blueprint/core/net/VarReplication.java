@@ -3,7 +3,7 @@ package fr.blueprint.core.net;
 import fr.blueprint.core.storage.VarStorage;
 import fr.blueprint.core.vm.VarDirty;
 import fr.blueprint.core.vm.VarOwner;
-import fr.blueprint.core.vm.VarValueNbt;
+import fr.blueprint.core.graph.VarValueNbt;
 import fr.blueprint.platform.Platform;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;

@@ -88,7 +88,7 @@ public final class BlueprintNet {
                     for (var value : payload.values()) {
                         fr.blueprint.client.screen.ReplicatedVars.put(value.blueprint(),
                                 value.name(),
-                                fr.blueprint.core.vm.VarValueNbt.decode(
+                                fr.blueprint.core.graph.VarValueNbt.decode(
                                         value.value().get("v")));
                     }
                 });

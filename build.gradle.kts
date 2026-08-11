@@ -154,8 +154,53 @@ val checkLoaderIsolation = tasks.register("checkLoaderIsolation") {
     }
 }
 
+// La règle absolue n°3 de coding-standards, enfin mécanisée.
+//
+// « Aucune exécution de graphe côté client. Le paquet fr.blueprint.client ne doit contenir
+// ni compilateur, ni VM, ni évaluation de nœud. » Elle porte le modèle de sécurité entier —
+// principe P1, décision AD2, exigence FR17 — et elle était tenue par la seule revue, alors
+// que trois autres frontières bien moins critiques ont leur tâche depuis longtemps
+// (checkApiIsolation, checkLoaderIsolation, checkPlatformIsolation).
+//
+// Le moment est venu parce que la tentation vient d'augmenter : l'épic 21 a appris au client
+// à peindre des valeurs sans aller-retour. Le pas suivant — « et si le client calculait cette
+// petite valeur lui-même ? » — est celui qu'aucune revue ne rattrape à tous les coups.
+//
+// Sur les PAQUETS et non sur une liste de classes : une liste se contourne en ajoutant une
+// classe, un paquet non. C'est aussi ce qui a décidé du déplacement de VarValueNbt vers
+// core.graph — un format de sérialisation n'est pas de l'exécution, et le laisser dans
+// core.vm aurait obligé à écrire une exception dans la règle dès son premier jour.
+val checkClientIsolation = tasks.register("checkClientIsolation") {
+    description = "Échoue si le module client touche au compilateur ou à la VM (P1, AD2, FR17)"
+    group = "verification"
+    val sources = project(":client").file("src/main/java")
+    val interdits = listOf("fr.blueprint.core.vm", "fr.blueprint.core.compile")
+    inputs.files(sources)
+    doLast {
+        val fautifs = mutableListOf<String>()
+        if (sources.exists()) {
+            sources.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { f ->
+                val contenu = f.readText(Charsets.UTF_8)
+                interdits.filter { contenu.contains(it) }.forEach { paquet ->
+                    fautifs.add(rootDir.toPath().relativize(f.toPath()).toString()
+                        + " (" + paquet + ")")
+                }
+            }
+        }
+        if (fautifs.isNotEmpty()) {
+            throw GradleException(
+                "Ces fichiers du client touchent au compilateur ou à la VM :\n  " +
+                    fautifs.joinToString("\n  ") +
+                    "\nL'exécution est serveur, l'édition est client (architecture.md P1, " +
+                    "AD2, prd.md FR17). Le client affiche des descripteurs et des valeurs " +
+                    "qu'on lui envoie ; il ne compile ni n'exécute jamais un graphe."
+            )
+        }
+    }
+}
+
 tasks.named("check") {
-    dependsOn(checkLoaderIsolation)
+    dependsOn(checkLoaderIsolation, checkClientIsolation)
 }
 
 loom {
