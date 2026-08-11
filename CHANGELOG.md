@@ -8,6 +8,26 @@ mod : voir `BlueprintApi.API_VERSION` et `docs/api-surface.txt`, verrouillé par
 
 ## [Non publié]
 
+### Corrigé — le banc de calibration ne rougit plus pour un tarif correct
+
+`FuelCalibrationTest` échouait par intermittence sur `string/split`, ce qui a interrompu
+trois constructions et m'a fait conclure deux fois « banc instable » sans regarder.
+
+**Le tarif est bon, et c'est mesuré.** Quatre relevés au repos : ×1,1, ×1,6, ×1,6, ×1,7 —
+pour un tarif de 3 et une tolérance de ×4, soit 12 autorisés. Le relevé fautif était à
+**×12,8**, huit fois la valeur réelle, sur une machine saturée. Relever le tarif aurait
+masqué un défaut de mesure sous un changement de sémantique : un graphe aurait pu faire
+moins de découpages par tick pour une raison qui n'existe pas.
+
+- **Reprise ciblée** : le rapport n'est remesuré que s'il condamne le nœud. Rien ne change
+  dans le cas normal, et seul le nœud qui allait échouer paie une seconde mesure. Monter
+  `ROUNDS` de 3 à 5 aurait presque doublé la durée du banc pour rattraper un cas sur cent.
+- **Elle ne masque rien** : un nœud réellement sous-tarifé mesure trop cher aux deux
+  passages. Vérifié en resserrant la tolérance à ×0,2 — les deux tests rougissent, la
+  reprise ne sauve personne.
+- Le pourquoi est écrit à côté du nœud, avec les chiffres, pour que le prochain qui voit
+  ce rouge n'ait pas à refaire l'enquête.
+
 ### Ajouté — `checkClientIsolation`
 
 La règle absolue n°3 de `coding-standards.md` — « aucune exécution de graphe côté client :

@@ -52,8 +52,20 @@ public final class TextMathNodes {
          */
         // Tarifé 3, comme string/replace et les deux ponts d'un dictionnaire : le travail
         // parcourt le texte ENTIER et bâtit une liste dont la taille suit celle du texte,
-        // là où le tarif est fixe. Relevé entre ×1,6 et ×4,0 au plafond d'entrée selon
-        // l'exécution — le pic touchait le seuil et le faisait rougir par intermittence.
+        // là où le tarif est fixe.
+        //
+        // Le tarif est BON, et c'est mesuré. Quatre relevés au plafond d'entrée sur une
+        // machine au repos : ×1,1 — ×1,6 — ×1,6 — ×1,7, pour une tolérance de ×4 (soit 12
+        // autorisés). La marge est donc d'un facteur 2,5 environ.
+        //
+        // Ce nœud rougit néanmoins par intermittence dans FuelCalibrationTest, et il faut
+        // savoir pourquoi avant d'y toucher : sur une machine chargée, un relevé a atteint
+        // ×12,8 — HUIT fois la valeur réelle. Le banc prend pourtant le minimum de trois
+        // tours en temps CPU du fil ; ce nœud alloue une liste dont la taille suit le texte,
+        // donc une pause de ramasse-miettes qui touche les trois tours suffit. Relever le
+        // tarif masquerait un défaut de mesure sous un changement de sémantique — un graphe
+        // pourrait faire moins de découpages par tick pour une raison qui n'existe pas.
+        // La correction, si elle vient, est dans le banc.
         r.register(NodeType.builder(id("string/split")).fuelCost(3)
                 .category(NodeCategories.STRING_EDIT).pure()
                 .in("text", PinTypes.STRING, "")

@@ -92,6 +92,15 @@ class FuelCalibrationTest {
     private static final long FLOOR_NANOS = 50_000_000L;
     /** Garde-fou contre un nœud si rapide que le doublement ne s'arrêterait jamais. */
     private static final int MAX_CALLS = 1 << 21;
+    /**
+     * Tours de mesure, dont on garde le MINIMUM — la statistique juste pour du temps, la
+     * moyenne étant tirée vers le haut par tout incident.
+     *
+     * <p>Trois, et non davantage, parce que chaque tour coûte au moins {@link #FLOOR_NANOS}
+     * par mesure : en monter à cinq doublerait presque la durée du banc pour rattraper un cas
+     * sur cent. La reprise ciblée de {@link #ratioOf} traite ce cas-là sans rien coûter aux
+     * quatre-vingt-quatorze autres nœuds.
+     */
     private static final int ROUNDS = 3;
 
     /** Mêmes exclusions que {@link PureNodeSmokeTest} : abaissés par le compilateur. */
@@ -203,6 +212,35 @@ class FuelCalibrationTest {
     private record Measured(NodeType type, double ratio) {
     }
 
+    /**
+     * Le rapport mesuré, <b>remesuré une fois</b> s'il condamne le nœud.
+     *
+     * <p>{@link #nanosPerCall} prend déjà le minimum de {@link #ROUNDS} tours, ce qui écarte
+     * un incident isolé. Il ne protège pas d'un incident qui touche les <b>trois</b> — une
+     * pause de ramasse-miettes sous charge, typiquement, sur un nœud qui alloue. C'est arrivé :
+     * {@code string/split}, relevé quatre fois entre ×1,1 et ×1,7 au repos, a été mesuré une
+     * fois à <b>×12,8</b> et a fait rougir la construction pour un tarif parfaitement correct.
+     *
+     * <p>La reprise est <b>ciblée</b> : elle ne coûte rien dans le cas normal, et ne se paie
+     * que pour le nœud qui allait échouer. Augmenter {@code ROUNDS} pour tout le monde aurait
+     * doublé la durée du banc afin de rattraper un cas sur cent.
+     *
+     * <p>Elle ne masque rien : un nœud réellement sous-tarifé mesure trop cher aux deux
+     * passages, et le second ne fait que confirmer. Ce qui disparaît est le faux positif, pas
+     * le vrai.
+     */
+    private static double ratioOf(NodeType unit, Map<String, Object> unitInputs,
+                                  NodeType type, Map<String, Object> inputs, Clock clock) {
+        double unitNanos = nanosPerCall(unit, unitInputs, clock);
+        double ratio = nanosPerCall(type, inputs, clock) / unitNanos;
+        if (ratio <= type.fuelCost() * TOLERANCE) {
+            return ratio;
+        }
+        double second = nanosPerCall(type, inputs, clock)
+                / nanosPerCall(unit, unitInputs, clock);
+        return Math.min(ratio, second);
+    }
+
     @Test
     void leFuelDeclareRefleteLeCoutMesure() {
         var bean = java.lang.management.ManagementFactory.getThreadMXBean();
@@ -228,8 +266,8 @@ class FuelCalibrationTest {
             // plus. La mesurer une fois au départ laissait quarante secondes de dérive
             // s'installer entre elle et les derniers nœuds — ce banc a rougi deux fois
             // sur quatre constructions pour cette seule raison.
-            double unitNanos = nanosPerCall(unit, unitInputs, clock);
-            measured.add(new Measured(type, nanosPerCall(type, inputs, clock) / unitNanos));
+            measured.add(new Measured(type,
+                    ratioOf(unit, unitInputs, type, inputs, clock)));
         }
         measured.sort((a, b) -> Double.compare(b.ratio(), a.ratio()));
 
@@ -340,8 +378,8 @@ class FuelCalibrationTest {
             if (heavy == null) {
                 continue;
             }
-            double unitNanos = nanosPerCall(unit, unitInputs, clock);
-            measured.add(new Measured(type, nanosPerCall(type, heavy, clock) / unitNanos));
+            measured.add(new Measured(type,
+                    ratioOf(unit, unitInputs, type, heavy, clock)));
         }
         measured.sort((a, b) -> Double.compare(b.ratio(), a.ratio()));
 
